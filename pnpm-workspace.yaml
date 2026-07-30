@@ -1,0 +1,13 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+shamefullyHoist: true
+allowBuilds:
+  '@nestjs/core': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  aws-sdk: true
+  bcrypt: true
+  msgpackr-extract: true
+  prisma: true
+  sharp: true

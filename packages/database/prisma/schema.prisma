@@ -1,0 +1,1017 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Locale {
+  en
+  fr
+}
+
+enum PersonRole {
+  CANDIDATE
+  STUDENT
+  CONSULTANT
+  ADMIN
+  PARTNER
+}
+
+enum EngagementStatus {
+  PENDING_SIGNATURE
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  TERMINATED
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  CANCELLED
+}
+
+enum PaymentAttemptStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum PartnerType {
+  HOSPITAL
+  UNIVERSITY
+  AGENCY
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum OpportunityType {
+  JOB
+  PROGRAM
+}
+
+enum OpportunityStatus {
+  ACTIVE
+  CLOSED
+  DRAFT
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  LOST
+}
+
+enum PaymentMode {
+  FULL
+  INSTALLMENT
+  PAY_PER_STAGE
+}
+
+// ─── Person ──────────────────────────────────────────────────────────────────
+
+model Person {
+  id           String     @id @default(cuid())
+  name         String
+  email        String?    @unique
+  phone        String?    @unique
+  passwordHash String?
+  profession   String?
+  locale       Locale     @default(en)
+  role         PersonRole @default(CANDIDATE)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  engagements        Engagement[]
+  orders             Order[]
+  documents          Document[]
+  payments           PaymentAttempt[]
+  communicationLogs  CommunicationLog[]
+  practiceResults    PracticeResult[]
+  studyPlans         StudyPlan[]
+  courseEnrollments  CourseEnrollment[]
+  bookings           Booking[]
+  applications       Application[]
+  internshipApps     InternshipApplication[]
+  consentRecords     ConsentRecord[]
+  poaRecords         PoaRecord[]
+  aiDrafts           AiDraft[]
+  licensingProgress  LicensingProgress[]
+  sentMessages       EngagementMessage[]
+  supportTickets     SupportTicket[]
+
+  @@map("persons")
+}
+
+// ─── Engagement ───────────────────────────────────────────────────────────────
+
+model Engagement {
+  id                  String           @id @default(cuid())
+  personId            String
+  person              Person           @relation(fields: [personId], references: [id])
+  consultantId        String
+  status              EngagementStatus @default(PENDING_SIGNATURE)
+  paymentMode         PaymentMode      @default(FULL)
+  letterSignedAt      DateTime?
+  letterUrl           String?
+  refundPolicyVersion String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  orders                Order[]
+  milestones            EngagementMilestone[]
+  poaRecords            PoaRecord[]
+  licensingProgress     LicensingProgress[]
+  aiDrafts              AiDraft[]
+  engagementServicePlan EngagementServicePlan[]
+  messages              EngagementMessage[]
+
+  @@map("engagements")
+}
+
+model EngagementMilestone {
+  id           String     @id @default(cuid())
+  engagementId String
+  engagement   Engagement @relation(fields: [engagementId], references: [id])
+  label        String
+  completedAt  DateTime?
+  createdAt    DateTime   @default(now())
+
+  @@map("engagement_milestones")
+}
+
+// ─── Licensing ────────────────────────────────────────────────────────────────
+
+model LicensingPathway {
+  id             String           @id @default(cuid())
+  country        String
+  regulatoryBody String
+  profession     String?
+  stages         LicensingStage[]
+  createdAt      DateTime         @default(now())
+
+  @@map("licensing_pathways")
+}
+
+model LicensingStage {
+  id             String           @id @default(cuid())
+  pathwayId      String
+  pathway        LicensingPathway @relation(fields: [pathwayId], references: [id])
+  label          String
+  description    String?
+  order          Int
+  requiredDocs   String[]
+  serviceItemIds String[]
+  createdAt      DateTime         @default(now())
+
+  progress             LicensingProgress[]
+  engagementServicePlan EngagementServicePlan[]
+
+  @@map("licensing_stages")
+}
+
+model LicensingProgress {
+  id             String         @id @default(cuid())
+  personId       String
+  person         Person         @relation(fields: [personId], references: [id])
+  engagementId   String
+  engagement     Engagement     @relation(fields: [engagementId], references: [id])
+  currentStageId String
+  currentStage   LicensingStage @relation(fields: [currentStageId], references: [id])
+  updatedAt      DateTime       @updatedAt
+  createdAt      DateTime       @default(now())
+
+  @@map("licensing_progress")
+}
+
+// ─── Catalog & Orders ─────────────────────────────────────────────────────────
+
+model ServiceCategory {
+  id          String        @id @default(cuid())
+  name        String
+  isMandatory Boolean       @default(false)
+  sortOrder   Int           @default(0)
+  items       ServiceItem[]
+
+  @@map("service_categories")
+}
+
+model ServiceItem {
+  id                   String               @id @default(cuid())
+  categoryId           String
+  category             ServiceCategory      @relation(fields: [categoryId], references: [id])
+  name                 String
+  priceUsd             Decimal              @db.Decimal(10, 2)
+  description          String?
+  sortOrder            Int                  @default(0)
+  variantGroup         String?
+  isDefaultSelected    Boolean              @default(true)
+  isAvailableStandalone Boolean             @default(false)
+  variants             ServiceItemVariant[]
+  orderLineItems       OrderLineItem[]
+
+  @@map("service_items")
+}
+
+model ServiceItemVariant {
+  id            String      @id @default(cuid())
+  serviceItemId String
+  serviceItem   ServiceItem @relation(fields: [serviceItemId], references: [id])
+  variantKey    String
+  priceUsd      Decimal     @db.Decimal(10, 2)
+
+  orderLineItems OrderLineItem[]
+
+  @@map("service_item_variants")
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  orderType     String      @default("pipeline") // "pipeline" | "standalone"
+  paymentMode   PaymentMode @default(FULL)
+  engagementId  String?
+  engagement    Engagement? @relation(fields: [engagementId], references: [id])
+  personId      String?
+  person        Person?     @relation(fields: [personId], references: [id])
+  stageId       String?     // set for PAY_PER_STAGE stage orders
+  tosAcceptedAt DateTime?
+  tosIpAddress  String?
+  amountDueNow  Decimal?    @db.Decimal(10, 2) // for INSTALLMENT — amount charged today
+  subtotal      Decimal     @db.Decimal(10, 2)
+  taxRate       Decimal     @db.Decimal(5, 4)
+  taxAmount     Decimal     @db.Decimal(10, 2)
+  total         Decimal     @db.Decimal(10, 2)
+  status        OrderStatus @default(PENDING)
+  createdAt     DateTime    @default(now())
+
+  lineItems            OrderLineItem[]
+  receipts             Receipt[]
+  paymentAttempts      PaymentAttempt[]
+  installmentSchedules InstallmentSchedule[]
+
+  @@map("orders")
+}
+
+model OrderLineItem {
+  id                String              @id @default(cuid())
+  orderId           String
+  order             Order               @relation(fields: [orderId], references: [id])
+  serviceItemId     String
+  serviceItem       ServiceItem         @relation(fields: [serviceItemId], references: [id])
+  variantId         String?
+  variant           ServiceItemVariant? @relation(fields: [variantId], references: [id])
+  priceCharged      Decimal             @db.Decimal(10, 2)
+  nonRefundable     Boolean             @default(false)
+  nonRefundableReason String?
+  totalInstallments Int?
+  installmentsPaid  Int?
+
+  @@map("order_line_items")
+}
+
+model Receipt {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  snapshot  Json
+  pdfUrl    String?
+  issuedAt  DateTime @default(now())
+
+  @@map("receipts")
+}
+
+model InstallmentSchedule {
+  id             String    @id @default(cuid())
+  orderId        String
+  order          Order     @relation(fields: [orderId], references: [id])
+  installmentNo  Int
+  amount         Decimal   @db.Decimal(10, 2)
+  dueDate        DateTime?
+  triggerStageId String?
+  status         String    @default("PENDING") // PENDING | INVOICED | PAID
+  dunningStep    Int       @default(0)          // 0=none 1=7d-reminder 2=14d-warning 3=21d-held
+  invoicedAt     DateTime?
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@map("installment_schedules")
+}
+
+model EngagementServicePlan {
+  id            String     @id @default(cuid())
+  engagementId  String
+  engagement    Engagement @relation(fields: [engagementId], references: [id])
+  stageId       String
+  stage         LicensingStage @relation(fields: [stageId], references: [id])
+  serviceItemId String
+  variantKey    String?
+  priceUsd      Decimal    @db.Decimal(10, 2)
+  status        String     @default("PENDING") // PENDING | INVOICED | PAID
+  createdAt     DateTime   @default(now())
+
+  @@map("engagement_service_plans")
+}
+
+// ─── Payments ─────────────────────────────────────────────────────────────────
+
+model PaymentAttempt {
+  id          String               @id @default(cuid())
+  orderId     String
+  order       Order                @relation(fields: [orderId], references: [id])
+  personId    String?
+  person      Person?              @relation(fields: [personId], references: [id])
+  provider    String
+  providerRef String
+  status      PaymentAttemptStatus @default(PENDING)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@map("payment_attempts")
+}
+
+// ─── Documents ────────────────────────────────────────────────────────────────
+
+model Document {
+  id              String         @id @default(cuid())
+  personId        String
+  person          Person         @relation(fields: [personId], references: [id])
+  type            String
+  fileUrl         String
+  status          DocumentStatus @default(PENDING)
+  expiryDate      DateTime?
+  uploadedAt      DateTime       @default(now())
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  rejectionReason String?
+
+  @@map("documents")
+}
+
+// ─── Partners & Opportunities ─────────────────────────────────────────────────
+
+model Partner {
+  id                 String             @id @default(cuid())
+  name               String
+  type               PartnerType
+  contactEmail       String
+  verificationStatus VerificationStatus @default(PENDING)
+  verifiedBy         String?
+  verifiedAt         DateTime?
+  createdAt          DateTime           @default(now())
+
+  opportunities Opportunity[]
+
+  @@map("partners")
+}
+
+model Opportunity {
+  id           String            @id @default(cuid())
+  partnerId    String
+  partner      Partner           @relation(fields: [partnerId], references: [id])
+  type         OpportunityType   @default(JOB)
+  title        String
+  country      String
+  profession   String?
+  details      String?
+  description  String?
+  requirements String?
+  salaryRange  String?
+  closingDate  DateTime?
+  status       OpportunityStatus @default(ACTIVE)
+  createdAt    DateTime          @default(now())
+
+  applications Application[]
+
+  @@map("opportunities")
+}
+
+model Application {
+  id            String      @id @default(cuid())
+  personId      String
+  person        Person      @relation(fields: [personId], references: [id])
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+  status        String      @default("SUBMITTED")
+  notes         String?
+  createdAt     DateTime    @default(now())
+
+  @@map("applications")
+}
+
+// ─── Academy ──────────────────────────────────────────────────────────────────
+
+model Course {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  locale        Locale   @default(en)
+  examType      String
+  durationHours Float?
+  isPublished   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  modules       Module[]
+  liveSessions  LiveSession[]
+  questionBanks QuestionBank[]
+  enrollments   CourseEnrollment[]
+
+  @@map("courses")
+}
+
+enum LessonType {
+  VIDEO
+  PDF
+  TEXT
+}
+
+enum LiveSessionStatus {
+  SCHEDULED
+  LIVE
+  COMPLETED
+  CANCELLED
+}
+
+model LiveSession {
+  id              String            @id @default(cuid())
+  courseId        String
+  course          Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title           String
+  scheduledAt     DateTime
+  durationMins    Int               @default(60)
+  meetingUrl      String?
+  recordingUrl    String?
+  dailyRoomName   String?
+  status          LiveSessionStatus @default(SCHEDULED)
+  hostToken       String?
+  createdAt       DateTime          @default(now())
+
+  @@map("live_sessions")
+}
+
+model Module {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  lessons Lesson[]
+
+  @@map("modules")
+}
+
+model Lesson {
+  id         String     @id @default(cuid())
+  moduleId   String
+  module     Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title      String
+  type       LessonType @default(TEXT)
+  contentUrl String?
+  body       String?
+  sortOrder  Int        @default(0)
+  createdAt  DateTime   @default(now())
+
+  @@map("lessons")
+}
+
+model QuestionBank {
+  id        String     @id @default(cuid())
+  courseId  String?
+  course    Course?    @relation(fields: [courseId], references: [id])
+  title     String
+  examType  String
+  locale    Locale     @default(en)
+  createdAt DateTime   @default(now())
+
+  questions       Question[]
+  practiceResults PracticeResult[]
+
+  @@map("question_banks")
+}
+
+model Question {
+  id             String       @id @default(cuid())
+  questionBankId String
+  questionBank   QuestionBank @relation(fields: [questionBankId], references: [id])
+  stem           String
+  options        Json         // string[]
+  correctIndex   Int
+  explanation    String?
+  topic          String?
+  createdAt      DateTime     @default(now())
+
+  @@map("questions")
+}
+
+model CourseEnrollment {
+  id          String    @id @default(cuid())
+  courseId    String
+  course      Course    @relation(fields: [courseId], references: [id])
+  personId    String
+  person      Person    @relation(fields: [personId], references: [id])
+  progressPct Float     @default(0)
+  enrolledAt  DateTime  @default(now())
+  completedAt DateTime?
+
+  @@unique([courseId, personId])
+  @@map("course_enrollments")
+}
+
+model StudyPlan {
+  id        String          @id @default(cuid())
+  personId  String
+  person    Person          @relation(fields: [personId], references: [id])
+  createdAt DateTime        @default(now())
+  items     StudyPlanItem[]
+
+  @@map("study_plans")
+}
+
+model StudyPlanItem {
+  id          String    @id @default(cuid())
+  studyPlanId String
+  studyPlan   StudyPlan @relation(fields: [studyPlanId], references: [id])
+  topic       String
+  dueDate     DateTime?
+  completed   Boolean   @default(false)
+
+  @@map("study_plan_items")
+}
+
+model PracticeResult {
+  id             String        @id @default(cuid())
+  personId       String
+  person         Person        @relation(fields: [personId], references: [id])
+  questionBankId String
+  questionBank   QuestionBank  @relation(fields: [questionBankId], references: [id])
+  topic          String?
+  score          Int
+  total          Int
+  percentage     Float
+  createdAt      DateTime      @default(now())
+
+  @@map("practice_results")
+}
+
+// ─── Bookings ─────────────────────────────────────────────────────────────────
+
+model BookingSlot {
+  id         String    @id @default(cuid())
+  resourceId String
+  date       DateTime
+  startTime  DateTime
+  endTime    DateTime
+  isBooked   Boolean   @default(false)
+
+  bookings Booking[]
+
+  @@map("booking_slots")
+}
+
+model Booking {
+  id        String        @id @default(cuid())
+  personId  String?
+  person    Person?       @relation(fields: [personId], references: [id])
+  leadId    String?
+  lead      Lead?         @relation(fields: [leadId], references: [id])
+  slotId    String
+  slot      BookingSlot   @relation(fields: [slotId], references: [id])
+  type      String
+  status    BookingStatus @default(CONFIRMED)
+  createdAt DateTime      @default(now())
+
+  @@map("bookings")
+}
+
+// ─── Leads ────────────────────────────────────────────────────────────────────
+
+model Lead {
+  id                  String     @id @default(cuid())
+  name                String
+  email               String
+  phone               String?
+  profession          String?
+  destination         String?
+  serviceInterest     String?
+  notes               String?
+  status              LeadStatus @default(NEW)
+  convertedPersonId   String?
+  assignedConsultantId String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  bookings Booking[]
+
+  @@map("leads")
+}
+
+// ─── Student Support ──────────────────────────────────────────────────────────
+
+model InternshipPlacement {
+  id          String    @id @default(cuid())
+  title       String
+  country     String
+  host        String?
+  details     String?
+  field       String?
+  description String?
+  duration    String?
+  stipend     String?
+  closingDate DateTime?
+  status      String    @default("OPEN")
+  createdAt   DateTime  @default(now())
+
+  applications InternshipApplication[]
+
+  @@map("internship_placements")
+}
+
+model InternshipApplication {
+  id           String              @id @default(cuid())
+  personId     String
+  person       Person              @relation(fields: [personId], references: [id])
+  internshipId String
+  internship   InternshipPlacement @relation(fields: [internshipId], references: [id])
+  status       String              @default("SUBMITTED")
+  notes        String?
+  createdAt    DateTime            @default(now())
+
+  @@map("internship_applications")
+}
+
+model UniversityProgram {
+  id             String   @id @default(cuid())
+  name           String
+  university     String
+  country        String
+  institution    String?
+  field          String?
+  duration       String?
+  tuitionUsd     Decimal? @db.Decimal(10, 2)
+  applicationUrl String?
+  description    String?
+  details        String?
+  createdAt      DateTime @default(now())
+
+  @@map("university_programs")
+}
+
+// ─── Compliance & Audit ───────────────────────────────────────────────────────
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String
+  action       String
+  resourceType String
+  resourceId   String
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model ConsentRecord {
+  id         String   @id @default(cuid())
+  personId   String
+  person     Person   @relation(fields: [personId], references: [id])
+  type       String
+  ipAddress  String
+  recordedAt DateTime @default(now())
+
+  @@map("consent_records")
+}
+
+model PoaRecord {
+  id           String     @id @default(cuid())
+  engagementId String
+  engagement   Engagement @relation(fields: [engagementId], references: [id])
+  personId     String
+  person       Person     @relation(fields: [personId], references: [id])
+  documentUrl  String
+  capturedAt   DateTime   @default(now())
+
+  @@map("poa_records")
+}
+
+// ─── Communication Log ────────────────────────────────────────────────────────
+
+model CommunicationLog {
+  id        String   @id @default(cuid())
+  personId  String
+  person    Person   @relation(fields: [personId], references: [id])
+  channel   String
+  direction String
+  content   String
+  sentAt    DateTime @default(now())
+
+  @@map("communication_logs")
+}
+
+// ─── Consultations ────────────────────────────────────────────────────────────
+
+enum ConsultantType {
+  STAFF
+  PARTNER
+}
+
+enum ConsultantStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum ConsultationCategory {
+  HEALTH
+  CAREER
+  BOTH
+}
+
+enum ConsultationBookingStatus {
+  AWAITING_PAYMENT
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ConsultantProfile {
+  id                   String               @id @default(cuid())
+  type                 ConsultantType       @default(STAFF)
+  status               ConsultantStatus     @default(ACTIVE)
+  consultationCategory ConsultationCategory @default(BOTH)
+  name                 String
+  bio                  String
+  photoUrl             String?
+  specialty            String
+  languages            String[]
+  licenseNumber        String?
+  licenseBody          String?
+  licenseVerifiedAt    DateTime?
+  priceUsd             Decimal              @db.Decimal(10, 2)
+  sessionDurationMins  Int                  @default(45)
+  commissionRate       Decimal              @default(0.25) @db.Decimal(4, 3)
+  rating               Float                @default(0)
+  sessionCount         Int                  @default(0)
+  isActive             Boolean              @default(true)
+  partnerUserId        String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  slots    ConsultationSlot[]
+  bookings ConsultationBooking[]
+  payouts  ConsultantPayout[]
+
+  @@map("consultant_profiles")
+}
+
+model ConsultationSlot {
+  id              String            @id @default(cuid())
+  consultantId    String
+  consultant      ConsultantProfile @relation(fields: [consultantId], references: [id])
+  startAt         DateTime
+  durationMinutes Int               @default(45)
+  status          String            @default("AVAILABLE") // AVAILABLE | BOOKED | CANCELLED
+
+  booking ConsultationBooking?
+
+  @@map("consultation_slots")
+}
+
+model ConsultationBooking {
+  id                   String                    @id @default(cuid())
+  slotId               String                    @unique
+  slot                 ConsultationSlot          @relation(fields: [slotId], references: [id])
+  consultantId         String
+  consultant           ConsultantProfile         @relation(fields: [consultantId], references: [id])
+  clientName           String
+  clientEmail          String
+  clientPhone          String
+  preSessionNote       String?
+  consultationCategory ConsultationCategory
+  recordingConsent     Boolean                   @default(false)
+  dailyRoomUrl         String?
+  dailyRoomName        String?
+  recordingUrl         String?
+  status               ConsultationBookingStatus @default(AWAITING_PAYMENT)
+  amountPaid           Decimal                   @db.Decimal(10, 2)
+  refundAmount         Decimal?                  @db.Decimal(10, 2)
+  refundedAt           DateTime?
+  paymentRef           String?
+  completedAt          DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  payout ConsultantPayout?
+
+  @@map("consultation_bookings")
+}
+
+model ConsultantPayout {
+  id            String            @id @default(cuid())
+  consultantId  String
+  consultant    ConsultantProfile @relation(fields: [consultantId], references: [id])
+  bookingId     String            @unique
+  booking       ConsultationBooking @relation(fields: [bookingId], references: [id])
+  grossAmount   Decimal           @db.Decimal(10, 2)
+  platformFee   Decimal           @db.Decimal(10, 2)
+  netAmount     Decimal           @db.Decimal(10, 2)
+  status        PayoutStatus      @default(PENDING)
+  paidAt        DateTime?
+  paymentRef    String?
+  createdAt     DateTime          @default(now())
+
+  @@map("consultant_payouts")
+}
+
+model ConsultantApplication {
+  id               String            @id @default(cuid())
+  name             String
+  email            String
+  phone            String
+  consultationCategory ConsultationCategory
+  specialty        String
+  licenseNumber    String?
+  licenseBody      String?
+  bio              String
+  languages        String[]
+  yearsExperience  Int
+  documentUrls     String[]
+  status           ApplicationStatus @default(PENDING)
+  reviewedBy       String?
+  reviewNote       String?
+  reviewedAt       DateTime?
+  createdAt        DateTime          @default(now())
+
+  @@map("consultant_applications")
+}
+
+// ─── System Config ────────────────────────────────────────────────────────────
+
+model SystemConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+// ─── AI Drafts ────────────────────────────────────────────────────────────────
+
+model AiDraft {
+  id             String     @id @default(cuid())
+  engagementId   String
+  engagement     Engagement @relation(fields: [engagementId], references: [id])
+  personId       String?
+  person         Person?    @relation(fields: [personId], references: [id])
+  draft          String
+  requiresReview Boolean    @default(true)
+  reviewedBy     String?
+  approvedAt     DateTime?
+  createdAt      DateTime   @default(now())
+
+  @@map("ai_drafts")
+}
+
+// ─── Messaging ────────────────────────────────────────────────────────────────
+
+enum MessageSenderType {
+  CLIENT
+  CONSULTANT
+  ADMIN
+}
+
+model EngagementMessage {
+  id           String            @id @default(cuid())
+  engagementId String
+  engagement   Engagement        @relation(fields: [engagementId], references: [id])
+  senderId     String
+  sender       Person            @relation(fields: [senderId], references: [id])
+  senderType   MessageSenderType
+  content      String
+  readAt       DateTime?
+  createdAt    DateTime          @default(now())
+
+  @@map("engagement_messages")
+}
+
+// ─── Support Tickets ──────────────────────────────────────────────────────────
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TicketCategory {
+  DOCUMENT
+  PAYMENT
+  LICENSING
+  EXAM_PREP
+  GENERAL
+}
+
+enum TicketAuthorRole {
+  CLIENT
+  CONSULTANT
+  ADMIN
+}
+
+model SupportTicket {
+  id                   String         @id @default(cuid())
+  personId             String
+  person               Person         @relation(fields: [personId], references: [id])
+  subject              String
+  category             TicketCategory @default(GENERAL)
+  status               TicketStatus   @default(OPEN)
+  priority             TicketPriority @default(MEDIUM)
+  assignedConsultantId String?
+  resolvedAt           DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  replies TicketReply[]
+
+  @@map("support_tickets")
+}
+
+model TicketReply {
+  id         String           @id @default(cuid())
+  ticketId   String
+  ticket     SupportTicket    @relation(fields: [ticketId], references: [id])
+  authorId   String
+  authorRole TicketAuthorRole
+  content    String
+  createdAt  DateTime         @default(now())
+
+  @@map("ticket_replies")
+}
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+  CANCELLED
+}
+
+model Campaign {
+  id             String         @id @default(cuid())
+  name           String
+  subject        String
+  body           String
+  audienceFilter Json?
+  status         CampaignStatus @default(DRAFT)
+  brevoId        Int?
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  createdById    String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@map("campaigns")
+}

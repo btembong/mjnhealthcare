@@ -1,0 +1,23 @@
+/*
+  Bridge file: maps Mantine CSS variables to match Tailwind design tokens.
+  Import this AFTER @mantine/core/styles.css in every app layout.
+*/
+
+:root {
+  /* Mantine body/text to match Tailwind background/foreground */
+  --mantine-color-body: #F8FAFC;
+  --mantine-color-text: #0F172A;
+
+  /* Mantine default border to match Tailwind border token */
+  --mantine-color-default-border: #E2E8F0;
+
+  /* Mantine placeholder */
+  --mantine-color-placeholder: #94A3B8;
+
+  /* Elevation / shadows — subtle, not heavy */
+  --mantine-shadow-xs: 0 1px 2px rgba(15,76,129,0.06);
+  --mantine-shadow-sm: 0 1px 4px rgba(15,76,129,0.08), 0 1px 2px rgba(15,76,129,0.04);
+  --mantine-shadow-md: 0 4px 12px rgba(15,76,129,0.10), 0 2px 4px rgba(15,76,129,0.06);
+  --mantine-shadow-lg: 0 8px 24px rgba(15,76,129,0.12), 0 4px 8px rgba(15,76,129,0.06);
+  --mantine-shadow-xl: 0 16px 48px rgba(15,76,129,0.14), 0 8px 16px rgba(15,76,129,0.08);
+}
