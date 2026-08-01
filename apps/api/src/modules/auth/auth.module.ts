@@ -33,7 +33,7 @@ import { REDIS_CLIENT } from './auth.constants';
       provide: REDIS_CLIENT,
       useFactory: () =>
         new Redis({
-          url: `https://${process.env.UPSTASH_REDIS_URL}`,
+          url: process.env.UPSTASH_REDIS_URL ?? '',
           token: process.env.UPSTASH_REDIS_TOKEN ?? '',
         }),
     },
