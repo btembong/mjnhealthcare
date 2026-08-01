@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Skeleton } from '@mjn/ui';
 import {
-  ArrowLeft, Play, FilePdf, Article, Video, CheckCircle,
+  ArrowLeft, FilePdf, Article, Video, CheckCircle,
   CircleNotch, CaretDown, CaretRight, Lock, Brain,
   WarningCircle, BookOpen,
 } from '@phosphor-icons/react';
