@@ -255,7 +255,7 @@ export default function PathwaysPage() {
       <PageHeader
         title="Licensing Pathways"
         subtitle="Define the stage sequences for each country and regulatory body. Clients are tracked against these stages."
-        action={
+        actions={
           <Button size="sm" className="gap-1.5" onClick={() => setShowModal(true)}>
             <Plus className="h-4 w-4" /> New Pathway
           </Button>
