@@ -10,7 +10,6 @@ import {
 } from '@phosphor-icons/react';
 import { api } from '../../../../lib/api';
 import { useUser } from '../../../../contexts/user-context';
-import { toast } from 'sonner';
 
 const TYPE_ICON: Record<string, any> = { VIDEO: Video, PDF: FilePdf, TEXT: Article };
 const TYPE_COLOR: Record<string, string> = {
