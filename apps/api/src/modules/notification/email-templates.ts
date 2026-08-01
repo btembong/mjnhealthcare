@@ -9,9 +9,9 @@
  *  • Short, action-first copy — no padding paragraphs
  */
 
-const PORTAL = process.env.PORTAL_URL ?? 'http://localhost:3002';
-const WEB    = process.env.WEB_URL    ?? 'http://localhost:3001';
-const ADMIN  = process.env.ADMIN_URL  ?? 'http://localhost:3004';
+const PORTAL = () => process.env.PORTAL_URL ?? 'http://localhost:3002';
+const WEB    = () => process.env.WEB_URL    ?? 'http://localhost:3001';
+const ADMIN  = () => process.env.ADMIN_URL  ?? 'http://localhost:3004';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const NAVY   = '#0F4C81';
@@ -79,7 +79,7 @@ export function shell(body: string): string {
       <td style="background:#F8FAFB;border:1px solid ${BORDER};border-top:none;border-radius:0 0 8px 8px;padding:20px 40px;">
         <p style="margin:0;font-size:11px;color:#9AA3B0;line-height:1.8;text-align:center;">
           MJN Health Academy &amp; Professional Services &nbsp;·&nbsp;
-          <a href="${WEB}" style="color:#9AA3B0;text-decoration:none;">mjnhealth.com</a><br>
+          <a href="${WEB()}" style="color:#9AA3B0;text-decoration:none;">mjnhealth.com</a><br>
           Sent because of your engagement with MJN Health. Reply to this email with any questions.
         </p>
       </td>
@@ -185,7 +185,7 @@ export function tplPaymentConfirmed(opts: {
       row('Receipt', `<span style="font-family:monospace;font-size:13px;">${opts.receiptId}</span>`),
       row('Order', `<span style="font-family:monospace;font-size:13px;">${opts.orderId}</span>`, true),
     ]) +
-    btn('Go to your portal', `${PORTAL}/dashboard`) +
+    btn('Go to your portal', `${PORTAL()}/dashboard`) +
     divider() +
     pSmall('Questions about your payment? Reply to this email or contact your assigned consultant.')
   );
@@ -202,7 +202,7 @@ export function tplInstallmentDue(opts: {
       row('Amount due', `<strong style="font-size:16px;color:${NAVY};">$${opts.amount.toFixed(2)}</strong>`),
       row('Order', `<span style="font-family:monospace;font-size:13px;">${opts.orderId}</span>`, true),
     ]) +
-    btn('Pay now', `${PORTAL}/payments`) +
+    btn('Pay now', `${PORTAL()}/payments`) +
     divider() +
     pSmall('Need to discuss a payment arrangement? Reply to this email.')
   );
@@ -224,7 +224,7 @@ export function tplInstallmentOverdue(opts: {
       ? notice(`Your engagement will be placed on hold in <strong>${opts.daysUntilHold} days</strong> if payment is not received.`, 'error')
       : notice('Please complete this payment to keep your case on track.', 'warning')
     ) +
-    btn('Pay now', `${PORTAL}/payments`) +
+    btn('Pay now', `${PORTAL()}/payments`) +
     divider() +
     pSmall('Need to discuss a payment arrangement? Reply to this email or contact your consultant.')
   );
@@ -244,7 +244,7 @@ export function tplEngagementOnHold(opts: {
       row('Order', `<span style="font-family:monospace;font-size:13px;">${opts.orderId}</span>`, true),
     ]) +
     notice('While on hold, no active work is carried out on your case. Pay the outstanding amount to reinstate immediately.', 'error') +
-    btn('Pay to reinstate', `${PORTAL}/payments`) +
+    btn('Pay to reinstate', `${PORTAL()}/payments`) +
     divider() +
     pSmall('Need to discuss a payment plan? Reply to this email.')
   );
@@ -263,7 +263,7 @@ export function tplDocumentExpiring(opts: {
       ? notice(`Expired documents can stall DataFlow verification or your licensing application.`, 'error')
       : notice(`Upload a renewal now to keep your case moving forward.`, 'warning')
     ) +
-    btn('Upload renewal', `${PORTAL}/documents`) +
+    btn('Upload renewal', `${PORTAL()}/documents`) +
     divider() +
     pSmall('Already uploaded? Allow up to 24 hours for verification.')
   );
@@ -279,7 +279,7 @@ export function tplLicensingStageChanged(opts: {
     infoTable([
       row('New stage', `${badge(opts.stageLabel, 'info')}`, true),
     ]) +
-    btn('View your case', `${PORTAL}/case`) +
+    btn('View your case', `${PORTAL()}/case`) +
     divider() +
     pSmall('Your consultant will be in touch if any documents or actions are required at this stage.')
   );
@@ -296,7 +296,7 @@ export function tplSessionReminder(opts: {
       row('Session', opts.sessionType),
       row('Time', `<strong>${opts.slotStart}</strong>`, true),
     ]) +
-    btn('Join session', opts.portalLink ?? `${PORTAL}/dashboard`) +
+    btn('Join session', opts.portalLink ?? `${PORTAL()}/dashboard`) +
     divider() +
     pSmall('Need to reschedule? Contact your consultant as soon as possible.')
   );
@@ -316,7 +316,7 @@ export function tplLeadConsultationBooked(opts: {
       row('Date &amp; time', `<strong>${time} WAT</strong>`, true),
     ]) +
     p('A consultant will reach out to confirm your call details before the session. Come prepared with any questions about licensing, placement, or exam preparation.') +
-    btn('Explore our services', `${WEB}/services`) +
+    btn('Explore our services', `${WEB()}/services`) +
     divider() +
     pSmall('Need to reschedule? Reply to this email.')
   );
@@ -339,7 +339,7 @@ export function tplLeadConsultationBookedAdmin(opts: {
       row('Destination', opts.destination ?? '—'),
       row('Slot', `<strong>${time} WAT</strong>`, true),
     ]) +
-    btn('Open admin console', `${ADMIN}/leads`)
+    btn('Open admin console', `${ADMIN()}/leads`)
   );
 }
 
@@ -405,7 +405,7 @@ export function tplConsultationCancelled(opts: {
       row('Refund', opts.refundAmount > 0 ? `$${opts.refundAmount.toFixed(2)} (${opts.refundPercent}%)` : 'None applicable', true),
     ]) +
     notice(refund, opts.refundAmount > 0 ? 'info' : 'warning') +
-    btn('Book another session', `${WEB}/consult`) +
+    btn('Book another session', `${WEB()}/consult`) +
     divider() +
     pSmall('Questions about the cancellation? Reply to this email.')
   );
@@ -420,7 +420,7 @@ export function tplApplicationReviewed(opts: {
       label('Application') +
       h1('Application approved') +
       p('Your application to join the MJN Health consultant network has been approved. Your profile will be activated and you will receive access credentials shortly.') +
-      btn('Learn more', `${WEB}/become-a-consultant`) +
+      btn('Learn more', `${WEB()}/become-a-consultant`) +
       divider() +
       pSmall('Welcome to the MJN Health team.')
     );
@@ -457,7 +457,7 @@ export function tplEngagementLetterSigned(opts: { name: string }): string {
     infoTable([
       row('Status', badge('Active', 'success'), true),
     ]) +
-    btn('View your case', `${PORTAL}/case`) +
+    btn('View your case', `${PORTAL()}/case`) +
     divider() +
     pSmall('Your signed letter is available in your portal under Documents.')
   );
@@ -480,7 +480,7 @@ export function tplApplicationSubmittedAdmin(opts: {
       row('Country', opts.opportunityCountry),
       row('Application', `<span style="font-family:monospace;font-size:12px;">${opts.applicationId}</span>`, true),
     ]) +
-    btn('Review in admin console', `${ADMIN}/jobs`)
+    btn('Review in admin console', `${ADMIN()}/jobs`)
   );
 }
 
@@ -508,7 +508,7 @@ export function tplApplicationStatusChanged(opts: {
       row('Status', badge(s.label, s.badge), !opts.notes),
       ...(opts.notes ? [row('Note', `<em style="color:#3D4A5C;">${opts.notes}</em>`, true)] : []),
     ]) +
-    btn('View my applications', `${PORTAL}/opportunities`) +
+    btn('View my applications', `${PORTAL()}/opportunities`) +
     divider() +
     pSmall('Questions about your application? Reply to this email or contact your consultant directly.')
   );
