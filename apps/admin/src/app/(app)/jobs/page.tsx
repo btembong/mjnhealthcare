@@ -504,7 +504,7 @@ export default function JobsPage() {
                     <div key={opp.id} className="flex flex-wrap items-start gap-4 rounded-2xl border border-border bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted/60 text-xl">
-                          {{ UAE: '🇦🇪', UK: '🇬🇧', US: '🇺🇸', Ireland: '🇮🇪', Canada: '🇨🇦', Australia: '🇦🇺' }[opp.country] ?? '🌍'}
+                          {{ UAE: '🇦🇪', UK: '🇬🇧', US: '🇺🇸', Ireland: '🇮🇪', Canada: '🇨🇦', Australia: '🇦🇺' }[opp.country as string] ?? '🌍'}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
