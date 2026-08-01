@@ -350,7 +350,7 @@ function MessageModal({ consultant, engagementId, onClose }: { consultant: any; 
     setSending(true);
     try {
       if (engagementId) {
-        await api.sendConsultantMessage(engagementId, msg.trim());
+        await api.sendMessage(engagementId, msg.trim());
       }
       toast.success('Message sent to your consultant.');
       onClose();
