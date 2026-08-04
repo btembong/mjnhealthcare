@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Skeleton } from '@mjn/ui';
 import {
@@ -8,10 +8,13 @@ import {
   Clock, CircleNotch, WarningCircle, CurrencyDollar,
   Seal, Signature, Flag, Check,
   CaretDown, X, Plus, BookOpen, Trash,
+  Chat, PaperPlaneRight, ArrowDown, ChatCircle,
+  Paperclip, FileText, UploadSimple, Image as ImageIcon,
+  FilePdf, FileDoc, Link as LinkIcon,
 } from '@phosphor-icons/react';
 import { api } from '../../../../lib/api';
 import { useAdmin } from '../../../../contexts/admin-context';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 
 const STATUS_STYLES: Record<string, string> = {
   ACTIVE:             'bg-primary/10 text-primary border-primary/20',
@@ -27,8 +30,30 @@ const ORDER_STATUS_STYLES: Record<string, string> = {
   PARTIALLY_PAID: 'bg-orange-100 text-orange-700 border-orange-200',
 };
 
+const QUICK_REPLIES = [
+  'Documents verified and approved.',
+  'Please upload the requested document.',
+  'Your case is progressing well.',
+  'We need to schedule a call.',
+  'We are awaiting your payment to proceed.',
+];
+
+const DOC_REQUEST_TEMPLATES = [
+  { label: 'Passport', text: 'Please upload a clear copy of your international passport (biographic page) to your document vault.' },
+  { label: 'Nursing License', text: 'Please upload your current nursing license/registration certificate to your document vault.' },
+  { label: 'Educational Certificate', text: 'Please upload your nursing/medical school certificate and transcripts to your document vault.' },
+  { label: 'Experience Letter', text: 'Please upload an official work experience letter from your current/previous employer to your document vault.' },
+  { label: 'DataFlow Verification', text: 'To proceed with your DataFlow verification, please upload all required credentials to your document vault and confirm your profession type.' },
+];
+
 function statusLabel(s: string) {
   return s?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ?? '—';
+}
+
+function dateSeparatorLabel(date: Date): string {
+  if (isToday(date)) return 'Today';
+  if (isYesterday(date)) return 'Yesterday';
+  return format(date, 'MMMM d, yyyy');
 }
 
 function DetailSkeleton() {
@@ -43,6 +68,13 @@ function DetailSkeleton() {
       <Skeleton className="h-48 rounded-2xl" />
     </div>
   );
+}
+
+function docTypeIcon(type: string) {
+  if (/pdf/i.test(type)) return <FilePdf className="h-4 w-4 text-rose-500" />;
+  if (/doc/i.test(type)) return <FileDoc className="h-4 w-4 text-blue-500" />;
+  if (/image|jpg|jpeg|png/i.test(type)) return <ImageIcon className="h-4 w-4 text-emerald-500" />;
+  return <FileText className="h-4 w-4 text-muted-foreground" />;
 }
 
 export default function CaseDetailPage() {
@@ -74,12 +106,39 @@ export default function CaseDetailPage() {
 
   // Study plan
   const [studyPlan, setStudyPlan] = useState<any>(null);
-  const [loadingPlan, setLoadingPlan] = useState(false);
   const [showPlanForm, setShowPlanForm] = useState(false);
   const [planItems, setPlanItems] = useState<{ topic: string; dueDate: string }[]>([{ topic: '', dueDate: '' }]);
   const [savingPlan, setSavingPlan] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
+  // Messages
+  const [messages, setMessages] = useState<any[]>([]);
+  const [msgLoading, setMsgLoading] = useState(false);
+  const [compose, setCompose] = useState('');
+  const [sending, setSending] = useState(false);
+  const [atBottom, setAtBottom] = useState(true);
+  const [newBanner, setNewBanner] = useState(false);
+
+  // Attachment panel
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [attachTab, setAttachTab] = useState<'vault' | 'request'>('vault');
+  const [personDocs, setPersonDocs] = useState<any[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const composeRef = useRef<HTMLTextAreaElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevMsgCount = useRef(0);
 
   useEffect(() => { load(); }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    loadMessages();
+    pollRef.current = setInterval(() => loadMessages(true), 20_000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [id]);
 
   async function load() {
     setLoading(true);
@@ -90,7 +149,6 @@ export default function CaseDetailPage() {
       ]);
       if (eng.status === 'fulfilled') {
         setEngagement(eng.value);
-        // Load study plan for this person
         const personId = (eng.value as any)?.person?.id;
         if (personId) {
           api.getStudyPlan(personId).then((plan) => setStudyPlan(plan)).catch(() => {});
@@ -101,6 +159,85 @@ export default function CaseDetailPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadMessages(silent = false) {
+    if (!silent) setMsgLoading(true);
+    try {
+      const msgs = await api.getEngagementMessages(id);
+      const list = msgs ?? [];
+      if (silent && list.length > prevMsgCount.current) {
+        if (atBottom) {
+          setTimeout(scrollToBottom, 50);
+        } else {
+          setNewBanner(true);
+        }
+      }
+      prevMsgCount.current = list.length;
+      setMessages(list);
+      if (!silent) setTimeout(scrollToBottom, 100);
+    } catch {} finally {
+      if (!silent) setMsgLoading(false);
+    }
+  }
+
+  async function loadPersonDocs(personId: string) {
+    setLoadingDocs(true);
+    try {
+      const docs = await api.getDocumentsByPerson(personId);
+      setPersonDocs(docs ?? []);
+    } catch {} finally {
+      setLoadingDocs(false);
+    }
+  }
+
+  function scrollToBottom() {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    setAtBottom(nearBottom);
+    if (nearBottom) setNewBanner(false);
+  }
+
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  async function handleSendMessage(text?: string) {
+    const content = (text ?? compose).trim();
+    if (!content || sending) return;
+    setSending(true);
+    setCompose('');
+    setAttachOpen(false);
+    if (composeRef.current) {
+      composeRef.current.style.height = 'auto';
+    }
+    try {
+      await api.sendEngagementMessage(id, content);
+      await loadMessages(true);
+      setTimeout(scrollToBottom, 50);
+    } catch {} finally {
+      setSending(false);
+    }
+  }
+
+  function handleAttachFromVault(doc: any) {
+    const docName = doc.type?.replace(/_/g, ' ') ?? 'Document';
+    const msg = `[Document shared: ${docName}]${doc.fileUrl ? `\n${doc.fileUrl}` : ''}`;
+    setCompose(msg);
+    setAttachOpen(false);
+    composeRef.current?.focus();
+  }
+
+  function handleRequestTemplate(template: { label: string; text: string }) {
+    setCompose(template.text);
+    setAttachOpen(false);
+    composeRef.current?.focus();
   }
 
   async function handleSavePlan() {
@@ -171,6 +308,23 @@ export default function CaseDetailPage() {
     } catch (e: any) { setError(e.message); } finally { setSendingLetter(false); }
   }
 
+  // Group messages: date separators + consecutive sender grouping
+  const groupedMessages = useMemo(() => {
+    return messages.map((msg, i) => {
+      const prev = messages[i - 1];
+      const next = messages[i + 1];
+      const msgDate = new Date(msg.createdAt);
+      const prevDate = prev ? new Date(prev.createdAt) : null;
+
+      const showDateSep = !prev || format(msgDate, 'yyyy-MM-dd') !== format(prevDate!, 'yyyy-MM-dd');
+      const dateLabel = showDateSep ? dateSeparatorLabel(msgDate) : '';
+
+      const isLastInGroup = !next || next.senderType !== msg.senderType || next.senderId !== msg.senderId;
+
+      return { msg, showDateSep, dateLabel, isLastInGroup };
+    });
+  }, [messages]);
+
   if (loading) return <DetailSkeleton />;
   if (!engagement) return (
     <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
@@ -183,6 +337,8 @@ export default function CaseDetailPage() {
   const orders: any[] = engagement.orders ?? [];
   const totalPaid = orders.filter((o: any) => o.status === 'PAID').reduce((s: number, o: any) => s + Number(o.total ?? 0), 0);
   const totalPending = orders.filter((o: any) => o.status !== 'PAID').reduce((s: number, o: any) => s + Number(o.total ?? 0), 0);
+
+  const isStaffSender = (msg: any) => msg.senderType === 'STAFF' || msg.senderType === 'ADMIN';
 
   return (
     <div className="space-y-5">
@@ -521,7 +677,6 @@ export default function CaseDetailPage() {
           </button>
         </div>
 
-        {/* Create form */}
         {showPlanForm && (
           <div className="border-b border-border p-5 space-y-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Plan items</p>
@@ -578,7 +733,6 @@ export default function CaseDetailPage() {
           </div>
         )}
 
-        {/* Existing plan items */}
         {studyPlan?.items?.length > 0 ? (
           <div className="divide-y divide-border">
             {(studyPlan.items as any[]).map((item: any) => (
@@ -612,6 +766,275 @@ export default function CaseDetailPage() {
             <p className="text-sm text-muted-foreground">No study plan yet. Create one to guide this client's exam prep.</p>
           </div>
         ) : null}
+      </div>
+
+      {/* ── Messages (WhatsApp-style) ─────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden flex flex-col" style={{ height: 580 }}>
+
+        {/* Chat header */}
+        <div className="shrink-0 flex items-center gap-3 border-b border-border bg-[#0F4C81] px-5 py-3.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-bold text-white">
+            {(person.name ?? 'CL').slice(0, 2).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-white text-sm leading-tight">{person.name ?? 'Client'}</p>
+            <p className="text-xs text-white/60">
+              {person.profession ? person.profession.replace(/_/g, ' ') : 'Engagement client'} · auto-refreshes every 20s
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-emerald-400" />
+            <span className="text-xs text-white/70">Active</span>
+            {msgLoading && <CircleNotch className="h-3.5 w-3.5 animate-spin text-white/60 ml-2" />}
+          </div>
+        </div>
+
+        {/* Messages scroll area */}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="relative flex-1 overflow-y-auto px-4 py-4 space-y-0.5"
+          style={{ background: '#f0f2f5' }}
+        >
+          {messages.length === 0 && !msgLoading ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <ChatCircle className="h-12 w-12 text-muted-foreground/20 mb-3" weight="fill" />
+              <p className="text-sm font-medium text-muted-foreground">No messages yet</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Start the conversation with {person.name ?? 'this client'} below</p>
+            </div>
+          ) : (
+            <>
+              {groupedMessages.map((item, gi) => {
+                const { msg, showDateSep, dateLabel, isLastInGroup } = item;
+                const staff = isStaffSender(msg);
+
+                return (
+                  <div key={msg.id ?? gi}>
+                    {/* Date separator */}
+                    {showDateSep && (
+                      <div className="flex items-center justify-center my-3">
+                        <span className="rounded-full bg-white/90 border border-border/40 px-3 py-1 text-[11px] text-muted-foreground font-medium shadow-sm">
+                          {dateLabel}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Bubble row */}
+                    <div className={`flex items-end gap-1.5 mb-0.5 ${staff ? 'flex-row-reverse' : 'flex-row'}`}>
+
+                      {/* Avatar — only on last bubble in a group */}
+                      <div className="h-7 w-7 shrink-0">
+                        {isLastInGroup ? (
+                          <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                            staff ? 'bg-primary text-white' : 'bg-[#00A896] text-white'
+                          }`}>
+                            {staff
+                              ? (me?.name ?? 'A').slice(0, 1).toUpperCase()
+                              : (person.name ?? 'C').slice(0, 1).toUpperCase()
+                            }
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {/* Bubble */}
+                      <div
+                        className={`relative max-w-[68%] px-3.5 py-2 text-sm leading-relaxed shadow-sm ${
+                          staff
+                            ? 'bg-[#0F4C81] text-white rounded-2xl rounded-br-sm'
+                            : 'bg-white text-foreground rounded-2xl rounded-bl-sm'
+                        } ${!isLastInGroup ? (staff ? 'rounded-br-2xl' : 'rounded-bl-2xl') : ''}`}
+                      >
+                        {/* Check if it's a document reference */}
+                        {msg.content?.startsWith('[Document shared:') ? (
+                          <div className="flex items-start gap-2">
+                            <FileText className={`h-4 w-4 shrink-0 mt-0.5 ${staff ? 'text-white/70' : 'text-primary'}`} />
+                            <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                        )}
+
+                        {/* Timestamp + read receipts (last in group only) */}
+                        {isLastInGroup && (
+                          <div className={`flex items-center gap-1 mt-1 ${staff ? 'justify-end' : 'justify-start'}`}>
+                            <span className={`text-[10px] ${staff ? 'text-white/50' : 'text-muted-foreground/50'}`}>
+                              {format(new Date(msg.createdAt), 'HH:mm')}
+                            </span>
+                            {staff && (
+                              msg.readAt
+                                ? <CheckCircle className="h-3 w-3 text-white/60" weight="fill" />
+                                : <Check className="h-3 w-3 text-white/40" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={bottomRef} />
+            </>
+          )}
+
+          {/* New messages banner */}
+          {newBanner && (
+            <div className="sticky bottom-3 flex justify-center">
+              <button
+                onClick={() => { scrollToBottom(); setNewBanner(false); }}
+                className="flex items-center gap-1.5 rounded-full bg-primary/90 px-4 py-1.5 text-xs font-semibold text-white shadow-lg hover:bg-primary transition-colors"
+              >
+                <ArrowDown className="h-3.5 w-3.5" /> New messages
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Scroll-to-bottom FAB */}
+        {!atBottom && !newBanner && (
+          <div className="relative">
+            <button
+              onClick={scrollToBottom}
+              className="absolute bottom-2 right-4 -translate-y-full flex h-8 w-8 items-center justify-center rounded-full bg-white border border-border shadow-md hover:bg-muted/50 transition-all z-10"
+            >
+              <ArrowDown className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+        )}
+
+        {/* Quick replies */}
+        {messages.length > 0 && (
+          <div className="shrink-0 flex gap-2 overflow-x-auto px-4 py-2 border-t border-border/60 bg-white scrollbar-hide">
+            {QUICK_REPLIES.map((qr) => (
+              <button
+                key={qr}
+                onClick={() => { setCompose(qr); composeRef.current?.focus(); }}
+                className="whitespace-nowrap shrink-0 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-foreground hover:bg-muted/80 hover:border-primary/40 transition-colors"
+              >
+                {qr}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Attachment panel */}
+        {attachOpen && (
+          <div className="shrink-0 border-t border-border bg-white">
+            {/* Tab switcher */}
+            <div className="flex border-b border-border">
+              <button
+                onClick={() => { setAttachTab('vault'); if (person.id) loadPersonDocs(person.id); }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold transition-colors ${
+                  attachTab === 'vault' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5" /> Attach from vault
+              </button>
+              <button
+                onClick={() => setAttachTab('request')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold transition-colors ${
+                  attachTab === 'request' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <UploadSimple className="h-3.5 w-3.5" /> Request upload
+              </button>
+            </div>
+
+            {/* Vault tab */}
+            {attachTab === 'vault' && (
+              <div className="max-h-40 overflow-y-auto divide-y divide-border/60">
+                {loadingDocs ? (
+                  <div className="flex items-center justify-center py-6">
+                    <CircleNotch className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : personDocs.length === 0 ? (
+                  <p className="py-5 text-center text-xs text-muted-foreground">No documents in vault for this client.</p>
+                ) : (
+                  personDocs.map((doc) => (
+                    <button
+                      key={doc.id}
+                      onClick={() => handleAttachFromVault(doc)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+                    >
+                      {docTypeIcon(doc.type ?? '')}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">{doc.type?.replace(/_/g, ' ') ?? 'Document'}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {doc.status} · {doc.uploadedAt ? format(new Date(doc.uploadedAt), 'MMM d, yyyy') : '—'}
+                        </p>
+                      </div>
+                      <LinkIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Request upload tab */}
+            {attachTab === 'request' && (
+              <div className="max-h-40 overflow-y-auto divide-y divide-border/60">
+                {DOC_REQUEST_TEMPLATES.map((tmpl) => (
+                  <button
+                    key={tmpl.label}
+                    onClick={() => handleRequestTemplate(tmpl)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+                  >
+                    <UploadSimple className="h-4 w-4 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-foreground">{tmpl.label}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{tmpl.text}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Compose bar */}
+        <div className="shrink-0 flex items-end gap-2 border-t border-border bg-white px-4 py-3">
+          {/* Attach button */}
+          <button
+            onClick={() => {
+              setAttachOpen((v) => !v);
+              if (!attachOpen && attachTab === 'vault' && person.id) loadPersonDocs(person.id);
+            }}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${
+              attachOpen ? 'bg-primary text-white' : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+            title="Attach document or request upload"
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
+
+          {/* Textarea */}
+          <div className="relative flex-1">
+            <textarea
+              ref={composeRef}
+              value={compose}
+              onChange={(e) => { setCompose(e.target.value); autoResize(e.target); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+              }}
+              placeholder={`Message ${person.name ?? 'client'}… (Enter to send, Shift+Enter for newline)`}
+              rows={1}
+              className="w-full resize-none rounded-full border border-border bg-[#f0f2f5] px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 max-h-[120px] leading-relaxed pr-16"
+            />
+            {compose.length > 300 && (
+              <span className={`absolute bottom-2.5 right-3 text-[10px] ${compose.length > 1000 ? 'text-rose-500' : 'text-muted-foreground/60'}`}>
+                {compose.length}/1000
+              </span>
+            )}
+          </div>
+
+          {/* Send button */}
+          <button
+            onClick={() => handleSendMessage()}
+            disabled={!compose.trim() || sending}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 disabled:opacity-40 transition-colors shadow-sm"
+          >
+            {sending ? <CircleNotch className="h-4 w-4 animate-spin" /> : <PaperPlaneRight className="h-4 w-4" weight="fill" />}
+          </button>
+        </div>
       </div>
     </div>
   );

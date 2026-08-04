@@ -103,6 +103,9 @@ export const api = {
   getAllDocuments: (status?: string) =>
     request<any[]>(`/documents${status && status !== 'ALL' ? `?status=${status}` : ''}`),
 
+  getDocumentsByPerson: (personId: string) =>
+    request<any[]>(`/documents/person/${personId}`),
+
   verifyDocument: (id: string, verifiedBy: string) =>
     request<any>(`/documents/${id}/verify`, {
       method: 'PATCH',
