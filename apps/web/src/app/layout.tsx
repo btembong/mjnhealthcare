@@ -48,6 +48,10 @@ export const metadata: Metadata = {
       'Global healthcare placement, licensing support, and exam prep — built for African health professionals.',
     images: ['/og-default.png'],
   },
+  icons: {
+    icon: '/mjnlogo.png',
+    apple: '/mjnlogo.png',
+  },
   robots: {
     index: true,
     follow: true,
