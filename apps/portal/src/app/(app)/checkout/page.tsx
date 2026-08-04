@@ -60,6 +60,8 @@ function CheckoutSkeleton() {
 
 // ── Order Summary Sidebar ─────────────────────────────────────────────────────
 
+const TAX_RATE = 0.0325;
+
 function OrderSummarySidebar({
   cartLines,
   subtotal,
@@ -67,7 +69,8 @@ function OrderSummarySidebar({
   cartLines: { serviceItemId: string; variantKey?: string; name: string; price: number }[];
   subtotal: number;
 }) {
-  const dueToday = subtotal;
+  const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
+  const dueToday = subtotal + taxAmount;
 
   return (
     <div className="hidden xl:block w-72 shrink-0 sticky top-6">
@@ -100,13 +103,13 @@ function OrderSummarySidebar({
               <span>${subtotal.toLocaleString()}</span>
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">Tax <Info className="h-3 w-3" /></span>
-              <span>At payment</span>
+              <span className="flex items-center gap-1">Tax (3.25%) <Info className="h-3 w-3" /></span>
+              <span>${taxAmount.toFixed(2)}</span>
             </div>
 
             <div className="flex items-center justify-between border-t border-border pt-3">
               <span className="text-sm font-semibold text-foreground">Due today</span>
-              <span className="text-lg font-bold text-primary">${dueToday.toLocaleString()}</span>
+              <span className="text-lg font-bold text-primary">${dueToday.toFixed(2)}</span>
             </div>
           </div>
         )}
@@ -254,7 +257,8 @@ export default function CheckoutPage() {
 
   const cartLines = buildLines();
   const subtotal = cartLines.reduce((s, l) => s + l.price, 0);
-  const dueToday = subtotal;
+  const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
+  const dueToday = subtotal + taxAmount;
   const letterSigned = !!engagement?.letterSignedAt;
   const canProceed = cartLines.length > 0 && letterSigned && !!engagement && !hasMissingVariants() && !hasPendingOrder;
 
@@ -556,10 +560,10 @@ export default function CheckoutPage() {
                 <div className="xl:hidden rounded-2xl border border-primary/20 bg-primary/5 p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-primary">Estimated total</span>
-                    <span className="text-xl font-bold text-primary">${subtotal.toLocaleString()}</span>
+                    <span className="text-xl font-bold text-primary">${dueToday.toFixed(2)}</span>
                   </div>
                   <p className="mt-1 text-xs text-primary/70">
-                    {cartLines.length} service{cartLines.length !== 1 ? 's' : ''} selected · Tax calculated at payment
+                    {cartLines.length} service{cartLines.length !== 1 ? 's' : ''} selected · includes 3.25% tax
                   </p>
                 </div>
               )}
@@ -602,12 +606,12 @@ export default function CheckoutPage() {
                     <span>${subtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">Tax <Info className="h-3 w-3" /></span>
-                    <span>Calculated at payment</span>
+                    <span className="flex items-center gap-1">Tax (3.25%) <Info className="h-3 w-3" /></span>
+                    <span>${taxAmount.toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between border-t border-border pt-3">
                     <span className="font-semibold text-foreground">Total</span>
-                    <span className="text-xl font-bold text-primary">${subtotal.toLocaleString()}</span>
+                    <span className="text-xl font-bold text-primary">${dueToday.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -647,10 +651,18 @@ export default function CheckoutPage() {
                   ))}
                 </div>
 
-                <div className="border-t border-border bg-muted/10 px-5 py-4">
-                  <div className="flex items-center justify-between">
+                <div className="border-t border-border bg-muted/10 px-5 py-4 space-y-2">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>${subtotal.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Tax (3.25%)</span>
+                    <span>${taxAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-border pt-2">
                     <span className="font-semibold text-foreground">Total due today</span>
-                    <span className="text-2xl font-bold text-primary">${dueToday.toLocaleString()}</span>
+                    <span className="text-2xl font-bold text-primary">${dueToday.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
