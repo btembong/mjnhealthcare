@@ -46,17 +46,17 @@ function formatFileSize(bytes: number) {
 
 function parseMessageContent(content: string) {
   // New upload format: [IMG]:filename:url  or  [FILE]:filename:url
-  const imgMatch = content.match(/^\[IMG\]:([^:]+):(.+)$/s);
+  const imgMatch = content.match(/^\[IMG\]:([^:]+):([\s\S]+)$/);
   if (imgMatch) return { type: 'image' as const, name: imgMatch[1], url: imgMatch[2].trim(), text: '' };
 
-  const fileMatch = content.match(/^\[FILE\]:([^:]+):(.+)$/s);
+  const fileMatch = content.match(/^\[FILE\]:([^:]+):([\s\S]+)$/);
   if (fileMatch) return { type: 'file' as const, name: fileMatch[1], url: fileMatch[2].trim(), text: '' };
 
   // Mixed: text + image/file
-  const mixedImg = content.match(/^([\s\S]+?)\n\[IMG\]:([^:]+):(.+)$/s);
+  const mixedImg = content.match(/^([\s\S]+?)\n\[IMG\]:([^:]+):([\s\S]+)$/);
   if (mixedImg) return { type: 'image' as const, name: mixedImg[2], url: mixedImg[3].trim(), text: mixedImg[1] };
 
-  const mixedFile = content.match(/^([\s\S]+?)\n\[FILE\]:([^:]+):(.+)$/s);
+  const mixedFile = content.match(/^([\s\S]+?)\n\[FILE\]:([^:]+):([\s\S]+)$/);
   if (mixedFile) return { type: 'file' as const, name: mixedFile[2], url: mixedFile[3].trim(), text: mixedFile[1] };
 
   // Legacy vault attachment format
