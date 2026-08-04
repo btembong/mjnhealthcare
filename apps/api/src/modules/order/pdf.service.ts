@@ -38,136 +38,120 @@ export class PdfService {
       const SOCIAL      = '@mjnhealthcare';
 
       // Reserve bottom space so content never overlaps footer
-      doc.page.margins.bottom = 90;
+      doc.page.margins.bottom = 80;
 
-      // ── Header (white background, no fill) ───────────────────────────────
-      // Company name — left aligned: "MJN Healthcare" large, subtitle same size
-      doc.fillColor(INK).fontSize(16).font('Helvetica-Bold')
-        .text('MJN Healthcare', L, 55);
-      doc.fillColor(MUTED).fontSize(9).font('Helvetica')
-        .text('Academy and Professional Services Ltd', L, 76);
+      // ── Header ───────────────────────────────────────────────────────────
+      doc.fillColor(INK).fontSize(15).font('Helvetica-Bold')
+        .text('MJN Healthcare', L, 52);
+      doc.fillColor(MUTED).fontSize(8.5).font('Helvetica')
+        .text('Academy and Professional Services Ltd', L, 71);
 
       // RECEIPT label — right aligned
-      doc.fillColor(INK).fontSize(22).font('Helvetica-Bold')
+      doc.fillColor(INK).fontSize(20).font('Helvetica-Bold')
         .text('RECEIPT', L, 50, { width: W, align: 'right' });
 
-      // Receipt ref number beneath label
       const refNum = snapshot.receiptId ?? snapshot.orderId;
       doc.fillColor(MUTED).fontSize(8).font('Helvetica')
-        .text(`No. ${refNum}`, L, 78, { width: W, align: 'right' });
+        .text(`No. ${refNum}`, L, 74, { width: W, align: 'right' });
 
       // Full-width rule under header
-      const headerRuleY = 100;
+      const headerRuleY = 90;
       doc.moveTo(L, headerRuleY).lineTo(R, headerRuleY)
         .strokeColor(INK).lineWidth(1.2).stroke();
 
       // ── Meta row ─────────────────────────────────────────────────────────
-      const metaY = 116;
+      const metaY = 104;
       const col2  = L + 200;
       const col3  = L + 380;
 
-      // Labels
-      doc.fillColor(MUTED).fontSize(7.5).font('Helvetica')
+      doc.fillColor(MUTED).fontSize(7).font('Helvetica')
         .text('ISSUED TO', L, metaY)
         .text('DATE ISSUED', col2, metaY)
         .text('ORDER REFERENCE', col3, metaY);
 
-      // Values
       const issuedDate = new Date(snapshot.issuedAt).toLocaleDateString('en-GB', {
         day: '2-digit', month: 'long', year: 'numeric',
       });
-      doc.fillColor(INK).fontSize(10).font('Helvetica-Bold')
-        .text(snapshot.person.name, L, metaY + 13);
-      doc.fillColor(MUTED).fontSize(8.5).font('Helvetica')
-        .text(snapshot.person.email, L, metaY + 28);
+      doc.fillColor(INK).fontSize(9.5).font('Helvetica-Bold')
+        .text(snapshot.person.name, L, metaY + 12);
+      doc.fillColor(MUTED).fontSize(8).font('Helvetica')
+        .text(snapshot.person.email, L, metaY + 25);
 
-      doc.fillColor(INK).fontSize(10).font('Helvetica-Bold')
-        .text(issuedDate, col2, metaY + 13);
+      doc.fillColor(INK).fontSize(9.5).font('Helvetica-Bold')
+        .text(issuedDate, col2, metaY + 12);
 
-      doc.fillColor(INK).fontSize(9).font('Helvetica')
-        .text(snapshot.orderId, col3, metaY + 13, { width: R - col3 });
+      doc.fillColor(INK).fontSize(8.5).font('Helvetica')
+        .text(snapshot.orderId, col3, metaY + 12, { width: R - col3 });
 
       // Thin rule after meta
-      const metaRuleY = metaY + 52;
+      const metaRuleY = metaY + 44;
       doc.moveTo(L, metaRuleY).lineTo(R, metaRuleY)
         .strokeColor(RULE).lineWidth(0.5).stroke();
 
       // ── Line items table ─────────────────────────────────────────────────
-      let y = metaRuleY + 16;
+      let y = metaRuleY + 12;
 
-      // Table column header
-      doc.fillColor(MUTED).fontSize(7.5).font('Helvetica-Bold')
+      doc.fillColor(MUTED).fontSize(7).font('Helvetica-Bold')
         .text('DESCRIPTION', L, y)
         .text('CATEGORY', L + 300, y)
         .text('AMOUNT (USD)', L, y, { width: W, align: 'right' });
 
-      y += 13;
-      // Column header underline
+      y += 11;
       doc.moveTo(L, y).lineTo(R, y).strokeColor(INK).lineWidth(0.6).stroke();
-      y += 10;
+      y += 8;
 
-      // Row renderer — clean ruled lines, no alternating backgrounds
       for (const item of snapshot.lineItems) {
-        doc.fillColor(INK).fontSize(9).font('Helvetica')
+        doc.fillColor(INK).fontSize(8.5).font('Helvetica')
           .text(item.name, L, y, { width: 285 });
 
-        doc.fillColor(MUTED).fontSize(8.5).font('Helvetica')
+        doc.fillColor(MUTED).fontSize(8).font('Helvetica')
           .text(item.category || '—', L + 300, y, { width: 100 });
 
-        doc.fillColor(INK).fontSize(9).font('Helvetica')
+        doc.fillColor(INK).fontSize(8.5).font('Helvetica')
           .text(`$${Number(item.priceCharged).toFixed(2)}`, L, y, { width: W, align: 'right' });
 
-        y += 22;
+        y += 17;
 
-        // Light rule between rows
-        doc.moveTo(L, y - 4).lineTo(R, y - 4)
+        doc.moveTo(L, y - 3).lineTo(R, y - 3)
           .strokeColor(RULE).lineWidth(0.4).stroke();
       }
 
       // ── Totals ───────────────────────────────────────────────────────────
-      y += 10;
-      const totW   = 180;
-      const totX   = R - totW;
+      y += 8;
+      const totW = 180;
+      const totX = R - totW;
 
       const drawTotalRow = (label: string, value: string, bold = false) => {
         doc.fillColor(MUTED).fontSize(8.5).font('Helvetica')
           .text(label, totX, y);
         doc.fillColor(INK).fontSize(8.5).font(bold ? 'Helvetica-Bold' : 'Helvetica')
           .text(value, totX, y, { width: totW, align: 'right' });
-        y += 17;
+        y += 15;
       };
 
       drawTotalRow('Subtotal', `$${snapshot.subtotal.toFixed(2)}`);
       if (snapshot.taxAmount > 0) {
-        drawTotalRow(
-          `Tax (${(snapshot.taxRate * 100).toFixed(2)}%)`,
-          `$${snapshot.taxAmount.toFixed(2)}`,
-        );
+        drawTotalRow(`Tax (${(snapshot.taxRate * 100).toFixed(2)}%)`, `$${snapshot.taxAmount.toFixed(2)}`);
       }
 
-      // Total separator rule
-      doc.moveTo(totX, y - 2).lineTo(R, y - 2)
-        .strokeColor(INK).lineWidth(0.6).stroke();
-      y += 6;
+      doc.moveTo(totX, y - 2).lineTo(R, y - 2).strokeColor(INK).lineWidth(0.6).stroke();
+      y += 5;
 
-      doc.fillColor(MUTED).fontSize(9).font('Helvetica-Bold').text('TOTAL DUE', totX, y);
-      doc.fillColor(INK).fontSize(12).font('Helvetica-Bold')
-        .text(`$${snapshot.total.toFixed(2)}`, totX, y - 2, { width: totW, align: 'right' });
-      y += 20;
+      doc.fillColor(MUTED).fontSize(8.5).font('Helvetica-Bold').text('TOTAL DUE', totX, y);
+      doc.fillColor(INK).fontSize(11).font('Helvetica-Bold')
+        .text(`$${snapshot.total.toFixed(2)}`, totX, y - 1, { width: totW, align: 'right' });
+      y += 18;
 
       if (snapshot.amountDueNow != null && snapshot.amountDueNow < snapshot.total) {
         drawTotalRow('Paid now', `$${snapshot.amountDueNow.toFixed(2)}`, true);
-        drawTotalRow(
-          'Balance due later',
-          `$${(snapshot.total - snapshot.amountDueNow).toFixed(2)}`,
-        );
+        drawTotalRow('Balance due later', `$${(snapshot.total - snapshot.amountDueNow).toFixed(2)}`);
       }
 
       // ── Payment note ─────────────────────────────────────────────────────
-      y += 20;
+      y += 14;
       doc.moveTo(L, y).lineTo(R, y).strokeColor(RULE).lineWidth(0.5).stroke();
-      y += 12;
-      doc.fillColor(MUTED).fontSize(8).font('Helvetica')
+      y += 10;
+      doc.fillColor(MUTED).fontSize(7.5).font('Helvetica')
         .text(
           'Payment processed securely. This receipt confirms receipt of funds by MJN Healthcare Academy and Professional Services Ltd. ' +
           'It does not constitute a guarantee of any exam result, visa outcome, or employment placement.',
@@ -175,7 +159,7 @@ export class PdfService {
         );
 
       // ── Footer ───────────────────────────────────────────────────────────
-      const footerY = doc.page.height - 72;
+      const footerY = doc.page.height - 76;
 
       doc.moveTo(L, footerY).lineTo(R, footerY)
         .strokeColor(INK).lineWidth(1).stroke();
