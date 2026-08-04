@@ -253,7 +253,7 @@ export function MarketingNav() {
       </div>
 
       <FloatingNav
-        className="sm:top-9"
+        className="sm:top-8"
         items={navItems}
         cta={
         <div className="flex items-center gap-3">
