@@ -19,7 +19,7 @@ export const members = [
     expertise: ['Strategic Leadership', 'International Licensing', 'US NCLEX Pathway', 'Organisational Development'],
     credibility: 'BSN, SRN, and USRN — founded MJN after personally navigating international nursing licensure.',
     credentials: ['BSN', 'SRN', 'USRN'],
-    photo: '/mboutjohn.webp',
+    photo: '/nyah-ceo.png',
   },
   {
     slug: 'arrey-manor-besongngem',

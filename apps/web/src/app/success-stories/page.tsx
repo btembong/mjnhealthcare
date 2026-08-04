@@ -38,8 +38,8 @@ const stories = [
     photo: '/atangchpascaline.webp',
   },
   {
-    name: 'Effery Asiedu',
-    fullName: 'Effery Asiedu',
+    name: 'Jeffrey Asiedu',
+    fullName: 'Jeffrey Asiedu',
     profession: 'Registered Nurse (BSN, RN, USRN, DOH-RN)',
     from: 'Ghana',
     to: 'UAE & United States',

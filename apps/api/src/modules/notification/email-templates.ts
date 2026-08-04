@@ -77,10 +77,25 @@ export function shell(body: string): string {
     <!-- Footer -->
     <tr>
       <td style="background:#F8FAFB;border:1px solid ${BORDER};border-top:none;border-radius:0 0 8px 8px;padding:20px 40px;">
-        <p style="margin:0;font-size:11px;color:#9AA3B0;line-height:1.8;text-align:center;">
-          MJN Healthcarecare Academy and Professional Services Ltd &nbsp;·&nbsp;
-          <a href="${WEB()}" style="color:#9AA3B0;text-decoration:none;">mjnhealthcare.com</a><br>
-          Sent because of your engagement with MJN Healthcarecare. Reply to this email with any questions.
+        <p style="margin:0 0 6px;font-size:11px;color:#9AA3B0;line-height:1.8;text-align:center;">
+          MJN Healthcare Academy and Professional Services Ltd &nbsp;·&nbsp;
+          <a href="${WEB()}" style="color:#9AA3B0;text-decoration:none;">mjnhealthcare.com</a>
+        </p>
+        <p style="margin:0 0 6px;font-size:10px;color:#B0B8C4;text-align:center;">
+          Auth. No. M032517649867P/RC/YAO/2025/B/637
+        </p>
+        <p style="margin:0 0 8px;font-size:11px;color:#9AA3B0;text-align:center;">
+          <a href="https://www.instagram.com/mjnhealthcare" style="color:#9AA3B0;text-decoration:none;">Instagram</a>
+          &nbsp;·&nbsp;
+          <a href="https://www.facebook.com/mjnhealthacademy" style="color:#9AA3B0;text-decoration:none;">Facebook</a>
+          &nbsp;·&nbsp;
+          <a href="https://www.linkedin.com/company/mjn-health-academy" style="color:#9AA3B0;text-decoration:none;">LinkedIn</a>
+          &nbsp;·&nbsp;
+          <a href="https://x.com/mjnhealthcare" style="color:#9AA3B0;text-decoration:none;">X</a>
+          &nbsp;·&nbsp; @mjnhealthcare
+        </p>
+        <p style="margin:0;font-size:10px;color:#B0B8C4;text-align:center;">
+          Sent because of your engagement with MJN Healthcare. Reply to this email with any questions.
         </p>
       </td>
     </tr>

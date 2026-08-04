@@ -133,7 +133,11 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 sm:flex-row">
+        <div className="mt-10 border-t border-border pt-6 space-y-3">
+          <p className="text-xs text-muted-foreground text-center">
+            Ministerial Authorization No. M032517649867P/RC/YAO/2025/B/637
+          </p>
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-xs text-muted-foreground">
             © 2026 MJN Healthcare Academy and Professional Services Ltd. All rights reserved.
           </p>
@@ -147,6 +151,7 @@ export function SiteFooter() {
                 {label}
               </Link>
             ))}
+          </div>
           </div>
         </div>
       </div>

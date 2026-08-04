@@ -886,7 +886,7 @@ function GetStartedInner() {
                   <div className="flex items-center gap-3">
                     {/* gradient-hero avatar */}
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ring-primary/20">
-                      <img src="/mboutjohn.webp" alt="Mbout John Nyah" className="h-full w-full object-cover object-top" />
+                      <img src="/nyah-ceo.png" alt="Mbout John Nyah" className="h-full w-full object-cover object-top" />
                     </div>
                     <div>
                       <p className="font-bold text-foreground">Mbout John Nyah</p>

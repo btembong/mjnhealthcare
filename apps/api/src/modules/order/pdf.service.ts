@@ -34,7 +34,7 @@ export class PdfService {
       const R      = doc.page.width - 60; // right margin
       const W      = R - L;       // usable width
 
-      const REG_NUMBER  = process.env.COMPANY_REG_NUMBER  ?? 'RC-2019-YAO-0547';
+      const REG_NUMBER  = process.env.COMPANY_REG_NUMBER  ?? 'M032517649867P/RC/YAO/2025/B/637';
       const SOCIAL      = '@mjnhealthcare';
 
       // ── Header (white background, no fill) ───────────────────────────────
@@ -185,7 +185,7 @@ export class PdfService {
           L, footerY + 10, { continued: true },
         )
         .font('Helvetica').fillColor(MUTED)
-        .text(`   ·   Reg. No. ${REG_NUMBER}   ·   Yaoundé, Cameroon`);
+        .text(`   ·   Auth. No. ${REG_NUMBER}   ·   Yaoundé, Cameroon`);
 
       // Line 2 — web + contact
       doc.fillColor(MUTED).fontSize(7.5).font('Helvetica')

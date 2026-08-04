@@ -81,10 +81,10 @@ function PhotoStrip({ cards, reverse = false }: { cards: PhotoCard[]; reverse?: 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
 const stats = [
-  { value: '1,200+', label: 'Professionals placed', icon: Users, color: 'text-primary bg-primary/10' },
+  { value: '350+', label: 'Professionals placed', icon: Users, color: 'text-primary bg-primary/10' },
   { value: '6', label: 'Countries active', icon: Globe, color: 'text-secondary bg-secondary/10' },
   { value: '94%', label: 'First-attempt pass rate', icon: Medal, color: 'text-primary bg-primary/10' },
-  { value: '7 yrs', label: 'In operation', icon: ClockCounterClockwise, color: 'text-secondary bg-secondary/10' },
+  { value: '9 yrs', label: 'In operation', icon: ClockCounterClockwise, color: 'text-secondary bg-secondary/10' },
 ];
 
 const values = [
@@ -146,22 +146,22 @@ const differentiators = [
 ];
 
 const timeline = [
-  { year: '2019', event: 'MJN Healthcare founded in Yaoundé, Cameroon. First 12 placements in UAE under DHA licensing.' },
-  { year: '2020', event: 'UK pathway launched. First NHS trust employer partnership established.' },
-  { year: '2021', event: 'MJN Academy launched with NCLEX-RN and DHA exam preparation. 200 students enrolled in year one.' },
-  { year: '2022', event: 'Ireland and US pathways added. Crossed 500 total placements. French-language services formally launched.' },
-  { year: '2023', event: 'AI Study Assistant (Claude-powered) deployed in Academy. Student Support and CPD programmes added.' },
-  { year: '2024', event: 'Verified employer network reaches 80+ institutions. Health training division launched for Africa-based workforce development.' },
-  { year: '2025', event: '1,200+ professionals placed. Career planning, health consultation, and relocation services added. Platform rebuilt.' },
+  { year: '2016', event: 'MJN Healthcare founded in the United Arab Emirates by Mbout John Nyah. First international placements under UAE DHA licensing.' },
+  { year: '2018', event: 'Operations expanded to Cameroon. UK NMC and Ireland NMBI pathways introduced.' },
+  { year: '2020', event: 'US NCLEX pathway launched. First NHS trust employer partnership established.' },
+  { year: '2021', event: 'MJN Academy launched with NCLEX-RN and DHA exam preparation. Mentorship and CPD programmes introduced.' },
+  { year: '2023', event: 'AI Study Assistant (Claude-powered) deployed in Academy. Student Support and internship placement added.' },
+  { year: '2025', event: 'Ministerial Authorization No. M032517649867P/RC/YAO/2025/B/637 obtained. 350+ professionals placed internationally. Platform fully rebuilt.' },
 ];
 
 const team = [
   {
-    name: 'Dr. Miriam Njoh',
-    initials: 'MN',
-    role: 'Founder & Executive Director',
-    credentials: 'MBBS · GMC (UK) · MSc Healthcare Management',
-    bio: 'Former NHS physician who navigated GMC registration as an internationally educated doctor from Cameroon. Founded MJN after witnessing how preventable documentation failures — not clinical incompetence — derailed qualified professionals.',
+    name: 'Mbout John Nyah (MJN)',
+    initials: 'MJN',
+    photo: '/nyah-ceo.png',
+    role: 'Founder & Chief Executive Officer',
+    credentials: 'MBA-HCM · BSN · RN',
+    bio: 'Founded MJN Healthcare in 2016 in the UAE after witnessing firsthand how preventable documentation failures — not clinical incompetence — derailed qualified African healthcare professionals. MBA in Healthcare Management, BSN, and registered nurse with deep personal experience in international licensing.',
   },
   {
     name: 'Sylvie Etame',
@@ -187,10 +187,11 @@ const team = [
 ];
 
 const offices = [
-  { city: 'Yaoundé', country: 'Cameroon', flag: '🇨🇲', role: 'Headquarters & Academy', detail: 'Dr. Miriam Njoh · Dr. Raïssa Fombe · Emmanuel Biya' },
+  { city: 'Yaoundé', country: 'Cameroon', flag: '🇨🇲', role: 'Headquarters & Academy', detail: 'Dr. Raïssa Fombe · Emmanuel Biya' },
   { city: 'Dubai', country: 'UAE', flag: '🇦🇪', role: 'UAE Operations', detail: 'Sylvie Etame · DHA / DOH / MOH licensing' },
   { city: 'London', country: 'United Kingdom', flag: '🇬🇧', role: 'UK Placement', detail: 'Patrick Mbang · NHS employer relations' },
   { city: 'Dublin', country: 'Ireland', flag: '🇮🇪', role: 'Ireland Support', detail: 'Amina Ousseini · NMBI & Critical Skills' },
+  { city: 'United States', country: 'USA', flag: '🇺🇸', role: 'CEO & Global Leadership', detail: 'Mbout John Nyah · NCLEX & US Pathway' },
 ];
 
 const testimonials = [
@@ -258,25 +259,28 @@ export default function AboutPage() {
             <div className="hidden lg:block">
               <div className="relative rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-sm shadow-2xl">
                 <div className="flex items-center gap-4 mb-5">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 text-lg font-extrabold text-white">
-                    MN
-                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/nyah-ceo.png"
+                    alt="Mbout John Nyah"
+                    className="h-14 w-14 rounded-2xl object-cover border border-white/20"
+                  />
                   <div>
-                    <p className="font-bold text-white text-sm">Dr. Miriam Njoh</p>
-                    <p className="text-xs text-white/70">Founder & Executive Director</p>
+                    <p className="font-bold text-white text-sm">Mbout John Nyah (MJN)</p>
+                    <p className="text-xs text-white/70">Founder & Chief Executive Officer</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2 mb-4">
                   <Quotes className="h-5 w-5 text-white/40 shrink-0 mt-0.5" weight="fill" />
                   <p className="text-sm text-white/80 leading-relaxed italic">
-                    "I went through this process myself — 8 months in, a documentation error cost me 4 more months. I founded MJN so that never happens to someone else."
+                    "I founded MJN to remove every preventable barrier between African healthcare professionals and international practice — because I lived those barriers myself."
                   </p>
                 </div>
                 <div className="border-t border-white/10 pt-4 space-y-2">
                   {[
-                    'MBBS · University of Yaoundé I',
-                    'GMC Registration · UK NHS (SHO)',
-                    'MSc Healthcare Management',
+                    'MBA-HCM · Healthcare Management',
+                    'BSN · Registered Nurse (RN)',
+                    'Ministerial Authorization No. M032517649867P',
                   ].map((c) => (
                     <div key={c} className="flex items-center gap-2 text-xs text-white/60">
                       <SealCheck className="h-3.5 w-3.5 text-secondary shrink-0" />
@@ -286,11 +290,11 @@ export default function AboutPage() {
                 </div>
                 <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-white/10 p-3 text-center">
-                    <p className="text-xl font-extrabold text-white">2019</p>
+                    <p className="text-xl font-extrabold text-white">2016</p>
                     <p className="text-xs text-white/60">Founded</p>
                   </div>
                   <div className="rounded-xl bg-white/10 p-3 text-center">
-                    <p className="text-xl font-extrabold text-white">1,200+</p>
+                    <p className="text-xl font-extrabold text-white">350+</p>
                     <p className="text-xs text-white/60">Placed</p>
                   </div>
                 </div>
@@ -344,16 +348,16 @@ export default function AboutPage() {
               </h2>
               <div className="space-y-4 text-muted-foreground leading-[1.8] text-[15px]">
                 <p>
-                  Dr. Miriam Njoh completed her MBBS at the University of Yaoundé I, and in 2017 began the GMC registration process to practise in the United Kingdom. She had strong clinical credentials, solid references, and a clear intent to work in NHS primary care.
+                  Mbout John Nyah (MJN) — a registered nurse, BSN, and MBA in Healthcare Management — founded MJN Healthcare in the United Arab Emirates in 2016 after witnessing firsthand the preventable barriers that derail qualified African healthcare professionals seeking international practice.
                 </p>
                 <p>
-                  What she did not have was a guide who had navigated the same process as an internationally educated doctor from Cameroon. Eight months in, a documentation error in her primary source verification cost her four more months and significant legal fees to correct.
+                  With personal experience navigating international nursing licensure, he understood that the challenge was rarely clinical competence — it was the opacity of systems like DataFlow, NMC, CGFNS, and NMBI that were designed in contexts most African professionals had never encountered. Documentation errors, missed deadlines, and uninformed submissions were costing candidates months and non-refundable fees.
                 </p>
                 <p>
-                  She eventually registered, completed two years as an SHO in NHS foundation trusts — and returned to Cameroon with one question: how many qualified African professionals were failing not because of their clinical ability, but because of systems designed to be opaque?
+                  He returned with one mission: remove every preventable barrier between African healthcare professionals and international practice — and build a firm where every consultant has personally completed the process they advise on.
                 </p>
                 <p className="font-semibold text-foreground">
-                  MJN Healthcare was founded in Yaoundé in 2019 with 12 placements in its first year. Today it operates across four countries. Every team member has personally completed the licensing process they now advise on.
+                  Today, MJN Healthcare holds Ministerial Authorization No. M032517649867P/RC/YAO/2025/B/637, has placed over 350 professionals internationally, and operates across UAE, UK, US, Ireland, and Cameroon.
                 </p>
               </div>
             </div>
@@ -457,13 +461,20 @@ export default function AboutPage() {
             </Link>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {team.map(({ name, initials, role, credentials, bio }) => (
+            {team.map(({ name, initials, photo, role, credentials, bio }: any) => (
               <div
                 key={name}
                 className="group rounded-2xl border border-border bg-white p-5 shadow-sm hover:border-primary/30 hover:shadow-md transition-all"
               >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-sm font-extrabold text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                  {initials}
+                <div className="mb-4">
+                  {photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photo} alt={name} className="h-12 w-12 rounded-xl object-cover border border-border" />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-sm font-extrabold text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                      {initials}
+                    </div>
+                  )}
                 </div>
                 <p className="font-bold text-foreground text-sm">{name}</p>
                 <p className="text-xs font-semibold text-primary mt-0.5 mb-1">{role}</p>
