@@ -37,8 +37,9 @@ export class PdfService {
       const REG_NUMBER  = process.env.COMPANY_REG_NUMBER  ?? 'M032517649867P/RC/YAO/2025/B/637';
       const SOCIAL      = '@mjnhealthcare';
 
-      // Reserve bottom space so content never overlaps footer
-      doc.page.margins.bottom = 80;
+      // Truncate helper — prevents line wrapping which causes auto-page-adds
+      const trunc = (str: string, max: number) =>
+        str.length > max ? str.slice(0, max - 1) + '…' : str;
 
       // ── Header ───────────────────────────────────────────────────────────
       doc.fillColor(INK).fontSize(15).font('Helvetica-Bold')
@@ -102,13 +103,13 @@ export class PdfService {
 
       for (const item of snapshot.lineItems) {
         doc.fillColor(INK).fontSize(8.5).font('Helvetica')
-          .text(item.name, L, y, { width: 285 });
+          .text(trunc(item.name, 52), L, y, { width: 285, lineBreak: false });
 
         doc.fillColor(MUTED).fontSize(8).font('Helvetica')
-          .text(item.category || '—', L + 300, y, { width: 100 });
+          .text(trunc(item.category || '—', 18), L + 300, y, { width: 100, lineBreak: false });
 
         doc.fillColor(INK).fontSize(8.5).font('Helvetica')
-          .text(`$${Number(item.priceCharged).toFixed(2)}`, L, y, { width: W, align: 'right' });
+          .text(`$${Number(item.priceCharged).toFixed(2)}`, L, y, { width: W, align: 'right', lineBreak: false });
 
         y += 17;
 
