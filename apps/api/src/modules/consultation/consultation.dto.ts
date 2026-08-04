@@ -7,6 +7,7 @@ import { Type } from 'class-transformer';
 export enum ConsultationCategoryDto {
   HEALTH = 'HEALTH',
   CAREER = 'CAREER',
+  BOTH = 'BOTH',
 }
 
 export class BookConsultationDto {
