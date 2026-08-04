@@ -50,19 +50,13 @@ export function shell(body: string): string {
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
             <td>
-              <table cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td style="vertical-align:middle;padding-right:10px;">
-                    <img src="https://mjnhealthcare.com/mjnlogo.png" alt="MJN" height="36" style="display:block;height:36px;width:auto;border:0;" />
-                  </td>
-                  <td style="vertical-align:middle;">
-                    <span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;color:${NAVY};">MJN</span><span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;color:${TEAL};"> Healthcare</span>
-                  </td>
-                </tr>
-              </table>
+              <img src="https://mjnhealthcare.com/mjnlogo.png" alt="MJN" height="36" style="display:block;height:36px;width:auto;border:0;" />
             </td>
-            <td align="right">
-              <span style="font-size:10px;font-weight:600;letter-spacing:1.8px;text-transform:uppercase;color:${MUTED};">Academy &amp; Professional Services</span>
+            <td align="right" style="vertical-align:middle;">
+              <div style="line-height:1.3;">
+                <div><span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;color:${NAVY};">MJN</span><span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;color:${TEAL};"> Healthcare</span></div>
+                <div><span style="font-size:10px;font-weight:600;letter-spacing:1.8px;text-transform:uppercase;color:${MUTED};">Academy &amp; Professional Services</span></div>
+              </div>
             </td>
           </tr>
         </table>
