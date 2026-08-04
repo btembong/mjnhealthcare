@@ -385,6 +385,48 @@ export const api = {
   cancelCampaign: (id: string) =>
     request<any>(`/campaigns/${id}/cancel`, { method: 'PATCH' }),
 
+  // ── Payment Admin ─────────────────────────────────────────────────────────
+  getPaymentStats: () => request<any>('/admin/payments/stats'),
+
+  listPayments: (params?: { search?: string; status?: string; type?: string; dateFrom?: string; dateTo?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set('search', params.search);
+    if (params?.status) qs.set('status', params.status);
+    if (params?.type) qs.set('type', params.type);
+    if (params?.dateFrom) qs.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) qs.set('dateTo', params.dateTo);
+    const q = qs.toString();
+    return request<any[]>(`/admin/payments${q ? `?${q}` : ''}`);
+  },
+
+  getPaymentByRef: (ref: string) => request<any>(`/admin/payments/${ref}`),
+
+  verifyPaymentTranzak: (ref: string) =>
+    request<any>(`/admin/payments/${ref}/verify-tranzak`, { method: 'POST' }),
+
+  validatePayment: (ref: string, adminNote?: string) =>
+    request<{ success: boolean; message: string }>(`/admin/payments/${ref}/validate`, {
+      method: 'POST',
+      body: JSON.stringify({ adminNote }),
+    }),
+
+  cancelPayment: (ref: string, reason: string) =>
+    request<{ success: boolean; message: string }>(`/admin/payments/${ref}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  getPaymentsExportUrl: (params?: { search?: string; status?: string; type?: string; dateFrom?: string; dateTo?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set('search', params.search);
+    if (params?.status) qs.set('status', params.status);
+    if (params?.type) qs.set('type', params.type);
+    if (params?.dateFrom) qs.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) qs.set('dateTo', params.dateTo);
+    const q = qs.toString();
+    return `${API_BASE}/admin/payments/export${q ? `?${q}` : ''}`;
+  },
+
   // ── Licensing Pathways (admin) ────────────────────────────────────────────
   getLicensingPathways: () => request<any[]>('/licensing/pathways'),
 
