@@ -6,7 +6,7 @@ import { PageHeader, Badge, Button, Skeleton } from '@mjn/ui';
 import {
   FileText, UploadSimple, CheckCircle, Clock, WarningCircle,
   X, Eye, FilePlus, CaretDown,
-  Lock, ShieldCheck, TrendUp, CreditCard, Image, Trash,
+  Lock, ShieldCheck, TrendUp, CreditCard, Image, Trash, DownloadSimple,
 } from '@phosphor-icons/react';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
@@ -534,11 +534,48 @@ export default function DocumentsPage() {
     }
   }
 
-  // Sort: REJECTED → PENDING → VERIFIED
+  // Filter pills
+  const [filterPill, setFilterPill] = useState<'ALL' | 'ACTION' | 'PENDING' | 'VERIFIED'>('ALL');
+
+  // Sort + filter
   const STATUS_ORDER: Record<string, number> = { REJECTED: 0, PENDING: 1, VERIFIED: 2 };
-  const sortedDocuments = [...documents].sort(
+  const filteredByPill = documents.filter((d) => {
+    if (filterPill === 'ACTION') return d.status === 'REJECTED';
+    if (filterPill === 'PENDING') return d.status === 'PENDING';
+    if (filterPill === 'VERIFIED') return d.status === 'VERIFIED';
+    return true;
+  });
+  const sortedDocuments = [...filteredByPill].sort(
     (a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3)
   );
+
+  // Category grouping
+  const CATEGORIES: { label: string; types: string[] }[] = [
+    { label: 'Identity', types: ['PASSPORT_COPY', 'BIRTH_CERTIFICATE', 'PHOTO_ID', 'ORDINARY_LEVEL_CERTIFICATE'] },
+    { label: 'Academic', types: ['HIGH_SCHOOL_CERTIFICATE', 'DIPLOMA_DEGREE', 'DIPLOMA_TRANSCRIPT', 'BACHELORS_DEGREE', 'BACHELORS_TRANSCRIPT', 'MASTERS_DEGREE', 'MASTERS_TRANSCRIPT'] },
+    { label: 'Professional', types: ['NURSING_LICENSE', 'MEDICAL_LICENSE', 'OTHER_LICENSE', 'GOOD_STANDING_CERTIFICATE', 'WORK_EXPERIENCE_CERTIFICATE'] },
+    { label: 'Other', types: ['BANK_STATEMENT', 'PERSONAL_STATEMENT', 'REFERENCE_LETTER', 'OTHER'] },
+  ];
+  function getCategoryDocs(types: string[]) {
+    return sortedDocuments.filter((d) => types.includes(d.type));
+  }
+  function getUncategorised() {
+    const allCategorised = CATEGORIES.flatMap((c) => c.types);
+    return sortedDocuments.filter((d) => !allCategorised.includes(d.type));
+  }
+
+  async function handleDownload(doc: any) {
+    try {
+      const { url } = await api.getDocumentViewUrl(doc.id);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${doc.type}_${doc.id}`;
+      a.target = '_blank';
+      a.click();
+    } catch {
+      toast.error('Could not get download link. Try again.');
+    }
+  }
 
   const verified = documents.filter((d) => d.status === 'VERIFIED').length;
   const pending = documents.filter((d) => d.status === 'PENDING').length;
@@ -687,119 +724,164 @@ export default function DocumentsPage() {
             </div>
           </div>
 
-          {/* Documents list — sorted REJECTED → PENDING → VERIFIED */}
-          <div className="rounded-2xl border border-border bg-white shadow-sm">
-            <div className="border-b border-border px-6 py-4">
-              <h3 className="font-semibold text-foreground">
-                All Documents {documents.length > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">({documents.length})</span>}
-              </h3>
-            </div>
+          {/* Filter pills */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {([
+              { key: 'ALL', label: 'All', count: documents.length },
+              { key: 'ACTION', label: 'Needs Action', count: documents.filter((d) => d.status === 'REJECTED').length },
+              { key: 'PENDING', label: 'Under Review', count: documents.filter((d) => d.status === 'PENDING').length },
+              { key: 'VERIFIED', label: 'Verified', count: documents.filter((d) => d.status === 'VERIFIED').length },
+            ] as const).map((p) => (
+              <button key={p.key} onClick={() => setFilterPill(p.key)}
+                className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                  filterPill === p.key
+                    ? p.key === 'ACTION' ? 'border-rose-300 bg-rose-50 text-rose-700'
+                      : p.key === 'PENDING' ? 'border-amber-300 bg-amber-50 text-amber-700'
+                      : p.key === 'VERIFIED' ? 'border-primary/30 bg-primary/5 text-primary'
+                      : 'border-border bg-foreground text-background'
+                    : 'border-border bg-white text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                }`}>
+                {p.label}
+                {p.count > 0 && (
+                  <span className={`rounded-full px-1.5 py-0.5 text-xs ${filterPill === p.key ? 'bg-white/40' : 'bg-muted'}`}>
+                    {p.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
 
-            {sortedDocuments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="mb-4 rounded-2xl bg-muted/50 p-6">
-                  <UploadSimple className="h-10 w-10 text-muted-foreground" />
-                </div>
-                <h4 className="font-semibold text-foreground">No documents yet</h4>
-                <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                  Upload your credentials to get started. Your consultant will review each document.
-                </p>
+          {/* Documents — grouped by category */}
+          {sortedDocuments.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-white shadow-sm flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-4 rounded-2xl bg-muted/50 p-6">
+                <UploadSimple className="h-10 w-10 text-muted-foreground" />
+              </div>
+              <h4 className="font-semibold text-foreground">
+                {filterPill === 'ALL' ? 'No documents yet' : `No ${filterPill === 'ACTION' ? 'rejected' : filterPill.toLowerCase()} documents`}
+              </h4>
+              <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                {filterPill === 'ALL' ? 'Upload your credentials to get started. Your consultant will review each document.' : 'Try switching to a different filter.'}
+              </p>
+              {filterPill === 'ALL' && (
                 <Button size="sm" className="mt-4" onClick={() => openDrawer()}>
                   <FilePlus className="h-4 w-4" /> Upload your first document
                 </Button>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {sortedDocuments.map((doc) => {
-                  const isImage = isImageFile(doc.fileUrl ?? '');
-                  return (
-                    <div key={doc.id} className="flex items-center gap-4 px-6 py-4">
-                      {/* Thumbnail or status icon */}
-                      <div className="shrink-0">
-                        {isImage ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img
-                            src={doc.fileUrl}
-                            alt={doc.type}
-                            className="h-10 w-10 rounded-lg object-cover border border-border"
-                            onError={(e) => {
-                              // If direct URL 403s, show fallback icon
-                              (e.currentTarget as HTMLImageElement).style.display = 'none';
-                              (e.currentTarget.nextSibling as HTMLElement | null)?.removeAttribute('hidden');
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className={`rounded-lg bg-muted/50 p-2.5 ${isImage ? 'hidden' : ''}`}
-                        >
-                          {statusIcon(doc.status)}
-                        </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {[...CATEGORIES, { label: 'Uncategorised', types: [] as string[] }].map((cat) => {
+                const catDocs = cat.label === 'Uncategorised' ? getUncategorised() : getCategoryDocs(cat.types);
+                if (catDocs.length === 0) return null;
+                return (
+                  <div key={cat.label} className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between border-b border-border px-6 py-3.5 bg-muted/20">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-foreground">{cat.label}</h3>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground font-medium">{catDocs.length}</span>
                       </div>
-
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground">{formatType(doc.type)}</p>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <span>Uploaded {new Date(doc.uploadedAt ?? doc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                          {doc.expiryDate && (() => {
-                            const daysLeft = Math.ceil((new Date(doc.expiryDate).getTime() - Date.now()) / 86400000);
-                            const isExpired = daysLeft <= 0;
-                            const isUrgent = daysLeft > 0 && daysLeft <= 14;
-                            const isWarning = daysLeft > 14 && daysLeft <= 30;
-                            return (
-                              <>
-                                <span>·</span>
-                                {(isExpired || isUrgent || isWarning) ? (
-                                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                    isExpired || isUrgent ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
-                                  }`}>
-                                    <WarningCircle className="h-3 w-3" />
-                                    {isExpired ? 'Expired' : `Expires in ${daysLeft}d`}
-                                  </span>
-                                ) : (
-                                  <span>Expires {new Date(doc.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                )}
-                              </>
-                            );
-                          })()}
-                          {doc.verifiedAt && (
-                            <><span>·</span><span>Verified {new Date(doc.verifiedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span></>
-                          )}
-                        </div>
-                        {doc.status === 'REJECTED' && doc.rejectionReason && (
-                          <p className="mt-1 rounded-lg bg-rose-50 px-2 py-1 text-xs text-rose-700 border border-rose-100">
-                            <strong>Reason:</strong> {doc.rejectionReason}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant={badgeVariant(doc.status)} className="text-xs">{doc.status}</Badge>
-                        {doc.fileUrl && (
-                          <button
-                            onClick={() => openPreview(doc)}
-                            className="rounded-lg border border-border p-1.5 hover:bg-muted/60 transition-colors"
-                            title="View document"
-                          >
-                            {isImage ? <Image className="h-3.5 w-3.5 text-muted-foreground" /> : <Eye className="h-3.5 w-3.5 text-muted-foreground" />}
-                          </button>
-                        )}
-                        {doc.status === 'REJECTED' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs"
-                            onClick={() => openDrawer(doc.type)}
-                          >
-                            Re-upload
-                          </Button>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className="text-emerald-600 font-medium">{catDocs.filter((d) => d.status === 'VERIFIED').length} verified</span>
+                        {catDocs.filter((d) => d.status === 'REJECTED').length > 0 && (
+                          <span className="text-rose-600 font-medium">· {catDocs.filter((d) => d.status === 'REJECTED').length} rejected</span>
                         )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    <div className="divide-y divide-border">
+                      {catDocs.map((doc) => {
+                        const isImage = isImageFile(doc.fileUrl ?? '');
+                        const daysLeft = doc.expiryDate ? Math.ceil((new Date(doc.expiryDate).getTime() - Date.now()) / 86400000) : null;
+                        const isExpired = daysLeft !== null && daysLeft <= 0;
+                        const isUrgent = daysLeft !== null && daysLeft > 0 && daysLeft <= 14;
+                        const isWarning = daysLeft !== null && daysLeft > 14 && daysLeft <= 30;
+                        return (
+                          <div key={doc.id}>
+                            {/* Rejection callout */}
+                            {doc.status === 'REJECTED' && doc.rejectionReason && (
+                              <div className="flex items-start gap-3 bg-rose-50 border-b border-rose-100 px-6 py-3">
+                                <WarningCircle weight="fill" className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-rose-800">Rejected — action required</p>
+                                  <p className="text-xs text-rose-700 mt-0.5">{doc.rejectionReason}</p>
+                                </div>
+                                <Button size="sm" variant="outline"
+                                  className="h-7 text-xs shrink-0 border-rose-300 text-rose-700 hover:bg-rose-100"
+                                  onClick={() => openDrawer(doc.type)}>
+                                  Re-upload
+                                </Button>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-4 px-6 py-4">
+                              {/* Icon */}
+                              <div className="shrink-0">
+                                {isImage ? (
+                                  /* eslint-disable-next-line @next/next/no-img-element */
+                                  <img src={doc.fileUrl} alt={doc.type}
+                                    className="h-10 w-10 rounded-lg object-cover border border-border"
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                      (e.currentTarget.nextSibling as HTMLElement | null)?.removeAttribute('hidden');
+                                    }} />
+                                ) : null}
+                                <div className={`rounded-lg bg-muted/50 p-2.5 ${isImage ? 'hidden' : ''}`}>
+                                  {statusIcon(doc.status)}
+                                </div>
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-foreground">{formatType(doc.type)}</p>
+                                <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                  <span>Uploaded {new Date(doc.uploadedAt ?? doc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                  {doc.expiryDate && (
+                                    <>
+                                      <span>·</span>
+                                      {(isExpired || isUrgent || isWarning) ? (
+                                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${isExpired || isUrgent ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                                          <WarningCircle className="h-3 w-3" />
+                                          {isExpired ? 'Expired' : `Expires in ${daysLeft}d`}
+                                        </span>
+                                      ) : (
+                                        <span>Expires {new Date(doc.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                      )}
+                                    </>
+                                  )}
+                                  {doc.verifiedAt && (
+                                    <><span>·</span><span className="text-emerald-600">Verified {new Date(doc.verifiedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span></>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                <Badge variant={badgeVariant(doc.status)} className="text-xs">{doc.status}</Badge>
+                                {doc.fileUrl && (
+                                  <>
+                                    <button onClick={() => openPreview(doc)}
+                                      className="rounded-lg border border-border p-1.5 hover:bg-muted/60 transition-colors" title="Preview">
+                                      {isImage ? <Image className="h-3.5 w-3.5 text-muted-foreground" /> : <Eye className="h-3.5 w-3.5 text-muted-foreground" />}
+                                    </button>
+                                    <button onClick={() => handleDownload(doc)}
+                                      className="rounded-lg border border-border p-1.5 hover:bg-muted/60 transition-colors" title="Download">
+                                      <DownloadSimple className="h-3.5 w-3.5 text-muted-foreground" />
+                                    </button>
+                                  </>
+                                )}
+                                {doc.status === 'REJECTED' && (
+                                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openDrawer(doc.type)}>
+                                    Re-upload
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* ── Right sidebar ──────────────────────────────────────────── */}

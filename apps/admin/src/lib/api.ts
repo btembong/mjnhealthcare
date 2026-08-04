@@ -100,6 +100,9 @@ export const api = {
   // ── Documents ───────────────────────────────────────────────────────────
   getPendingDocuments: () => request<any[]>('/documents?status=PENDING'),
 
+  getAllDocuments: (status?: string) =>
+    request<any[]>(`/documents${status && status !== 'ALL' ? `?status=${status}` : ''}`),
+
   verifyDocument: (id: string, verifiedBy: string) =>
     request<any>(`/documents/${id}/verify`, {
       method: 'PATCH',
