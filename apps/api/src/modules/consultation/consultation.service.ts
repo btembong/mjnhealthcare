@@ -213,7 +213,10 @@ export class ConsultationService {
       where: { id: bookingId },
       include: { slot: true, consultant: true },
     });
-    if (!booking || booking.status !== 'AWAITING_PAYMENT') return;
+    if (!booking) return;
+    // Allow retry if booking is CONFIRMED but room was never created (e.g. DAILY_CO_API_KEY added later)
+    const needsRoom = booking.status === 'CONFIRMED' && !booking.dailyRoomUrl;
+    if (booking.status !== 'AWAITING_PAYMENT' && !needsRoom) return;
 
     // Create Daily.co room
     let dailyRoomUrl = '';
@@ -347,14 +350,23 @@ export class ConsultationService {
     if (!booking) throw new NotFoundException('Booking not found');
     if (booking.clientEmail !== email) throw new BadRequestException('Email does not match booking');
     if (booking.status !== 'CONFIRMED') throw new BadRequestException('Booking is not confirmed');
-    if (!booking.dailyRoomName) throw new BadRequestException('Video room not yet created');
+
+    // Daily.co may not be configured yet — return a graceful message instead of throwing
+    if (!booking.dailyRoomName || !booking.dailyRoomUrl) {
+      return {
+        roomUrl: null,
+        token: null,
+        consultantName: booking.consultant.name,
+        message: 'Your video room is being prepared. Please check back 30 minutes before your session or contact support.',
+      };
+    }
 
     const token = await this.dailyCo.createMeetingToken(
       booking.dailyRoomName,
       false,
       booking.clientName,
     );
-    return { roomUrl: booking.dailyRoomUrl, token, consultantName: booking.consultant.name };
+    return { roomUrl: booking.dailyRoomUrl, token, consultantName: booking.consultant.name, message: null };
   }
 
   // ── Public: cancel booking ──────────────────────────────────────────────────

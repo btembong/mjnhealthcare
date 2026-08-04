@@ -20,6 +20,10 @@ export class DailyCoService {
   }
 
   async createRoom(bookingId: string, startAt: Date, durationMinutes: number): Promise<DailyRoom> {
+    if (!this.apiKey) {
+      throw new Error('DAILY_CO_API_KEY is not configured');
+    }
+
     // Room expires 90 minutes after session start to allow overruns
     const exp = Math.floor(startAt.getTime() / 1000) + (durationMinutes + 45) * 60;
     const name = `mjn-consult-${bookingId}`;
