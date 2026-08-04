@@ -10,7 +10,7 @@ import {
 export class TranzakProvider implements IPaymentProvider {
   readonly name = 'tranzak';
 
-  private readonly baseUrl = process.env.TRANZAK_BASE_URL ?? 'https://api.tranzak.me';
+  private readonly baseUrl = process.env.TRANZAK_BASE_URL ?? 'https://dsapi.tranzak.me';
   private readonly appId = process.env.TRANZAK_APP_ID ?? '';
   private readonly appKey = process.env.TRANZAK_APP_KEY ?? '';
 

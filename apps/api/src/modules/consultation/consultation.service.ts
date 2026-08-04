@@ -143,7 +143,7 @@ export class ConsultationService {
     const notifyUrl = `${process.env.API_URL ?? 'http://localhost:3000'}/api/v1/consultations/webhook/payment`;
 
     try {
-      const authRes = await fetch(`${process.env.TRANZAK_BASE_URL ?? 'https://sandbox.dsapi.tranzak.me'}/auth/token`, {
+      const authRes = await fetch(`${process.env.TRANZAK_BASE_URL ?? 'https://dsapi.tranzak.me'}/auth/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appId: process.env.TRANZAK_APP_ID, appKey: process.env.TRANZAK_APP_KEY }),
@@ -155,7 +155,7 @@ export class ConsultationService {
         throw new Error('Payment gateway authentication failed');
       }
 
-      const payRes = await fetch(`${process.env.TRANZAK_BASE_URL ?? 'https://sandbox.dsapi.tranzak.me'}/xp021/v1/request/create`, {
+      const payRes = await fetch(`${process.env.TRANZAK_BASE_URL ?? 'https://dsapi.tranzak.me'}/xp021/v1/request/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
