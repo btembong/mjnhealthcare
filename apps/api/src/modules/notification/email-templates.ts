@@ -202,7 +202,7 @@ export function tplPaymentConfirmed(opts: {
     ]) +
     btn('Go to your portal', `${PORTAL()}/dashboard`) +
     divider() +
-    pSmall('Questions about your payment? Reply to this email or contact your assigned consultant.')
+    pSmall('Your itemised receipt is attached to this email. For any payment queries, reply here or email <a href="mailto:hello@mjnhealthcare.com" style="color:#0F4C81;">hello@mjnhealthcare.com</a> — or WhatsApp us at +971 50 863 8660.')
   );
 }
 
@@ -219,7 +219,7 @@ export function tplInstallmentDue(opts: {
     ]) +
     btn('Pay now', `${PORTAL()}/payments`) +
     divider() +
-    pSmall('Need to discuss a payment arrangement? Reply to this email.')
+    pSmall('Need to discuss a payment arrangement? Reply to this email or reach us at <a href="mailto:hello@mjnhealthcare.com" style="color:#0F4C81;">hello@mjnhealthcare.com</a> / WhatsApp +971 50 863 8660.')
   );
 }
 
@@ -241,7 +241,7 @@ export function tplInstallmentOverdue(opts: {
     ) +
     btn('Pay now', `${PORTAL()}/payments`) +
     divider() +
-    pSmall('Need to discuss a payment arrangement? Reply to this email or contact your consultant.')
+    pSmall('Need to discuss a payment arrangement? Reply to this email, write to <a href="mailto:hello@mjnhealthcare.com" style="color:#0F4C81;">hello@mjnhealthcare.com</a>, or WhatsApp us at +971 50 863 8660.')
   );
 }
 
@@ -261,7 +261,7 @@ export function tplEngagementOnHold(opts: {
     notice('While on hold, no active work is carried out on your case. Pay the outstanding amount to reinstate immediately.', 'error') +
     btn('Pay to reinstate', `${PORTAL()}/payments`) +
     divider() +
-    pSmall('Need to discuss a payment plan? Reply to this email.')
+    pSmall('To resolve this and reinstate your case immediately, reply to this email or contact us at <a href="mailto:hello@mjnhealthcare.com" style="color:#0F4C81;">hello@mjnhealthcare.com</a> / WhatsApp +971 50 863 8660.')
   );
 }
 
@@ -313,7 +313,7 @@ export function tplSessionReminder(opts: {
     ]) +
     btn('Join session', opts.portalLink ?? `${PORTAL()}/dashboard`) +
     divider() +
-    pSmall('Need to reschedule? Contact your consultant as soon as possible.')
+    pSmall('Need to reschedule? Contact your consultant immediately by replying to this email or via WhatsApp at +971 50 863 8660 so we can free the slot for another client.')
   );
 }
 
@@ -330,10 +330,11 @@ export function tplLeadConsultationBooked(opts: {
     infoTable([
       row('Date &amp; time', `<strong>${time} WAT</strong>`, true),
     ]) +
-    p('A consultant will reach out to confirm your call details before the session. Come prepared with any questions about licensing, placement, or exam preparation.') +
+    p('One of our consultants will contact you before the session to confirm connection details. To make the most of your time, come prepared with:') +
+    p('<strong>· Your target destination country</strong> (UAE, UK, US, Ireland, etc.)<br><strong>· Your profession and current registration status</strong><br><strong>· Any specific questions</strong> about licensing timelines, exam requirements, or placement') +
     btn('Explore our services', `${WEB()}/services`) +
     divider() +
-    pSmall('Need to reschedule? Reply to this email.')
+    pSmall('Need to reschedule? Reply to this email or WhatsApp us at +971 50 863 8660 as soon as possible.')
   );
 }
 
@@ -400,7 +401,7 @@ export function tplConsultationConfirmed(opts: {
     btn('Join session', opts.roomUrl) +
     divider() +
     pSmall(
-      `Reminders will be sent 24 h and 1 h before your session.${opts.recordingConsent ? ' This session may be recorded for quality assurance.' : ''} For general guidance only — not medical or legal advice.`
+      `Reminders will be sent 24 h and 1 h before your session. Please join from a quiet location with a stable internet connection.${opts.recordingConsent ? ' This session may be recorded for quality assurance.' : ''} The advice provided is for general guidance only and does not constitute medical, legal, or regulatory advice. To reschedule, contact us at <a href="mailto:hello@mjnhealthcare.com" style="color:#0F4C81;">hello@mjnhealthcare.com</a> or WhatsApp +971 50 863 8660.`
     )
   );
 }
@@ -459,7 +460,7 @@ export function tplEngagementSignRequest(opts: { name: string; signUrl: string }
     p('Your MJN Healthcare consulting engagement is ready. Please sign your engagement letter to activate your case. The letter covers scope, fees, and key disclaimers — it takes about 2 minutes to review.') +
     btn('Read &amp; sign letter', opts.signUrl) +
     divider() +
-    pSmall('This link is personal to you — do not share it. If you did not request this, contact us at support@mjnhealth.com.')
+    pSmall('This link is personal to you — do not share it. If you did not request this, contact us at hello@mjnhealthcare.com.')
   );
 }
 
