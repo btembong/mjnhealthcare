@@ -533,21 +533,19 @@ export function tplApplicationStatusChanged(opts: {
 // ── OTP / verification ────────────────────────────────────────────────────────
 
 export function tplOtp(opts: { otp: string }): string {
+  const digitCells = opts.otp.split('').map(d =>
+    `<td style="width:44px;height:54px;text-align:center;vertical-align:middle;background:#F4F8FF;border:1.5px solid #BDD0E8;border-radius:6px;font-size:26px;font-weight:700;color:${NAVY};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">${d}</td>`
+  ).join('<td style="width:8px;"></td>');
+
   return shell(
     label('Verification') +
     h1('Your sign-in code') +
-    p('Use the code below to sign in to MJN Healthcare. It expires in <strong>10 minutes</strong> and can only be used once.') +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 28px;">
-      <tr>
-        <td align="center">
-          <div style="display:inline-block;background:#F0F4F9;border:1px solid ${BORDER};border-radius:8px;padding:20px 44px;">
-            <span style="font-family:'Courier New',Courier,monospace;font-size:38px;font-weight:800;letter-spacing:14px;color:${NAVY};line-height:1;">${opts.otp}</span>
-          </div>
-        </td>
-      </tr>
+    p('Enter the code below to access your MJN Healthcare account. It expires in <strong>10 minutes</strong> and is valid for one use only.') +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;">
+      <tr>${digitCells}</tr>
     </table>` +
-    notice('Do not share this code. MJN Healthcare staff will never ask for your OTP.', 'warning') +
+    `<p style="margin:0 0 24px;font-size:12.5px;line-height:1.65;color:${MUTED};"><strong style="color:${TEXT};">Security notice:</strong> Never share this code with anyone. MJN Healthcare staff will never ask for your sign-in code by phone, email, or chat.</p>` +
     divider() +
-    pSmall('If you did not request this code, you can safely ignore this email.')
+    pSmall('If you did not request this code, you can safely ignore this email. Your account remains secure.')
   );
 }
