@@ -186,6 +186,7 @@ export default function BookNewPage() {
     setLoading(true);
     setError('');
     try {
+      const portalUrl = (process.env.NEXT_PUBLIC_PORTAL_URL ?? window.location.origin);
       const res = await fetch(`${API}/consultations/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -197,6 +198,7 @@ export default function BookNewPage() {
           consultationCategory: category,
           preSessionNote: note.trim() || undefined,
           recordingConsent: consent,
+          returnUrl: `${portalUrl}/bookings/confirmed`,
         }),
       });
       if (!res.ok) {

@@ -18,6 +18,7 @@ export class BookConsultationDto {
   @IsEnum(ConsultationCategoryDto) consultationCategory!: ConsultationCategoryDto;
   @IsBoolean() recordingConsent!: boolean;
   @IsOptional() @IsString() preSessionNote?: string;
+  @IsOptional() @IsUrl() returnUrl?: string;
 }
 
 export class CancelConsultationDto {

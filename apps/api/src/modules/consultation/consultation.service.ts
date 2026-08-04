@@ -132,14 +132,17 @@ export class ConsultationService {
     if (process.env.DEV_SKIP_PAYMENT === 'true') {
       this.logger.warn(`[DEV] Skipping Tranzak — auto-confirming booking ${booking.id}`);
       await this.handlePaymentConfirmed(booking.id);
-      return {
-        bookingId: booking.id,
-        redirectUrl: `${process.env.PORTAL_URL ?? 'http://localhost:3002'}/bookings/confirmed?bookingId=${booking.id}`,
-      };
+      const devReturnUrl = dto.returnUrl
+        ? `${dto.returnUrl}?bookingId=${booking.id}`
+        : `${process.env.WEB_URL ?? 'http://localhost:3001'}/consult/confirmed?bookingId=${booking.id}`;
+      return { bookingId: booking.id, redirectUrl: devReturnUrl };
     }
 
     // Initiate Tranzak payment
-    const returnUrl = `${process.env.PORTAL_URL ?? 'http://localhost:3002'}/bookings/confirmed?bookingId=${booking.id}`;
+    const webUrl = process.env.WEB_URL ?? 'http://localhost:3001';
+    const returnUrl = dto.returnUrl
+      ? `${dto.returnUrl}?bookingId=${booking.id}`
+      : `${webUrl}/consult/confirmed?bookingId=${booking.id}`;
     const notifyUrl = `${process.env.API_URL ?? 'http://localhost:3000'}/api/v1/consultations/webhook/payment`;
 
     try {
