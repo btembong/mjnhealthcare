@@ -9,6 +9,7 @@ const exo2 = Exo_2({ subsets: ['latin'], variable: '--font-exo2', display: 'swap
 export const metadata: Metadata = {
   title: 'Admin Console | MJN Healthcare',
   description: 'Internal operations — caseload, compliance, and reporting.',
+  icons: { icon: '/mjnlogo.png', apple: '/mjnlogo.png' },
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
