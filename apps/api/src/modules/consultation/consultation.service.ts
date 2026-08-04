@@ -301,6 +301,7 @@ export class ConsultationService {
     // Tranzak sends mchTransactionRef = booking.id (set at payment creation).
     // Some sandbox responses nest under .data; fall back to legacy customData.
     const bookingId =
+      payload?.resource?.mchTransactionRef ??
       payload?.mchTransactionRef ??
       payload?.data?.mchTransactionRef ??
       payload?.customData?.bookingId;
@@ -310,10 +311,13 @@ export class ConsultationService {
       return;
     }
 
-    const status = payload?.status ?? payload?.data?.status;
+    const status =
+      payload?.resource?.status ??
+      payload?.status ??
+      payload?.data?.status;
     if (status === 'SUCCESSFUL') {
       await this.handlePaymentConfirmed(bookingId);
-    } else if (status && status !== 'PENDING') {
+    } else if (status && status !== 'PENDING' && status !== 'PROCESSING') {
       // FAILED, CANCELLED, EXPIRED — alert admin
       const booking = await this.db.consultationBooking.findUnique({
         where: { id: bookingId },
