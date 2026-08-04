@@ -155,7 +155,7 @@ export class NotificationListener {
     }
 
     // Notify admin
-    const adminEmail = process.env.BREVO_FROM_EMAIL ?? 'noreply@mjnhealth.com';
+    const adminEmail = process.env.ADMIN_EMAIL ?? 'hello@mjnhealthcare.com';
     await this.notificationService.sendEmail(
       adminEmail,
       `Engagement On Hold — ${payload.personName ?? payload.personId}`,
@@ -266,7 +266,7 @@ export class NotificationListener {
         payload.name,
       ),
       this.notificationService.sendEmail(
-        process.env.BREVO_FROM_EMAIL ?? 'noreply@mjnhealth.com',
+        process.env.ADMIN_EMAIL ?? 'hello@mjnhealthcare.com',
         `New Lead Consultation — ${payload.name}`,
         T.tplLeadConsultationBookedAdmin({
           name: payload.name, email: payload.email, phone: payload.phone,
@@ -378,8 +378,7 @@ export class NotificationListener {
     bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
     consultantName: string; amountUsd: number; failReason: string; sessionStart: string;
   }) {
-    const adminEmail = process.env.ADMIN_EMAIL;
-    if (!adminEmail) return;
+    const adminEmail = process.env.ADMIN_EMAIL ?? 'hello@mjnhealthcare.com';
     await this.notificationService.sendEmail(
       adminEmail,
       `Payment Failed — ${payload.clientName} ($${payload.amountUsd.toFixed(2)})`,
@@ -428,7 +427,7 @@ export class NotificationListener {
       ]);
       if (!person || !opportunity) return;
 
-      const adminEmail = process.env.BREVO_FROM_EMAIL ?? 'noreply@mjnhealth.com';
+      const adminEmail = process.env.ADMIN_EMAIL ?? 'hello@mjnhealthcare.com';
       await this.notificationService.sendEmail(
         adminEmail,
         `New Application — ${person.name} for ${opportunity.title}`,
