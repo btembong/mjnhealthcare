@@ -1,22 +1,46 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PageHeader, Badge, Button, Skeleton } from '@mjn/ui';
+import { Badge, Skeleton } from '@mjn/ui';
 import {
-  FileText, CalendarBlank,
-  CheckCircle, Clock,
-  TrendUp, UploadSimple, Flag, Envelope, Signature,
-  Seal, ArrowSquareOut,
-  X, PaperPlaneTilt, ChatText, CreditCard, BookOpen,
-  Copy, MapPin, Buildings,
+  FileText, CalendarBlank, CheckCircle, Clock,
+  TrendUp, UploadSimple, Signature, Seal,
+  ChatText, CreditCard, BookOpen, Copy, MapPin,
+  Buildings, Envelope, ArrowRight, Warning,
+  Headset, Receipt, Flag,
 } from '@phosphor-icons/react';
 import { useUser } from '../../../contexts/user-context';
+import { api } from '../../../lib/api';
 import { toast } from 'sonner';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const COUNTRY_FLAGS: Record<string, string> = {
   UAE: '🇦🇪', UK: '🇬🇧', US: '🇺🇸', Ireland: '🇮🇪', Canada: '🇨🇦', Australia: '🇦🇺',
 };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatCaseRef(id?: string) {
+  if (!id) return '—';
+  return `ENG-${id.slice(-6).toUpperCase()}`;
+}
+
+function formatDate(ts: string) {
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function daysAgo(ts: string) {
+  return Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
+}
+
+function timeAgo(ts: string) {
+  const d = daysAgo(ts);
+  if (d === 0) return 'Today';
+  if (d === 1) return 'Yesterday';
+  return `${d}d ago`;
+}
 
 function engagementStatusVariant(status: string): 'success' | 'warning' | 'outline' | 'destructive' {
   if (status === 'ACTIVE') return 'success';
@@ -25,88 +49,34 @@ function engagementStatusVariant(status: string): 'success' | 'warning' | 'outli
   return 'outline';
 }
 
-function formatCaseRef(id: string | undefined): string {
-  if (!id) return '—';
-  return `ENG-${id.slice(-6).toUpperCase()}`;
-}
-
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function CaseSkeleton() {
   return (
-    <div className="space-y-6">
-      <div><Skeleton className="h-8 w-44 mb-2" /><Skeleton className="h-4 w-80" /></div>
-      <div className="flex gap-6 items-start">
-        <div className="flex-1 min-w-0 space-y-6">
-          <Skeleton className="h-24 rounded-2xl" />
-          <Skeleton className="h-36 rounded-2xl" />
-          <Skeleton className="h-96 rounded-2xl" />
-        </div>
-        <div className="hidden xl:block w-[280px] shrink-0 space-y-4">
-          <Skeleton className="h-44 rounded-2xl" />
-          <Skeleton className="h-32 rounded-2xl" />
+    <div className="space-y-5">
+      <Skeleton className="h-10 w-96 rounded-xl" />
+      <div className="grid grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 rounded-2xl" />)}
+      </div>
+      <Skeleton className="h-16 rounded-2xl" />
+      <div className="flex gap-6">
+        <div className="flex-1 space-y-5">
+          <Skeleton className="h-28 rounded-2xl" />
+          <Skeleton className="h-64 rounded-2xl" />
           <Skeleton className="h-40 rounded-2xl" />
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Message Modal ─────────────────────────────────────────────────────────────
-
-function MessageModal({ consultant, onClose }: { consultant: any; onClose: () => void }) {
-  const [msg, setMsg] = useState('');
-  const [sending, setSending] = useState(false);
-  const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => { ref.current?.focus(); }, []);
-
-  async function send() {
-    if (!msg.trim()) return;
-    setSending(true);
-    await new Promise((r) => setTimeout(r, 600));
-    toast.success('Message sent to your consultant.');
-    setSending(false);
-    onClose();
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Message your consultant</p>
-            {consultant?.name && <p className="text-xs text-muted-foreground">{consultant.name}</p>}
-          </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition"><X className="h-4 w-4" /></button>
-        </div>
-        <textarea
-          ref={ref}
-          value={msg}
-          onChange={(e) => setMsg(e.target.value)}
-          placeholder="Ask a question or share an update…"
-          rows={4}
-          className="w-full rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
-        />
-        <div className="mt-3 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors">
-            Cancel
-          </button>
-          <button
-            onClick={send}
-            disabled={!msg.trim() || sending}
-            className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-40 transition-colors"
-          >
-            <PaperPlaneTilt className="h-3.5 w-3.5" /> {sending ? 'Sending…' : 'Send'}
-          </button>
+        <div className="hidden xl:block w-72 space-y-4">
+          <Skeleton className="h-48 rounded-2xl" />
+          <Skeleton className="h-36 rounded-2xl" />
         </div>
       </div>
     </div>
   );
 }
 
-// ── Mini Progress Ring ────────────────────────────────────────────────────────
+// ── Progress Ring ─────────────────────────────────────────────────────────────
 
-function MiniRing({ pct }: { pct: number }) {
+function ProgressRing({ pct }: { pct: number }) {
   const r = 30;
   const circ = 2 * Math.PI * r;
   return (
@@ -114,15 +84,342 @@ function MiniRing({ pct }: { pct: number }) {
       <svg width="76" height="76" viewBox="0 0 68 68" className="-rotate-90">
         <circle cx="34" cy="34" r={r} fill="none" stroke="currentColor" strokeWidth="7" className="text-muted" />
         <circle
-          cx="34" cy="34" r={r}
-          fill="none" stroke="currentColor" strokeWidth="7" className="text-primary"
+          cx="34" cy="34" r={r} fill="none" stroke="currentColor" strokeWidth="7" className="text-primary"
           strokeDasharray={`${(pct / 100) * circ} ${circ}`}
           strokeLinecap="round"
           style={{ transition: 'stroke-dasharray 0.9s ease' }}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-sm font-bold text-foreground leading-none">{pct}%</span>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-sm font-bold text-foreground">{pct}%</span>
+      </div>
+    </div>
+  );
+}
+
+// ── KPI Strip ─────────────────────────────────────────────────────────────────
+
+function KpiChip({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-white shadow-sm px-4 py-3 flex flex-col gap-0.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-xl font-bold text-foreground leading-none">{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
+
+// ── Next Action Banner ─────────────────────────────────────────────────────────
+
+function NextActionBanner({
+  engagement, docs, router,
+}: { engagement: any; docs: any[]; router: ReturnType<typeof useRouter> }) {
+  const orders: any[] = engagement.orders ?? [];
+  const rejected = docs.filter((d) => d.status === 'REJECTED');
+  const pending = docs.filter((d) => d.status === 'PENDING');
+  const unpaidOrders = orders.filter((o) => o.status === 'PENDING' || o.status === 'PARTIALLY_PAID');
+  const totalDue = unpaidOrders.reduce((s, o) => s + Number(o.total ?? 0), 0);
+
+  // Priority 1: sign letter
+  if (!engagement.letterSignedAt && engagement.letterUrl) {
+    return (
+      <div className="flex items-center gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
+          <Signature className="h-5 w-5 text-amber-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-900">Action required: Sign your engagement letter</p>
+          <p className="text-xs text-amber-700 mt-0.5">Your engagement cannot proceed until the letter is signed.</p>
+        </div>
+        <a
+          href={`/sign/${engagement.id}`}
+          className="shrink-0 flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
+        >
+          Sign now <ArrowRight className="h-3.5 w-3.5" />
+        </a>
+      </div>
+    );
+  }
+
+  // Priority 2: rejected docs
+  if (rejected.length > 0) {
+    return (
+      <div className="flex items-center gap-4 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 shadow-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100">
+          <Warning className="h-5 w-5 text-rose-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-rose-900">
+            {rejected.length} document{rejected.length > 1 ? 's' : ''} rejected — re-upload required
+          </p>
+          <p className="text-xs text-rose-700 mt-0.5">
+            {rejected.map((d) => d.type?.replace(/_/g, ' ')).join(', ')}
+          </p>
+        </div>
+        <button
+          onClick={() => router.push('/documents')}
+          className="shrink-0 flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 transition-colors"
+        >
+          Fix now <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  // Priority 3: outstanding payment
+  if (unpaidOrders.length > 0) {
+    return (
+      <div className="flex items-center gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
+          <CreditCard className="h-5 w-5 text-amber-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-900">
+            Payment outstanding: ${totalDue.toLocaleString()}
+          </p>
+          <p className="text-xs text-amber-700 mt-0.5">
+            {unpaidOrders.length} order{unpaidOrders.length > 1 ? 's' : ''} pending payment
+          </p>
+        </div>
+        <button
+          onClick={() => router.push('/payments')}
+          className="shrink-0 flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
+        >
+          Pay now <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  // Priority 4: pending docs
+  if (pending.length > 0) {
+    return (
+      <div className="flex items-center gap-4 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 shadow-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100">
+          <Clock className="h-5 w-5 text-blue-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-blue-900">
+            {pending.length} document{pending.length > 1 ? 's' : ''} under review
+          </p>
+          <p className="text-xs text-blue-700 mt-0.5">Your consultant is reviewing your uploaded documents.</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white">In Review</span>
+      </div>
+    );
+  }
+
+  // All clear
+  if (engagement.status === 'ACTIVE') {
+    return (
+      <div className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100">
+          <CheckCircle className="h-5 w-5 text-emerald-600" weight="fill" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-emerald-900">Your case is on track</p>
+          <p className="text-xs text-emerald-700 mt-0.5">No action required right now. Your consultant is working on your case.</p>
+        </div>
+        <button
+          onClick={() => router.push('/messages')}
+          className="shrink-0 flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-4 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors"
+        >
+          <ChatText className="h-3.5 w-3.5" /> Message
+        </button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// ── Documents Summary Card ────────────────────────────────────────────────────
+
+function DocsSummaryCard({ docs, router }: { docs: any[]; router: ReturnType<typeof useRouter> }) {
+  const verified = docs.filter((d) => d.status === 'VERIFIED').length;
+  const pending  = docs.filter((d) => d.status === 'PENDING').length;
+  const rejected = docs.filter((d) => d.status === 'REJECTED').length;
+
+  return (
+    <div className="rounded-2xl border border-border bg-white shadow-sm p-5">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Documents</p>
+        <button
+          onClick={() => router.push('/documents')}
+          className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+        >
+          View all <ArrowRight className="h-3 w-3" />
+        </button>
+      </div>
+
+      {docs.length === 0 ? (
+        <div className="text-center py-3">
+          <FileText className="h-7 w-7 text-muted-foreground/30 mx-auto mb-1.5" />
+          <p className="text-xs text-muted-foreground">No documents uploaded yet.</p>
+          <button
+            onClick={() => router.push('/documents')}
+            className="mt-2 text-xs font-semibold text-primary hover:underline"
+          >
+            Upload documents →
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {[
+              { label: 'Verified', count: verified, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+              { label: 'Pending',  count: pending,  color: 'text-amber-600',   bg: 'bg-amber-50' },
+              { label: 'Rejected', count: rejected, color: 'text-rose-600',    bg: 'bg-rose-50' },
+            ].map(({ label, count, color, bg }) => (
+              <div key={label} className={`rounded-xl ${bg} px-2 py-2 text-center`}>
+                <p className={`text-lg font-bold ${color}`}>{count}</p>
+                <p className={`text-[10px] font-medium ${color}`}>{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {rejected > 0 && (
+            <button
+              onClick={() => router.push('/documents')}
+              className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700 transition-colors"
+            >
+              <Warning className="h-3.5 w-3.5" /> Re-upload rejected docs
+            </button>
+          )}
+          {rejected === 0 && (
+            <button
+              onClick={() => router.push('/documents')}
+              className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60 transition-colors"
+            >
+              <UploadSimple className="h-3.5 w-3.5" /> Manage documents
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Payments Summary Card ─────────────────────────────────────────────────────
+
+function PaymentsSummaryCard({ orders, router }: { orders: any[]; router: ReturnType<typeof useRouter> }) {
+  const paid    = orders.filter((o) => o.status === 'PAID').reduce((s, o) => s + Number(o.total ?? 0), 0);
+  const pending = orders.filter((o) => o.status !== 'PAID').reduce((s, o) => s + Number(o.total ?? 0), 0);
+
+  return (
+    <div className="rounded-2xl border border-border bg-white shadow-sm p-5">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payments</p>
+        <button
+          onClick={() => router.push('/payments')}
+          className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+        >
+          View all <ArrowRight className="h-3 w-3" />
+        </button>
+      </div>
+
+      {orders.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-2">No orders yet.</p>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Total paid</span>
+            <span className="font-bold text-primary">${paid.toLocaleString()}</span>
+          </div>
+          {pending > 0 && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Outstanding</span>
+              <span className="font-bold text-amber-600">${pending.toLocaleString()}</span>
+            </div>
+          )}
+          <div className="border-t border-border pt-2 space-y-1.5">
+            {orders.slice(0, 3).map((o: any) => (
+              <div key={o.id} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                    o.status === 'PAID' ? 'bg-emerald-400' :
+                    o.status === 'PARTIALLY_PAID' ? 'bg-amber-400' : 'bg-rose-400'
+                  }`} />
+                  <span className="text-muted-foreground truncate max-w-[120px]">
+                    {o.lineItems?.[0]?.serviceItem?.name ?? 'Order'}
+                  </span>
+                </div>
+                <span className="font-semibold text-foreground">${Number(o.total).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+          {pending > 0 && (
+            <button
+              onClick={() => router.push('/payments')}
+              className="mt-1 w-full flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
+            >
+              <CreditCard className="h-3.5 w-3.5" /> Pay outstanding
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Activity Feed ─────────────────────────────────────────────────────────────
+
+function ActivityFeed({ engagement, docs }: { engagement: any; docs: any[] }) {
+  const milestones: any[] = engagement.milestones ?? [];
+
+  const events: { date: string; icon: React.ReactNode; text: string; sub?: string }[] = [
+    ...(engagement.createdAt ? [{
+      date: engagement.createdAt,
+      icon: <Flag className="h-3.5 w-3.5 text-primary" />,
+      text: 'Case opened',
+      sub: formatDate(engagement.createdAt),
+    }] : []),
+    ...(engagement.letterSignedAt ? [{
+      date: engagement.letterSignedAt,
+      icon: <Seal className="h-3.5 w-3.5 text-emerald-600" />,
+      text: 'Engagement letter signed',
+      sub: formatDate(engagement.letterSignedAt),
+    }] : []),
+    ...milestones.filter((m) => m.completedAt).map((m) => ({
+      date: m.completedAt,
+      icon: <CheckCircle className="h-3.5 w-3.5 text-primary" weight="fill" />,
+      text: `Milestone: ${m.label}`,
+      sub: formatDate(m.completedAt),
+    })),
+    ...docs.filter((d) => d.uploadedAt).map((d) => ({
+      date: d.uploadedAt,
+      icon: <FileText className="h-3.5 w-3.5 text-muted-foreground" />,
+      text: `Document uploaded: ${d.type?.replace(/_/g, ' ') ?? 'Document'}`,
+      sub: formatDate(d.uploadedAt),
+    })),
+    ...(engagement.orders ?? []).filter((o: any) => o.status === 'PAID').map((o: any) => ({
+      date: o.updatedAt ?? o.createdAt,
+      icon: <Receipt className="h-3.5 w-3.5 text-emerald-600" />,
+      text: `Payment received: $${Number(o.total).toLocaleString()}`,
+      sub: formatDate(o.updatedAt ?? o.createdAt),
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6);
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+      <div className="border-b border-border bg-muted/20 px-5 py-3.5">
+        <p className="text-sm font-semibold text-foreground">Recent Activity</p>
+      </div>
+      <div className="divide-y divide-border/60">
+        {events.map((ev, i) => (
+          <div key={i} className="flex items-start gap-3 px-5 py-3">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted/50 mt-0.5">
+              {ev.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-foreground">{ev.text}</p>
+              {ev.sub && <p className="text-xs text-muted-foreground mt-0.5">{ev.sub}</p>}
+            </div>
+            <span className="text-[10px] text-muted-foreground shrink-0 mt-1">{timeAgo(ev.date)}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -131,24 +428,23 @@ function MiniRing({ pct }: { pct: number }) {
 // ── Right Sidebar ─────────────────────────────────────────────────────────────
 
 function CaseSidebar({
-  consultant, engagement, progressPct, completedCount, milestones, onMessage, router,
+  consultant, engagement, progressPct, completedCount, milestones, docs, router,
 }: {
   consultant: any;
   engagement: any;
   progressPct: number;
   completedCount: number;
   milestones: any[];
-  onMessage: () => void;
+  docs: any[];
   router: ReturnType<typeof useRouter>;
 }) {
-  const caseRef = formatCaseRef(engagement?.id);
-
   function copyRef() {
-    navigator.clipboard.writeText(caseRef).then(() => toast.success('Case reference copied.'));
+    navigator.clipboard.writeText(formatCaseRef(engagement?.id))
+      .then(() => toast.success('Case reference copied.'));
   }
 
   return (
-    <div className="hidden xl:block w-[280px] shrink-0 sticky top-6 self-start space-y-4">
+    <div className="w-full xl:w-[280px] xl:shrink-0 xl:sticky xl:top-6 xl:self-start space-y-4">
 
       {/* Consultant card */}
       <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
@@ -161,24 +457,20 @@ function CaseSidebar({
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground leading-tight">{consultant.name}</p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   <p className="text-xs text-muted-foreground">Case Consultant</p>
                 </div>
                 {consultant.email && (
-                  <a
-                    href={`mailto:${consultant.email}`}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary mt-0.5 transition-colors"
-                  >
-                    <Envelope className="h-3 w-3" />
-                    {consultant.email}
+                  <a href={`mailto:${consultant.email}`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary mt-0.5 transition-colors">
+                    <Envelope className="h-3 w-3" /> {consultant.email}
                   </a>
                 )}
               </div>
             </div>
             <div className="flex gap-2">
               <button
-                onClick={onMessage}
+                onClick={() => router.push('/messages')}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
               >
                 <ChatText className="h-3.5 w-3.5" /> Message
@@ -187,7 +479,7 @@ function CaseSidebar({
                 onClick={() => router.push('/bookings')}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors"
               >
-                <CalendarBlank className="h-3.5 w-3.5" /> Book
+                <CalendarBlank className="h-3.5 w-3.5" /> Book call
               </button>
             </div>
           </>
@@ -201,76 +493,73 @@ function CaseSidebar({
         )}
       </div>
 
-      {/* Case reference + progress */}
+      {/* Case details */}
       <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Case Details</p>
         <div className="flex items-center justify-between mb-4">
-          <MiniRing pct={progressPct} />
+          <ProgressRing pct={progressPct} />
           <div className="text-right">
             <p className="text-xs text-muted-foreground">Milestones</p>
-            <p className="text-xl font-bold text-foreground">{completedCount}<span className="text-sm font-normal text-muted-foreground">/{milestones.length}</span></p>
+            <p className="text-2xl font-bold text-foreground leading-none">
+              {completedCount}<span className="text-sm font-normal text-muted-foreground">/{milestones.length}</span>
+            </p>
             <p className="text-xs text-muted-foreground">completed</p>
           </div>
         </div>
         <div className="space-y-2.5 text-xs border-t border-border pt-3">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Reference</span>
-            <button
-              onClick={copyRef}
-              className="flex items-center gap-1.5 font-mono font-bold text-foreground hover:text-primary transition-colors"
-            >
-              {caseRef}
-              <Copy className="h-3 w-3 text-muted-foreground" />
+            <button onClick={copyRef} className="flex items-center gap-1.5 font-mono font-bold text-foreground hover:text-primary transition-colors">
+              {formatCaseRef(engagement?.id)} <Copy className="h-3 w-3 text-muted-foreground" />
             </button>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Status</span>
-            <Badge variant={engagementStatusVariant(engagement.status)} className="text-xs">
+            <Badge variant={engagementStatusVariant(engagement.status)} className="text-[10px]">
               {engagement.status.replace(/_/g, ' ')}
             </Badge>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Opened</span>
-            <span className="font-medium text-foreground">
-              {new Date(engagement.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-            </span>
+            <span className="font-medium text-foreground">{formatDate(engagement.createdAt)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Days active</span>
+            <span className="font-medium text-foreground">{daysAgo(engagement.createdAt)}d</span>
           </div>
           {engagement.letterSignedAt && (
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Letter signed</span>
-              <span className="font-medium text-foreground">
-                {new Date(engagement.letterSignedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
+              <span className="font-medium text-foreground">{formatDate(engagement.letterSignedAt)}</span>
             </div>
           )}
         </div>
       </div>
 
+      {/* Documents summary */}
+      <DocsSummaryCard docs={docs} router={router} />
+
+      {/* Payments summary */}
+      <PaymentsSummaryCard orders={engagement.orders ?? []} router={router} />
+
       {/* Quick actions */}
       <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Quick Actions</p>
         <div className="space-y-1.5">
-          <button
-            onClick={() => router.push('/documents')}
-            className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <UploadSimple className="h-4 w-4 text-primary shrink-0" />
-            Upload documents
-          </button>
-          <button
-            onClick={() => router.push('/payments')}
-            className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <CreditCard className="h-4 w-4 text-primary shrink-0" />
-            Payments
-          </button>
-          <button
-            onClick={() => router.push('/academy')}
-            className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <BookOpen className="h-4 w-4 text-primary shrink-0" />
-            My courses
-          </button>
+          {[
+            { label: 'Upload documents', icon: <UploadSimple className="h-4 w-4 text-primary" />, href: '/documents' },
+            { label: 'Payments',         icon: <CreditCard className="h-4 w-4 text-primary" />,  href: '/payments' },
+            { label: 'My courses',       icon: <BookOpen className="h-4 w-4 text-primary" />,    href: '/academy' },
+            { label: 'Support tickets',  icon: <Headset className="h-4 w-4 text-primary" />,     href: '/tickets' },
+          ].map(({ label, icon, href }) => (
+            <button
+              key={href}
+              onClick={() => router.push(href)}
+              className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+            >
+              {icon} {label}
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -281,113 +570,148 @@ function CaseSidebar({
 
 export default function CasePage() {
   const router = useRouter();
-  const { engagement, progress, loading } = useUser();
-  const [messageOpen, setMessageOpen] = useState(false);
+  const { engagement, progress, loading, me } = useUser();
+  const [docs, setDocs] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (me?.id) {
+      api.getDocuments(me.id).then(setDocs).catch(() => {});
+    }
+  }, [me?.id]);
 
   const milestones: any[] = engagement?.milestones ?? [];
   const completedCount = milestones.filter((m) => !!m.completedAt).length;
   const progressPct = milestones.length > 0 ? Math.round((completedCount / milestones.length) * 100) : 0;
   const consultant = engagement?.consultants?.[0] ?? engagement?.consultant ?? null;
+  const orders: any[] = engagement?.orders ?? [];
+  const verifiedDocs = docs.filter((d) => d.status === 'VERIFIED').length;
 
   if (loading) return <CaseSkeleton />;
 
   return (
-    <>
-      <div className="space-y-6">
-        <PageHeader
-          title="My Case"
-          subtitle="Track your licensing journey and stay up to date with your consultant."
-          actions={
-            consultant ? (
-              <button
-                onClick={() => setMessageOpen(true)}
-                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
-              >
-                <ChatText className="h-4 w-4" /> Message consultant
-              </button>
-            ) : undefined
-          }
-        />
+    <div className="space-y-5">
 
-        {/* No engagement state */}
-        {!engagement && (
-          <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50">
-              <Buildings className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="font-semibold text-foreground">No active engagement</h3>
-            <p className="mt-2 max-w-sm mx-auto text-sm text-muted-foreground">
-              Your consulting engagement will appear here once your consultant sets it up after your initial session.
-            </p>
-            <button
-              onClick={() => router.push('/bookings')}
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
-            >
-              <CalendarBlank className="h-4 w-4" /> Book a consultation
-            </button>
-          </div>
+      {/* Page title */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">My Case</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Track your licensing journey and stay up to date with your consultant.</p>
+        </div>
+        {consultant && (
+          <button
+            onClick={() => router.push('/messages')}
+            className="shrink-0 flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors shadow-sm"
+          >
+            <ChatText className="h-4 w-4" /> Message consultant
+          </button>
         )}
+      </div>
 
-        {engagement && (
-          <div className="flex gap-6 items-start">
+      {/* No engagement */}
+      {!engagement && (
+        <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50">
+            <Buildings className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h3 className="font-semibold text-foreground">No active engagement</h3>
+          <p className="mt-2 max-w-sm mx-auto text-sm text-muted-foreground">
+            Your consulting engagement will appear here once your consultant sets it up after your initial session.
+          </p>
+          <button
+            onClick={() => router.push('/bookings')}
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
+          >
+            <CalendarBlank className="h-4 w-4" /> Book a consultation
+          </button>
+        </div>
+      )}
 
-            {/* ── Main column ──────────────────────────────────────── */}
-            <div className="flex-1 min-w-0 space-y-6">
+      {engagement && (
+        <>
+          {/* KPI strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <KpiChip
+              label="Milestones"
+              value={`${completedCount}/${milestones.length}`}
+              sub={milestones.length > 0 ? `${progressPct}% complete` : 'Not configured'}
+            />
+            <KpiChip
+              label="Documents"
+              value={verifiedDocs}
+              sub={`of ${docs.length} verified`}
+            />
+            <KpiChip
+              label="Days Active"
+              value={daysAgo(engagement.createdAt)}
+              sub={`Since ${formatDate(engagement.createdAt)}`}
+            />
+            <KpiChip
+              label="Stage"
+              value={progress?.currentStage?.label ?? '—'}
+              sub={progress?.currentStage?.pathway?.country ?? 'Awaiting assignment'}
+            />
+          </div>
+
+          {/* Next action banner */}
+          <NextActionBanner engagement={engagement} docs={docs} router={router} />
+
+          {/* Two-column layout */}
+          <div className="flex flex-col xl:flex-row gap-5 items-start">
+
+            {/* ── Main column ── */}
+            <div className="flex-1 min-w-0 space-y-5">
 
               {/* Engagement letter */}
               <div className={`rounded-2xl border p-6 shadow-sm ${
-                !!engagement.letterSignedAt
+                engagement.letterSignedAt
                   ? 'border-primary/20 bg-primary/5'
                   : 'border-amber-200 bg-amber-50/60'
               }`}>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
                     <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                      !!engagement.letterSignedAt ? 'bg-primary/10' : 'bg-amber-100'
+                      engagement.letterSignedAt ? 'bg-primary/10' : 'bg-amber-100'
                     }`}>
-                      {!!engagement.letterSignedAt
+                      {engagement.letterSignedAt
                         ? <Seal weight="fill" className="h-5 w-5 text-primary" />
                         : <Signature className="h-5 w-5 text-amber-600" />}
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground">Engagement Letter</h3>
                       <p className="mt-0.5 text-sm text-muted-foreground">
-                        {!!engagement.letterSignedAt
+                        {engagement.letterSignedAt
                           ? 'Signed and on file — your engagement is formally active.'
                           : 'Your engagement letter requires your signature before we can proceed.'}
                       </p>
                       {engagement.letterSignedAt && (
                         <p className="mt-1 text-xs font-medium text-primary">
-                          Signed {new Date(engagement.letterSignedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                          Signed {formatDate(engagement.letterSignedAt)}
                         </p>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {!!engagement.letterSignedAt ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
-                        <CheckCircle weight="fill" className="h-3.5 w-3.5" /> Signed
-                      </span>
-                    ) : (
-                      <a
-                        href={`/sign/${engagement.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition-colors"
-                      >
-                        <Signature className="h-4 w-4" /> Sign Letter
-                      </a>
-                    )}
-                  </div>
+                  {engagement.letterSignedAt ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
+                      <CheckCircle weight="fill" className="h-3.5 w-3.5" /> Signed
+                    </span>
+                  ) : engagement.letterUrl ? (
+                    <a
+                      href={`/sign/${engagement.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition-colors"
+                    >
+                      <Signature className="h-4 w-4" /> Sign Letter
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground rounded-xl border border-border bg-white px-3 py-1.5">
+                      Being prepared…
+                    </span>
+                  )}
                 </div>
-                {!engagement.letterSignedAt && !engagement.letterUrl && (
-                  <div className="mt-4 rounded-xl bg-white/70 px-4 py-3 text-xs text-muted-foreground">
-                    No engagement letter has been sent yet. Your consultant will send one shortly.
-                  </div>
-                )}
               </div>
 
               {/* Engagement overview */}
               <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-semibold text-foreground">Engagement Overview</h3>
@@ -396,7 +720,7 @@ export default function CasePage() {
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Opened {new Date(engagement.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                      Opened {formatDate(engagement.createdAt)}
                     </p>
                   </div>
 
@@ -415,23 +739,25 @@ export default function CasePage() {
                   )}
                 </div>
 
+                {/* Progress bar */}
                 {milestones.length > 0 && (
-                  <div className="mt-5">
+                  <div className="mb-5">
                     <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
                       <span>{completedCount} of {milestones.length} milestones complete</span>
-                      <span className="font-semibold text-foreground">{progressPct}%</span>
+                      <span className="font-bold text-foreground">{progressPct}%</span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                    <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
                       <div
-                        className="h-2 rounded-full bg-primary transition-all duration-700"
+                        className="h-2.5 rounded-full bg-primary transition-all duration-700"
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>
                   </div>
                 )}
 
+                {/* Team */}
                 {engagement.consultants?.length > 0 && (
-                  <div className="mt-5 border-t border-border pt-4">
+                  <div className="border-t border-border pt-4">
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your Team</p>
                     <div className="flex flex-wrap gap-3">
                       {engagement.consultants.map((c: any) => (
@@ -443,7 +769,7 @@ export default function CasePage() {
                             <p className="text-xs font-semibold text-foreground">{c.name}</p>
                             {c.email && (
                               <a href={`mailto:${c.email}`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
-                                <Envelope className="h-3 w-3" />{c.email}
+                                <Envelope className="h-3 w-3" /> {c.email}
                               </a>
                             )}
                           </div>
@@ -454,7 +780,7 @@ export default function CasePage() {
                 )}
               </div>
 
-              {/* Milestone pipeline */}
+              {/* Licensing Pipeline */}
               <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
                 <div className="mb-6 flex items-center gap-2">
                   <TrendUp className="h-5 w-5 text-primary" />
@@ -464,15 +790,13 @@ export default function CasePage() {
                   )}
                 </div>
 
-                {milestones.length === 0 && (
+                {milestones.length === 0 ? (
                   <div className="flex flex-col items-center rounded-xl border border-dashed border-border bg-muted/20 py-10 text-center">
                     <Clock className="mb-2 h-7 w-7 text-muted-foreground/40" />
                     <p className="text-sm font-medium text-foreground">Milestones being configured</p>
                     <p className="mt-1 text-xs text-muted-foreground">Your consultant is setting up your licensing stages. Check back soon.</p>
                   </div>
-                )}
-
-                {milestones.length > 0 && (
+                ) : (
                   <div className="space-y-0">
                     {milestones.map((m: any, i: number) => {
                       const isDone = !!m.completedAt;
@@ -492,9 +816,7 @@ export default function CasePage() {
                               {isDone ? <CheckCircle weight="fill" className="h-4 w-4" /> : i + 1}
                             </div>
                             {!isLast && (
-                              <div className={`mt-1 mb-1 w-0.5 flex-1 min-h-8 transition-colors ${
-                                isDone ? 'bg-primary/40' : 'bg-border'
-                              }`} />
+                              <div className={`mt-1 mb-1 w-0.5 flex-1 min-h-8 transition-colors ${isDone ? 'bg-primary/40' : 'bg-border'}`} />
                             )}
                           </div>
 
@@ -511,7 +833,7 @@ export default function CasePage() {
                               )}
                               {isDone && (
                                 <span className="text-xs text-muted-foreground">
-                                  Completed {new Date(m.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  Completed {formatDate(m.completedAt)}
                                 </span>
                               )}
                             </div>
@@ -553,7 +875,7 @@ export default function CasePage() {
                 )}
               </div>
 
-              {/* Current licensing stage detail */}
+              {/* Current stage detail */}
               {progress?.currentStage && (
                 <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
                   <div className="mb-4 flex items-center gap-2">
@@ -582,33 +904,45 @@ export default function CasePage() {
                     {progress.startedAt && (
                       <div className="rounded-xl bg-muted/30 p-4">
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Stage Started</p>
-                        <p className="mt-1 text-sm font-bold text-foreground">
-                          {new Date(progress.startedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                        </p>
+                        <p className="mt-1 text-sm font-bold text-foreground">{formatDate(progress.startedAt)}</p>
                       </div>
                     )}
                   </div>
                 </div>
               )}
+
+              {/* Activity Feed */}
+              <ActivityFeed engagement={engagement} docs={docs} />
+
+              {/* Mobile sidebar cards (visible below xl) */}
+              <div className="xl:hidden space-y-5">
+                <CaseSidebar
+                  consultant={consultant}
+                  engagement={engagement}
+                  progressPct={progressPct}
+                  completedCount={completedCount}
+                  milestones={milestones}
+                  docs={docs}
+                  router={router}
+                />
+              </div>
             </div>
 
-            {/* ── Right sidebar ─────────────────────────────────────── */}
-            <CaseSidebar
-              consultant={consultant}
-              engagement={engagement}
-              progressPct={progressPct}
-              completedCount={completedCount}
-              milestones={milestones}
-              onMessage={() => setMessageOpen(true)}
-              router={router}
-            />
+            {/* ── Right sidebar (xl only) ── */}
+            <div className="hidden xl:block w-[280px] shrink-0">
+              <CaseSidebar
+                consultant={consultant}
+                engagement={engagement}
+                progressPct={progressPct}
+                completedCount={completedCount}
+                milestones={milestones}
+                docs={docs}
+                router={router}
+              />
+            </div>
           </div>
-        )}
-      </div>
-
-      {messageOpen && (
-        <MessageModal consultant={consultant} onClose={() => setMessageOpen(false)} />
+        </>
       )}
-    </>
+    </div>
   );
 }
