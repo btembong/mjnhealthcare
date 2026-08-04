@@ -282,7 +282,7 @@ export class NotificationListener {
   @OnEvent('consultation.initiated')
   async onConsultationInitiated(payload: {
     bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
-    consultantName: string; sessionStart: string; amountUsd: number;
+    consultantName: string; sessionStart: string; amountUsd: number; paymentUrl?: string;
   }) {
     const sessionTime = new Date(payload.sessionStart).toLocaleString('en-GB', {
       timeZone: 'Africa/Douala', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
