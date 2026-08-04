@@ -160,6 +160,8 @@ export class PdfService {
         );
 
       // ── Footer ───────────────────────────────────────────────────────────
+      // Remove bottom margin so footer lines don't trigger auto-page-adds
+      doc.page.margins.bottom = 0;
       const footerY = doc.page.height - 76;
 
       doc.moveTo(L, footerY).lineTo(R, footerY)
