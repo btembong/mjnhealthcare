@@ -216,8 +216,8 @@ const navItems = [
 export function MarketingNav() {
   return (
     <>
-      {/* Top info bar */}
-      <div className="w-full bg-primary text-white text-xs py-2 px-6 hidden sm:block">
+      {/* Top info bar — fixed above the FloatingNav */}
+      <div className="fixed top-0 left-0 right-0 z-[60] bg-primary text-white text-xs py-2 px-6 hidden sm:block">
         <div className="mx-auto max-w-7xl flex items-center justify-between">
           <div className="flex items-center gap-5">
             <a
@@ -253,6 +253,7 @@ export function MarketingNav() {
       </div>
 
       <FloatingNav
+        className="sm:top-9"
         items={navItems}
         cta={
         <div className="flex items-center gap-3">

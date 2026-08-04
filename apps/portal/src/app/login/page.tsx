@@ -294,7 +294,7 @@ export default function LoginPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
               <span className="text-xs font-extrabold">MJN</span>
             </div>
-            <span className="font-bold tracking-tight">MJN Healthcarecare Academy</span>
+            <span className="font-bold tracking-tight">MJN Healthcare</span>
           </div>
 
           <div>
@@ -320,7 +320,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <p className="text-xs text-blue-200/70">© 2026 MJN Healthcarecare Academy and Professional Services</p>
+          <p className="text-xs text-blue-200/70">© 2026 MJN Healthcare Academy and Professional Services</p>
         </div>
 
         {/* Right panel */}
@@ -331,7 +331,7 @@ export default function LoginPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary">
                 <span className="text-xs font-bold text-white">MJN</span>
               </div>
-              <span className="font-bold text-foreground">MJN Healthcarecare Academy</span>
+              <span className="font-bold text-foreground">MJN Healthcare</span>
             </div>
 
             {/* ── Email step ── */}
