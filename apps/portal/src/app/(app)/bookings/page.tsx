@@ -281,7 +281,7 @@ export default function BookingsPage() {
           subtitle="Your scheduled sessions with your consultant and academy classes."
         />
         <button
-          onClick={() => router.push('/consult')}
+          onClick={() => window.open(`${process.env.NEXT_PUBLIC_WEB_URL ?? 'https://mjnhealthcare.com'}/consult`, '_blank')}
           className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors active:scale-[0.98] shrink-0"
         >
           <Plus className="h-4 w-4" /> Book a session
@@ -442,7 +442,7 @@ export default function BookingsPage() {
                 </p>
                 {tab === 'upcoming' && (
                   <button
-                    onClick={() => router.push('/consult')}
+                    onClick={() => window.open(`${process.env.NEXT_PUBLIC_WEB_URL ?? 'https://mjnhealthcare.com'}/consult`, '_blank')}
                     className="mt-5 flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
                   >
                     <Plus className="h-4 w-4" /> Book a session
@@ -593,7 +593,7 @@ export default function BookingsPage() {
                 <ChatCircle className="h-3.5 w-3.5" /> Message consultant
               </button>
               <button
-                onClick={() => router.push('/consult')}
+                onClick={() => window.open(`${process.env.NEXT_PUBLIC_WEB_URL ?? 'https://mjnhealthcare.com'}/consult`, '_blank')}
                 className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" /> Book new <ArrowRight className="h-3 w-3" />
@@ -606,7 +606,7 @@ export default function BookingsPage() {
         <BookingsSidebar
           nextSession={nextSession}
           router={router}
-          onBook={() => router.push('/consult')}
+          onBook={() => window.open(`${process.env.NEXT_PUBLIC_WEB_URL ?? 'https://mjnhealthcare.com'}/consult`, '_blank')}
         />
       </div>
     </div>
