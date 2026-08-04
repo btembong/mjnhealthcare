@@ -233,7 +233,6 @@ export function FloatingNav({ logo, items, cta, className }: FloatingNavProps) {
             );
           })}
         </div>
-      </div>
 
       {/* ── Mobile slide panel ──────────────────────────────────────────────── */}
       {/* Backdrop */}
