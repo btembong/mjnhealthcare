@@ -469,7 +469,6 @@ export class ConsultationService {
 
   async listAllConsultants() {
     return this.db.consultantProfile.findMany({
-      include: { person: { select: { id: true, name: true, email: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }

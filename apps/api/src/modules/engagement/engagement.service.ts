@@ -26,9 +26,8 @@ export class EngagementService {
     if (ids.length) {
       const profiles = await this.db.consultantProfile.findMany({
         where: { id: { in: ids } },
-        include: { person: { select: { name: true } } },
       });
-      profiles.forEach((p) => { nameMap[p.id] = p.person?.name ?? p.id; });
+      profiles.forEach((p) => { nameMap[p.id] = p.name ?? p.id; });
     }
 
     return engagements.map((e) => ({
