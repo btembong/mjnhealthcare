@@ -21,124 +21,184 @@ export class PdfService {
     paymentMode?: string;
   }): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const doc = new PDFDocument({ margin: 60, size: 'A4' });
       const chunks: Buffer[] = [];
       doc.on('data', (c: Buffer) => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      const PRIMARY = '#0F4C81';
-      const LIGHT   = '#F0F4F8';
-      const MUTED   = '#6B7280';
-      const pageW   = doc.page.width - 100; // usable width (margins 50 each side)
+      const INK    = '#0D0D0D';   // near-black for primary text
+      const MUTED  = '#6B7280';   // secondary labels
+      const RULE   = '#D1D5DB';   // thin divider lines
+      const L      = 60;          // left margin
+      const R      = doc.page.width - 60; // right margin
+      const W      = R - L;       // usable width
 
-      // ── Header bar ───────────────────────────────────────────────────────
-      doc.rect(0, 0, doc.page.width, 80).fill(PRIMARY);
-      doc.fillColor('white').fontSize(22).font('Helvetica-Bold')
-        .text('MJN Healthcare Academy', 50, 25);
-      doc.fillColor('white').fontSize(10).font('Helvetica')
-        .text('and Professional Services', 50, 51);
+      const REG_NUMBER  = process.env.COMPANY_REG_NUMBER  ?? 'RC-2019-YAO-0547';
+      const SOCIAL      = '@mjnhealthcare';
 
-      // Receipt label top-right
-      doc.fillColor('white').fontSize(10).font('Helvetica-Bold')
-        .text('RECEIPT', doc.page.width - 110, 25)
-        .font('Helvetica').fontSize(8)
-        .text(`#${snapshot.receiptId ?? snapshot.orderId}`, doc.page.width - 110, 41);
+      // ── Header (white background, no fill) ───────────────────────────────
+      // Company name — left aligned
+      doc.fillColor(INK).fontSize(15).font('Helvetica-Bold')
+        .text('MJN Healthcare Academy', L, 55, { continued: false });
+      doc.fillColor(MUTED).fontSize(9).font('Helvetica')
+        .text('and Professional Services Ltd', L, 74);
 
-      doc.moveDown(3);
+      // RECEIPT label — right aligned
+      doc.fillColor(INK).fontSize(22).font('Helvetica-Bold')
+        .text('RECEIPT', L, 50, { width: W, align: 'right' });
+
+      // Receipt ref number beneath label
+      const refNum = snapshot.receiptId ?? snapshot.orderId;
+      doc.fillColor(MUTED).fontSize(8).font('Helvetica')
+        .text(`No. ${refNum}`, L, 78, { width: W, align: 'right' });
+
+      // Full-width rule under header
+      const headerRuleY = 100;
+      doc.moveTo(L, headerRuleY).lineTo(R, headerRuleY)
+        .strokeColor(INK).lineWidth(1.2).stroke();
 
       // ── Meta row ─────────────────────────────────────────────────────────
-      const metaY = 100;
-      doc.fillColor(MUTED).fontSize(8).font('Helvetica')
-        .text('ISSUED TO', 50, metaY)
-        .text('DATE', 250, metaY)
-        .text('ORDER REF', 400, metaY);
+      const metaY = 116;
+      const col2  = L + 200;
+      const col3  = L + 380;
 
-      doc.fillColor('#111827').fontSize(10).font('Helvetica-Bold')
-        .text(snapshot.person.name, 50, metaY + 14)
-        .font('Helvetica').fontSize(9)
-        .text(snapshot.person.email, 50, metaY + 28);
+      // Labels
+      doc.fillColor(MUTED).fontSize(7.5).font('Helvetica')
+        .text('ISSUED TO', L, metaY)
+        .text('DATE ISSUED', col2, metaY)
+        .text('ORDER REFERENCE', col3, metaY);
 
+      // Values
       const issuedDate = new Date(snapshot.issuedAt).toLocaleDateString('en-GB', {
         day: '2-digit', month: 'long', year: 'numeric',
       });
-      doc.fillColor('#111827').fontSize(10).font('Helvetica-Bold')
-        .text(issuedDate, 250, metaY + 14);
+      doc.fillColor(INK).fontSize(10).font('Helvetica-Bold')
+        .text(snapshot.person.name, L, metaY + 13);
+      doc.fillColor(MUTED).fontSize(8.5).font('Helvetica')
+        .text(snapshot.person.email, L, metaY + 28);
 
-      doc.fillColor('#111827').fontSize(9).font('Helvetica')
-        .text(snapshot.orderId, 400, metaY + 14, { width: 145 });
+      doc.fillColor(INK).fontSize(10).font('Helvetica-Bold')
+        .text(issuedDate, col2, metaY + 13);
 
-      // ── Divider ──────────────────────────────────────────────────────────
-      doc.moveTo(50, metaY + 55).lineTo(doc.page.width - 50, metaY + 55)
-        .strokeColor('#E5E7EB').lineWidth(1).stroke();
+      doc.fillColor(INK).fontSize(9).font('Helvetica')
+        .text(snapshot.orderId, col3, metaY + 13, { width: R - col3 });
+
+      // Thin rule after meta
+      const metaRuleY = metaY + 52;
+      doc.moveTo(L, metaRuleY).lineTo(R, metaRuleY)
+        .strokeColor(RULE).lineWidth(0.5).stroke();
 
       // ── Line items table ─────────────────────────────────────────────────
-      let y = metaY + 70;
+      let y = metaRuleY + 16;
 
-      // Table header
-      doc.rect(50, y, pageW, 22).fill(LIGHT);
-      doc.fillColor(MUTED).fontSize(8).font('Helvetica-Bold')
-        .text('SERVICE', 58, y + 7)
-        .text('CATEGORY', 300, y + 7)
-        .text('AMOUNT', doc.page.width - 110, y + 7);
+      // Table column header
+      doc.fillColor(MUTED).fontSize(7.5).font('Helvetica-Bold')
+        .text('DESCRIPTION', L, y)
+        .text('CATEGORY', L + 300, y)
+        .text('AMOUNT (USD)', L, y, { width: W, align: 'right' });
 
-      y += 26;
+      y += 13;
+      // Column header underline
+      doc.moveTo(L, y).lineTo(R, y).strokeColor(INK).lineWidth(0.6).stroke();
+      y += 10;
 
-      // Rows
-      for (let i = 0; i < snapshot.lineItems.length; i++) {
-        const item = snapshot.lineItems[i];
-        const rowBg = i % 2 === 0 ? 'white' : '#FAFAFA';
-        doc.rect(50, y, pageW, 22).fill(rowBg);
+      // Row renderer — clean ruled lines, no alternating backgrounds
+      for (const item of snapshot.lineItems) {
+        doc.fillColor(INK).fontSize(9).font('Helvetica')
+          .text(item.name, L, y, { width: 285 });
 
-        doc.fillColor('#111827').fontSize(9).font('Helvetica')
-          .text(item.name, 58, y + 7, { width: 235 })
-          .text(item.category || '—', 300, y + 7, { width: 130 })
-          .text(`$${Number(item.priceCharged).toFixed(2)}`, doc.page.width - 110, y + 7, { width: 60, align: 'right' });
+        doc.fillColor(MUTED).fontSize(8.5).font('Helvetica')
+          .text(item.category || '—', L + 300, y, { width: 100 });
+
+        doc.fillColor(INK).fontSize(9).font('Helvetica')
+          .text(`$${Number(item.priceCharged).toFixed(2)}`, L, y, { width: W, align: 'right' });
 
         y += 22;
+
+        // Light rule between rows
+        doc.moveTo(L, y - 4).lineTo(R, y - 4)
+          .strokeColor(RULE).lineWidth(0.4).stroke();
       }
 
-      // ── Totals box ───────────────────────────────────────────────────────
-      y += 12;
-      const totalsX = doc.page.width - 220;
-      const totalsW = 170;
+      // ── Totals ───────────────────────────────────────────────────────────
+      y += 10;
+      const totW   = 180;
+      const totX   = R - totW;
 
-      const addTotalRow = (label: string, value: string, bold = false, color = '#111827') => {
-        doc.fillColor(MUTED).fontSize(9).font('Helvetica').text(label, totalsX, y);
-        doc.fillColor(color).fontSize(9).font(bold ? 'Helvetica-Bold' : 'Helvetica')
-          .text(value, totalsX, y, { width: totalsW, align: 'right' });
-        y += 16;
+      const drawTotalRow = (label: string, value: string, bold = false) => {
+        doc.fillColor(MUTED).fontSize(8.5).font('Helvetica')
+          .text(label, totX, y);
+        doc.fillColor(INK).fontSize(8.5).font(bold ? 'Helvetica-Bold' : 'Helvetica')
+          .text(value, totX, y, { width: totW, align: 'right' });
+        y += 17;
       };
 
-      addTotalRow('Subtotal', `$${snapshot.subtotal.toFixed(2)}`);
+      drawTotalRow('Subtotal', `$${snapshot.subtotal.toFixed(2)}`);
       if (snapshot.taxAmount > 0) {
-        addTotalRow(`Tax (${(snapshot.taxRate * 100).toFixed(0)}%)`, `$${snapshot.taxAmount.toFixed(2)}`);
+        drawTotalRow(
+          `Tax (${(snapshot.taxRate * 100).toFixed(2)}%)`,
+          `$${snapshot.taxAmount.toFixed(2)}`,
+        );
       }
 
-      doc.moveTo(totalsX, y).lineTo(totalsX + totalsW, y)
-        .strokeColor('#E5E7EB').lineWidth(0.5).stroke();
+      // Total separator rule
+      doc.moveTo(totX, y - 2).lineTo(R, y - 2)
+        .strokeColor(INK).lineWidth(0.6).stroke();
       y += 6;
 
-      addTotalRow('Total', `$${snapshot.total.toFixed(2)}`, true, PRIMARY);
+      doc.fillColor(MUTED).fontSize(9).font('Helvetica-Bold').text('TOTAL DUE', totX, y);
+      doc.fillColor(INK).fontSize(12).font('Helvetica-Bold')
+        .text(`$${snapshot.total.toFixed(2)}`, totX, y - 2, { width: totW, align: 'right' });
+      y += 20;
 
       if (snapshot.amountDueNow != null && snapshot.amountDueNow < snapshot.total) {
-        y += 4;
-        doc.rect(totalsX - 8, y - 4, totalsW + 16, 26).fill('#EFF6FF');
-        addTotalRow('Paid now', `$${snapshot.amountDueNow.toFixed(2)}`, true, PRIMARY);
-        addTotalRow('Balance due later', `$${(snapshot.total - snapshot.amountDueNow).toFixed(2)}`, false, MUTED);
+        drawTotalRow('Paid now', `$${snapshot.amountDueNow.toFixed(2)}`, true);
+        drawTotalRow(
+          'Balance due later',
+          `$${(snapshot.total - snapshot.amountDueNow).toFixed(2)}`,
+        );
       }
 
-      // ── Footer ───────────────────────────────────────────────────────────
-      const footerY = doc.page.height - 80;
-      doc.rect(0, footerY, doc.page.width, 80).fill(LIGHT);
+      // ── Payment note ─────────────────────────────────────────────────────
+      y += 20;
+      doc.moveTo(L, y).lineTo(R, y).strokeColor(RULE).lineWidth(0.5).stroke();
+      y += 12;
       doc.fillColor(MUTED).fontSize(8).font('Helvetica')
         .text(
-          'MJN Healthcare Academy and Professional Services · mjnhealthcare.com · noreply@mjnhealthcare.com',
-          50, footerY + 16, { align: 'center', width: doc.page.width - 100 },
-        )
+          'Payment processed securely. This receipt confirms receipt of funds by MJN Healthcare Academy and Professional Services Ltd. ' +
+          'It does not constitute a guarantee of any exam result, visa outcome, or employment placement.',
+          L, y, { width: W },
+        );
+
+      // ── Footer ───────────────────────────────────────────────────────────
+      const footerY = doc.page.height - 72;
+
+      // Full-width top rule
+      doc.moveTo(L, footerY).lineTo(R, footerY)
+        .strokeColor(INK).lineWidth(1).stroke();
+
+      // Line 1 — company identity + registration
+      doc.fillColor(INK).fontSize(8).font('Helvetica-Bold')
         .text(
-          'This is an official receipt. Please retain it for your records. For queries contact support@mjnhealth.com',
-          50, footerY + 32, { align: 'center', width: doc.page.width - 100 },
+          'MJN Healthcare Academy and Professional Services Ltd',
+          L, footerY + 10, { continued: true },
+        )
+        .font('Helvetica').fillColor(MUTED)
+        .text(`   ·   Reg. No. ${REG_NUMBER}   ·   Yaoundé, Cameroon`);
+
+      // Line 2 — web + contact
+      doc.fillColor(MUTED).fontSize(7.5).font('Helvetica')
+        .text(
+          `mjnhealthcare.com   ·   support@mjnhealthcare.com   ·   ${SOCIAL} (Instagram / Facebook / LinkedIn / X)`,
+          L, footerY + 26, { width: W },
+        );
+
+      // Line 3 — legal micro-text
+      doc.fillColor(MUTED).fontSize(7).font('Helvetica')
+        .text(
+          'Official receipt — retain for your records. Queries: support@mjnhealthcare.com',
+          L, footerY + 42, { width: W },
         );
 
       doc.end();
