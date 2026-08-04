@@ -229,7 +229,12 @@ export const api = {
     priceUsd: number; commissionRate?: number; photoUrl?: string;
   }) => request<any>('/consultations/admin/consultants', { method: 'POST', body: JSON.stringify(data) }),
 
-  updateConsultant: (id: string, data: { photoUrl?: string; bio?: string; specialty?: string; priceUsd?: number }) =>
+  updateConsultant: (id: string, data: {
+    name?: string; specialty?: string; bio?: string; photoUrl?: string;
+    consultationCategory?: string; languages?: string[];
+    priceUsd?: number; sessionDurationMins?: number;
+    commissionRate?: number; isActive?: boolean; status?: string;
+  }) =>
     request<any>(`/consultations/admin/consultants/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   getConsultantSlots: (consultantId: string) =>

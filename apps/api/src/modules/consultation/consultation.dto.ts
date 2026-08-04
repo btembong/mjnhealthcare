@@ -51,13 +51,17 @@ export class CreateConsultantDto {
 }
 
 export class UpdateConsultantDto {
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() specialty?: string;
+  @IsOptional() @IsString() bio?: string;
+  @IsOptional() @IsString() @IsUrl() photoUrl?: string;
+  @IsOptional() @IsEnum(['HEALTH', 'CAREER', 'BOTH']) consultationCategory?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) languages?: string[];
   @IsOptional() @IsNumber() @Type(() => Number) priceUsd?: number;
+  @IsOptional() @IsInt() @Min(15) @Max(120) sessionDurationMins?: number;
   @IsOptional() @IsNumber() @Min(0) @Max(1) @Type(() => Number) commissionRate?: number;
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsEnum(['ACTIVE', 'SUSPENDED']) status?: string;
-  @IsOptional() @IsString() photoUrl?: string;
-  @IsOptional() @IsString() bio?: string;
-  @IsOptional() @IsString() specialty?: string;
 }
 
 export class SubmitApplicationDto {
