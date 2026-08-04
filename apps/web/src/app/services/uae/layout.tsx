@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     'End-to-end UAE healthcare licensing support for nurses, physicians, and allied health professionals. DataFlow verification, DHA/MOH/DOH exam prep, and employer placement in Dubai and Abu Dhabi.',
   openGraph: {
-    title: 'UAE Healthcare Licensing — DHA, MOH & DOH | MJN Health',
+    title: 'UAE Healthcare Licensing — DHA, MOH & DOH | MJN Healthcare',
     description:
       'DataFlow verification, DHA/MOH/DOH licensing, and employer placement in Dubai and Abu Dhabi. Built for African health professionals.',
     url: 'https://mjnhealthcare.com/services/uae',

@@ -890,7 +890,7 @@ function GetStartedInner() {
                     </div>
                     <div>
                       <p className="font-bold text-foreground">Mbout John Nyah</p>
-                      <p className="text-xs text-muted-foreground">CEO & Founder · MJN Health</p>
+                      <p className="text-xs text-muted-foreground">CEO & Founder · MJN Healthcare</p>
                       <span className="mt-1 inline-block rounded-full border border-primary/20 bg-primary/5 px-2 py-[2px] text-xs font-semibold text-primary">
                         BSN · SRN · USRN
                       </span>

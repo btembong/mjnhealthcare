@@ -43,7 +43,7 @@ export class PaymentService {
         : itemNames.length <= 3
         ? itemNames.join(', ')
         : `${itemNames.slice(0, 2).join(', ')} +${itemNames.length - 2} more`;
-    const description = `MJN Health – ${descriptionDetail} · $${Number(order.total).toLocaleString()} USD`;
+    const description = `MJN Healthcare – ${descriptionDetail} · $${Number(order.total).toLocaleString()} USD`;
 
     const result = await this.tranzak.initiatePayment({
       orderId,

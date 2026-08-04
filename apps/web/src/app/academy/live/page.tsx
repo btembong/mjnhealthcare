@@ -201,7 +201,7 @@ function googleCalUrl(s: Session): string {
     action: 'TEMPLATE',
     text: s.title,
     dates: `${fmt(s.startIso)}/${fmt(s.endIso)}`,
-    details: `Instructor: ${s.instructor} — ${s.instructorTitle}\n\nJoin via your MJN Health Academy portal.`,
+    details: `Instructor: ${s.instructor} — ${s.instructorTitle}\n\nJoin via your MJN Healthcare Academy portal.`,
   });
   return `https://calendar.google.com/calendar/render?${params}`;
 }
@@ -211,13 +211,13 @@ function downloadIcs(s: Session) {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//MJN Health Academy//EN',
+    'PRODID:-//MJN Healthcare Academy//EN',
     'BEGIN:VEVENT',
     `DTSTART:${fmt(s.startIso)}`,
     `DTEND:${fmt(s.endIso)}`,
     `SUMMARY:${s.title}`,
     `DESCRIPTION:Instructor: ${s.instructor} — ${s.instructorTitle}`,
-    'LOCATION:Online (MJN Health Academy)',
+    'LOCATION:Online (MJN Healthcare Academy)',
     'END:VEVENT',
     'END:VCALENDAR',
   ].join('\r\n');

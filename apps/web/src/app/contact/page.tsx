@@ -258,7 +258,7 @@ export default function ContactPage() {
                   <div className="flex items-start gap-3">
                     <input type="checkbox" required id="consent" className="mt-0.5 h-4 w-4 rounded border-border accent-primary" />
                     <label htmlFor="consent" className="text-xs text-muted-foreground leading-relaxed">
-                      I agree to MJN Health contacting me in response to this enquiry. My details will be handled in accordance with the{' '}
+                      I agree to MJN Healthcare contacting me in response to this enquiry. My details will be handled in accordance with the{' '}
                       <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
                     </label>
                   </div>

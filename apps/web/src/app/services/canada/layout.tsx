@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     'NNAS credential assessment, provincial nursing registration, NCLEX-RN exam prep, and Canadian employer placement for internationally educated nurses and healthcare professionals.',
   openGraph: {
-    title: 'Canada NNAS & NCLEX-RN Nursing Licensing | MJN Health',
+    title: 'Canada NNAS & NCLEX-RN Nursing Licensing | MJN Healthcare',
     description:
       'NNAS assessment, NCLEX-RN prep, and Canadian employer placement. Full nursing licensing support from Africa to Canada.',
     url: 'https://mjnhealthcare.com/services/canada',

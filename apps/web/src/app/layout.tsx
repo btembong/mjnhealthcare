@@ -16,20 +16,20 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mjnhealthcare.com'
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    template: '%s | MJN Health Academy',
-    default: 'MJN Health Academy and Professional Services',
+    template: '%s | MJN Healthcare Academy',
+    default: 'MJN Healthcare Academy and Professional Services',
   },
   description:
     'Healthcare career consulting — global placement, licensing support, exam preparation, and student services across Africa, UAE, UK, US, and Ireland.',
   keywords: ['healthcare', 'nursing', 'NCLEX', 'DHA', 'HAAD', 'NMC', 'staffing', 'Africa', 'UAE', 'UK', 'Ireland', 'Cameroon'],
-  authors: [{ name: 'MJN Health Academy and Professional Services' }],
-  creator: 'MJN Health Academy',
+  authors: [{ name: 'MJN Healthcare Academy and Professional Services' }],
+  creator: 'MJN Healthcare Academy',
   openGraph: {
     type: 'website',
     locale: 'en_US',
     url: BASE_URL,
-    siteName: 'MJN Health Academy and Professional Services',
-    title: 'MJN Health Academy and Professional Services',
+    siteName: 'MJN Healthcare Academy and Professional Services',
+    title: 'MJN Healthcare Academy and Professional Services',
     description:
       'Healthcare career consulting — global placement, licensing support (UAE, UK, US, Ireland), exam preparation (NCLEX, DHA, NMC CBT), and student services.',
     images: [
@@ -37,13 +37,13 @@ export const metadata: Metadata = {
         url: '/og-default.png',
         width: 1200,
         height: 630,
-        alt: 'MJN Health Academy and Professional Services',
+        alt: 'MJN Healthcare Academy and Professional Services',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'MJN Health Academy and Professional Services',
+    title: 'MJN Healthcare Academy and Professional Services',
     description:
       'Global healthcare placement, licensing support, and exam prep — built for African health professionals.',
     images: ['/og-default.png'],

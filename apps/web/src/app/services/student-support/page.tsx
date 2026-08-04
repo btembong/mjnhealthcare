@@ -41,6 +41,29 @@ const services = [
   },
 ];
 
+const nonHealthcareServices = [
+  {
+    icon: '🎓',
+    title: 'University Application Support',
+    desc: 'Guidance on applying to pre-medicine, biomedical science, public health, and health management programmes at universities in the UK, Ireland, Canada, and Australia.',
+  },
+  {
+    icon: '✈️',
+    title: 'Study-Abroad Placement',
+    desc: 'Short and long-term exchange placements at partner institutions — ideal for pre-med and science students who want international academic exposure before entering a health profession.',
+  },
+  {
+    icon: '🔬',
+    title: 'Research & Lab Internships',
+    desc: 'Placement in research labs, public health organisations, and hospital administrative departments — for students who want health-adjacent experience without a clinical role.',
+  },
+  {
+    icon: '💡',
+    title: 'Career Pathway Advising',
+    desc: 'Not sure whether to pursue medicine, nursing, pharmacy, or allied health? We map the realistic path from your current education to your target profession — including entry requirements, timelines, and costs.',
+  },
+];
+
 const eligibility = [
   'Nursing students (year 2 and above)',
   'Medical / MBBS students (year 3 and above)',
@@ -102,12 +125,12 @@ export default function StudentSupportPage() {
         </div>
       </section>
 
-      {/* SERVICES */}
+      {/* SERVICES — Healthcare students */}
       <section className="px-6 py-16">
         <div className="mx-auto max-w-6xl">
           <div className="mb-12 text-center">
-            <Badge variant="outline" className="mb-3">Services</Badge>
-            <h2 className="text-4xl font-bold">What Student Support Includes</h2>
+            <Badge variant="outline" className="mb-3">Healthcare Students</Badge>
+            <h2 className="text-4xl font-bold">For Nursing, Medical &amp; Allied Health Students</h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
               Six service tracks — each available as a standalone engagement or as part of an early-career bundle.
             </p>
@@ -120,6 +143,33 @@ export default function StudentSupportPage() {
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SERVICES — Non-healthcare / pre-medicine students */}
+      <section className="bg-muted/20 px-6 py-16">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-12 text-center">
+            <Badge variant="outline" className="mb-3">Pre-Medicine &amp; General Health Students</Badge>
+            <h2 className="text-4xl font-bold">Not Yet in a Health Programme?</h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+              We also support pre-medicine, biomedical, public health, and general science students who are working toward a health career — from university placement to career pathway mapping.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {nonHealthcareServices.map(({ icon, title, desc }) => (
+              <div key={title} className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10 text-xl">{icon}</div>
+                <h3 className="font-semibold text-foreground">{title}</h3>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 text-center">
+            <Button asChild>
+              <Link href="/get-started">Book a Guidance Session <ArrowRight className="h-4 w-4" /></Link>
+            </Button>
           </div>
         </div>
       </section>

@@ -63,17 +63,11 @@ function CheckoutSkeleton() {
 function OrderSummarySidebar({
   cartLines,
   subtotal,
-  paymentMode,
-  step,
 }: {
   cartLines: { serviceItemId: string; variantKey?: string; name: string; price: number }[];
   subtotal: number;
-  paymentMode: 'FULL' | 'INSTALLMENT';
-  step: number;
 }) {
-  const firstInstalment = Math.ceil(subtotal / 2);
-  const secondInstalment = subtotal - firstInstalment;
-  const dueToday = paymentMode === 'INSTALLMENT' ? firstInstalment : subtotal;
+  const dueToday = subtotal;
 
   return (
     <div className="hidden xl:block w-72 shrink-0 sticky top-6">
@@ -109,19 +103,6 @@ function OrderSummarySidebar({
               <span className="flex items-center gap-1">Tax <Info className="h-3 w-3" /></span>
               <span>At payment</span>
             </div>
-
-            {step >= 1 && paymentMode === 'INSTALLMENT' && (
-              <>
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border">
-                  <span>1st instalment (today)</span>
-                  <span className="font-semibold text-foreground">${firstInstalment.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>2nd instalment (on milestone)</span>
-                  <span>${secondInstalment.toLocaleString()}</span>
-                </div>
-              </>
-            )}
 
             <div className="flex items-center justify-between border-t border-border pt-3">
               <span className="text-sm font-semibold text-foreground">Due today</span>
@@ -159,7 +140,7 @@ export default function CheckoutPage() {
   const [step, setStep] = useState(0);
   const [selections, setSelections] = useState<Selections>({});
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
-  const [paymentMode, setPaymentMode] = useState<'FULL' | 'INSTALLMENT'>('FULL');
+  const paymentMode = 'FULL' as const;
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -273,9 +254,7 @@ export default function CheckoutPage() {
 
   const cartLines = buildLines();
   const subtotal = cartLines.reduce((s, l) => s + l.price, 0);
-  const firstInstalment = Math.ceil(subtotal / 2);
-  const secondInstalment = subtotal - firstInstalment;
-  const dueToday = paymentMode === 'INSTALLMENT' ? firstInstalment : subtotal;
+  const dueToday = subtotal;
   const letterSigned = !!engagement?.letterSignedAt;
   const canProceed = cartLines.length > 0 && letterSigned && !!engagement && !hasMissingVariants() && !hasPendingOrder;
 
@@ -633,59 +612,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Payment plan */}
-              <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-                <p className="mb-3 text-sm font-semibold text-foreground">Choose a payment plan</p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {([
-                    {
-                      mode: 'FULL' as const,
-                      title: 'Pay in full',
-                      desc: 'Pay the full amount now — no further invoices.',
-                      badge: null,
-                      amount: `$${subtotal.toLocaleString()} today`,
-                    },
-                    {
-                      mode: 'INSTALLMENT' as const,
-                      title: 'Instalment plan',
-                      desc: 'Pay now, second instalment auto-invoiced on your milestone.',
-                      badge: 'Flexible',
-                      amount: `$${firstInstalment.toLocaleString()} today · $${secondInstalment.toLocaleString()} later`,
-                    },
-                  ]).map(({ mode, title, desc, badge, amount }) => (
-                    <button
-                      key={mode}
-                      onClick={() => setPaymentMode(mode)}
-                      className={`relative rounded-xl border-2 p-4 text-left transition-all ${
-                        paymentMode === mode
-                          ? 'border-primary bg-primary/5 shadow-sm'
-                          : 'border-border bg-white hover:border-primary/30'
-                      }`}
-                    >
-                      {badge && (
-                        <span className="absolute top-3 right-3 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
-                          {badge}
-                        </span>
-                      )}
-                      <div className={`flex items-center gap-2 mb-1 ${paymentMode === mode ? 'text-primary' : 'text-foreground'}`}>
-                        <div className={`flex h-4 w-4 items-center justify-center rounded-full border-2 shrink-0 ${
-                          paymentMode === mode ? 'border-primary' : 'border-border'
-                        }`}>
-                          {paymentMode === mode && <div className="h-2 w-2 rounded-full bg-primary" />}
-                        </div>
-                        <span className="text-sm font-semibold">{title}</span>
-                      </div>
-                      <p className={`text-xs leading-relaxed pl-6 ${paymentMode === mode ? 'text-primary/70' : 'text-muted-foreground'}`}>
-                        {desc}
-                      </p>
-                      <p className={`mt-1.5 pl-6 text-xs font-semibold ${paymentMode === mode ? 'text-primary' : 'text-muted-foreground'}`}>
-                        {amount}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="flex items-center justify-between">
                 <button
                   onClick={() => setStep(0)}
@@ -722,18 +648,8 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="border-t border-border bg-muted/10 px-5 py-4">
-                  <div className="flex items-center justify-between mb-1 text-sm text-muted-foreground">
-                    <span>Plan</span>
-                    <span className="font-medium text-foreground">{paymentMode === 'FULL' ? 'Full payment' : 'Instalment plan'}</span>
-                  </div>
-                  {paymentMode === 'INSTALLMENT' && (
-                    <div className="flex items-center justify-between mb-3 text-xs text-muted-foreground">
-                      <span>2nd instalment</span>
-                      <span>${secondInstalment.toLocaleString()} — invoiced on milestone</span>
-                    </div>
-                  )}
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-foreground">Due today</span>
+                    <span className="font-semibold text-foreground">Total due today</span>
                     <span className="text-2xl font-bold text-primary">${dueToday.toLocaleString()}</span>
                   </div>
                 </div>
@@ -770,7 +686,7 @@ export default function CheckoutPage() {
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   I confirm I have read and agree to the terms set out in my{' '}
                   <a href="/case" className="text-primary underline underline-offset-2">engagement letter</a>,
-                  including the scope of services, fee schedule, and the explicit disclaimer that MJN Health does not guarantee
+                  including the scope of services, fee schedule, and the explicit disclaimer that MJN Healthcare does not guarantee
                   exam pass rates, visa approvals, or job placements.
                 </p>
               </label>
@@ -811,8 +727,6 @@ export default function CheckoutPage() {
         <OrderSummarySidebar
           cartLines={cartLines}
           subtotal={subtotal}
-          paymentMode={paymentMode}
-          step={step}
         />
       </div>
     </div>

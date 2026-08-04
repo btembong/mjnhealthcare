@@ -5,8 +5,8 @@ import '../styles/globals.css';
 const exo2 = Exo_2({ subsets: ['latin'], variable: '--font-exo2', display: 'swap', weight: ['400', '500', '600', '700'] });
 
 export const metadata: Metadata = {
-  title: 'Partner Portal | MJN Health',
-  description: 'Post opportunities, review candidates, and manage your MJN Health partnership.',
+  title: 'Partner Portal | MJN Healthcare',
+  description: 'Post opportunities, review candidates, and manage your MJN Healthcare partnership.',
 };
 
 export default function PartnerLayout({ children }: { children: React.ReactNode }) {

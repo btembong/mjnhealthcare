@@ -71,6 +71,10 @@ const faqs = [
     a: 'The MJN NCLEX preparation is fully updated for the Next Generation NCLEX (NGN), which launched in April 2023. All practice questions include the new item types — clinical case studies, bow-tie questions, cloze drop-down, and matrix items. We do not use legacy question banks.',
   },
   {
+    q: 'Can I take the NCLEX exam in the UAE?',
+    a: 'No — the NCLEX does not have a Pearson VUE testing centre in the UAE. Candidates residing in or planning to move to the UAE must travel to sit the exam. The closest available centres are typically in India, Jordan, or the UK. We factor travel planning into your exam preparation timeline so there are no surprises.',
+  },
+  {
     q: 'How long should I prepare for NCLEX?',
     a: 'Most internationally educated nurses need 10–16 weeks of structured preparation. The NGN format tests clinical judgement (not just recall), which takes longer to develop than traditional NCLEX. Our study plan adapts to your diagnostic results and available hours per week.',
   },

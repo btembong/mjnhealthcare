@@ -146,7 +146,7 @@ const differentiators = [
 ];
 
 const timeline = [
-  { year: '2019', event: 'MJN Health founded in Yaoundé, Cameroon. First 12 placements in UAE under DHA licensing.' },
+  { year: '2019', event: 'MJN Healthcare founded in Yaoundé, Cameroon. First 12 placements in UAE under DHA licensing.' },
   { year: '2020', event: 'UK pathway launched. First NHS trust employer partnership established.' },
   { year: '2021', event: 'MJN Academy launched with NCLEX-RN and DHA exam preparation. 200 students enrolled in year one.' },
   { year: '2022', event: 'Ireland and US pathways added. Crossed 500 total placements. French-language services formally launched.' },
@@ -230,13 +230,13 @@ export default function AboutPage() {
           <div className="grid gap-12 lg:grid-cols-[1fr_340px] items-center">
             <div>
               <Badge className="mb-5 border border-white/20 bg-white/10 text-white backdrop-blur-sm">
-                About MJN Health
+                About MJN Healthcare
               </Badge>
               <h1 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl">
                 Founded by Healthcare Professionals<br className="hidden md:block" /> Who Lived This Journey
               </h1>
               <p className="mt-6 max-w-xl text-lg text-blue-100 leading-relaxed">
-                MJN Health was built because qualified African healthcare professionals were failing regulatory processes that had nothing to do with their clinical competence — and succeeding required knowing the system from the inside.
+                MJN Healthcare was built because qualified African healthcare professionals were failing regulatory processes that had nothing to do with their clinical competence — and succeeding required knowing the system from the inside.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -353,7 +353,7 @@ export default function AboutPage() {
                   She eventually registered, completed two years as an SHO in NHS foundation trusts — and returned to Cameroon with one question: how many qualified African professionals were failing not because of their clinical ability, but because of systems designed to be opaque?
                 </p>
                 <p className="font-semibold text-foreground">
-                  MJN Health was founded in Yaoundé in 2019 with 12 placements in its first year. Today it operates across four countries. Every team member has personally completed the licensing process they now advise on.
+                  MJN Healthcare was founded in Yaoundé in 2019 with 12 placements in its first year. Today it operates across four countries. Every team member has personally completed the licensing process they now advise on.
                 </p>
               </div>
             </div>

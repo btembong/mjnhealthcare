@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     'Practical guides on healthcare licensing (DHA, NMC, NCLEX, AHPRA), DataFlow documentation, salary benchmarks, and career pathways for African health professionals going abroad.',
   openGraph: {
-    title: 'Healthcare Licensing & Career Guides | MJN Health Blog',
+    title: 'Healthcare Licensing & Career Guides | MJN Healthcare Blog',
     description:
       'Expert guides on DHA, NMC, NCLEX, DataFlow, Irish NMBI, and more. Written for African health professionals planning to work abroad.',
     url: 'https://mjnhealthcare.com/blog',

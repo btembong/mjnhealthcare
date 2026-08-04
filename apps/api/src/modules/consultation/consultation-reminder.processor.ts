@@ -23,12 +23,12 @@ export class ConsultationReminderProcessor {
   async handle24h(job: Job<ReminderPayload>) {
     const { clientName, clientEmail, clientPhone, consultantName, sessionStart, roomUrl } = job.data;
     const time = new Date(sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
-    const msg = `Hi ${clientName}, this is a reminder that your MJN Health consultation with ${consultantName} is tomorrow at ${time} WAT. Your join link: ${roomUrl}`;
+    const msg = `Hi ${clientName}, this is a reminder that your MJN Healthcare consultation with ${consultantName} is tomorrow at ${time} WAT. Your join link: ${roomUrl}`;
 
     await Promise.all([
       this.notifications.sendEmail(
         clientEmail,
-        'Your MJN Health Consultation — Tomorrow',
+        'Your MJN Healthcare Consultation — Tomorrow',
         `<p>Hi <strong>${clientName}</strong>,</p>
         <p>Your consultation with <strong>${consultantName}</strong> is scheduled for <strong>${time} WAT</strong>.</p>
         <p><a href="${roomUrl}" style="background:#0F4C81;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Join Session</a></p>

@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     'Book a 45-minute video consultation with a licensed healthcare professional or MJN career consultant. General health advice, licensing pathway planning, and career guidance. Pay online — no account needed.',
   openGraph: {
-    title: 'Book an Expert Consultation | MJN Health',
+    title: 'Book an Expert Consultation | MJN Healthcare',
     description:
       'Health advice or career & licensing guidance — 45 minutes, secure video call, pay online. No account needed.',
     url: 'https://mjnhealthcare.com/consult',

@@ -21,8 +21,8 @@ async function bootstrap() {
   });
 
   const config = new DocumentBuilder()
-    .setTitle('MJN Health API')
-    .setDescription('MJN Health Academy and Professional Services API')
+    .setTitle('MJN Healthcare API')
+    .setDescription('MJN Healthcare Academy and Professional Services API')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -32,7 +32,7 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(`MJN Health API running on port ${port}`);
+  console.log(`MJN Healthcare API running on port ${port}`);
 }
 
 bootstrap();

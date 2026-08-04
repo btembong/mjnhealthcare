@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     'Structured exam preparation for NCLEX-RN, DHA, HAAD/DOH, and NMC CBT. AI study assistant, live virtual classes, 5,000+ questions, and a 94% average pass rate. Available in English and French.',
   openGraph: {
-    title: 'Healthcare Exam Prep — NCLEX, DHA, NMC CBT | MJN Health Academy',
+    title: 'Healthcare Exam Prep — NCLEX, DHA, NMC CBT | MJN Healthcare Academy',
     description:
       'Pass your licensing exam first attempt. AI tutor, live classes, and 5,000+ exam-specific questions. EN & FR. 94% pass rate.',
     url: 'https://mjnhealthcare.com/academy',

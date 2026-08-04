@@ -68,33 +68,32 @@ export function FloatingNav({ logo, items, cta, className }: FloatingNavProps) {
   return (
     <div ref={navRef} className={cn('fixed top-0 left-0 right-0 z-50', className)}>
 
-      {/* ── Floating bar wrapper — centred, never changes width on scroll ── */}
-      <div className="flex justify-center px-4 pt-3">
-        <div
-          className={cn(
-            'w-full max-w-[1120px] rounded-xl transition-all duration-300',
-            scrolled
-              ? 'bg-white/96 shadow-xl shadow-black/10 ring-1 ring-black/8 backdrop-blur-2xl'
-              : 'bg-white/85 shadow-md shadow-black/6 ring-1 ring-black/6 backdrop-blur-xl',
-          )}
-        >
+      {/* ── Full-width header bar ── */}
+      <div
+        className={cn(
+          'w-full transition-all duration-300 border-b',
+          scrolled
+            ? 'bg-white shadow-md border-border/80'
+            : 'bg-white border-border/50 shadow-sm',
+        )}
+      >
           {/* ── Main row ─────────────────────────────────────────────────── */}
-          <div className="flex h-[60px] items-center justify-between px-5">
+          <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-6">
 
             {/* Logo */}
             <div className="shrink-0">
               {logo ?? (
-                <Link href="/" className="group flex items-center gap-2.5">
-                  <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-sm shadow-primary/30">
-                    <span className="text-[10px] font-black tracking-tight text-white">MJN</span>
-                    <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#00A896] ring-2 ring-white" />
+                <Link href="/" className="group flex items-center gap-3">
+                  <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm shadow-primary/30">
+                    <span className="text-[11px] font-black tracking-tight text-white">MJN</span>
+                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#00A896] ring-2 ring-white" />
                   </div>
-                  <div className="hidden flex-col leading-none sm:flex">
-                    <span className="text-[13px] font-bold tracking-tight text-foreground transition-colors group-hover:text-primary">
-                      MJN Health
+                  <div className="flex flex-col leading-none">
+                    <span className="text-[16px] font-extrabold tracking-tight text-foreground transition-colors group-hover:text-primary">
+                      MJN Healthcare
                     </span>
-                    <span className="text-[9px] font-medium uppercase tracking-[0.11em] text-muted-foreground">
-                      Academy & Professional Services
+                    <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+                      Academy &amp; Professional Services
                     </span>
                   </div>
                 </Link>
@@ -240,7 +239,7 @@ export function FloatingNav({ logo, items, cta, className }: FloatingNavProps) {
       {/* Backdrop */}
       <div
         className={cn(
-          'fixed inset-0 top-[76px] bg-black/20 backdrop-blur-sm transition-opacity duration-200 lg:hidden',
+          'fixed inset-0 top-[68px] bg-black/20 backdrop-blur-sm transition-opacity duration-200 lg:hidden',
           mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
         )}
         onClick={() => setMobileOpen(false)}
@@ -249,20 +248,20 @@ export function FloatingNav({ logo, items, cta, className }: FloatingNavProps) {
       {/* Panel */}
       <div
         className={cn(
-          'fixed right-3 top-[76px] bottom-4 w-full max-w-[340px] overflow-y-auto rounded-xl bg-white shadow-2xl ring-1 ring-black/8 transition-all duration-300 lg:hidden',
+          'fixed right-3 top-[72px] bottom-4 w-full max-w-[340px] overflow-y-auto rounded-xl bg-white shadow-2xl ring-1 ring-black/8 transition-all duration-300 lg:hidden',
           mobileOpen ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0 pointer-events-none',
         )}
       >
         {/* Panel header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <Link href="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-2.5">
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-[10px] font-black text-white">MJN</span>
-              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#00A896] ring-2 ring-white" />
+          <Link href="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-3">
+            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+              <span className="text-[11px] font-black text-white">MJN</span>
+              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#00A896] ring-2 ring-white" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="text-[13px] font-bold text-foreground">MJN Health</span>
-              <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Academy & Professional Services</span>
+              <span className="text-[15px] font-extrabold text-foreground">MJN Healthcare</span>
+              <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Academy &amp; Professional Services</span>
             </div>
           </Link>
           <button

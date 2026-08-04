@@ -170,7 +170,7 @@ export class ConsultationService {
         body: JSON.stringify({
           amount: Number(consultant.priceUsd),
           currencyCode: 'USD',
-          description: `MJN Health — ${dto.consultationCategory} Consultation with ${consultant.name}`,
+          description: `MJN Healthcare — ${dto.consultationCategory} Consultation with ${consultant.name}`,
           returnUrl,
           callbackUrl: notifyUrl,
           mchTransactionRef: booking.id,

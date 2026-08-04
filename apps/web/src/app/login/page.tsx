@@ -94,7 +94,7 @@ export default function LoginPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
               <span className="text-sm font-bold text-white">MJN</span>
             </div>
-            <span className="font-bold text-foreground text-lg">MJN Health Academy</span>
+            <span className="font-bold text-foreground text-lg">MJN Healthcare Academy</span>
           </Link>
           <p className="text-sm text-muted-foreground">Sign in to your account</p>
         </div>

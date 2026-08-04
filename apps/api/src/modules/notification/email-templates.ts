@@ -1,5 +1,5 @@
 /**
- * MJN Health — Email templates.
+ * MJN Healthcare — Email templates.
  *
  * Design language: clean, minimal professional services (Clio / Stripe aesthetic).
  *  • Thin gradient accent bar at card top
@@ -32,7 +32,7 @@ export function shell(body: string): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>MJN Health</title>
+  <title>MJN Healthcare</title>
 </head>
 <body style="margin:0;padding:0;background:${BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${BG};padding:48px 16px 64px;">
@@ -50,10 +50,10 @@ export function shell(body: string): string {
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
             <td>
-              <span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;color:${NAVY};">MJN</span><span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;color:${TEAL};"> Health</span>
+              <span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;color:${NAVY};">MJN</span><span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;color:${TEAL};"> Healthcare</span>
             </td>
             <td align="right">
-              <span style="font-size:10px;font-weight:600;letter-spacing:1.8px;text-transform:uppercase;color:${MUTED};">Professional Services</span>
+              <span style="font-size:10px;font-weight:600;letter-spacing:1.8px;text-transform:uppercase;color:${MUTED};">Academy &amp; Professional Services</span>
             </td>
           </tr>
         </table>
@@ -78,9 +78,9 @@ export function shell(body: string): string {
     <tr>
       <td style="background:#F8FAFB;border:1px solid ${BORDER};border-top:none;border-radius:0 0 8px 8px;padding:20px 40px;">
         <p style="margin:0;font-size:11px;color:#9AA3B0;line-height:1.8;text-align:center;">
-          MJN Health Academy &amp; Professional Services &nbsp;·&nbsp;
-          <a href="${WEB()}" style="color:#9AA3B0;text-decoration:none;">mjnhealth.com</a><br>
-          Sent because of your engagement with MJN Health. Reply to this email with any questions.
+          MJN Healthcarecare Academy and Professional Services Ltd &nbsp;·&nbsp;
+          <a href="${WEB()}" style="color:#9AA3B0;text-decoration:none;">mjnhealthcare.com</a><br>
+          Sent because of your engagement with MJN Healthcarecare. Reply to this email with any questions.
         </p>
       </td>
     </tr>
@@ -237,7 +237,7 @@ export function tplEngagementOnHold(opts: {
     greeting(opts.name) +
     label('Account') +
     h1('Engagement on hold') +
-    p('Your MJN Health engagement has been placed on hold due to an outstanding payment.') +
+    p('Your MJN Healthcare engagement has been placed on hold due to an outstanding payment.') +
     infoTable([
       row('Amount outstanding', `<strong style="font-size:16px;color:#DC2626;">$${opts.amount.toFixed(2)}</strong>`),
       row('Days overdue', `${opts.daysPastDue} days`),
@@ -419,10 +419,10 @@ export function tplApplicationReviewed(opts: {
       greeting(opts.applicantName) +
       label('Application') +
       h1('Application approved') +
-      p('Your application to join the MJN Health consultant network has been approved. Your profile will be activated and you will receive access credentials shortly.') +
+      p('Your application to join the MJN Healthcare consultant network has been approved. Your profile will be activated and you will receive access credentials shortly.') +
       btn('Learn more', `${WEB()}/become-a-consultant`) +
       divider() +
-      pSmall('Welcome to the MJN Health team.')
+      pSmall('Welcome to the MJN Healthcare team.')
     );
   }
   return shell(
@@ -432,7 +432,7 @@ export function tplApplicationReviewed(opts: {
     p(`Thank you for your interest in joining our consultant network. After careful review, we are unable to proceed with your application at this time.${opts.reviewNote ? ` <em>${opts.reviewNote}</em>` : ''}`) +
     p('You are welcome to reapply in the future.') +
     divider() +
-    pSmall('We appreciate your interest in MJN Health and wish you the very best.')
+    pSmall('We appreciate your interest in MJN Healthcare and wish you the very best.')
   );
 }
 
@@ -441,7 +441,7 @@ export function tplEngagementSignRequest(opts: { name: string; signUrl: string }
     greeting(opts.name) +
     label('Action required') +
     h1('Sign your engagement letter') +
-    p('Your MJN Health consulting engagement is ready. Please sign your engagement letter to activate your case. The letter covers scope, fees, and key disclaimers — it takes about 2 minutes to review.') +
+    p('Your MJN Healthcare consulting engagement is ready. Please sign your engagement letter to activate your case. The letter covers scope, fees, and key disclaimers — it takes about 2 minutes to review.') +
     btn('Read &amp; sign letter', opts.signUrl) +
     divider() +
     pSmall('This link is personal to you — do not share it. If you did not request this, contact us at support@mjnhealth.com.')
@@ -520,7 +520,7 @@ export function tplOtp(opts: { otp: string }): string {
   return shell(
     label('Verification') +
     h1('Your sign-in code') +
-    p('Use the code below to sign in to MJN Health. It expires in <strong>10 minutes</strong> and can only be used once.') +
+    p('Use the code below to sign in to MJN Healthcare. It expires in <strong>10 minutes</strong> and can only be used once.') +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 28px;">
       <tr>
         <td align="center">
@@ -530,7 +530,7 @@ export function tplOtp(opts: { otp: string }): string {
         </td>
       </tr>
     </table>` +
-    notice('Do not share this code. MJN Health staff will never ask for your OTP.', 'warning') +
+    notice('Do not share this code. MJN Healthcare staff will never ask for your OTP.', 'warning') +
     divider() +
     pSmall('If you did not request this code, you can safely ignore this email.')
   );

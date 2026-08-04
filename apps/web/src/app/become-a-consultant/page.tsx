@@ -16,7 +16,7 @@ const LANGUAGES = ['English', 'French', 'Arabic', 'Hausa', 'Yoruba', 'Igbo', 'Sw
 const perks = [
   { icon: Money, title: 'Earn on Your Schedule', desc: '75% of each session fee paid to you. Sessions run 45 minutes. Set your own availability.' },
   { icon: VideoCamera, title: 'Fully Remote', desc: 'All sessions via secure Daily.co video — no commute, no overhead. Conduct sessions from anywhere.' },
-  { icon: Users, title: 'Established Client Base', desc: 'MJN Health brings the clients. Your profile goes live on our public consultation page the moment you\'re approved.' },
+  { icon: Users, title: 'Established Client Base', desc: 'MJN Healthcare brings the clients. Your profile goes live on our public consultation page the moment you\'re approved.' },
   { icon: CheckCircle, title: 'Flexible Engagement', desc: 'List as a marketplace partner or discuss an employed/contracted arrangement. Both models are available.' },
 ];
 
@@ -87,7 +87,7 @@ export default function BecomeAConsultantPage() {
             Join Our Network
           </Badge>
           <h1 className="max-w-3xl text-5xl font-extrabold leading-tight tracking-tight md:text-6xl">
-            Become an MJN Health Consultant
+            Become an MJN Healthcare Consultant
           </h1>
           <p className="mt-5 max-w-xl text-lg text-blue-100">
             Join our network of licensed healthcare professionals and career consultants. Offer paid video consultations to clients across Africa and beyond — on your own schedule.
@@ -246,7 +246,7 @@ export default function BecomeAConsultantPage() {
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input required type="checkbox" className="mt-0.5 h-4 w-4 rounded accent-primary shrink-0" />
                   <span className="text-xs text-muted-foreground leading-relaxed">
-                    I confirm that the information provided is accurate. I understand that MJN Health will verify my credentials and that providing false information will result in immediate rejection and potential reporting to the relevant regulatory body. I agree to the <Link href="/terms" className="text-primary hover:underline">Consultant Terms of Engagement</Link>. *
+                    I confirm that the information provided is accurate. I understand that MJN Healthcare will verify my credentials and that providing false information will result in immediate rejection and potential reporting to the relevant regulatory body. I agree to the <Link href="/terms" className="text-primary hover:underline">Consultant Terms of Engagement</Link>. *
                   </span>
                 </label>
               </div>

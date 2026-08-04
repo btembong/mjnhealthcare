@@ -22,7 +22,7 @@ const faqs = [
   },
   {
     q: 'Do you support French speakers?',
-    a: "Yes — French is a first-class language at MJN Health. Your consultant, your study materials, the AI Study Assistant, and all official communications are available in French. Our francophone team serves Cameroon, Côte d'Ivoire, Senegal, DRC, and other French-speaking markets.",
+    a: "Yes — French is a first-class language at MJN Healthcare. Your consultant, your study materials, the AI Study Assistant, and all official communications are available in French. Our francophone team serves Cameroon, Côte d'Ivoire, Senegal, DRC, and other French-speaking markets.",
   },
   {
     q: 'How long does the UAE DHA licensing process take?',

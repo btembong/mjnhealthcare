@@ -96,7 +96,7 @@ function addToGoogleCalendar(booking: any) {
     : new Date(start.getTime() + 60 * 60000);
   const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace('.000', '');
   const cfg = getConfig(booking.type);
-  const title = encodeURIComponent(`MJN Health: ${cfg.label}`);
+  const title = encodeURIComponent(`MJN Healthcare: ${cfg.label}`);
   const dates = `${fmt(start)}/${fmt(end)}`;
   const desc = encodeURIComponent(
     [booking.meetingUrl ? `Join: ${booking.meetingUrl}` : '', booking.notes ?? ''].filter(Boolean).join('\n')

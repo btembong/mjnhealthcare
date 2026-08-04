@@ -67,13 +67,13 @@ export class AuthService {
     if (via === 'email') {
       await this.notificationService.sendEmail(
         identifier,
-        'Your MJN Health verification code',
+        'Your MJN Healthcare verification code',
         tplOtp({ otp }),
       );
     } else {
       await this.notificationService.sendSms(
         identifier,
-        `Your MJN Health verification code is: ${otp}. Valid for 10 minutes.`,
+        `Your MJN Healthcare verification code is: ${otp}. Valid for 10 minutes.`,
       );
     }
     this.logger.log(`OTP sent to ${identifier} via ${via}`);

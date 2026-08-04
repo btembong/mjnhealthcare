@@ -49,7 +49,7 @@ export function SiteFooter() {
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
                 <span className="text-xs font-bold text-white">MJN</span>
               </div>
-              <span className="font-bold text-foreground">MJN Health Academy</span>
+              <span className="font-bold text-foreground">MJN Healthcare Academy</span>
             </div>
             <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
               Healthcare career consulting for nurses, physicians, and allied health professionals from Africa.
@@ -135,7 +135,7 @@ export function SiteFooter() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © 2026 MJN Health Academy and Professional Services. All rights reserved.
+            © 2026 MJN Healthcare Academy and Professional Services Ltd. All rights reserved.
           </p>
           <div className="flex flex-wrap gap-5">
             {[

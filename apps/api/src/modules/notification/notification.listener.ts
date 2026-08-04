@@ -56,7 +56,7 @@ export class NotificationListener {
     if (person.email) {
       await this.notificationService.sendEmail(
         person.email,
-        'Payment Confirmed — MJN Health',
+        'Payment Confirmed — MJN Healthcare',
         T.tplPaymentConfirmed({ name: person.name, receiptId: payload.receiptId ?? 'N/A', orderId: payload.orderId }),
         person.name,
         pdfAttachment ? [pdfAttachment] : undefined,
@@ -65,7 +65,7 @@ export class NotificationListener {
     if (person.phone) {
       await this.notificationService.sendWhatsApp(
         person.phone,
-        `MJN Health: Payment confirmed ✓ Your engagement is now active. Receipt: ${payload.receiptId ?? 'N/A'}. Log in at ${process.env.PORTAL_URL ?? 'http://localhost:3002'}`,
+        `MJN Healthcare: Payment confirmed ✓ Your engagement is now active. Receipt: ${payload.receiptId ?? 'N/A'}. Log in at ${process.env.PORTAL_URL ?? 'http://localhost:3002'}`,
       );
     }
     this.logger.log(`Payment confirmed notifications sent for order ${payload.orderId}`);
@@ -79,7 +79,7 @@ export class NotificationListener {
     if (payload.email) {
       await this.notificationService.sendEmail(
         payload.email,
-        'Instalment Payment Due — MJN Health',
+        'Instalment Payment Due — MJN Healthcare',
         T.tplInstallmentDue({ name: payload.personName ?? 'Client', orderId: payload.orderId, amount }),
         payload.personName,
       );
@@ -87,7 +87,7 @@ export class NotificationListener {
     if (payload.phone) {
       await this.notificationService.sendWhatsApp(
         payload.phone,
-        `MJN Health: Your instalment payment of $${amount.toFixed(2)} is due. Pay at ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments`,
+        `MJN Healthcare: Your instalment payment of $${amount.toFixed(2)} is due. Pay at ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments`,
       );
     }
   }
@@ -105,8 +105,8 @@ export class NotificationListener {
       await this.notificationService.sendEmail(
         payload.email,
         isWarning
-          ? `Urgent: Payment ${payload.daysPastDue} Days Overdue — MJN Health`
-          : `Reminder: Instalment Payment Overdue — MJN Health`,
+          ? `Urgent: Payment ${payload.daysPastDue} Days Overdue — MJN Healthcare`
+          : `Reminder: Instalment Payment Overdue — MJN Healthcare`,
         T.tplInstallmentOverdue({
           name: payload.personName ?? 'Client',
           orderId: payload.orderId,
@@ -120,8 +120,8 @@ export class NotificationListener {
     }
     if (payload.phone) {
       const sms = isWarning
-        ? `MJN Health ⚠: Your payment of $${payload.amount.toFixed(2)} is ${payload.daysPastDue} days overdue. Engagement holds in ${daysUntilHold} days. Pay now: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments`
-        : `MJN Health: Reminder — instalment of $${payload.amount.toFixed(2)} is ${payload.daysPastDue} days overdue. Pay at ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments`;
+        ? `MJN Healthcare ⚠: Your payment of $${payload.amount.toFixed(2)} is ${payload.daysPastDue} days overdue. Engagement holds in ${daysUntilHold} days. Pay now: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments`
+        : `MJN Healthcare: Reminder — instalment of $${payload.amount.toFixed(2)} is ${payload.daysPastDue} days overdue. Pay at ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments`;
       await this.notificationService.sendWhatsApp(payload.phone, sms);
     }
     this.logger.warn(`Dunning step ${payload.step} sent for order ${payload.orderId} (${payload.daysPastDue}d overdue)`);
@@ -136,7 +136,7 @@ export class NotificationListener {
     if (payload.email) {
       await this.notificationService.sendEmail(
         payload.email,
-        'Your Engagement Has Been Placed On Hold — MJN Health',
+        'Your Engagement Has Been Placed On Hold — MJN Healthcare',
         T.tplEngagementOnHold({
           name: payload.personName ?? 'Client',
           engagementId: payload.engagementId,
@@ -150,7 +150,7 @@ export class NotificationListener {
     if (payload.phone) {
       await this.notificationService.sendWhatsApp(
         payload.phone,
-        `MJN Health: Your engagement is ON HOLD — overdue payment of $${payload.amount.toFixed(2)}. Pay immediately at ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments to reinstate.`,
+        `MJN Healthcare: Your engagement is ON HOLD — overdue payment of $${payload.amount.toFixed(2)}. Pay immediately at ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments to reinstate.`,
       );
     }
 
@@ -185,7 +185,7 @@ export class NotificationListener {
     if (person.email) {
       await this.notificationService.sendEmail(
         person.email,
-        `Document Expiring in ${payload.daysLeft} Days — MJN Health`,
+        `Document Expiring in ${payload.daysLeft} Days — MJN Healthcare`,
         T.tplDocumentExpiring({ name: person.name ?? 'Client', daysLeft: payload.daysLeft, documentType: payload.documentType }),
         person.name,
       );
@@ -193,7 +193,7 @@ export class NotificationListener {
     if (person.phone) {
       await this.notificationService.sendWhatsApp(
         person.phone,
-        `MJN Health: One of your documents expires in ${payload.daysLeft} day${payload.daysLeft !== 1 ? 's' : ''}. Upload a renewal at ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/documents`,
+        `MJN Healthcare: One of your documents expires in ${payload.daysLeft} day${payload.daysLeft !== 1 ? 's' : ''}. Upload a renewal at ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/documents`,
       );
     }
   }
@@ -209,7 +209,7 @@ export class NotificationListener {
     if (person.email) {
       await this.notificationService.sendEmail(
         person.email,
-        `Licensing Update: ${payload.stage.label} — MJN Health`,
+        `Licensing Update: ${payload.stage.label} — MJN Healthcare`,
         T.tplLicensingStageChanged({ name: person.name ?? 'Client', stageLabel: payload.stage.label }),
         person.name,
       );
@@ -217,7 +217,7 @@ export class NotificationListener {
     if (person.phone) {
       await this.notificationService.sendWhatsApp(
         person.phone,
-        `MJN Health: Your licensing case has advanced to "${payload.stage.label}". Log in for details: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/case`,
+        `MJN Healthcare: Your licensing case has advanced to "${payload.stage.label}". Log in for details: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/case`,
       );
     }
   }
@@ -237,7 +237,7 @@ export class NotificationListener {
     if (person.email) {
       await this.notificationService.sendEmail(
         person.email,
-        `Session Reminder — MJN Health`,
+        `Session Reminder — MJN Healthcare`,
         T.tplSessionReminder({ name: person.name ?? 'Client', sessionType, slotStart: slotDisplay }),
         person.name,
       );
@@ -245,7 +245,7 @@ export class NotificationListener {
     if (person.phone) {
       await this.notificationService.sendWhatsApp(
         person.phone,
-        `MJN Health: Reminder — your ${sessionType} starts at ${slotDisplay}. Join via your portal: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}`,
+        `MJN Healthcare: Reminder — your ${sessionType} starts at ${slotDisplay}. Join via your portal: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}`,
       );
     }
   }
@@ -261,7 +261,7 @@ export class NotificationListener {
     await Promise.allSettled([
       this.notificationService.sendEmail(
         payload.email,
-        'Your Free Consultation Is Booked — MJN Health',
+        'Your Free Consultation Is Booked — MJN Healthcare',
         T.tplLeadConsultationBooked({ name: payload.name, slotStart: payload.slotStart }),
         payload.name,
       ),
@@ -290,7 +290,7 @@ export class NotificationListener {
     await Promise.allSettled([
       this.notificationService.sendEmail(
         payload.clientEmail,
-        'Booking Received — Complete Your Payment — MJN Health',
+        'Booking Received — Complete Your Payment — MJN Healthcare',
         T.tplConsultationInitiated({
           bookingId: payload.bookingId,
           clientName: payload.clientName,
@@ -302,7 +302,7 @@ export class NotificationListener {
       ),
       this.notificationService.sendWhatsApp(
         payload.clientPhone,
-        `MJN Health: Booking received — ${payload.consultantName} on ${sessionTime} WAT ($${payload.amountUsd}). Complete payment to confirm. Ref: ${payload.bookingId}`,
+        `MJN Healthcare: Booking received — ${payload.consultantName} on ${sessionTime} WAT ($${payload.amountUsd}). Complete payment to confirm. Ref: ${payload.bookingId}`,
       ),
     ]);
     this.logger.log(`Consultation initiated notifications sent for booking ${payload.bookingId}`);
@@ -323,7 +323,7 @@ export class NotificationListener {
     await Promise.all([
       this.notificationService.sendEmail(
         payload.clientEmail,
-        `Consultation Confirmed — ${sessionTime} WAT — MJN Health`,
+        `Consultation Confirmed — ${sessionTime} WAT — MJN Healthcare`,
         T.tplConsultationConfirmed({
           bookingId: payload.bookingId,
           clientName: payload.clientName,
@@ -338,7 +338,7 @@ export class NotificationListener {
       ),
       this.notificationService.sendWhatsApp(
         payload.clientPhone,
-        `MJN Health: ✓ ${categoryLabel} consultation confirmed with ${payload.consultantName} — ${sessionTime} WAT.\n\nJoin link: ${payload.roomUrl}\n\nReminders will be sent 24h and 1h before.`,
+        `MJN Healthcare: ✓ ${categoryLabel} consultation confirmed with ${payload.consultantName} — ${sessionTime} WAT.\n\nJoin link: ${payload.roomUrl}\n\nReminders will be sent 24h and 1h before.`,
       ),
     ]);
     this.logger.log(`Consultation confirmed notifications sent for booking ${payload.bookingId}`);
@@ -356,7 +356,7 @@ export class NotificationListener {
     await Promise.all([
       this.notificationService.sendEmail(
         payload.clientEmail,
-        'Consultation Cancelled — MJN Health',
+        'Consultation Cancelled — MJN Healthcare',
         T.tplConsultationCancelled({
           clientName: payload.clientName,
           refundAmount: payload.refundAmount,
@@ -367,7 +367,7 @@ export class NotificationListener {
       ),
       this.notificationService.sendWhatsApp(
         payload.clientPhone,
-        `MJN Health: Your consultation has been cancelled. ${refundMsg}`,
+        `MJN Healthcare: Your consultation has been cancelled. ${refundMsg}`,
       ),
     ]);
   }
@@ -381,8 +381,8 @@ export class NotificationListener {
     await this.notificationService.sendEmail(
       payload.applicantEmail,
       approved
-        ? 'Your MJN Health Consultant Application — Approved'
-        : 'Your MJN Health Consultant Application — Update',
+        ? 'Your MJN Healthcare Consultant Application — Approved'
+        : 'Your MJN Healthcare Consultant Application — Update',
       T.tplApplicationReviewed({ applicantName: payload.applicantName, approved, reviewNote: payload.reviewNote }),
       payload.applicantName,
     );
@@ -436,7 +436,7 @@ export class NotificationListener {
       if (payload.personEmail) {
         await this.notificationService.sendEmail(
           payload.personEmail,
-          `Application Update: ${payload.status.charAt(0) + payload.status.slice(1).toLowerCase()} — MJN Health`,
+          `Application Update: ${payload.status.charAt(0) + payload.status.slice(1).toLowerCase()} — MJN Healthcare`,
           T.tplApplicationStatusChanged({
             applicantName: payload.personName ?? 'Candidate',
             status: payload.status,
@@ -449,8 +449,8 @@ export class NotificationListener {
       }
       if (payload.personPhone && ['OFFERED', 'SHORTLISTED'].includes(payload.status)) {
         const msgMap: Record<string, string> = {
-          SHORTLISTED: `MJN Health: Great news — you have been shortlisted for ${payload.opportunityTitle ?? 'a job opportunity'}. Log in for details: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/opportunities`,
-          OFFERED: `MJN Health: 🎉 An offer has been extended for ${payload.opportunityTitle ?? 'a position'}. Log in to your portal to review it: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/opportunities`,
+          SHORTLISTED: `MJN Healthcare: Great news — you have been shortlisted for ${payload.opportunityTitle ?? 'a job opportunity'}. Log in for details: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/opportunities`,
+          OFFERED: `MJN Healthcare: 🎉 An offer has been extended for ${payload.opportunityTitle ?? 'a position'}. Log in to your portal to review it: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/opportunities`,
         };
         await this.notificationService.sendWhatsApp(payload.personPhone, msgMap[payload.status]);
       }
@@ -473,7 +473,7 @@ export class NotificationListener {
     if (payload.personEmail) {
       await this.notificationService.sendEmail(
         payload.personEmail,
-        'Action Required — Sign Your Engagement Letter | MJN Health',
+        'Action Required — Sign Your Engagement Letter | MJN Healthcare',
         T.tplEngagementSignRequest({ name: payload.personName ?? 'Client', signUrl: payload.signUrl }),
         payload.personName,
       );
@@ -481,7 +481,7 @@ export class NotificationListener {
     if (payload.personPhone) {
       await this.notificationService.sendWhatsApp(
         payload.personPhone,
-        `MJN Health: Your engagement letter is ready to sign. Please sign it to activate your case: ${payload.signUrl}`,
+        `MJN Healthcare: Your engagement letter is ready to sign. Please sign it to activate your case: ${payload.signUrl}`,
       );
     }
   }
@@ -494,7 +494,7 @@ export class NotificationListener {
     if (person.email) {
       await this.notificationService.sendEmail(
         person.email,
-        'Engagement Confirmed — MJN Health',
+        'Engagement Confirmed — MJN Healthcare',
         T.tplEngagementLetterSigned({ name: person.name ?? 'Client' }),
         person.name,
       );
@@ -502,7 +502,7 @@ export class NotificationListener {
     if (person.phone) {
       await this.notificationService.sendWhatsApp(
         person.phone,
-        `MJN Health: Your engagement letter is signed and your case is now active. A consultant will be in touch shortly. Log in: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/case`,
+        `MJN Healthcare: Your engagement letter is signed and your case is now active. A consultant will be in touch shortly. Log in: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/case`,
       );
     }
   }

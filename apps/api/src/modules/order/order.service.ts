@@ -5,7 +5,7 @@ import { DatabaseService } from '@mjn/database';
 import { CatalogService } from '../catalog/catalog.service';
 
 const ENGAGEMENT_FEE_ITEM_ID = 'engagement-fee';
-const TAX_RATE = 0; // set per jurisdiction
+const TAX_RATE = 0.0325; // 3.25%
 
 export type CartLineInput = { serviceItemId: string; variantKey?: string };
 export type PaymentModeType = 'FULL' | 'INSTALLMENT' | 'PAY_PER_STAGE';
@@ -31,6 +31,7 @@ export class OrderService {
     lines: CartLineInput[],
     paymentMode: PaymentModeType = 'FULL',
     installmentConfig?: InstallmentConfig,
+    waiveEngagementFee = false,
   ): Promise<any> {
     const engagement: any = await this.db.engagement.findUniqueOrThrow({
       where: { id: engagementId },
@@ -78,7 +79,7 @@ export class OrderService {
       );
     }
 
-    const baseLines = hasPaidEngagementFee
+    const baseLines = (hasPaidEngagementFee || waiveEngagementFee)
       ? deduplicatedLines
       : [{ serviceItemId: ENGAGEMENT_FEE_ITEM_ID }, ...deduplicatedLines];
 

@@ -46,7 +46,7 @@ export class CampaignService {
         htmlContent: data.body,
         sender: {
           email: process.env.BREVO_FROM_EMAIL ?? 'hello@mjnhealth.com',
-          name: process.env.BREVO_FROM_NAME ?? 'MJN Health',
+          name: process.env.BREVO_FROM_NAME ?? 'MJN Healthcare',
         },
         recipients: { listIds: [senderListId] },
         scheduledAt: data.scheduledAt?.toISOString(),

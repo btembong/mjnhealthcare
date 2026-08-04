@@ -35,7 +35,7 @@ export class PdfService {
       // ── Header bar ───────────────────────────────────────────────────────
       doc.rect(0, 0, doc.page.width, 80).fill(PRIMARY);
       doc.fillColor('white').fontSize(22).font('Helvetica-Bold')
-        .text('MJN Health Academy', 50, 25);
+        .text('MJN Healthcare Academy', 50, 25);
       doc.fillColor('white').fontSize(10).font('Helvetica')
         .text('and Professional Services', 50, 51);
 
@@ -133,7 +133,7 @@ export class PdfService {
       doc.rect(0, footerY, doc.page.width, 80).fill(LIGHT);
       doc.fillColor(MUTED).fontSize(8).font('Helvetica')
         .text(
-          'MJN Health Academy and Professional Services · mjnhealth.com · noreply@mjnhealth.com',
+          'MJN Healthcare Academy and Professional Services · mjnhealthcare.com · noreply@mjnhealthcare.com',
           50, footerY + 16, { align: 'center', width: doc.page.width - 100 },
         )
         .text(

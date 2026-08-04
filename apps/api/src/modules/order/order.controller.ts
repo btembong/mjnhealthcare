@@ -47,6 +47,10 @@ class CreateOrderDto {
   @ValidateNested()
   @Type(() => InstallmentConfigDto)
   installmentConfig?: InstallmentConfigDto;
+
+  @IsOptional()
+  @IsBoolean()
+  waiveEngagementFee?: boolean;
 }
 
 class StagePlanDto {
@@ -97,6 +101,7 @@ export class OrderController {
       dto.lines,
       (dto.paymentMode as PaymentModeType) ?? 'FULL',
       dto.installmentConfig,
+      dto.waiveEngagementFee ?? false,
     );
   }
 

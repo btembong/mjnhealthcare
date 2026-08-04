@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     'AHPRA registration and AMC examination support for nurses, physicians, and allied health professionals. Employer placement and skilled visa (subclass 482/189/190) assistance across Australia.',
   openGraph: {
-    title: 'Australia AHPRA & AMC Healthcare Registration | MJN Health',
+    title: 'Australia AHPRA & AMC Healthcare Registration | MJN Healthcare',
     description:
       'AHPRA/AMC registration, English assessment, employer placement, and skilled PR visa pathway for African healthcare professionals.',
     url: 'https://mjnhealthcare.com/services/australia',

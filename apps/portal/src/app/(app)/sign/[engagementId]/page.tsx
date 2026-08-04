@@ -19,14 +19,14 @@ function EngagementLetterContent({ personName }: { personName: string }) {
       <p>Dear <strong>{personName}</strong>,</p>
 
       <p>
-        Thank you for choosing <strong>MJN Health Academy and Professional Services</strong>. This Engagement Letter
+        Thank you for choosing <strong>MJN Healthcarecare Academy and Professional Services</strong>. This Engagement Letter
         ("Letter") sets out the terms under which we will provide consulting services to you. Please read it carefully
         before signing.
       </p>
 
       <h3 className="font-bold text-foreground">1. Scope of Services</h3>
       <p>
-        MJN Health will provide professional consulting services in one or more of the following areas as agreed during
+        MJN Healthcare will provide professional consulting services in one or more of the following areas as agreed during
         your onboarding:
       </p>
       <ul className="list-disc pl-5 space-y-1">
@@ -49,7 +49,7 @@ function EngagementLetterContent({ personName }: { personName: string }) {
 
       <h3 className="font-bold text-foreground">3. No Guarantee of Outcome</h3>
       <p>
-        MJN Health provides professional support and guidance. We do not guarantee, and expressly disclaim any
+        MJN Healthcare provides professional support and guidance. We do not guarantee, and expressly disclaim any
         guarantee of:
       </p>
       <ul className="list-disc pl-5 space-y-1">
@@ -74,7 +74,7 @@ function EngagementLetterContent({ personName }: { personName: string }) {
 
       <h3 className="font-bold text-foreground">5. Authorisation</h3>
       <p>
-        By signing this letter you authorise MJN Health to act on your behalf in communications with licensing bodies,
+        By signing this letter you authorise MJN Healthcare to act on your behalf in communications with licensing bodies,
         regulatory authorities, and partner organisations, limited to the scope of services above. A separate
         Power of Attorney or Letter of Authorisation will be provided before any submission is made to a third party
         on your behalf.
@@ -90,18 +90,18 @@ function EngagementLetterContent({ personName }: { personName: string }) {
       <p>
         The engagement fee (USD 50) is non-refundable. Refunds for service fees are governed by our Refund Policy,
         available on our website. Fees already paid to third parties on your behalf (regulatory body fees, DataFlow
-        fees, etc.) are not refundable by MJN Health regardless of outcome.
+        fees, etc.) are not refundable by MJN Healthcare regardless of outcome.
       </p>
 
       <h3 className="font-bold text-foreground">8. Limitation of Liability</h3>
       <p>
-        MJN Health's total liability under this engagement shall not exceed the total fees paid by you for the specific
+        MJN Healthcare's total liability under this engagement shall not exceed the total fees paid by you for the specific
         service in dispute. We are not liable for indirect, consequential, or incidental losses.
       </p>
 
       <h3 className="font-bold text-foreground">9. Governing Law</h3>
       <p>
-        This Letter is governed by the laws of the jurisdiction of MJN Health's principal place of business.
+        This Letter is governed by the laws of the jurisdiction of MJN Healthcare's principal place of business.
         Disputes shall first be referred to mediation before any legal proceedings are commenced.
       </p>
 
@@ -243,7 +243,7 @@ export default function SignEngagementPage() {
               <Scroll className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-bold text-base">MJN Health Engagement Letter</p>
+              <p className="font-bold text-base">MJN Healthcare Engagement Letter</p>
               <p className="text-xs text-white/70">Please read all terms before signing</p>
             </div>
           </div>

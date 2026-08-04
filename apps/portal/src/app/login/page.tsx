@@ -113,7 +113,7 @@ function OnboardingModal({
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
             <span className="text-lg font-extrabold text-white">MJN</span>
           </div>
-          <h2 className="text-xl font-extrabold text-foreground">Welcome to MJN Health</h2>
+          <h2 className="text-xl font-extrabold text-foreground">Welcome to MJN Healthcare</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Let's set up your profile — takes 30 seconds.
           </p>
@@ -294,7 +294,7 @@ export default function LoginPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
               <span className="text-xs font-extrabold">MJN</span>
             </div>
-            <span className="font-bold tracking-tight">MJN Health Academy</span>
+            <span className="font-bold tracking-tight">MJN Healthcarecare Academy</span>
           </div>
 
           <div>
@@ -320,7 +320,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <p className="text-xs text-blue-200/70">© 2026 MJN Health Academy and Professional Services</p>
+          <p className="text-xs text-blue-200/70">© 2026 MJN Healthcarecare Academy and Professional Services</p>
         </div>
 
         {/* Right panel */}
@@ -331,7 +331,7 @@ export default function LoginPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary">
                 <span className="text-xs font-bold text-white">MJN</span>
               </div>
-              <span className="font-bold text-foreground">MJN Health Academy</span>
+              <span className="font-bold text-foreground">MJN Healthcarecare Academy</span>
             </div>
 
             {/* ── Email step ── */}
@@ -382,8 +382,8 @@ export default function LoginPage() {
                 </form>
 
                 <p className="mt-6 text-center text-xs text-muted-foreground">
-                  New to MJN Health?{' '}
-                  <a href="http://localhost:3001/get-started" className="font-medium text-primary hover:underline">
+                  New to MJN Healthcare?{' '}
+                  <a href="https://mjnhealthcare.com/get-started" className="font-medium text-primary hover:underline">
                     Book a free consultation first
                   </a>
                 </p>
@@ -452,7 +452,7 @@ export default function LoginPage() {
                   <CheckCircle className="h-10 w-10 text-primary" weight="fill" />
                 </div>
                 <h2 className="text-2xl font-extrabold text-foreground">
-                  {isNew ? 'Welcome to MJN Health!' : `Welcome back${resolvedName ? `, ${resolvedName.split(' ')[0]}` : ''}!`}
+                  {isNew ? 'Welcome to MJN Healthcare!' : `Welcome back${resolvedName ? `, ${resolvedName.split(' ')[0]}` : ''}!`}
                 </h2>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {isNew ? 'Setting up your profile…' : 'Taking you to your dashboard…'}

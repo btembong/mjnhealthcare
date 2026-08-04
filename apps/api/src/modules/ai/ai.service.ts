@@ -63,7 +63,7 @@ export class AIService {
     messages: { role: 'user' | 'assistant'; content: string }[],
     leadContext?: { name?: string; email?: string; profession?: string; destination?: string },
   ) {
-    const system = `You are the MJN Health support assistant. MJN Health Academy and Professional Services helps healthcare professionals (nurses, physicians, allied health) get licensed internationally — UAE, UK, US, Ireland — and prepares them for licensure exams (NCLEX, HAAD, DHA, CBT, DA).
+    const system = `You are the MJN Healthcare support assistant. MJN Healthcare Academy and Professional Services helps healthcare professionals (nurses, physicians, allied health) get licensed internationally — UAE, UK, US, Ireland — and prepares them for licensure exams (NCLEX, HAAD, DHA, CBT, DA).
 
 Key facts:
 - Services: Global placement & licensing support, Academy exam prep, Student support (internships, study abroad)

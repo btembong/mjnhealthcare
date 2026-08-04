@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     'Full NMBI registration support for internationally educated nurses in Ireland. Competency assessment, English requirements, Critical Skills Employment Permit, and HSE/private employer placement.',
   openGraph: {
-    title: 'Ireland NMBI Nursing Registration | MJN Health',
+    title: 'Ireland NMBI Nursing Registration | MJN Healthcare',
     description:
       'NMBI competency assessment, Critical Skills Employment Permit support, and Irish healthcare employer placement for African nurses.',
     url: 'https://mjnhealthcare.com/services/ireland',

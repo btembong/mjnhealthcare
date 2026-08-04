@@ -651,7 +651,7 @@ export default function PortalDashboard() {
     { label: 'Complete profile', sub: 'Name & profession', done: !!(me?.name && me.name !== me.email && me.profession), href: '/settings' },
     { label: 'Sign engagement letter', sub: 'Formal agreement with MJN', done: !!engagement, href: '/case' },
     { label: 'Upload documents', sub: 'Passport, credentials, etc.', done: documents.length > 0, href: '/documents' },
-    { label: 'Book consultation', sub: 'Meet your consultant', done: bookings.length > 0, href: '/bookings' },
+    { label: 'Select services', sub: 'View catalog & checkout', done: orders.length > 0, href: '/checkout' },
   ];
   const onboardingComplete = onboardingSteps.every((s) => s.done);
 

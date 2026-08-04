@@ -24,8 +24,8 @@ export class NotificationService {
     try {
       const email = new Brevo.SendSmtpEmail();
       email.sender = {
-        email: process.env.BREVO_FROM_EMAIL ?? 'noreply@mjnhealth.com',
-        name: process.env.BREVO_FROM_NAME ?? 'MJN Health',
+        email: process.env.BREVO_FROM_EMAIL ?? 'noreply@mjnhealthcare.com',
+        name: process.env.BREVO_FROM_NAME ?? 'MJN Healthcare',
       };
       email.to = [{ email: to, name }];
       email.subject = subject;

@@ -12,7 +12,7 @@ const exo2 = Exo_2({
 });
 
 export const metadata: Metadata = {
-  title: 'My Dashboard | MJN Health',
+  title: 'My Dashboard | MJN Healthcare',
   description: 'Manage your licensing journey, documents, and academy access.',
 };
 

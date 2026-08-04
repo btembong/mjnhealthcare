@@ -71,7 +71,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="text-xs text-white/30">
-          © 2026 MJN Health Academy and Professional Services · Internal use only
+          © 2026 MJN Healthcare Academy and Professional Services Ltd · Internal use only
         </p>
       </div>
 
@@ -161,7 +161,7 @@ export default function AdminLoginPage() {
           </div>
 
           <p className="mt-4 text-center text-xs text-white/40">
-            This portal is restricted to authorised MJN Health staff only.
+            This portal is restricted to authorised MJN Healthcare staff only.
           </p>
         </div>
       </div>

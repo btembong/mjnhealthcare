@@ -7,7 +7,7 @@ import '../styles/globals.css';
 const exo2 = Exo_2({ subsets: ['latin'], variable: '--font-exo2', display: 'swap', weight: ['400', '500', '600', '700', '800'] });
 
 export const metadata: Metadata = {
-  title: 'Admin Console | MJN Health',
+  title: 'Admin Console | MJN Healthcare',
   description: 'Internal operations — caseload, compliance, and reporting.',
 };
 

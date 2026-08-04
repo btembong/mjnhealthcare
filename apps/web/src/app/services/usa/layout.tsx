@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     'End-to-end US nursing licensing for internationally educated nurses. CGFNS/ERES credential evaluation, VisaScreen, NCLEX-RN exam prep, and employer placement across US states.',
   openGraph: {
-    title: 'USA NCLEX & CGFNS Licensing for Overseas Nurses | MJN Health',
+    title: 'USA NCLEX & CGFNS Licensing for Overseas Nurses | MJN Healthcare',
     description:
       'CGFNS credential evaluation, VisaScreen, NCLEX-RN, and US nursing employer placement. Full support from Africa to the United States.',
     url: 'https://mjnhealthcare.com/services/usa',
