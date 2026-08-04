@@ -34,7 +34,7 @@ export const metadata: Metadata = {
       'Healthcare career consulting — global placement, licensing support (UAE, UK, US, Ireland), exam preparation (NCLEX, DHA, NMC CBT), and student services.',
     images: [
       {
-        url: '/og-default.png',
+        url: `${BASE_URL}/opengraph-image`,
         width: 1200,
         height: 630,
         alt: 'MJN Healthcare Academy and Professional Services',
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     title: 'MJN Healthcare Academy and Professional Services',
     description:
       'Global healthcare placement, licensing support, and exam prep — built for African health professionals.',
-    images: ['/og-default.png'],
+    images: [`${BASE_URL}/opengraph-image`],
   },
   icons: {
     icon: '/mjnlogo.png',
