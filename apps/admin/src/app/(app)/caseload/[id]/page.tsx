@@ -300,10 +300,10 @@ export default function CaseDetailPage() {
                 {engagement.consultantId ? (
                   <div className="flex items-center gap-2">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                      {(consultants.find((c) => c.id === engagement.consultantId)?.person?.name ?? 'CN').slice(0, 2).toUpperCase()}
+                      {(consultants.find((c) => c.id === engagement.consultantId)?.name ?? 'CN').slice(0, 2).toUpperCase()}
                     </div>
                     <p className="text-sm font-medium text-foreground">
-                      {consultants.find((c) => c.id === engagement.consultantId)?.person?.name ?? engagement.consultantId}
+                      {consultants.find((c) => c.id === engagement.consultantId)?.name ?? engagement.consultantId}
                     </p>
                   </div>
                 ) : (
@@ -325,7 +325,7 @@ export default function CaseDetailPage() {
                       >
                         <option value="">Select consultant…</option>
                         {consultants.map((c) => (
-                          <option key={c.id} value={c.id}>{c.person?.name ?? c.id}</option>
+                          <option key={c.id} value={c.id}>{c.name ?? c.id}</option>
                         ))}
                       </select>
                       <CaretDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
