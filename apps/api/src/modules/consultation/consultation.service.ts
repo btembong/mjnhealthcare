@@ -313,6 +313,23 @@ export class ConsultationService {
     const status = payload?.status ?? payload?.data?.status;
     if (status === 'SUCCESSFUL') {
       await this.handlePaymentConfirmed(bookingId);
+    } else if (status && status !== 'PENDING') {
+      // FAILED, CANCELLED, EXPIRED — alert admin
+      const booking = await this.db.consultationBooking.findUnique({
+        where: { id: bookingId },
+        include: { slot: { include: { consultant: { select: { name: true, priceUsd: true } } } } },
+      });
+      this.logger.warn(`Tranzak payment ${status} for booking ${bookingId}`);
+      this.events.emit('consultation.payment_failed', {
+        bookingId,
+        clientName: booking?.clientName ?? 'Unknown',
+        clientEmail: booking?.clientEmail ?? '',
+        clientPhone: booking?.clientPhone ?? '',
+        consultantName: booking?.slot?.consultant?.name ?? '—',
+        amountUsd: Number(booking?.slot?.consultant?.priceUsd ?? 0),
+        failReason: status,
+        sessionStart: booking?.slot?.startAt?.toISOString() ?? '',
+      });
     }
   }
 

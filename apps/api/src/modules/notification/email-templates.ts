@@ -534,6 +534,39 @@ export function tplApplicationStatusChanged(opts: {
 
 // ── OTP / verification ────────────────────────────────────────────────────────
 
+export function tplConsultationPaymentFailed(opts: {
+  clientName: string; clientEmail: string; clientPhone: string;
+  consultantName: string; amountUsd: number; failReason: string;
+  sessionStart: string; bookingId: string;
+}): string {
+  const sessionTime = opts.sessionStart
+    ? new Date(opts.sessionStart).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : '—';
+  return shell(
+    label('Payment Alert') +
+    h1('Consultation payment failed') +
+    p(`A client attempted to book a consultation but the payment did not complete. Follow up with them directly to help them retry.`) +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 28px;border:1px solid #E2EBF3;border-radius:10px;overflow:hidden;">
+      ${[
+        ['Client', opts.clientName],
+        ['Email', opts.clientEmail],
+        ['Phone', opts.clientPhone || '—'],
+        ['Consultant', opts.consultantName],
+        ['Session', sessionTime],
+        ['Amount', `$${opts.amountUsd.toFixed(2)}`],
+        ['Fail reason', opts.failReason],
+        ['Booking ID', opts.bookingId],
+      ].map(([label, val], i) => `
+        <tr style="background:${i % 2 === 0 ? '#F8FAFD' : '#FFFFFF'};">
+          <td style="padding:10px 16px;font-size:13px;color:${MUTED};font-weight:600;width:38%;">${label}</td>
+          <td style="padding:10px 16px;font-size:13px;color:${TEXT};font-weight:500;">${val}</td>
+        </tr>`).join('')}
+    </table>` +
+    divider() +
+    pSmall('This is an automated alert from MJN Healthcare. Log in to the admin console to view the full booking record.')
+  );
+}
+
 export function tplOtp(opts: { otp: string }): string {
   const digitCells = opts.otp.split('').map(d =>
     `<td style="width:44px;height:54px;text-align:center;vertical-align:middle;background:#F4F8FF;border:1.5px solid #BDD0E8;border-radius:6px;font-size:26px;font-weight:700;color:${NAVY};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">${d}</td>`

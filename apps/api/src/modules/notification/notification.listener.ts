@@ -373,6 +373,30 @@ export class NotificationListener {
     ]);
   }
 
+  @OnEvent('consultation.payment_failed')
+  async onConsultationPaymentFailed(payload: {
+    bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
+    consultantName: string; amountUsd: number; failReason: string; sessionStart: string;
+  }) {
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (!adminEmail) return;
+    await this.notificationService.sendEmail(
+      adminEmail,
+      `Payment Failed — ${payload.clientName} ($${payload.amountUsd.toFixed(2)})`,
+      T.tplConsultationPaymentFailed({
+        clientName: payload.clientName,
+        clientEmail: payload.clientEmail,
+        clientPhone: payload.clientPhone,
+        consultantName: payload.consultantName,
+        amountUsd: payload.amountUsd,
+        failReason: payload.failReason,
+        sessionStart: payload.sessionStart,
+        bookingId: payload.bookingId,
+      }),
+      'MJN Admin',
+    );
+  }
+
   @OnEvent('consultant.application.reviewed')
   async onApplicationReviewed(payload: {
     applicationId: string; decision: string;
