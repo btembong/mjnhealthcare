@@ -360,24 +360,26 @@ export function tplLeadConsultationBookedAdmin(opts: {
 }
 
 export function tplConsultationInitiated(opts: {
-  bookingId: string; clientName: string; consultantName: string; sessionStart: string; amountUsd: number;
+  bookingId: string; clientName: string; consultantName: string; sessionStart: string; amountUsd: number; paymentUrl?: string;
 }): string {
   const time = new Date(opts.sessionStart).toLocaleString('en-GB', {
     timeZone: 'Africa/Douala', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
   });
   return shell(
     greeting(opts.clientName) +
-    label('Booking') +
-    h1('Complete your payment to confirm') +
+    label('Action required') +
+    h1('Complete your payment to confirm your session') +
+    p(`Your session with <strong>${opts.consultantName}</strong> is reserved but <strong>not yet confirmed</strong>. Complete your payment now to secure your slot — it will be released automatically if payment is not received.`) +
     infoTable([
       row('Consultant', opts.consultantName),
       row('Date &amp; time', `<strong>${time} WAT</strong>`),
-      row('Amount', `<strong style="font-size:16px;color:${NAVY};">$${opts.amountUsd}</strong>`),
+      row('Amount due', `<strong style="font-size:16px;color:${NAVY};">$${opts.amountUsd.toFixed(2)} USD</strong>`),
       row('Reference', `<span style="font-family:monospace;font-size:12px;">${opts.bookingId}</span>`, true),
     ]) +
-    notice('Your slot is reserved but <strong>not yet confirmed</strong>. It will be released if payment is not received.', 'warning') +
+    (opts.paymentUrl ? btn('Complete payment now', opts.paymentUrl) : '') +
+    notice('Pay promptly to avoid losing your slot. Once payment clears, you will receive a separate confirmation email with your video join link.', 'info') +
     divider() +
-    pSmall('Once payment clears, you will receive a confirmation email with your join link.')
+    pSmall('Questions about payment? Reply to this email or contact us at <a href="mailto:hello@mjnhealthcare.com" style="color:#0F4C81;">hello@mjnhealthcare.com</a> or WhatsApp <strong>+971 50 863 8660</strong>.')
   );
 }
 

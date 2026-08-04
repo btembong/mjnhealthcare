@@ -124,16 +124,7 @@ export class ConsultationService {
       },
     });
 
-    // Emit immediately so the client gets an acknowledgment email regardless of payment outcome
-    this.events.emit('consultation.initiated', {
-      bookingId: booking.id,
-      clientName: dto.clientName,
-      clientEmail: dto.clientEmail,
-      clientPhone: dto.clientPhone,
-      consultantName: consultant.name,
-      sessionStart: slot.startAt.toISOString(),
-      amountUsd: Number(consultant.priceUsd),
-    });
+    // Event emitted after payment URL is obtained so we can include it in the email
 
     // ── DEV BYPASS ─────────────────────────────────────────────────────────────
     // Set DEV_SKIP_PAYMENT=true in .env to auto-confirm bookings locally
@@ -190,6 +181,18 @@ export class ConsultationService {
         this.logger.error(`Tranzak returned no payment URL for booking ${booking.id}: ${JSON.stringify(payData)}`);
         throw new Error('Payment gateway did not return a redirect URL');
       }
+
+      // Emit now so the email includes the direct payment link
+      this.events.emit('consultation.initiated', {
+        bookingId: booking.id,
+        clientName: dto.clientName,
+        clientEmail: dto.clientEmail,
+        clientPhone: dto.clientPhone,
+        consultantName: consultant.name,
+        sessionStart: slot.startAt.toISOString(),
+        amountUsd: Number(consultant.priceUsd),
+        paymentUrl: paymentAuthUrl,
+      });
 
       return { bookingId: booking.id, redirectUrl: paymentAuthUrl };
     } catch (err) {

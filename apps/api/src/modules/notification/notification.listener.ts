@@ -297,6 +297,7 @@ export class NotificationListener {
           consultantName: payload.consultantName,
           sessionStart: payload.sessionStart,
           amountUsd: payload.amountUsd,
+          paymentUrl: payload.paymentUrl,
         }),
         payload.clientName,
       ),
