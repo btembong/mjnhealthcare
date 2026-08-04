@@ -423,6 +423,69 @@ async function main() {
   }
 
   console.log('Pathway seed complete.');
+
+  // ── Consultants ───────────────────────────────────────────────────────────
+  console.log('Seeding consultants...');
+
+  const consultants = [
+    {
+      id: 'consultant-adaeze-okonkwo',
+      name: 'Dr. Adaeze Okonkwo',
+      specialty: 'General Medicine',
+      bio: 'Physician with 10 years of experience in general medicine, specialising in preventive care and chronic disease management. Dr. Okonkwo provides evidence-based health guidance for individuals navigating complex medical decisions, wellness planning, and long-term condition management.',
+      consultationCategory: 'HEALTH' as const,
+      languages: ['English'],
+      priceUsd: 40,
+      sessionDurationMins: 45,
+      type: 'STAFF' as const,
+    },
+    {
+      id: 'consultant-louis-tita',
+      name: 'Louis Tita Manoji',
+      specialty: 'Nigeria & East Africa Licensing',
+      bio: "Louis Tita manages licensing engagements for clients from Nigeria and East Africa — one of the highest-volume regions in MJN's portfolio. He specialises in navigating country-specific credential verification requirements, NCLEX eligibility timelines, and EB-3 retrogression realities for Nigerian candidates pursuing the US pathway, as well as UAE and UK licensing routes for East African professionals.",
+      consultationCategory: 'CAREER' as const,
+      languages: ['English'],
+      priceUsd: 40,
+      sessionDurationMins: 45,
+      type: 'STAFF' as const,
+      photoUrl: 'https://mjnhealthcare.com/louistita.webp',
+    },
+  ];
+
+  for (const c of consultants) {
+    await prisma.consultantProfile.upsert({
+      where: { id: c.id },
+      update: {
+        name: c.name,
+        specialty: c.specialty,
+        bio: c.bio,
+        consultationCategory: c.consultationCategory,
+        languages: c.languages,
+        priceUsd: c.priceUsd,
+        sessionDurationMins: c.sessionDurationMins,
+        ...(c.photoUrl ? { photoUrl: c.photoUrl } : {}),
+      },
+      create: {
+        id: c.id,
+        name: c.name,
+        specialty: c.specialty,
+        bio: c.bio,
+        consultationCategory: c.consultationCategory,
+        languages: c.languages,
+        priceUsd: c.priceUsd,
+        sessionDurationMins: c.sessionDurationMins,
+        type: c.type,
+        status: 'ACTIVE',
+        isActive: true,
+        commissionRate: 0,
+        ...(c.photoUrl ? { photoUrl: c.photoUrl } : {}),
+      },
+    });
+    console.log(`  ✓ ${c.name}`);
+  }
+
+  console.log('Consultant seed complete.');
 }
 
 main()
