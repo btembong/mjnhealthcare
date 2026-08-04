@@ -42,7 +42,7 @@ export default function PaymentsPage() {
       .catch((err: any) => toast.error(err.message))
       .finally(() => setOrdersLoading(false));
 
-    api.getAllConsultationSessions()
+    api.getSessions()
       .then(setBookings)
       .catch((err: any) => toast.error(err.message))
       .finally(() => setBookingsLoading(false));
