@@ -199,10 +199,7 @@ export function AppShell({
 
             {/* Logo — mobile only (sidebar is hidden) */}
             <div className="md:hidden shrink-0 flex items-center gap-1.5 mr-1">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-                <span className="text-[9px] font-bold text-white">MJN</span>
-              </div>
-              <span className="text-sm font-bold text-foreground tracking-tight">Healthcare</span>
+              <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-7 w-auto object-contain" />
             </div>
 
             {/* Consumer topbar content */}

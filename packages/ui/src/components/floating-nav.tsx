@@ -84,10 +84,7 @@ export function FloatingNav({ logo, items, cta, className }: FloatingNavProps) {
             <div className="shrink-0">
               {logo ?? (
                 <Link href="/" className="group flex items-center gap-3">
-                  <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm shadow-primary/30">
-                    <span className="text-[11px] font-black tracking-tight text-white">MJN</span>
-                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#00A896] ring-2 ring-white" />
-                  </div>
+                  <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-10 w-auto object-contain" />
                   <div className="flex flex-col leading-none">
                     <span className="text-[16px] font-extrabold tracking-tight text-foreground transition-colors group-hover:text-primary">
                       MJN Healthcare
@@ -254,10 +251,7 @@ export function FloatingNav({ logo, items, cta, className }: FloatingNavProps) {
         {/* Panel header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <Link href="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-3">
-            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-              <span className="text-[11px] font-black text-white">MJN</span>
-              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#00A896] ring-2 ring-white" />
-            </div>
+            <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-9 w-auto object-contain" />
             <div className="flex flex-col leading-none">
               <span className="text-[15px] font-extrabold text-foreground">MJN Healthcare</span>
               <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Academy &amp; Professional Services</span>

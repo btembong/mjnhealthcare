@@ -37,9 +37,7 @@ export function Sidebar({ logo, sections, footer, accent = 'primary', onClose }:
         <div className="flex-1">
           {logo ?? (
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <span className="text-xs font-bold text-white">MJN</span>
-              </div>
+              <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-8 w-auto object-contain" />
               <span className="font-semibold text-foreground">MJN Health</span>
             </div>
           )}
