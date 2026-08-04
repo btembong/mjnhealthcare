@@ -84,7 +84,7 @@ export function FloatingNav({ logo, items, cta, className }: FloatingNavProps) {
             <div className="shrink-0">
               {logo ?? (
                 <Link href="/" className="group flex items-center gap-3">
-                  <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-10 w-auto object-contain" />
+                  <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-14 w-auto object-contain" />
                   <div className="flex flex-col leading-none">
                     <span className="text-[16px] font-extrabold tracking-tight text-foreground transition-colors group-hover:text-primary">
                       MJN Healthcare
