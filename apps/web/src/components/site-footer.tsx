@@ -46,9 +46,7 @@ export function SiteFooter() {
           {/* Brand */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-                <span className="text-xs font-bold text-white">MJN</span>
-              </div>
+              <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-9 w-auto object-contain" />
               <span className="font-bold text-foreground">MJN Healthcare</span>
             </div>
             <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
