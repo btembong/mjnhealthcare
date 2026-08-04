@@ -110,7 +110,7 @@ export function shell(body: string): string {
 // ── Primitives ────────────────────────────────────────────────────────────────
 
 export function label(text: string): string {
-  return `<p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:${TEAL};">${text}</p>`;
+  return `<p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:${NAVY};">${text}</p>`;
 }
 
 export function h1(text: string): string {
@@ -162,7 +162,7 @@ export function infoTable(rows: string[]): string {
 export function badge(text: string, type: 'success' | 'warning' | 'error' | 'info' | 'neutral'): string {
   const map = {
     success: { bg: '#E6F7F5', color: '#0A7A6E' },
-    warning: { bg: '#FEF6E7', color: '#92600A' },
+    warning: { bg: '#EBF2FB', color: '#1A4E8C' },
     error:   { bg: '#FEE9E7', color: '#991B1B' },
     info:    { bg: '#EBF2FB', color: '#1A4E8C' },
     neutral: { bg: '#EDF0F4', color: '#4A5568' },
@@ -175,7 +175,7 @@ export function badge(text: string, type: 'success' | 'warning' | 'error' | 'inf
 export function notice(text: string, type: 'info' | 'warning' | 'error'): string {
   const map = {
     info:    { bg: '#EBF2FB', left: NAVY,    color: '#1A4E8C' },
-    warning: { bg: '#FEF6E7', left: '#D97706', color: '#78490A' },
+    warning: { bg: '#EBF2FB', left: NAVY,      color: '#1A4E8C' },
     error:   { bg: '#FEE9E7', left: '#DC2626', color: '#7F1D1D' },
   };
   const s = map[type];

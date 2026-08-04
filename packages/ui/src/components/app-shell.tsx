@@ -202,7 +202,7 @@ export function AppShell({
               <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
                 <span className="text-[9px] font-bold text-white">MJN</span>
               </div>
-              <span className="text-sm font-bold text-foreground tracking-tight">Health</span>
+              <span className="text-sm font-bold text-foreground tracking-tight">Healthcare</span>
             </div>
 
             {/* Consumer topbar content */}

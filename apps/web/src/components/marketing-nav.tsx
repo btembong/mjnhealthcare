@@ -4,6 +4,13 @@ import Link from 'next/link';
 import { FloatingNav, Button } from '@mjn/ui';
 import {
   ArrowRight,
+  Envelope,
+  Phone,
+  InstagramLogo,
+  FacebookLogo,
+  LinkedinLogo,
+  XLogo,
+  WhatsappLogo,
   Bank,
   AirplaneTakeoff,
   Scroll,
@@ -208,9 +215,46 @@ const navItems = [
 
 export function MarketingNav() {
   return (
-    <FloatingNav
-      items={navItems}
-      cta={
+    <>
+      {/* Top info bar */}
+      <div className="w-full bg-primary text-white text-xs py-2 px-6 hidden sm:block">
+        <div className="mx-auto max-w-7xl flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <a
+              href="mailto:hello@mjnhealthcare.com"
+              className="flex items-center gap-1.5 hover:text-white/80 transition-colors"
+            >
+              <Envelope className="h-3.5 w-3.5" />
+              hello@mjnhealthcare.com
+            </a>
+            <a
+              href="https://wa.me/971508638660"
+              className="flex items-center gap-1.5 hover:text-white/80 transition-colors"
+            >
+              <WhatsappLogo className="h-3.5 w-3.5" />
+              +971 50 863 8660
+            </a>
+          </div>
+          <div className="flex items-center gap-3.5">
+            <a href="https://instagram.com/mjnhealthcare" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors">
+              <InstagramLogo className="h-3.5 w-3.5" />
+            </a>
+            <a href="https://facebook.com/mjnhealthcare" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors">
+              <FacebookLogo className="h-3.5 w-3.5" />
+            </a>
+            <a href="https://linkedin.com/company/mjnhealthcare" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors">
+              <LinkedinLogo className="h-3.5 w-3.5" />
+            </a>
+            <a href="https://x.com/mjnhealthcare" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors">
+              <XLogo className="h-3.5 w-3.5" />
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <FloatingNav
+        items={navItems}
+        cta={
         <div className="flex items-center gap-3">
           {/* Sign in — icon + label, bordered */}
           <Link
@@ -232,5 +276,6 @@ export function MarketingNav() {
         </div>
       }
     />
+    </>
   );
 }

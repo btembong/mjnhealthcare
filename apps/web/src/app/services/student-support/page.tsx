@@ -107,7 +107,7 @@ export default function StudentSupportPage() {
             Student Support
           </Badge>
           <h1 className="max-w-3xl text-5xl font-extrabold leading-tight tracking-tight md:text-6xl">
-            Healthcare Student Support — From Student to Licensed Professional
+            Student Support — From Student to Licensed Professional
           </h1>
           <p className="mt-5 max-w-2xl text-lg text-blue-100">
             University applications, study-abroad placements, clinical internships, and early licensing pathway planning — all designed to bridge the gap between African healthcare education and international professional registration.

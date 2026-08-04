@@ -21,7 +21,7 @@ export class PdfService {
     paymentMode?: string;
   }): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ margin: 60, size: 'A4' });
+      const doc = new PDFDocument({ margin: 60, size: 'A4', bufferPages: true });
       const chunks: Buffer[] = [];
       doc.on('data', (c: Buffer) => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -33,16 +33,38 @@ export class PdfService {
       const L      = 60;          // left margin
       const R      = doc.page.width - 60; // right margin
       const W      = R - L;       // usable width
+      const FOOTER_H = 90;        // reserved space at bottom for footer
 
       const REG_NUMBER  = process.env.COMPANY_REG_NUMBER  ?? 'M032517649867P/RC/YAO/2025/B/637';
       const SOCIAL      = '@mjnhealthcare';
 
+      // Protect footer area from content overflow
+      doc.page.margins.bottom = FOOTER_H;
+
+      // ── Footer renderer (called on every page at end) ─────────────────
+      const drawFooter = () => {
+        const footerY = doc.page.height - FOOTER_H + 10;
+        doc.moveTo(L, footerY).lineTo(R, footerY)
+          .strokeColor(INK).lineWidth(1).stroke();
+        doc.fillColor(INK).fontSize(8).font('Helvetica-Bold')
+          .text('MJN Healthcare Academy and Professional Services Ltd', L, footerY + 10, { continued: true })
+          .font('Helvetica').fillColor(MUTED)
+          .text(`   ·   Auth. No. ${REG_NUMBER}   ·   Yaoundé, Cameroon`);
+        doc.fillColor(MUTED).fontSize(7.5).font('Helvetica')
+          .text(
+            `mjnhealthcare.com   ·   support@mjnhealthcare.com   ·   ${SOCIAL} (Instagram / Facebook / LinkedIn / X)`,
+            L, footerY + 26, { width: W },
+          );
+        doc.fillColor(MUTED).fontSize(7).font('Helvetica')
+          .text('Official receipt — retain for your records. Queries: support@mjnhealthcare.com', L, footerY + 42, { width: W });
+      };
+
       // ── Header (white background, no fill) ───────────────────────────────
-      // Company name — left aligned
-      doc.fillColor(INK).fontSize(15).font('Helvetica-Bold')
-        .text('MJN Healthcare Academy', L, 55, { continued: false });
+      // Company name — left aligned: "MJN Healthcare" large, subtitle same size
+      doc.fillColor(INK).fontSize(16).font('Helvetica-Bold')
+        .text('MJN Healthcare', L, 55);
       doc.fillColor(MUTED).fontSize(9).font('Helvetica')
-        .text('and Professional Services Ltd', L, 74);
+        .text('Academy and Professional Services Ltd', L, 76);
 
       // RECEIPT label — right aligned
       doc.fillColor(INK).fontSize(22).font('Helvetica-Bold')
@@ -171,36 +193,14 @@ export class PdfService {
           L, y, { width: W },
         );
 
-      // ── Footer ───────────────────────────────────────────────────────────
-      const footerY = doc.page.height - 72;
+      // ── Footer on every page ─────────────────────────────────────────────
+      const range = doc.bufferedPageRange();
+      for (let i = 0; i < range.count; i++) {
+        doc.switchToPage(i);
+        drawFooter();
+      }
 
-      // Full-width top rule
-      doc.moveTo(L, footerY).lineTo(R, footerY)
-        .strokeColor(INK).lineWidth(1).stroke();
-
-      // Line 1 — company identity + registration
-      doc.fillColor(INK).fontSize(8).font('Helvetica-Bold')
-        .text(
-          'MJN Healthcare Academy and Professional Services Ltd',
-          L, footerY + 10, { continued: true },
-        )
-        .font('Helvetica').fillColor(MUTED)
-        .text(`   ·   Auth. No. ${REG_NUMBER}   ·   Yaoundé, Cameroon`);
-
-      // Line 2 — web + contact
-      doc.fillColor(MUTED).fontSize(7.5).font('Helvetica')
-        .text(
-          `mjnhealthcare.com   ·   support@mjnhealthcare.com   ·   ${SOCIAL} (Instagram / Facebook / LinkedIn / X)`,
-          L, footerY + 26, { width: W },
-        );
-
-      // Line 3 — legal micro-text
-      doc.fillColor(MUTED).fontSize(7).font('Helvetica')
-        .text(
-          'Official receipt — retain for your records. Queries: support@mjnhealthcare.com',
-          L, footerY + 42, { width: W },
-        );
-
+      doc.flushPages();
       doc.end();
     });
   }
