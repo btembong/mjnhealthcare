@@ -9,16 +9,16 @@ import { ArrowRight } from '@phosphor-icons/react';
 export const members = [
   {
     slug: 'mbout-john-nyah',
-    name: 'Mbout John Nyah',
-    role: 'CEO & Founder',
+    name: 'MBOUT John Nyah (MJN)',
+    role: 'Founder & Chief Executive Officer',
     initials: 'MJN',
     location: 'Cameroon',
     flag: '🇨🇲',
-    background: 'BSN · SRN · USRN · Founder of MJN Healthcare Academy and Professional Services',
-    bio: 'John Nyah founded MJN Healthcare Academy and Professional Services to bridge the gap between African healthcare professionals and international licensing opportunities. As a BSN-trained, State Registered Nurse with US RN licensure, he brings first-hand experience of the international licensing process — building MJN from the ground up to ensure every client is guided by someone who has walked the same path.',
+    background: 'MBA-HCM · BSN · RN · Founder of MJN Healthcare Academy and Professional Services',
+    bio: 'MBOUT John Nyah (MJN) founded MJN Healthcare Academy and Professional Services to bridge the gap between African healthcare professionals and international licensing opportunities. Holding an MBA in Healthcare Management alongside his BSN and RN credentials, he combines executive leadership with frontline clinical experience — building MJN from the ground up to ensure every client is guided by someone who has walked the same path and understands both the clinical and business dimensions of international healthcare careers.',
     expertise: ['Strategic Leadership', 'International Licensing', 'US NCLEX Pathway', 'Organisational Development'],
-    credibility: 'BSN, SRN, and USRN — founded MJN after personally navigating international nursing licensure.',
-    credentials: ['BSN', 'SRN', 'USRN'],
+    credibility: 'MBA-HCM, BSN, RN — founded MJN after personally navigating international nursing licensure, combining clinical expertise with healthcare management leadership.',
+    credentials: ['MBA-HCM', 'BSN', 'RN'],
     photo: '/nyah-ceo.png',
   },
   {
