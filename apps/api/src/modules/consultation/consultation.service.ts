@@ -143,12 +143,12 @@ export class ConsultationService {
       await this.handlePaymentConfirmed(booking.id);
       return {
         bookingId: booking.id,
-        redirectUrl: `${process.env.WEB_URL ?? 'http://localhost:3001'}/consult/confirmed?bookingId=${booking.id}`,
+        redirectUrl: `${process.env.PORTAL_URL ?? 'http://localhost:3002'}/bookings/confirmed?bookingId=${booking.id}`,
       };
     }
 
     // Initiate Tranzak payment
-    const returnUrl = `${process.env.WEB_URL ?? 'http://localhost:3001'}/consult/confirmed?bookingId=${booking.id}`;
+    const returnUrl = `${process.env.PORTAL_URL ?? 'http://localhost:3002'}/bookings/confirmed?bookingId=${booking.id}`;
     const notifyUrl = `${process.env.API_URL ?? 'http://localhost:3000'}/api/v1/consultations/webhook/payment`;
 
     try {
