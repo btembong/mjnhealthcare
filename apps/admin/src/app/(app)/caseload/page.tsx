@@ -36,6 +36,7 @@ type Engagement = {
   status: string;
   paymentMode?: string;
   consultantId?: string;
+  consultantName?: string | null;
   createdAt?: string;
   person?: { name?: string; email?: string; profession?: string };
 };
@@ -66,9 +67,14 @@ const columns = [
       </span>
     ),
   }),
-  col.accessor('consultantId', {
+  col.accessor((row) => row.consultantName ?? row.consultantId ?? '', {
+    id: 'consultant',
     header: 'Consultant',
-    cell: (info) => <span className="text-xs text-muted-foreground">{info.getValue() ?? '—'}</span>,
+    cell: (info) => (
+      <span className="text-xs text-muted-foreground">
+        {info.row.original.consultantName ?? (info.row.original.consultantId ? '—' : '—')}
+      </span>
+    ),
   }),
   col.accessor('paymentMode', {
     header: 'Payment mode',

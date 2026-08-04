@@ -97,11 +97,27 @@ export class LeadService {
   }
 
   async findAll(filters?: { status?: string }) {
-    return this.db.lead.findMany({
+    const leads = await this.db.lead.findMany({
       where: filters?.status ? { status: filters.status as any } : undefined,
       include: { bookings: { include: { slot: true } } },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Attach consultant names — assignedConsultantId is a raw FK string, no schema relation
+    const ids = [...new Set(leads.map((l) => l.assignedConsultantId).filter(Boolean))] as string[];
+    const nameMap: Record<string, string> = {};
+    if (ids.length) {
+      const persons = await this.db.person.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, name: true },
+      });
+      persons.forEach((p) => { nameMap[p.id] = p.name; });
+    }
+
+    return leads.map((l) => ({
+      ...l,
+      assignedConsultantName: l.assignedConsultantId ? (nameMap[l.assignedConsultantId] ?? null) : null,
+    }));
   }
 
   async updateStatus(id: string, status: string, assignedConsultantId?: string) {

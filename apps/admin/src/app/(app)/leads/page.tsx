@@ -19,12 +19,19 @@ const STATUS_OPTIONS = ['NEW', 'CONTACTED', 'QUALIFIED', 'LOST'];
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<any[]>([]);
+  const [consultants, setConsultants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState('');
 
   useEffect(() => {
-    api.getLeads().then(setLeads).catch(console.error).finally(() => setLoading(false));
+    Promise.allSettled([
+      api.getLeads(),
+      api.getConsultants(),
+    ]).then(([leadsRes, consultantsRes]) => {
+      if (leadsRes.status === 'fulfilled') setLeads(leadsRes.value);
+      if (consultantsRes.status === 'fulfilled') setConsultants(consultantsRes.value ?? []);
+    }).finally(() => setLoading(false));
   }, []);
 
   function showToast(msg: string) {
@@ -39,6 +46,24 @@ export default function LeadsPage() {
       setLeads((prev) => prev.map((l) => l.id === id ? { ...l, status } : l));
     } catch (err: any) {
       showToast('Failed to update status: ' + err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleAssignConsultant(id: string, consultantId: string) {
+    if (!consultantId) return;
+    setActionLoading(id + '_assign');
+    try {
+      await api.assignLeadConsultant(id, consultantId);
+      const profile = consultants.find((c) => c.id === consultantId);
+      const name = profile?.person?.name ?? profile?.name ?? consultantId;
+      setLeads((prev) => prev.map((l) =>
+        l.id === id ? { ...l, assignedConsultantId: consultantId, assignedConsultantName: name, status: l.status === 'NEW' ? 'CONTACTED' : l.status } : l
+      ));
+      showToast(`Assigned to ${name}`);
+    } catch (err: any) {
+      showToast('Failed to assign: ' + err.message);
     } finally {
       setActionLoading(null);
     }
@@ -86,6 +111,7 @@ export default function LeadsPage() {
                 <th className="px-4 py-3 font-medium">Profession</th>
                 <th className="px-4 py-3 font-medium">Destination</th>
                 <th className="px-4 py-3 font-medium">Interest</th>
+                <th className="px-4 py-3 font-medium">Assigned To</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Created</th>
                 <th className="px-4 py-3 font-medium">Actions</th>
@@ -100,6 +126,25 @@ export default function LeadsPage() {
                   <td className="px-4 py-3 text-muted-foreground capitalize">{lead.profession ?? '—'}</td>
                   <td className="px-4 py-3 text-muted-foreground">{lead.destination ?? '—'}</td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">{lead.serviceInterest ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    {lead.status === 'CONVERTED' ? (
+                      <span className="text-xs text-muted-foreground">{lead.assignedConsultantName ?? '—'}</span>
+                    ) : (
+                      <select
+                        value={lead.assignedConsultantId ?? ''}
+                        onChange={(e) => handleAssignConsultant(lead.id, e.target.value)}
+                        disabled={actionLoading === lead.id + '_assign'}
+                        className="rounded-lg border border-border bg-white px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary/30 text-foreground"
+                      >
+                        <option value="">Unassigned</option>
+                        {consultants.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.person?.name ?? c.name ?? c.id}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     {lead.status === 'CONVERTED' ? (
                       <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">CONVERTED</span>

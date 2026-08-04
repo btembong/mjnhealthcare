@@ -1,4 +1,4 @@
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mjnhealthcare.com') + '/api/v1';
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -129,6 +129,9 @@ export const api = {
 
   updateLeadStatus: (id: string, status: string) =>
     request<any>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+
+  assignLeadConsultant: (id: string, consultantId: string) =>
+    request<any>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'CONTACTED', assignedConsultantId: consultantId }) }),
 
   convertLead: (id: string) =>
     request<any>(`/leads/${id}/convert`, { method: 'PATCH' }),

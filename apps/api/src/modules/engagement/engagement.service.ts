@@ -11,7 +11,7 @@ export class EngagementService {
   ) {}
 
   async findAll() {
-    return this.db.engagement.findMany({
+    const engagements = await this.db.engagement.findMany({
       include: {
         person: { select: { id: true, name: true, email: true, phone: true, profession: true, locale: true } },
         milestones: true,
@@ -19,6 +19,22 @@ export class EngagementService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Attach consultant names — consultantId stores a ConsultantProfile.id
+    const ids = [...new Set(engagements.map((e) => e.consultantId).filter(Boolean))] as string[];
+    const nameMap: Record<string, string> = {};
+    if (ids.length) {
+      const profiles = await this.db.consultantProfile.findMany({
+        where: { id: { in: ids } },
+        include: { person: { select: { name: true } } },
+      });
+      profiles.forEach((p) => { nameMap[p.id] = p.person?.name ?? p.id; });
+    }
+
+    return engagements.map((e) => ({
+      ...e,
+      consultantName: e.consultantId ? (nameMap[e.consultantId] ?? null) : null,
+    }));
   }
 
   async findByClient(personId: string) {
