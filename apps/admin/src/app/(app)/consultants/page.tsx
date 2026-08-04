@@ -149,6 +149,24 @@ export default function ConsultantsPage() {
   const [photoInput, setPhotoInput] = useState('');
   const [savingPhoto, setSavingPhoto] = useState(false);
 
+  // inline price editing per consultant row
+  const [editingPrice, setEditingPrice] = useState<string | null>(null); // consultantId
+  const [priceInput, setPriceInput] = useState('');
+  const [savingPrice, setSavingPrice] = useState(false);
+
+  async function handleSavePrice(consultantId: string) {
+    const price = parseFloat(priceInput);
+    if (isNaN(price) || price < 0) { alert('Enter a valid price.'); return; }
+    setSavingPrice(true);
+    try {
+      await api.updateConsultant(consultantId, { priceUsd: price });
+      setConsultants((prev) => prev.map((c) => c.id === consultantId ? { ...c, priceUsd: price } : c));
+      setEditingPrice(null);
+      setPriceInput('');
+    } catch { alert('Failed to update price.'); }
+    finally { setSavingPrice(false); }
+  }
+
   async function handleSavePhoto(consultantId: string) {
     setSavingPhoto(true);
     try {
@@ -306,6 +324,7 @@ export default function ConsultantsPage() {
                       <th className="px-5 py-3 font-semibold">Type</th>
                       <th className="px-5 py-3 font-semibold">Category</th>
                       <th className="px-5 py-3 font-semibold">Commission</th>
+                      <th className="px-5 py-3 font-semibold">Price (USD)</th>
                       <th className="px-5 py-3 font-semibold">Photo</th>
                       <th className="px-5 py-3 font-semibold">Slots</th>
                     </tr>
@@ -341,7 +360,16 @@ export default function ConsultantsPage() {
                         </td>
                         <td className="px-5 py-4">
                           <button
-                            onClick={() => { setEditingPhoto(editingPhoto === c.id ? null : c.id); setPhotoInput(c.photoUrl ?? ''); }}
+                            onClick={() => { setEditingPrice(editingPrice === c.id ? null : c.id); setPriceInput(String(c.priceUsd ?? '')); setEditingPhoto(null); }}
+                            className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary transition-colors shadow-sm"
+                          >
+                            <CurrencyDollar className="h-3.5 w-3.5" />
+                            {c.priceUsd != null ? `$${Number(c.priceUsd).toFixed(0)}` : 'Set'}
+                          </button>
+                        </td>
+                        <td className="px-5 py-4">
+                          <button
+                            onClick={() => { setEditingPhoto(editingPhoto === c.id ? null : c.id); setPhotoInput(c.photoUrl ?? ''); setEditingPrice(null); }}
                             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors shadow-sm ${c.photoUrl ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/10' : 'border-border bg-white text-muted-foreground hover:text-primary hover:border-primary/40'}`}
                           >
                             <Image className="h-3.5 w-3.5" />
@@ -357,9 +385,43 @@ export default function ConsultantsPage() {
                           </button>
                         </td>
                       </tr>
+                      {editingPrice === c.id && (
+                        <tr className="bg-muted/30 border-t-0">
+                          <td colSpan={8} className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <CurrencyDollar className="h-4 w-4 shrink-0 text-primary" />
+                              <span className="text-xs font-semibold text-muted-foreground">New price (USD)</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={priceInput}
+                                onChange={(e) => setPriceInput(e.target.value)}
+                                placeholder="e.g. 35"
+                                className="w-28 h-9 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => handleSavePrice(c.id)}
+                                disabled={savingPrice}
+                                className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                              >
+                                {savingPrice ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                Save
+                              </button>
+                              <button
+                                onClick={() => { setEditingPrice(null); setPriceInput(''); }}
+                                className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                       {editingPhoto === c.id && (
                         <tr className="bg-primary/3 border-t-0">
-                          <td colSpan={7} className="px-5 py-3">
+                          <td colSpan={8} className="px-5 py-3">
                             <div className="flex items-center gap-3">
                               <Image className="h-4 w-4 shrink-0 text-primary" />
                               <input
