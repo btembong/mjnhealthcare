@@ -295,7 +295,7 @@ export default function SuccessStoriesPage() {
                     <img
                       src={photo}
                       alt={name}
-                      className="h-full w-full object-cover object-top"
+                      className="h-full w-full object-cover [object-position:center_20%] sm:object-top"
                     />
                     {/* Gradient overlay — bottom fade on mobile, right fade on sm+ */}
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-white/10 to-transparent sm:inset-y-0 sm:inset-x-auto sm:right-0 sm:w-4 sm:h-auto sm:bg-gradient-to-r sm:from-transparent sm:to-white/10" />
