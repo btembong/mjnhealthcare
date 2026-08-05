@@ -44,13 +44,17 @@ export class PdfService {
         str.length > max ? str.slice(0, max - 1) + '…' : str;
 
       // ── Header ───────────────────────────────────────────────────────────
-      // Logo — beside company name
-      const logoPath = path.resolve(__dirname, '../../assets/mjnlogo.png');
+      // Try compiled assets first, then fall back to web/public in the monorepo
       const LOGO_SIZE = 38;
-      if (fs.existsSync(logoPath)) {
-        doc.image(logoPath, L, 48, { width: LOGO_SIZE, height: LOGO_SIZE });
+      const logoCandidates = [
+        path.resolve(__dirname, '../../assets/mjnlogo.png'),
+        path.resolve(__dirname, '../../../../../apps/web/public/mjnlogo.png'),
+      ];
+      const logoPath = logoCandidates.find((p) => fs.existsSync(p)) ?? null;
+      if (logoPath) {
+        doc.image(logoPath, L, 46, { width: LOGO_SIZE, height: LOGO_SIZE });
       }
-      const textX = L + LOGO_SIZE + 10;
+      const textX = logoPath ? L + LOGO_SIZE + 10 : L;
       doc.fillColor(INK).fontSize(15).font('Helvetica-Bold')
         .text('MJN Healthcare', textX, 52);
       doc.fillColor(MUTED).fontSize(8.5).font('Helvetica')
