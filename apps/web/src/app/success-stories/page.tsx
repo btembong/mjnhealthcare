@@ -253,10 +253,10 @@ export default function SuccessStoriesPage() {
           <p className="mt-5 max-w-2xl text-lg text-blue-100">
             These are not testimonials we wrote. These are summaries of real engagements — with real timelines, real salaries, and real candour about what worked and why.
           </p>
-          <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {stats.map(({ value, label }) => (
               <div key={label} className="rounded-2xl bg-white/10 p-4 text-center backdrop-blur-sm">
-                <p className="text-3xl font-extrabold">{value}</p>
+                <p className="text-2xl font-extrabold sm:text-3xl">{value}</p>
                 <p className="mt-1 text-xs text-blue-100">{label}</p>
               </div>
             ))}
@@ -267,13 +267,13 @@ export default function SuccessStoriesPage() {
       {/* DESTINATIONS FILTER BAR */}
       <section className="border-b border-border bg-white px-6 py-4">
         <div className="mx-auto max-w-6xl">
-          <div className="flex flex-wrap gap-3 items-center">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">By destination:</span>
+          <div className="flex items-center gap-3 overflow-x-auto pb-1 sm:flex-wrap sm:pb-0">
+            <span className="shrink-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider">By destination:</span>
             {destinations.map(({ flag, label, count, href }) => (
               <Link
                 key={label}
                 href={href}
-                className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary hover:bg-primary/5 transition-colors"
+                className="shrink-0 flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary hover:bg-primary/5 transition-colors"
               >
                 {flag} {label} <span className="text-xs text-muted-foreground">({count})</span>
               </Link>
@@ -287,18 +287,18 @@ export default function SuccessStoriesPage() {
         <div className="mx-auto max-w-6xl">
           <div className="grid gap-6 lg:grid-cols-2">
             {stories.map(({ name, profession, from, to, pathway, duration, outcome, quote, rating, year, flag, photo }) => (
-              <div key={name} className={`flex overflow-hidden rounded-2xl border border-border bg-white shadow-sm hover:shadow-md hover:border-primary/20 transition-all ${photo ? 'flex-row' : 'flex-col'}`}>
+              <div key={name} className={`flex overflow-hidden rounded-2xl border border-border bg-white shadow-sm hover:shadow-md hover:border-primary/20 transition-all ${photo ? 'flex-col sm:flex-row' : 'flex-col'}`}>
 
-                {/* Photo panel — only for stories with a photo */}
+                {/* Photo panel — stacks on mobile, side panel on sm+ */}
                 {photo && (
-                  <div className="relative w-36 shrink-0 sm:w-44">
+                  <div className="relative h-44 w-full shrink-0 sm:h-auto sm:w-44">
                     <img
                       src={photo}
                       alt={name}
                       className="h-full w-full object-cover object-top"
                     />
-                    {/* Subtle gradient on right edge to blend into content */}
-                    <div className="pointer-events-none absolute inset-y-0 right-0 w-4 bg-gradient-to-r from-transparent to-white/10" />
+                    {/* Gradient overlay — bottom fade on mobile, right fade on sm+ */}
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-white/10 to-transparent sm:inset-y-0 sm:inset-x-auto sm:right-0 sm:w-4 sm:h-auto sm:bg-gradient-to-r sm:from-transparent sm:to-white/10" />
                   </div>
                 )}
 
@@ -341,7 +341,7 @@ export default function SuccessStoriesPage() {
                     </div>
 
                     {/* Quote */}
-                    <blockquote className="border-l-2 border-primary/25 pl-4 text-sm text-muted-foreground leading-relaxed italic flex-1">
+                    <blockquote className="border-l-2 border-primary/25 pl-4 text-sm text-muted-foreground leading-relaxed italic flex-1 line-clamp-4 sm:line-clamp-none">
                       &ldquo;{quote}&rdquo;
                     </blockquote>
                   </div>
