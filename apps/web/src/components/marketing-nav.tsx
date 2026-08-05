@@ -256,23 +256,23 @@ export function MarketingNav() {
         className="sm:top-8"
         items={navItems}
         cta={
-        <div className="flex items-center gap-3">
-          {/* Sign in — icon + label, bordered */}
+        <div className="flex items-center gap-2.5">
+          {/* Sign in */}
           <Link
             href={`${process.env.NEXT_PUBLIC_PORTAL_URL ?? 'http://localhost:3002'}/login`}
-            className="group flex items-center gap-1.5 rounded-lg border border-border/70 bg-white px-3 py-2 text-[12.5px] font-medium text-foreground/65 transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+            className="group flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary hover:shadow"
           >
-            <UserCircle className="h-4 w-4 shrink-0 transition-colors group-hover:text-primary" />
-            Sign in
+            <UserCircle className="h-3.5 w-3.5 shrink-0 transition-colors group-hover:text-primary" />
+            Sign In
           </Link>
 
-          {/* Book CTA — square, two-line */}
+          {/* Book Free Consultation CTA */}
           <Link
             href="/get-started"
-            className="flex h-11 w-[72px] flex-col items-center justify-center rounded-lg bg-primary text-center text-white shadow-md shadow-primary/20 transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30"
+            className="group flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-primary to-[#00A896] px-4 py-2 text-xs font-bold text-white shadow-md shadow-primary/30 transition-all hover:shadow-lg hover:shadow-primary/40 hover:opacity-95 active:scale-[0.98]"
           >
-            <span className="text-[11px] font-bold leading-tight tracking-tight">Book Free</span>
-            <span className="text-[11px] font-bold leading-tight tracking-tight">Consultation</span>
+            Free Consultation
+            <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
       }
