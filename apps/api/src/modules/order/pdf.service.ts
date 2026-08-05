@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
+import * as path from 'path';
+import * as fs from 'fs';
 
 @Injectable()
 export class PdfService {
@@ -42,10 +44,17 @@ export class PdfService {
         str.length > max ? str.slice(0, max - 1) + '…' : str;
 
       // ── Header ───────────────────────────────────────────────────────────
+      // Logo — beside company name
+      const logoPath = path.resolve(__dirname, '../../assets/mjnlogo.png');
+      const LOGO_SIZE = 38;
+      if (fs.existsSync(logoPath)) {
+        doc.image(logoPath, L, 48, { width: LOGO_SIZE, height: LOGO_SIZE });
+      }
+      const textX = L + LOGO_SIZE + 10;
       doc.fillColor(INK).fontSize(15).font('Helvetica-Bold')
-        .text('MJN Healthcare', L, 52);
+        .text('MJN Healthcare', textX, 52);
       doc.fillColor(MUTED).fontSize(8.5).font('Helvetica')
-        .text('Academy and Professional Services Ltd', L, 71);
+        .text('Academy and Professional Services Ltd', textX, 71);
 
       // RECEIPT label — right aligned
       doc.fillColor(INK).fontSize(20).font('Helvetica-Bold')
