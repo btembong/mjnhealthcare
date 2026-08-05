@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { MarketingNav } from '../../../components/marketing-nav';
@@ -16,8 +17,9 @@ import {
 } from '@phosphor-icons/react';
 import { stories } from '../../../lib/stories';
 
-export default function StoryDetailPage({ params }: { params: { slug: string } }) {
-  const story = stories.find((s) => s.slug === params.slug);
+export default function StoryDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params);
+  const story = stories.find((s) => s.slug === slug);
   if (!story) notFound();
 
   const {
