@@ -16,14 +16,14 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mjnhealthcare.com'
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    template: '%s | MJN Healthcare Academy',
-    default: 'MJN Healthcare Academy and Professional Services',
+    template: '%s | MJN Healthcare',
+    default: 'MJN Health Academy and Professional Services',
   },
   description:
     'Healthcare career consulting — global placement, licensing support, exam preparation, and student services across Africa, UAE, UK, US, and Ireland.',
   keywords: ['healthcare', 'nursing', 'NCLEX', 'DHA', 'HAAD', 'NMC', 'staffing', 'Africa', 'UAE', 'UK', 'Ireland', 'Cameroon'],
-  authors: [{ name: 'MJN Healthcare Academy and Professional Services' }],
-  creator: 'MJN Healthcare Academy',
+  authors: [{ name: 'MJN Health Academy and Professional Services' }],
+  creator: 'MJN Healthcare',
 
   // Favicon — icon.tsx and apple-icon.tsx in this directory are picked up
   // automatically by Next.js App Router and generate the <link rel="icon">
@@ -51,8 +51,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: BASE_URL,
-    siteName: 'MJN Healthcare Academy and Professional Services',
-    title: 'MJN Healthcare Academy and Professional Services',
+    siteName: 'MJN Health Academy and Professional Services',
+    title: 'MJN Health Academy and Professional Services',
     description:
       'Healthcare career consulting — global placement, licensing support (UAE, UK, US, Ireland), exam preparation (NCLEX, DHA, NMC CBT), and student services.',
     images: [
@@ -60,13 +60,13 @@ export const metadata: Metadata = {
         url: `${BASE_URL}/opengraph-image`,
         width: 1200,
         height: 630,
-        alt: 'MJN Healthcare Academy and Professional Services',
+        alt: 'MJN Health Academy and Professional Services',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'MJN Healthcare Academy and Professional Services',
+    title: 'MJN Health Academy and Professional Services',
     description:
       'Global healthcare placement, licensing support, and exam prep — built for African health professionals.',
     images: [`${BASE_URL}/opengraph-image`],

@@ -14,7 +14,7 @@ function now() {
 const INITIAL_MESSAGE: Message = {
   role: 'assistant',
   content:
-    "Hi! I'm here to help with any questions about MJN Healthcare Academy's services — licensing support, exam prep, placements, and more. What can I help you with today?",
+    "Hi! I'm here to help with any questions about MJN Healthcare's services — licensing support, exam prep, placements, and more. What can I help you with today?",
   time: now(),
 };
 

@@ -321,7 +321,7 @@ const articles: Record<string, Article> = {
     author: { name: 'John Nyah Mbout, BSN, RN', role: 'CEO & Founder, MJN Healthcare Consulting' },
     blocks: [
       { type: 'p', text: 'Dear Nurses,' },
-      { type: 'p', text: 'As we celebrate National Nurses Week, I want to take this moment to extend my deepest gratitude to each one of you. At MJN Healthcare Academy and Professional Services Ltd, the healthcare staffing arm of MJN Healthcare Consulting, we recognise that nurses are the heartbeat of healthcare. Your dedication, compassion, and resilience are what keep the system moving forward — especially in times of great challenge.' },
+      { type: 'p', text: 'As we celebrate National Nurses Week, I want to take this moment to extend my deepest gratitude to each one of you. At MJN Health Academy and Professional Services Ltd, the healthcare staffing arm of MJN Healthcare Consulting, we recognise that nurses are the heartbeat of healthcare. Your dedication, compassion, and resilience are what keep the system moving forward — especially in times of great challenge.' },
       { type: 'p', text: 'Whether you are providing direct patient care, leading healthcare teams, educating future professionals, or working behind the scenes, your contributions are powerful and far-reaching. Your unwavering commitment to excellence, advocacy, and lifelong learning not only saves lives but also strengthens our communities.' },
       { type: 'callout', text: 'You embody the core values we uphold at MJN: integrity, empathy, innovation, and service.' },
       { type: 'h2', text: 'Nursing Mentorship and Coaching Programme' },

@@ -19,7 +19,7 @@ function EngagementLetterContent({ personName }: { personName: string }) {
       <p>Dear <strong>{personName}</strong>,</p>
 
       <p>
-        Thank you for choosing <strong>MJN Healthcarecare Academy and Professional Services</strong>. This Engagement Letter
+        Thank you for choosing <strong>MJN Health Academy and Professional Services LTD</strong>. This Engagement Letter
         ("Letter") sets out the terms under which we will provide consulting services to you. Please read it carefully
         before signing.
       </p>

@@ -24,7 +24,7 @@ export default function TermsPage() {
 
             <div>
               <h2 className="text-lg font-bold text-foreground mb-2">1. Introduction</h2>
-              <p>These Terms of Service (&ldquo;Terms&rdquo;) govern your use of the MJN Healthcare Academy and Professional Services website, platform, and consulting services. By accessing our services, you agree to these Terms. These Terms are supplemented by the Engagement Letter signed at the start of any consulting engagement — in the event of conflict, the Engagement Letter governs.</p>
+              <p>These Terms of Service (&ldquo;Terms&rdquo;) govern your use of the MJN Health Academy and Professional Services website, platform, and consulting services. By accessing our services, you agree to these Terms. These Terms are supplemented by the Engagement Letter signed at the start of any consulting engagement — in the event of conflict, the Engagement Letter governs.</p>
             </div>
 
             <div>
@@ -86,7 +86,7 @@ export default function TermsPage() {
 
             <div>
               <h2 className="text-lg font-bold text-foreground mb-2">8. Intellectual Property</h2>
-              <p>All Academy content (study plans, question banks, video lessons, guides) is the intellectual property of MJN Healthcare Academy and Professional Services. Access is licensed to you personally and non-transferably for the duration of your Academy subscription. You may not reproduce, share, resell, or distribute Academy content.</p>
+              <p>All Academy content (study plans, question banks, video lessons, guides) is the intellectual property of MJN Health Academy and Professional Services. Access is licensed to you personally and non-transferably for the duration of your Academy subscription. You may not reproduce, share, resell, or distribute Academy content.</p>
             </div>
 
             <div>

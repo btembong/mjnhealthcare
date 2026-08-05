@@ -154,7 +154,7 @@ export class PdfService {
       y += 10;
       doc.fillColor(MUTED).fontSize(7.5).font('Helvetica')
         .text(
-          'Payment processed securely. This receipt confirms receipt of funds by MJN Healthcare Academy and Professional Services Ltd. ' +
+          'Payment processed securely. This receipt confirms receipt of funds by MJN Health Academy and Professional Services Ltd. ' +
           'It does not constitute a guarantee of any exam result, visa outcome, or employment placement.',
           L, y, { width: W },
         );
@@ -168,7 +168,7 @@ export class PdfService {
         .strokeColor(INK).lineWidth(1).stroke();
 
       doc.fillColor(INK).fontSize(8).font('Helvetica-Bold')
-        .text('MJN Healthcare Academy and Professional Services Ltd', L, footerY + 10, { continued: true })
+        .text('MJN Health Academy and Professional Services Ltd', L, footerY + 10, { continued: true })
         .font('Helvetica').fillColor(MUTED)
         .text(`   ·   Auth. No. ${REG_NUMBER}   ·   Yaoundé, Cameroon`);
 

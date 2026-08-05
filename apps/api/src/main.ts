@@ -22,7 +22,7 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('MJN Healthcare API')
-    .setDescription('MJN Healthcare Academy and Professional Services API')
+    .setDescription('MJN Health Academy and Professional Services API')
     .setVersion('1.0')
     .addBearerAuth()
     .build();

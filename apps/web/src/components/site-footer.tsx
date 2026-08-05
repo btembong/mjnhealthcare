@@ -137,7 +137,7 @@ export function SiteFooter() {
           </p>
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © 2026 MJN Healthcare Academy and Professional Services Ltd. All rights reserved.
+            © 2026 MJN Health Academy and Professional Services Ltd. All rights reserved.
           </p>
           <div className="flex flex-wrap gap-5">
             {[

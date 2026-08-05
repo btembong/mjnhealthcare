@@ -37,7 +37,7 @@ const DEFAULT_SYSTEM_CONFIG: Record<string, string> = {
   dunning_day_reminder: '7',
   dunning_day_warning: '14',
   dunning_day_hold: '21',
-  company_name: 'MJN Healthcare Academy and Professional Services Ltd',
+  company_name: 'MJN Health Academy and Professional Services Ltd',
   portal_url: 'https://portal.mjnhealthcare.com',
   support_email: 'support@mjnhealthcare.com',
 };

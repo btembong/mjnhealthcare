@@ -24,7 +24,7 @@ export default function PrivacyPage() {
 
             <div>
               <h2 className="text-lg font-bold text-foreground mb-2">1. Who We Are</h2>
-              <p>MJN Healthcare Academy and Professional Services (&ldquo;MJN,&rdquo; &ldquo;we,&rdquo; &ldquo;us&rdquo;) is a healthcare career consulting agency registered in Cameroon. We provide international healthcare licensing support, exam preparation, staffing placement, and related professional services.</p>
+              <p>MJN Health Academy and Professional Services (&ldquo;MJN,&rdquo; &ldquo;we,&rdquo; &ldquo;us&rdquo;) is a healthcare career consulting agency registered in Cameroon. We provide international healthcare licensing support, exam preparation, staffing placement, and related professional services.</p>
               <p className="mt-2">Data controller contact: <a href="mailto:privacy@mjnhealthcare.com" className="text-primary hover:underline">privacy@mjnhealthcare.com</a></p>
             </div>
 

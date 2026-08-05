@@ -320,7 +320,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <p className="text-xs text-blue-200/70">© 2026 MJN Healthcare Academy and Professional Services</p>
+          <p className="text-xs text-blue-200/70">© 2026 MJN Health Academy and Professional Services</p>
         </div>
 
         {/* Right panel */}

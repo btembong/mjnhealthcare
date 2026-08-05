@@ -81,7 +81,7 @@ export function shell(body: string): string {
     <tr>
       <td style="background:#F8FAFB;border:1px solid ${BORDER};border-top:none;border-radius:0 0 8px 8px;padding:20px 40px;">
         <p style="margin:0 0 6px;font-size:11px;color:#9AA3B0;line-height:1.8;text-align:center;">
-          MJN Healthcare Academy and Professional Services Ltd &nbsp;·&nbsp;
+          MJN Health Academy and Professional Services Ltd &nbsp;·&nbsp;
           <a href="${WEB()}" style="color:#9AA3B0;text-decoration:none;">mjnhealthcare.com</a>
         </p>
         <p style="margin:0 0 6px;font-size:10px;color:#B0B8C4;text-align:center;">

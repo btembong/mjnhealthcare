@@ -71,7 +71,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="text-xs text-white/30">
-          © 2026 MJN Healthcare Academy and Professional Services Ltd · Internal use only
+          © 2026 MJN Health Academy and Professional Services Ltd · Internal use only
         </p>
       </div>
 
