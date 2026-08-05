@@ -1,0 +1,17 @@
+{
+  "name": "MJN Healthcare Academy and Professional Services",
+  "short_name": "MJN Healthcare",
+  "description": "Healthcare career consulting for African professionals — global placement, licensing support, exam prep, and student services.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A2540",
+  "theme_color": "#0F4C81",
+  "icons": [
+    {
+      "src": "/mjnlogo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
