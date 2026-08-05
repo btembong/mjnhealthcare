@@ -4,61 +4,63 @@ import Link from 'next/link';
 import { MarketingNav } from '../../../components/marketing-nav';
 import { SiteFooter } from '../../../components/site-footer';
 import { Button, Badge } from '@mjn/ui';
+import type { ElementType } from 'react';
 import {
-  ArrowRight, CheckCircle, Clock, Shield, GraduationCap, Users, BookOpen,
+  ArrowRight, CheckCircle, GraduationCap, Users, BookOpen,
+  PaperPlaneTilt, Stethoscope, ClipboardText, Coins, Handshake, Flask, Compass,
 } from '@phosphor-icons/react';
 
-const services = [
+const services: { icon: ElementType; title: string; desc: string }[] = [
   {
-    icon: '🎓',
+    icon: GraduationCap,
     title: 'University Application Assistance',
     desc: 'We guide healthcare students through the application process for partner universities in the UK, Ireland, Canada, and Australia — personal statement drafting, reference coordination, and submission tracking.',
   },
   {
-    icon: '✈️',
+    icon: PaperPlaneTilt,
     title: 'Study Abroad Placement',
     desc: 'Structured short and long-term study-abroad programmes at institutions with formal MJN partnerships. We handle application, visa orientation, pre-departure briefing, and in-country orientation.',
   },
   {
-    icon: '🏥',
+    icon: Stethoscope,
     title: 'Clinical Internship Placement',
     desc: 'Internship placement with partner hospitals and health facilities — locally within Africa and internationally. We match students to positions that count toward registration-eligible clinical hours.',
   },
   {
-    icon: '📋',
+    icon: ClipboardText,
     title: 'Licensing Pathway Planning',
     desc: 'For penultimate and final-year students: early pathway mapping so you graduate already knowing your credential requirements, exam timelines, and destination options. Start before you qualify — finish faster.',
   },
   {
-    icon: '💰',
+    icon: Coins,
     title: 'Scholarship & Funding Guidance',
     desc: 'We maintain a curated database of scholarships, bursaries, and health-sector funding open to African students. Your consultant identifies applicable opportunities and guides the application.',
   },
   {
-    icon: '🤝',
+    icon: Handshake,
     title: 'Mentorship Matching',
     desc: 'We connect students with MJN-placed healthcare professionals working in their target country — for real-world advice on the profession, culture, and career pathway that no textbook provides.',
   },
 ];
 
-const nonHealthcareServices = [
+const nonHealthcareServices: { icon: ElementType; title: string; desc: string }[] = [
   {
-    icon: '🎓',
+    icon: GraduationCap,
     title: 'University Application Support',
     desc: 'Guidance on applying to pre-medicine, biomedical science, public health, and health management programmes at universities in the UK, Ireland, Canada, and Australia.',
   },
   {
-    icon: '✈️',
+    icon: PaperPlaneTilt,
     title: 'Study-Abroad Placement',
     desc: 'Short and long-term exchange placements at partner institutions — ideal for pre-med and science students who want international academic exposure before entering a health profession.',
   },
   {
-    icon: '🔬',
+    icon: Flask,
     title: 'Research & Lab Internships',
     desc: 'Placement in research labs, public health organisations, and hospital administrative departments — for students who want health-adjacent experience without a clinical role.',
   },
   {
-    icon: '💡',
+    icon: Compass,
     title: 'Career Pathway Advising',
     desc: 'Not sure whether to pursue medicine, nursing, pharmacy, or allied health? We map the realistic path from your current education to your target profession — including entry requirements, timelines, and costs.',
   },
@@ -136,9 +138,11 @@ export default function StudentSupportPage() {
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {services.map(({ icon, title, desc }) => (
+            {services.map(({ icon: Icon, title, desc }) => (
               <div key={title} className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8 text-xl">{icon}</div>
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8">
+                  <Icon className="h-5 w-5 text-primary" weight="duotone" />
+                </div>
                 <h3 className="font-semibold text-foreground">{title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{desc}</p>
               </div>
@@ -158,9 +162,11 @@ export default function StudentSupportPage() {
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {nonHealthcareServices.map(({ icon, title, desc }) => (
+            {nonHealthcareServices.map(({ icon: Icon, title, desc }) => (
               <div key={title} className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10 text-xl">{icon}</div>
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10">
+                  <Icon className="h-5 w-5 text-secondary" weight="duotone" />
+                </div>
                 <h3 className="font-semibold text-foreground">{title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{desc}</p>
               </div>
