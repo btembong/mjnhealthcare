@@ -463,6 +463,7 @@ export class ConsultationService {
     return this.db.consultantProfile.create({
       data: {
         name: dto.name,
+        email: dto.email,
         bio: dto.bio,
         photoUrl: dto.photoUrl,
         specialty: dto.specialty,

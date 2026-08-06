@@ -267,6 +267,7 @@ export default function ConsultantsPage() {
       // Create consultant profile (shown in this page's list)
       await api.createConsultant({
         name: form.name,
+        email: form.email,
         bio: form.bio,
         specialty: form.specialty,
         languages: ['English'],

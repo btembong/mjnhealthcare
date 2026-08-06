@@ -137,11 +137,11 @@ export class LeadService {
     });
 
     if (assignedConsultantId) {
-      const consultant = await this.db.person.findUnique({ where: { id: assignedConsultantId } });
-      if (consultant?.email) {
+      const profile = await this.db.consultantProfile.findUnique({ where: { id: assignedConsultantId } });
+      if (profile?.email) {
         this.events.emit('lead.assigned', {
-          consultantEmail: consultant.email,
-          consultantName: consultant.name,
+          consultantEmail: profile.email,
+          consultantName: profile.name,
           leadName: lead.name,
           leadEmail: lead.email,
           leadPhone: lead.phone,

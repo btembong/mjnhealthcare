@@ -38,6 +38,7 @@ export class CreateSlotsDto {
 
 export class CreateConsultantDto {
   @IsString() name!: string;
+  @IsOptional() @IsEmail() email?: string;
   @IsString() bio!: string;
   @IsOptional() @IsString() @IsUrl() photoUrl?: string;
   @IsString() specialty!: string;

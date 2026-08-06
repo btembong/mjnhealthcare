@@ -777,6 +777,7 @@ model ConsultantProfile {
   status               ConsultantStatus     @default(ACTIVE)
   consultationCategory ConsultationCategory @default(BOTH)
   name                 String
+  email                String?
   bio                  String
   photoUrl             String?
   specialty            String
