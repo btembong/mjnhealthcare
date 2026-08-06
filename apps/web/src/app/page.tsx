@@ -392,9 +392,9 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="flex gap-5 overflow-x-auto snap-x snap-mandatory pb-4 lg:grid lg:grid-cols-3 lg:overflow-x-visible lg:pb-0">
             {services.map(({ icon: Icon, title, badge, desc, features, href }) => (
-              <div key={title} className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-white p-7 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/30">
+              <div key={title} className="group relative flex shrink-0 w-[85vw] flex-col overflow-hidden rounded-2xl border border-border bg-white p-7 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/30 snap-start lg:w-auto">
                 {/* Top row */}
                 <div className="mb-5 flex items-start justify-between">
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/8 transition-colors group-hover:bg-primary/14">
