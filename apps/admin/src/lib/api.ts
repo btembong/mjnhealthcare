@@ -331,6 +331,8 @@ export const api = {
   // ── Engagements (admin) ───────────────────────────────────────────────────
   getEngagementById: (id: string) => request<any>(`/engagements/${id}`),
   getClientEngagements: (personId: string) => request<any[]>(`/engagements/client/${personId}`),
+  sendDocumentChecklist: (engagementId: string, pathwayKey: string) =>
+    request<any>(`/engagements/${engagementId}/send-checklist`, { method: 'POST', body: JSON.stringify({ pathwayKey }) }),
 
   createEngagement: (data: { personId: string; consultantId?: string }) =>
     request<any>('/engagements', { method: 'POST', body: JSON.stringify(data) }),

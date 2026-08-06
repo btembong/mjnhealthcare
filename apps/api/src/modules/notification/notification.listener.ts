@@ -550,6 +550,28 @@ export class NotificationListener {
 
   // ── Engagement ────────────────────────────────────────────────────────────
 
+  @OnEvent('engagement.checklist_sent')
+  async onChecklistSent(payload: {
+    personName: string; personEmail: string | null;
+    pathway: string; regulatoryBody: string; country: string;
+    items: { label: string; note?: string }[];
+  }) {
+    if (!payload.personEmail) return;
+    await this.notificationService.sendEmail(
+      payload.personEmail,
+      `Your Document Checklist — ${payload.pathway} — MJN Healthcare`,
+      T.tplDocumentChecklist({
+        name: payload.personName,
+        pathway: payload.pathway,
+        regulatoryBody: payload.regulatoryBody,
+        country: payload.country,
+        items: payload.items,
+      }),
+      payload.personName,
+    );
+    this.logger.log(`Document checklist email sent to ${payload.personEmail} — ${payload.pathway}`);
+  }
+
   @OnEvent('engagement.sign_requested')
   async onSignRequested(payload: {
     engagementId: string;

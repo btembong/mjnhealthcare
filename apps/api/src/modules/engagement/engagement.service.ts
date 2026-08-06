@@ -1,6 +1,7 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
+import { DOCUMENT_CHECKLISTS } from './document-checklists';
 @Injectable()
 export class EngagementService {
   private readonly logger = new Logger(EngagementService.name);
@@ -186,6 +187,44 @@ export class EngagementService {
       where: { id: milestoneId },
       data: { completedAt: new Date() },
     });
+  }
+
+  async sendDocumentChecklist(engagementId: string, pathwayKey: string, staffPersonId: string) {
+    const checklist = DOCUMENT_CHECKLISTS[pathwayKey];
+    if (!checklist) throw new BadRequestException(`Unknown pathway: ${pathwayKey}`);
+
+    const engagement = await this.db.engagement.findUnique({
+      where: { id: engagementId },
+      include: { person: { select: { id: true, name: true, email: true, phone: true } } },
+    });
+    if (!engagement) throw new NotFoundException('Engagement not found');
+    const person = engagement.person;
+
+    // Emit event so NotificationListener sends the email
+    this.events.emit('engagement.checklist_sent', {
+      personName: person.name ?? 'Client',
+      personEmail: person.email,
+      pathway: checklist.pathway,
+      regulatoryBody: checklist.regulatoryBody,
+      country: checklist.country,
+      items: checklist.items,
+    });
+
+    // Also post as a chat message so the client sees it in the portal
+    const lines = checklist.items.map((item, i) => `${i + 1}. ${item.label}${item.note ? ` (${item.note})` : ''}`).join('\n');
+    const chatMessage = `📋 Document Checklist — ${checklist.pathway}\n\nPlease upload the following documents to your document vault:\n\n${lines}\n\nUpload at: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/documents`;
+
+    await this.db.engagementMessage.create({
+      data: {
+        engagementId,
+        senderId: staffPersonId,
+        senderType: 'ADMIN',
+        content: chatMessage,
+      },
+    });
+
+    this.logger.log(`Document checklist (${pathwayKey}) sent for engagement ${engagementId}`);
+    return { ok: true, pathway: checklist.pathway };
   }
 
   async sendClientMessage(engagementId: string, message: string) {

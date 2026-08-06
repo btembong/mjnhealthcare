@@ -117,4 +117,16 @@ export class EngagementController {
   sendMessage(@Param('id') id: string, @Body() dto: SendMessageDto) {
     return this.engagementService.sendClientMessage(id, dto.message);
   }
+
+  @ApiOperation({ summary: 'Send pathway-specific document checklist to client (email + chat)' })
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Post(':id/send-checklist')
+  sendDocumentChecklist(
+    @Param('id') id: string,
+    @Body() body: { pathwayKey: string },
+    @Req() req: any,
+  ) {
+    return this.engagementService.sendDocumentChecklist(id, body.pathwayKey, req.user.id);
+  }
 }

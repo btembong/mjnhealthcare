@@ -104,6 +104,11 @@ export default function CaseDetailPage() {
   // Send letter
   const [sendingLetter, setSendingLetter] = useState(false);
 
+  // Document checklist
+  const [checklistOpen, setChecklistOpen] = useState(false);
+  const [checklistPathway, setChecklistPathway] = useState('UAE_DATAFLOW_NURSE');
+  const [sendingChecklist, setSendingChecklist] = useState(false);
+
   // Study plan
   const [studyPlan, setStudyPlan] = useState<any>(null);
   const [showPlanForm, setShowPlanForm] = useState(false);
@@ -340,6 +345,15 @@ export default function CaseDetailPage() {
     });
   }, [messages]);
 
+  async function handleSendChecklist() {
+    setSendingChecklist(true);
+    try {
+      await api.sendDocumentChecklist(id, checklistPathway);
+      setChecklistOpen(false);
+      await loadMessages();
+    } catch (e: any) { setError(e.message); } finally { setSendingChecklist(false); }
+  }
+
   if (loading) return <DetailSkeleton />;
   if (!engagement) return (
     <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
@@ -369,10 +383,75 @@ export default function CaseDetailPage() {
           <h1 className="text-xl font-bold text-foreground">{person.name ?? 'Case Detail'}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Engagement · {id.slice(0, 8)}…</p>
         </div>
-        <span className={`ml-auto inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${STATUS_STYLES[engagement.status] ?? 'bg-muted text-muted-foreground border-border'}`}>
-          {statusLabel(engagement.status)}
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setChecklistOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors"
+          >
+            <FileText className="h-3.5 w-3.5" /> Send Checklist
+          </button>
+          <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${STATUS_STYLES[engagement.status] ?? 'bg-muted text-muted-foreground border-border'}`}>
+            {statusLabel(engagement.status)}
+          </span>
+        </div>
       </div>
+
+      {/* Document checklist modal */}
+      {checklistOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-white shadow-xl p-6 space-y-5 mx-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-foreground">Send Document Checklist</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Sends a formatted email to the client and posts it in the portal chat.</p>
+              </div>
+              <button onClick={() => setChecklistOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-foreground">Select pathway / regulatory body</label>
+              <select
+                value={checklistPathway}
+                onChange={(e) => setChecklistPathway(e.target.value)}
+                className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <optgroup label="UAE">
+                  <option value="UAE_DATAFLOW_NURSE">UAE DataFlow — Nurse</option>
+                  <option value="UAE_DATAFLOW_PHYSICIAN">UAE DataFlow — Physician</option>
+                  <option value="UAE_DHA">UAE DHA (Dubai Health Authority)</option>
+                  <option value="UAE_MOH_DOH">UAE MOH / DOH</option>
+                </optgroup>
+                <optgroup label="United Kingdom">
+                  <option value="UK_NMC">UK NMC Registration</option>
+                </optgroup>
+                <optgroup label="United States">
+                  <option value="US_NCLEX_CGFNS">US NCLEX-RN / CGFNS</option>
+                </optgroup>
+                <optgroup label="Ireland">
+                  <option value="IRELAND_NMBI">Ireland NMBI Registration</option>
+                </optgroup>
+              </select>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setChecklistOpen(false)}
+                className="flex-1 rounded-xl border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendChecklist}
+                disabled={sendingChecklist}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {sendingChecklist ? <CircleNotch className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                {sendingChecklist ? 'Sending…' : 'Send checklist'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

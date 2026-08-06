@@ -671,6 +671,40 @@ export function tplStaleLeadsAdmin(opts: {
   );
 }
 
+export function tplDocumentChecklist(opts: {
+  name: string;
+  pathway: string;
+  regulatoryBody: string;
+  country: string;
+  items: { label: string; note?: string }[];
+}): string {
+  const itemRows = opts.items.map((item, i) => `
+    <tr>
+      <td style="padding:10px 14px;vertical-align:top;width:28px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${NAVY};color:#fff;font-size:11px;font-weight:700;">${i + 1}</span>
+      </td>
+      <td style="padding:10px 14px 10px 0;vertical-align:top;border-bottom:1px solid ${BORDER};">
+        <p style="margin:0;font-size:14px;font-weight:600;color:${TEXT};">${item.label}</p>
+        ${item.note ? `<p style="margin:4px 0 0;font-size:12px;color:${MUTED};">${item.note}</p>` : ''}
+      </td>
+    </tr>`).join('');
+
+  return shell(
+    greeting(opts.name) +
+    label('Action required') +
+    h1('Your document checklist') +
+    p(`To progress your <strong>${opts.pathway}</strong> (${opts.regulatoryBody}), please upload the following documents to your MJN Healthcare portal as soon as possible.`) +
+    notice('Missing or incomplete documents are the most common cause of delays. Please submit all items together where possible.', 'warning') +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border:1px solid ${BORDER};border-radius:10px;overflow:hidden;background:#fff;">
+      <tbody>${itemRows}</tbody>
+    </table>` +
+    btn('Upload documents to your vault', `${PORTAL()}/documents`) +
+    divider() +
+    p('If you have any questions about a specific document, reply to this email or message your consultant directly through your portal.') +
+    pSmall('Please ensure all documents are clear, legible scans or photographs. Blurry or cropped images will be rejected by the regulatory body and cause delays.')
+  );
+}
+
 export function tplLeadAcknowledgement(opts: { name: string }): string {
   return shell(
     greeting(opts.name) +
