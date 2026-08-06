@@ -173,6 +173,28 @@ export default function HomePage() {
 
   const story = successStories[storyIdx];
 
+  // Scroll-driven services carousel (mobile only)
+  const servicesSectionRef = React.useRef<HTMLDivElement>(null);
+  const servicesStripRef = React.useRef<HTMLDivElement>(null);
+  const [activeService, setActiveService] = React.useState(0);
+
+  React.useEffect(() => {
+    function onScroll() {
+      if (window.innerWidth >= 1024) return;
+      const section = servicesSectionRef.current;
+      const strip = servicesStripRef.current;
+      if (!section || !strip) return;
+      const scrollIn = Math.max(0, window.scrollY - section.offsetTop);
+      const vh = window.innerHeight;
+      const rawProgress = scrollIn / vh;
+      const clamped = Math.min(rawProgress, services.length - 1);
+      strip.style.transform = `translateX(-${clamped * 100}vw)`;
+      setActiveService(Math.max(0, Math.min(Math.floor(rawProgress), services.length - 1)));
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
     <>
       <MarketingNav />
@@ -382,43 +404,89 @@ export default function HomePage() {
       </section>
 
       {/* ── WHAT WE DO ───────────────────────────────────────────────────────── */}
-      <section id="services" className="border-t border-border bg-muted/25 px-6 py-20">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-14 text-center">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-primary">What We Do</p>
-            <h2 className="text-3xl font-bold sm:text-4xl">Three Ways We Work With You</h2>
-            <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
-              Every service starts with a dedicated consultant assigned to your case — not a portal ticket.
-            </p>
-          </div>
+      <section id="services" className="border-t border-border">
 
-          <div className="flex gap-5 overflow-x-auto snap-x snap-mandatory pb-4 lg:grid lg:grid-cols-3 lg:overflow-x-visible lg:pb-0">
-            {services.map(({ icon: Icon, title, badge, desc, features, href }) => (
-              <div key={title} className="group relative flex shrink-0 w-[85vw] flex-col overflow-hidden rounded-2xl border border-border bg-white p-7 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/30 snap-start lg:w-auto">
-                {/* Top row */}
-                <div className="mb-5 flex items-start justify-between">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/8 transition-colors group-hover:bg-primary/14">
-                    <Icon className="h-5 w-5 text-primary" />
+        {/* Mobile: scroll-driven sticky carousel */}
+        <div ref={servicesSectionRef} className="lg:hidden bg-muted/25" style={{ height: `${services.length * 100}vh` }}>
+          <div className="sticky top-0 h-screen overflow-hidden flex flex-col bg-muted/25">
+            <div className="shrink-0 pt-14 pb-4 px-6 text-center">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">What We Do</p>
+              <h2 className="text-2xl font-bold">Three Ways We Work With You</h2>
+              <p className="mt-1.5 text-sm text-muted-foreground">Every service starts with a dedicated consultant — not a portal ticket.</p>
+            </div>
+            <p className="shrink-0 text-center text-[11px] text-muted-foreground/50 mb-3">Scroll to explore ↓</p>
+            <div className="flex-1 overflow-hidden px-5 min-h-0">
+              <div ref={servicesStripRef} className="flex h-full" style={{ width: `${services.length * 100}vw` }}>
+                {services.map(({ icon: Icon, title, badge, desc, features, href }) => (
+                  <div key={title} className="flex h-full pb-3" style={{ width: '100vw', paddingRight: '1.25rem' }}>
+                    <div className="group flex flex-col flex-1 overflow-y-auto rounded-2xl border border-border bg-white p-6 shadow-sm">
+                      <div className="mb-5 flex items-start justify-between">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/8">
+                          <Icon className="h-5 w-5 text-primary" />
+                        </div>
+                        <span className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[11px] font-semibold text-foreground/60">{badge}</span>
+                      </div>
+                      <h3 className="mb-2 text-lg font-bold text-foreground">{title}</h3>
+                      <p className="mb-5 flex-1 text-sm text-muted-foreground leading-relaxed">{desc}</p>
+                      <ul className="space-y-2 border-t border-border pt-4">
+                        {features.map((f) => (
+                          <li key={f} className="flex items-center gap-2 text-sm">
+                            <CheckCircle className="h-3.5 w-3.5 shrink-0 text-primary" weight="fill" />
+                            <span className="text-foreground/75">{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <Link href={href} className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                        Learn more <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
                   </div>
-                  <span className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[11px] font-semibold text-foreground/60">
-                    {badge}
-                  </span>
-                </div>
-                <h3 className="mb-2 text-lg font-bold text-foreground">{title}</h3>
-                <p className="mb-5 flex-1 text-sm text-muted-foreground leading-relaxed">{desc}</p>
-                <ul className="space-y-2 border-t border-border pt-4">
-                  {features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-3.5 w-3.5 shrink-0 text-primary" weight="fill" />
-                      <span className="text-foreground/75">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link href={href} className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-primary transition-all hover:gap-2">
-                  Learn more <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+                ))}
               </div>
-            ))}
+            </div>
+            <div className="shrink-0 flex items-center justify-center gap-2 py-4">
+              {services.map((s, i) => (
+                <div key={s.title} className={`h-1.5 rounded-full transition-all duration-300 ${i === activeService ? 'w-6 bg-primary' : 'w-1.5 bg-border'}`} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop: 3-column grid */}
+        <div className="hidden lg:block bg-muted/25 px-6 py-20">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-14 text-center">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-primary">What We Do</p>
+              <h2 className="text-3xl font-bold sm:text-4xl">Three Ways We Work With You</h2>
+              <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
+                Every service starts with a dedicated consultant assigned to your case — not a portal ticket.
+              </p>
+            </div>
+            <div className="grid gap-5 grid-cols-3">
+              {services.map(({ icon: Icon, title, badge, desc, features, href }) => (
+                <div key={title} className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-white p-7 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/30">
+                  <div className="mb-5 flex items-start justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/8 transition-colors group-hover:bg-primary/14">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <span className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[11px] font-semibold text-foreground/60">{badge}</span>
+                  </div>
+                  <h3 className="mb-2 text-lg font-bold text-foreground">{title}</h3>
+                  <p className="mb-5 flex-1 text-sm text-muted-foreground leading-relaxed">{desc}</p>
+                  <ul className="space-y-2 border-t border-border pt-4">
+                    {features.map((f) => (
+                      <li key={f} className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="h-3.5 w-3.5 shrink-0 text-primary" weight="fill" />
+                        <span className="text-foreground/75">{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href={href} className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-primary transition-all hover:gap-2">
+                    Learn more <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
