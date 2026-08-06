@@ -330,6 +330,7 @@ export const api = {
 
   // ── Engagements (admin) ───────────────────────────────────────────────────
   getEngagementById: (id: string) => request<any>(`/engagements/${id}`),
+  getClientEngagements: (personId: string) => request<any[]>(`/engagements/client/${personId}`),
 
   createEngagement: (data: { personId: string; consultantId?: string }) =>
     request<any>('/engagements', { method: 'POST', body: JSON.stringify(data) }),

@@ -143,19 +143,34 @@ export default function CaseDetailPage() {
   async function load() {
     setLoading(true);
     try {
-      const [eng, cons] = await Promise.allSettled([
+      const [engRes, cons] = await Promise.allSettled([
         api.getEngagementById(id),
         api.getConsultants(),
       ]);
-      if (eng.status === 'fulfilled') {
-        setEngagement(eng.value);
-        const personId = (eng.value as any)?.person?.id;
+
+      let engValue: any = null;
+      if (engRes.status === 'fulfilled') {
+        engValue = engRes.value;
+      } else {
+        // `id` might be a person ID (e.g. navigating from leads page) — try client lookup
+        try {
+          const clientEngs = await api.getClientEngagements(id);
+          const active = (clientEngs ?? []).find((e: any) => e.status === 'ACTIVE') ?? clientEngs?.[0] ?? null;
+          engValue = active;
+          if (!active) setError('No engagement found for this client yet.');
+        } catch {
+          setError('Failed to load case.');
+        }
+      }
+
+      if (engValue) {
+        setEngagement(engValue);
+        const personId = engValue?.person?.id;
         if (personId) {
           api.getStudyPlan(personId).then((plan) => setStudyPlan(plan)).catch(() => {});
         }
       }
       if (cons.status === 'fulfilled') setConsultants(cons.value ?? []);
-      if (eng.status === 'rejected') setError('Failed to load case.');
     } finally {
       setLoading(false);
     }

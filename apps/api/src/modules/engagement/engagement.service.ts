@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 @Injectable()
@@ -45,7 +45,7 @@ export class EngagementService {
   }
 
   async findById(id: string) {
-    return this.db.engagement.findUniqueOrThrow({
+    const engagement = await this.db.engagement.findUnique({
       where: { id },
       include: {
         person: { select: { id: true, name: true, email: true, phone: true, profession: true, locale: true, createdAt: true } },
@@ -61,6 +61,8 @@ export class EngagementService {
         poaRecords: { orderBy: { capturedAt: 'desc' } },
       },
     });
+    if (!engagement) throw new NotFoundException('Engagement not found');
+    return engagement;
   }
 
   async create(data: { personId: string; consultantId?: string }) {
