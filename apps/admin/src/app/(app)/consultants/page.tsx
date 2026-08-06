@@ -138,13 +138,14 @@ export default function ConsultantsPage() {
 
   // edit modal
   const [editingConsultant, setEditingConsultant] = useState<Consultant | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', specialty: '', bio: '', consultationCategory: '', languages: '', priceUsd: '', sessionDurationMins: '' });
+  const [editForm, setEditForm] = useState({ name: '', email: '', specialty: '', bio: '', consultationCategory: '', languages: '', priceUsd: '', sessionDurationMins: '' });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
   function openEdit(c: Consultant) {
     setEditForm({
       name: c.name ?? '',
+      email: (c as any).email ?? '',
       specialty: (c as any).specialty ?? '',
       bio: (c as any).bio ?? '',
       consultationCategory: c.consultationCategory ?? 'BOTH',
@@ -163,6 +164,7 @@ export default function ConsultantsPage() {
     try {
       await api.updateConsultant(editingConsultant.id, {
         name: editForm.name.trim() || undefined,
+        email: editForm.email.trim() || undefined,
         specialty: editForm.specialty.trim() || undefined,
         bio: editForm.bio.trim() || undefined,
         consultationCategory: editForm.consultationCategory || undefined,
@@ -951,6 +953,14 @@ export default function ConsultantsPage() {
                 <label className="mb-1.5 block text-sm font-semibold text-foreground">Full name</label>
                 <input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                   className="h-11 w-full rounded-xl border border-border bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">Email address</label>
+                <input type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="consultant@mjnhealth.com"
+                  className="h-11 w-full rounded-xl border border-border bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                <p className="mt-1 text-xs text-muted-foreground">Used for lead assignment notifications.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

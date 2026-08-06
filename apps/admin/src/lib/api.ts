@@ -230,13 +230,13 @@ export const api = {
   getConsultants: () => request<any[]>('/consultations/admin/consultants'),
 
   createConsultant: (data: {
-    name: string; bio: string; specialty: string; languages: string[];
+    name: string; email?: string; bio: string; specialty: string; languages: string[];
     type: 'STAFF' | 'PARTNER'; consultationCategory: string;
     priceUsd: number; commissionRate?: number; photoUrl?: string;
   }) => request<any>('/consultations/admin/consultants', { method: 'POST', body: JSON.stringify(data) }),
 
   updateConsultant: (id: string, data: {
-    name?: string; specialty?: string; bio?: string; photoUrl?: string;
+    name?: string; email?: string; specialty?: string; bio?: string; photoUrl?: string;
     consultationCategory?: string; languages?: string[];
     priceUsd?: number; sessionDurationMins?: number;
     commissionRate?: number; isActive?: boolean; status?: string;
