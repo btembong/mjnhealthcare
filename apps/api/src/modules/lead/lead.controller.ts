@@ -65,11 +65,11 @@ export class LeadController {
     return this.leadService.updateStatus(id, dto.status, dto.assignedConsultantId);
   }
 
-  @ApiOperation({ summary: 'Mark lead as converted to engagement (admin / consultant)' })
+  @ApiOperation({ summary: 'Mark lead as converted — auto-creates Person if not exists, sends portal invite' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Patch(':id/convert')
-  convert(@Param('id') id: string, @Body() body: { personId: string }) {
-    return this.leadService.convertToEngagement(id, body.personId);
+  convert(@Param('id') id: string) {
+    return this.leadService.convertToEngagement(id);
   }
 }

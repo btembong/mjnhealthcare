@@ -250,6 +250,62 @@ export class NotificationListener {
     }
   }
 
+  // ── Lead capture ─────────────────────────────────────────────────────────
+
+  @OnEvent('lead.created')
+  async onLeadCreated(payload: {
+    name: string; email: string; phone?: string | null;
+    profession?: string | null; destination?: string | null;
+    serviceInterest?: string | null; source: string;
+  }) {
+    await this.notificationService.sendEmail(
+      process.env.ADMIN_EMAIL ?? 'hello@mjnhealthcare.com',
+      `New Lead — ${payload.name} (${payload.source})`,
+      T.tplLeadNewAdmin(payload),
+    );
+    this.logger.log(`Admin notified of new lead: ${payload.email}`);
+  }
+
+  @OnEvent('lead.assigned')
+  async onLeadAssigned(payload: {
+    consultantEmail: string; consultantName: string;
+    leadName: string; leadEmail: string; leadPhone?: string | null;
+    leadProfession?: string | null; leadDestination?: string | null; leadNotes?: string | null;
+  }) {
+    await this.notificationService.sendEmail(
+      payload.consultantEmail,
+      `New lead assigned to you — ${payload.leadName}`,
+      T.tplLeadAssignedConsultant(payload),
+      payload.consultantName,
+    );
+    this.logger.log(`Consultant ${payload.consultantEmail} notified of lead assignment: ${payload.leadName}`);
+  }
+
+  @OnEvent('lead.converted')
+  async onLeadConverted(payload: { name: string; email: string }) {
+    await this.notificationService.sendEmail(
+      payload.email,
+      'Your MJN Healthcare portal is ready — log in now',
+      T.tplLeadConvertedInvite({ name: payload.name, email: payload.email }),
+      payload.name,
+    );
+    this.logger.log(`Portal invite sent to converted lead: ${payload.email}`);
+  }
+
+  @OnEvent('lead.stale_alert')
+  async onLeadStaleAlert(payload: {
+    newLeads: { name: string; email: string; daysOld: number }[];
+    contactedLeads: { name: string; email: string; daysOld: number }[];
+  }) {
+    if (!payload.newLeads.length && !payload.contactedLeads.length) return;
+    await this.notificationService.sendEmail(
+      process.env.ADMIN_EMAIL ?? 'hello@mjnhealthcare.com',
+      `Stale Leads Alert — ${payload.newLeads.length + payload.contactedLeads.length} leads need follow-up`,
+      T.tplStaleLeadsAdmin(payload),
+    );
+    this.logger.log(`Stale leads alert sent: ${payload.newLeads.length} new, ${payload.contactedLeads.length} contacted`);
+  }
+
   // ── Lead consultations ────────────────────────────────────────────────────
 
   @OnEvent('lead.consultation_booked')

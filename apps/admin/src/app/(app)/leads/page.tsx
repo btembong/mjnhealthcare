@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { PageHeader } from '@mjn/ui';
+import Link from 'next/link';
 import {
-  CircleNotch, ArrowsClockwise, UserPlus, UsersFour,
+  CircleNotch, ArrowsClockwise, UserPlus, UsersFour, ArrowSquareOut,
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 
@@ -72,9 +73,11 @@ export default function LeadsPage() {
   async function handleConvert(id: string) {
     setActionLoading(id + '_convert');
     try {
-      await api.convertLead(id);
-      setLeads((prev) => prev.map((l) => l.id === id ? { ...l, status: 'CONVERTED' } : l));
-      showToast('Lead converted to client successfully.');
+      const res = await api.convertLead(id);
+      setLeads((prev) => prev.map((l) =>
+        l.id === id ? { ...l, status: 'CONVERTED', convertedPersonId: res?.personId ?? l.convertedPersonId } : l
+      ));
+      showToast('Lead converted — Person created and portal invite sent.');
     } catch (err: any) {
       showToast('Failed to convert: ' + err.message);
     } finally {
@@ -165,11 +168,23 @@ export default function LeadsPage() {
                     {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    {lead.status !== 'CONVERTED' && (
+                    {lead.status === 'CONVERTED' ? (
+                      lead.convertedPersonId ? (
+                        <Link
+                          href={`/caseload/${lead.convertedPersonId}`}
+                          className="flex items-center gap-1.5 rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/5"
+                        >
+                          <ArrowSquareOut className="h-3.5 w-3.5" />
+                          Go to case
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )
+                    ) : (
                       <button
                         onClick={() => handleConvert(lead.id)}
                         disabled={!!actionLoading}
-                        title="Convert to client"
+                        title="Convert to client — creates portal account and sends invite"
                         className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-primary/90 disabled:opacity-50"
                       >
                         {actionLoading === lead.id + '_convert'

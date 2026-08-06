@@ -570,6 +570,107 @@ export function tplConsultationPaymentFailed(opts: {
   );
 }
 
+// ── Lead admin notifications ───────────────────────────────────────────────────
+
+export function tplLeadNewAdmin(opts: {
+  name: string; email: string; phone?: string | null;
+  profession?: string | null; destination?: string | null;
+  serviceInterest?: string | null; source: string;
+}): string {
+  return shell(
+    label('New Lead') +
+    h1('A new lead has been captured') +
+    infoTable([
+      row('Name', opts.name),
+      row('Email', `<a href="mailto:${opts.email}" style="color:${NAVY};text-decoration:none;">${opts.email}</a>`),
+      row('Phone', opts.phone ?? '—'),
+      row('Profession', opts.profession ?? '—'),
+      row('Target country', opts.destination ?? '—'),
+      row('Interest', opts.serviceInterest ?? '—'),
+      row('Source', `<strong>${opts.source}</strong>`, true),
+    ]) +
+    btn('View in admin console', `${ADMIN()}/leads`) +
+    divider() +
+    pSmall('Assign a consultant and update the status in the admin console to begin follow-up.')
+  );
+}
+
+export function tplLeadAssignedConsultant(opts: {
+  consultantName: string; leadName: string; leadEmail: string;
+  leadPhone?: string | null; leadProfession?: string | null;
+  leadDestination?: string | null; leadNotes?: string | null;
+}): string {
+  return shell(
+    greeting(opts.consultantName) +
+    label('New assignment') +
+    h1('A lead has been assigned to you') +
+    p(`<strong>${opts.leadName}</strong> is now in your queue. Review their details below and reach out to qualify and book a consultation.`) +
+    infoTable([
+      row('Name', opts.leadName),
+      row('Email', `<a href="mailto:${opts.leadEmail}" style="color:${NAVY};text-decoration:none;">${opts.leadEmail}</a>`),
+      row('Phone', opts.leadPhone ?? '—'),
+      row('Profession', opts.leadProfession ?? '—'),
+      row('Target country', opts.leadDestination ?? '—'),
+      ...(opts.leadNotes ? [row('Notes', `<em>${opts.leadNotes}</em>`, true)] : []),
+    ]) +
+    btn('Open admin leads', `${ADMIN()}/leads`) +
+    divider() +
+    pSmall('Contact the lead within 24 hours. Update the status to QUALIFIED once they are confirmed as a fit, or LOST if not proceeding.')
+  );
+}
+
+export function tplLeadConvertedInvite(opts: {
+  name: string; email: string;
+}): string {
+  return shell(
+    greeting(opts.name) +
+    label('Welcome') +
+    h1('Your MJN Healthcare portal is ready') +
+    p('Great news — your account has been set up and your case is now active. Log in to your portal to track your pipeline, upload documents, and stay in sync with your consultant.') +
+    btn('Access your portal', `${PORTAL()}/login`) +
+    infoTable([
+      row('How to log in', 'Go to your portal and enter your email address', false),
+      row('OTP code', 'A 6-digit code will be sent to this email — valid for 10 minutes', true),
+    ]) +
+    divider() +
+    pSmall('If you have any questions, reply to this email or WhatsApp your consultant directly at +971 50 863 8660.')
+  );
+}
+
+export function tplStaleLeadsAdmin(opts: {
+  newLeads: { name: string; email: string; daysOld: number }[];
+  contactedLeads: { name: string; email: string; daysOld: number }[];
+}): string {
+  const newRows = opts.newLeads.map((l) =>
+    `<tr><td style="padding:8px 12px;font-size:13px;color:${TEXT};">${l.name}</td><td style="padding:8px 12px;font-size:13px;color:${MUTED};">${l.email}</td><td style="padding:8px 12px;font-size:13px;color:#C0392B;font-weight:600;">${l.daysOld}d in NEW</td></tr>`
+  ).join('');
+  const contactedRows = opts.contactedLeads.map((l) =>
+    `<tr><td style="padding:8px 12px;font-size:13px;color:${TEXT};">${l.name}</td><td style="padding:8px 12px;font-size:13px;color:${MUTED};">${l.email}</td><td style="padding:8px 12px;font-size:13px;color:#D35400;font-weight:600;">${l.daysOld}d in CONTACTED</td></tr>`
+  ).join('');
+
+  const table = (rows: string, caption: string) => rows
+    ? `<p style="margin:0 0 8px;font-size:13px;font-weight:700;color:${TEXT};">${caption}</p>
+       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;border:1px solid ${BORDER};border-radius:8px;overflow:hidden;">
+         <thead><tr style="background:#F4F6F9;">
+           <th style="padding:8px 12px;font-size:11px;text-align:left;color:${MUTED};">Name</th>
+           <th style="padding:8px 12px;font-size:11px;text-align:left;color:${MUTED};">Email</th>
+           <th style="padding:8px 12px;font-size:11px;text-align:left;color:${MUTED};">Status</th>
+         </tr></thead>
+         <tbody>${rows}</tbody>
+       </table>` : '';
+
+  return shell(
+    label('Action required') +
+    h1('Stale leads need follow-up') +
+    p(`The following leads have had no status change and may need immediate attention.`) +
+    table(newRows, `🔴 New leads (no contact in >3 days)`) +
+    table(contactedRows, `🟠 Contacted leads (no progress in >7 days)`) +
+    btn('Manage leads now', `${ADMIN()}/leads`) +
+    divider() +
+    pSmall('This is an automated daily alert. Update the lead status or assign a consultant to stop receiving these alerts for specific leads.')
+  );
+}
+
 export function tplOtp(opts: { otp: string }): string {
   const digitCells = opts.otp.split('').map(d =>
     `<td style="width:44px;height:54px;text-align:center;vertical-align:middle;background:#F4F8FF;border:1.5px solid #BDD0E8;border-radius:6px;font-size:26px;font-weight:700;color:${NAVY};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">${d}</td>`

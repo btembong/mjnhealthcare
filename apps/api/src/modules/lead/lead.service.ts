@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 
@@ -19,7 +20,16 @@ export class LeadService {
     notes?: string;
   }) {
     const lead = await this.db.lead.create({ data });
-    this.events.emit('lead.created', { leadId: lead.id, name: lead.name, email: lead.email });
+    this.events.emit('lead.created', {
+      leadId: lead.id,
+      name: lead.name,
+      email: lead.email,
+      phone: lead.phone,
+      profession: lead.profession,
+      destination: lead.destination,
+      serviceInterest: lead.serviceInterest,
+      source: 'Web form',
+    });
     return lead;
   }
 
@@ -121,16 +131,90 @@ export class LeadService {
   }
 
   async updateStatus(id: string, status: string, assignedConsultantId?: string) {
-    return this.db.lead.update({
+    const lead = await this.db.lead.update({
       where: { id },
       data: { status: status as any, ...(assignedConsultantId && { assignedConsultantId }) },
     });
+
+    if (assignedConsultantId) {
+      const consultant = await this.db.person.findUnique({ where: { id: assignedConsultantId } });
+      if (consultant?.email) {
+        this.events.emit('lead.assigned', {
+          consultantEmail: consultant.email,
+          consultantName: consultant.name,
+          leadName: lead.name,
+          leadEmail: lead.email,
+          leadPhone: lead.phone,
+          leadProfession: lead.profession,
+          leadDestination: lead.destination,
+          leadNotes: lead.notes,
+        });
+      }
+    }
+
+    return lead;
   }
 
-  async convertToEngagement(leadId: string, personId: string) {
-    return this.db.lead.update({
+  async convertToEngagement(leadId: string) {
+    const lead = await this.db.lead.findUnique({ where: { id: leadId } });
+    if (!lead) throw new NotFoundException('Lead not found');
+
+    // Find existing Person by email or create a new one from lead data
+    const existing = await this.db.person.findFirst({ where: { email: lead.email } });
+    const isNew = !existing;
+    const person = existing ?? await this.db.person.create({
+      data: {
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone ?? undefined,
+        profession: lead.profession ?? undefined,
+        locale: 'en',
+        role: 'CANDIDATE',
+      },
+    });
+
+    await this.db.lead.update({
       where: { id: leadId },
-      data: { status: 'CONVERTED', convertedPersonId: personId },
+      data: { status: 'CONVERTED', convertedPersonId: person.id },
+    });
+
+    this.events.emit('lead.converted', { name: lead.name, email: lead.email });
+
+    return { personId: person.id, isNew };
+  }
+
+  // ── Stale lead detection — daily at 9:30 AM ───────────────────────────────
+
+  @Cron('30 9 * * *')
+  async detectStaleLeads() {
+    const now = new Date();
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const [newLeads, contactedLeads] = await Promise.all([
+      this.db.lead.findMany({
+        where: { status: 'NEW', createdAt: { lt: threeDaysAgo } },
+        select: { name: true, email: true, createdAt: true },
+      }),
+      this.db.lead.findMany({
+        where: { status: 'CONTACTED', updatedAt: { lt: sevenDaysAgo } },
+        select: { name: true, email: true, updatedAt: true },
+      }),
+    ]);
+
+    if (!newLeads.length && !contactedLeads.length) return;
+
+    this.events.emit('lead.stale_alert', {
+      newLeads: newLeads.map((l) => ({
+        name: l.name,
+        email: l.email,
+        daysOld: Math.floor((now.getTime() - l.createdAt.getTime()) / (24 * 60 * 60 * 1000)),
+      })),
+      contactedLeads: contactedLeads.map((l) => ({
+        name: l.name,
+        email: l.email,
+        daysOld: Math.floor((now.getTime() - l.updatedAt.getTime()) / (24 * 60 * 60 * 1000)),
+      })),
     });
   }
 }

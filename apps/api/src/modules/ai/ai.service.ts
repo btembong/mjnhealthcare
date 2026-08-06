@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 
 const REVIEW_REQUIRED_TOPICS = ['licensing', 'visa', 'exam eligibility', 'pass rate'];
@@ -8,7 +9,10 @@ const REVIEW_REQUIRED_TOPICS = ['licensing', 'visa', 'exam eligibility', 'pass r
 export class AIService {
   private readonly client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly events: EventEmitter2,
+  ) {}
 
   async studyAssistantChat(personId: string, messages: { role: 'user' | 'assistant'; content: string }[], locale: 'en' | 'fr') {
     const system =
@@ -84,6 +88,7 @@ When a user seems ready to proceed, encourage them to book a free consultation. 
 
     // If we have lead context and conversation has enough length, capture as lead
     if (leadContext?.email && messages.length >= 4) {
+      const existing = await this.db.lead.findFirst({ where: { email: leadContext.email } });
       await this.db.lead.upsert({
         where: { email: leadContext.email } as never,
         update: {
@@ -99,6 +104,15 @@ When a user seems ready to proceed, encourage them to book a free consultation. 
           serviceInterest: 'Support bot',
         },
       });
+      if (!existing) {
+        this.events.emit('lead.created', {
+          name: leadContext.name ?? 'Unknown',
+          email: leadContext.email,
+          profession: leadContext.profession,
+          destination: leadContext.destination,
+          source: 'Support bot',
+        });
+      }
     }
 
     return { content };
