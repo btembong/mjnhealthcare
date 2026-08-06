@@ -353,7 +353,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid gap-0 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {steps.map(({ num, title, desc, icon: Icon }, idx) => (
               <div key={num} className="relative flex flex-col px-6 pb-8 lg:pb-0">
                 {/* connector line between steps */}
@@ -465,7 +465,7 @@ export default function HomePage() {
           })()}
 
           {/* Rest */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             {destinations.filter((d) => !d.featured).map(({ code, country, bodies, timeline, href, placed, salary }) => (
               <Link key={code} href={href} className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-white p-5 shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
                 <div className="mb-4 flex items-start justify-between">
