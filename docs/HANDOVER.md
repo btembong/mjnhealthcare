@@ -449,7 +449,7 @@ Three tiers are offered. The Client selects one tier at signing.
 
 ---
 
-### Tier 1 — Essential · USD 350 / month
+### Tier 1 — Essential · USD 20 / month
 
 Covers the minimum required to keep the platform secure and operational.
 
@@ -467,7 +467,7 @@ Covers the minimum required to keep the platform secure and operational.
 
 ---
 
-### Tier 2 — Standard · USD 600 / month
+### Tier 2 — Standard · USD 39 / month
 
 Recommended for active, growing platforms.
 
@@ -484,7 +484,7 @@ Recommended for active, growing platforms.
 
 ---
 
-### Tier 3 — Premium · USD 950 / month
+### Tier 3 — Premium · USD 59 / month
 
 Full-service ongoing development and operations partner.
 
