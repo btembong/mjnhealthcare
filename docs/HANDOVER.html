@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MJN Health — Technical Handover & Service Agreement</title>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #0F4C81;
+      --teal: #00A896;
+      --accent: #F4A261;
+      --text: #1a2234;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --bg-light: #f8fafc;
+    }
+
+    body {
+      font-family: 'Exo 2', sans-serif;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.7;
+      background: #fff;
+    }
+
+    /* ── PRINT ─────────────────────────────────────────────── */
+    @media print {
+      body { font-size: 11.5px; }
+      .cover { min-height: 100vh; page-break-after: always; }
+      .toc   { page-break-after: always; }
+      .part-break { page-break-before: always; }
+      h2 { page-break-after: avoid; }
+      table { page-break-inside: avoid; }
+      .no-break { page-break-inside: avoid; }
+      @page { margin: 20mm 18mm; }
+    }
+
+    /* ── COVER PAGE ────────────────────────────────────────── */
+    .cover {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background: var(--primary);
+      color: #fff;
+      padding: 60px 56px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover::before {
+      content: '';
+      position: absolute;
+      top: -80px; right: -80px;
+      width: 360px; height: 360px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+    }
+    .cover::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; left: -60px;
+      width: 260px; height: 260px;
+      border-radius: 50%;
+      background: rgba(0,168,150,0.15);
+    }
+    .cover-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: auto;
+    }
+    .cover-logo img {
+      height: 48px;
+      width: auto;
+      filter: brightness(0) invert(1);
+    }
+    .cover-logo-text {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .cover-body {
+      position: relative;
+      z-index: 1;
+    }
+    .cover-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      color: rgba(255,255,255,0.85);
+    }
+    .cover h1 {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .cover-sub {
+      font-size: 15px;
+      color: rgba(255,255,255,0.65);
+      margin-bottom: 40px;
+    }
+    .cover-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 480px;
+    }
+    .cover-meta-item label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 2px;
+    }
+    .cover-meta-item p {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .cover-ref {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255,255,255,0.15);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .cover-ref p { font-size: 11px; color: rgba(255,255,255,0.45); }
+    .cover-teal-bar {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 6px;
+      background: linear-gradient(180deg, var(--teal), #0F4C81);
+    }
+
+    /* ── MAIN CONTENT ──────────────────────────────────────── */
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 48px 56px;
+    }
+
+    /* ── TOC ───────────────────────────────────────────────── */
+    .toc {
+      padding: 48px 56px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .toc h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--border);
+    }
+    .toc-part {
+      margin-bottom: 20px;
+    }
+    .toc-part-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 8px;
+    }
+    .toc-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 4px 0;
+      border-bottom: 1px dotted var(--border);
+    }
+    .toc-item a {
+      text-decoration: none;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .toc-item a:hover { color: var(--primary); }
+    .toc-num { color: var(--muted); font-size: 12px; }
+
+    /* ── PART HEADER ───────────────────────────────────────── */
+    .part-header {
+      background: var(--primary);
+      color: #fff;
+      padding: 40px 56px;
+      margin-bottom: 40px;
+    }
+    .part-header .part-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+      margin-bottom: 8px;
+    }
+    .part-header h2 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      border: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* ── TYPOGRAPHY ────────────────────────────────────────── */
+    h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--primary);
+      margin: 40px 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--border);
+    }
+    h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 28px 0 10px;
+    }
+    h4 {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+      margin: 20px 0 8px;
+    }
+    p { margin-bottom: 10px; color: var(--text); }
+    ul, ol { margin: 8px 0 12px 20px; }
+    li { margin-bottom: 4px; }
+    strong { font-weight: 700; }
+
+    /* ── TABLES ────────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      font-size: 12.5px;
+    }
+    th {
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 10px 14px;
+      text-align: left;
+    }
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: var(--bg-light); }
+    tr:last-child td { border-bottom: none; }
+
+    /* ── CODE BLOCKS ───────────────────────────────────────── */
+    pre {
+      background: #1e2a3a;
+      color: #a8d8b9;
+      padding: 18px 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 14px 0 20px;
+      font-size: 12px;
+      line-height: 1.8;
+      font-family: 'Courier New', monospace;
+    }
+    code {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      background: #f1f5f9;
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: var(--primary);
+    }
+
+    /* ── CALLOUT BOXES ─────────────────────────────────────── */
+    .callout {
+      border-left: 4px solid var(--teal);
+      background: #f0fdfb;
+      padding: 14px 18px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0 20px;
+      font-size: 12.5px;
+    }
+    .callout.warning {
+      border-left-color: #f59e0b;
+      background: #fffbeb;
+    }
+    .callout.danger {
+      border-left-color: #ef4444;
+      background: #fef2f2;
+    }
+
+    /* ── TIER CARDS ────────────────────────────────────────── */
+    .tier-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 20px 0 32px;
+    }
+    .tier-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .tier-card.featured { border-color: var(--primary); }
+    .tier-card-head {
+      background: var(--bg-light);
+      padding: 16px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .tier-card.featured .tier-card-head { background: var(--primary); color: #fff; }
+    .tier-card-head .tier-name {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .tier-card.featured .tier-card-head .tier-name { color: #fff; }
+    .tier-card-head .tier-price {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    .tier-card.featured .tier-card-head .tier-price { color: #fff; }
+    .tier-card-head .tier-period {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .tier-card.featured .tier-card-head .tier-period { color: rgba(255,255,255,0.65); }
+    .tier-card-body { padding: 14px 16px; }
+    .tier-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .tier-item:last-child { border-bottom: none; }
+    .tier-check { color: var(--teal); font-weight: 700; flex-shrink: 0; }
+    .tier-x { color: #cbd5e1; font-weight: 700; flex-shrink: 0; }
+
+    /* ── SIGNATURE BLOCK ───────────────────────────────────── */
+    .sig-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin-top: 32px;
+    }
+    .sig-block {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .sig-block h4 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--primary);
+      margin-bottom: 16px;
+    }
+    .sig-line {
+      border-bottom: 1px solid var(--text);
+      margin: 20px 0 6px;
+      height: 28px;
+    }
+    .sig-label { font-size: 10.5px; color: var(--muted); }
+
+    /* ── ARCH DIAGRAM ──────────────────────────────────────── */
+    .arch-box {
+      background: #1e2a3a;
+      color: #e2e8f0;
+      padding: 24px 28px;
+      border-radius: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 12.5px;
+      line-height: 2;
+      margin: 16px 0 24px;
+    }
+    .arch-box .hl { color: #7dd3fc; }
+    .arch-box .teal { color: #5eead4; }
+
+    /* ── REF BOX ───────────────────────────────────────────── */
+    .ref-box {
+      background: var(--bg-light);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-size: 12.5px;
+    }
+    .ref-box strong { color: var(--primary); }
+
+    /* ── FOOTER ────────────────────────────────────────────── */
+    .doc-footer {
+      margin-top: 60px;
+      padding: 20px 56px;
+      border-top: 2px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+
+    /* ── SECTION NUMBER ────────────────────────────────────── */
+    .sec-num {
+      display: inline-block;
+      background: var(--primary);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ COVER ══════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-teal-bar"></div>
+
+  <div class="cover-logo">
+    <img src="../apps/web/public/mjnlogo.png" alt="MJN Healthcare" onerror="this.style.display='none'" />
+    <span class="cover-logo-text">MJN Healthcare</span>
+  </div>
+
+  <div class="cover-body">
+    <div class="cover-badge">Confidential Document</div>
+    <h1>Technical Handover<br/>& Service Agreement</h1>
+    <p class="cover-sub">MJN Health Academy and Professional Services LTD<br/>Digital Platform — Full Delivery</p>
+
+    <div class="cover-meta">
+      <div class="cover-meta-item">
+        <label>Prepared by</label>
+        <p>Digos Technologies</p>
+      </div>
+      <div class="cover-meta-item">
+        <label>Prepared for</label>
+        <p>MJN Health Academy and<br/>Professional Services LTD</p>
+      </div>
+      <div class="cover-meta-item">
+        <label>Date</label>
+        <p>August 2026</p>
+      </div>
+      <div class="cover-meta-item">
+        <label>Document reference</label>
+        <p>DT-MJN-2026-001 v1.0</p>
+      </div>
+    </div>
+
+    <div class="cover-ref">
+      <p>This document contains sensitive infrastructure information.<br/>Do not share publicly or transmit via unsecured channels.</p>
+      <p>3 Parts · Technical Runbook + Delivery Agreement + Maintenance Contract</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TABLE OF CONTENTS ══════════════════════════════════════════════ -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+
+  <div class="toc-part">
+    <div class="toc-part-title">Part A — Technical Runbook</div>
+    <div class="toc-item"><a href="#s1">1. System Overview</a><span class="toc-num">A-1</span></div>
+    <div class="toc-item"><a href="#s2">2. Server Infrastructure</a><span class="toc-num">A-1</span></div>
+    <div class="toc-item"><a href="#s3">3. Architecture</a><span class="toc-num">A-2</span></div>
+    <div class="toc-item"><a href="#s4">4. Domain & DNS</a><span class="toc-num">A-3</span></div>
+    <div class="toc-item"><a href="#s5">5. Third-Party Services</a><span class="toc-num">A-3</span></div>
+    <div class="toc-item"><a href="#s6">6. Environment Variables</a><span class="toc-num">A-4</span></div>
+    <div class="toc-item"><a href="#s7">7. Process Management (PM2)</a><span class="toc-num">A-5</span></div>
+    <div class="toc-item"><a href="#s8">8. Deployment Procedure</a><span class="toc-num">A-5</span></div>
+    <div class="toc-item"><a href="#s9">9. Database</a><span class="toc-num">A-6</span></div>
+    <div class="toc-item"><a href="#s10">10. Caddy — Reverse Proxy & SSL</a><span class="toc-num">A-6</span></div>
+    <div class="toc-item"><a href="#s11">11. Troubleshooting</a><span class="toc-num">A-7</span></div>
+  </div>
+
+  <div class="toc-part">
+    <div class="toc-part-title">Part B — Project Delivery Agreement</div>
+    <div class="toc-item"><a href="#b1">1. Scope of Delivered Work</a><span class="toc-num">B-1</span></div>
+    <div class="toc-item"><a href="#b2">2. Delivery Acceptance</a><span class="toc-num">B-3</span></div>
+    <div class="toc-item"><a href="#b3">3. Intellectual Property</a><span class="toc-num">B-3</span></div>
+    <div class="toc-item"><a href="#b4">4. Warranties & Limitations</a><span class="toc-num">B-3</span></div>
+  </div>
+
+  <div class="toc-part">
+    <div class="toc-part-title">Part C — Maintenance & Support Agreement</div>
+    <div class="toc-item"><a href="#c1">1. Maintenance Plans</a><span class="toc-num">C-1</span></div>
+    <div class="toc-item"><a href="#c2">2. Payment Terms</a><span class="toc-num">C-2</span></div>
+    <div class="toc-item"><a href="#c3">3. Scope & Exclusions</a><span class="toc-num">C-2</span></div>
+    <div class="toc-item"><a href="#c4">4. Response Time & Communication</a><span class="toc-num">C-3</span></div>
+    <div class="toc-item"><a href="#c5">5. Term & Termination</a><span class="toc-num">C-3</span></div>
+    <div class="toc-item"><a href="#c6">6. Confidentiality</a><span class="toc-num">C-3</span></div>
+    <div class="toc-item"><a href="#c7">7. Limitation of Liability</a><span class="toc-num">C-3</span></div>
+    <div class="toc-item"><a href="#c8">8. Governing Law</a><span class="toc-num">C-3</span></div>
+    <div class="toc-item"><a href="#c9">9. Signatures</a><span class="toc-num">C-4</span></div>
+  </div>
+</div>
+
+<!-- ══ PART A ═════════════════════════════════════════════════════════ -->
+<div class="part-break">
+  <div class="part-header">
+    <div class="part-label">Part A</div>
+    <h2>Technical Runbook</h2>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- S1 -->
+  <h2 id="s1"><span class="sec-num">1</span> System Overview</h2>
+  <p>The MJN Healthcare digital platform is a full-stack web application serving four distinct user audiences across five deployed applications, all running on a single VPS and managed as one monorepo codebase.</p>
+
+  <table>
+    <thead><tr><th>Application</th><th>URL</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Marketing / Public Site</strong></td><td>mjnhealthcare.com</td><td>SEO, lead generation, public information</td></tr>
+      <tr><td><strong>Client Portal</strong></td><td>portal.mjnhealthcare.com</td><td>Candidate dashboard, documents, payments, case management</td></tr>
+      <tr><td><strong>Partner Portal</strong></td><td>partner.mjnhealthcare.com</td><td>Employer and partner access</td></tr>
+      <tr><td><strong>Admin Console</strong></td><td>admin.mjnhealthcare.com</td><td>Internal staff and consultant operations</td></tr>
+      <tr><td><strong>Backend API</strong></td><td>api.mjnhealthcare.com</td><td>All business logic and data</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S2 -->
+  <h2 id="s2"><span class="sec-num">2</span> Server Infrastructure</h2>
+
+  <table>
+    <thead><tr><th>Item</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>Host</td><td>Hostinger KVM2 VPS</td></tr>
+      <tr><td>Operating system</td><td>Ubuntu 24.04 LTS</td></tr>
+      <tr><td>Server hostname</td><td>srv1871064</td></tr>
+      <tr><td>IPv6 address</td><td>2a02:4780:f:7f83::1</td></tr>
+      <tr><td>Process manager</td><td>PM2</td></tr>
+      <tr><td>Reverse proxy / SSL</td><td>Caddy (auto HTTPS via Let's Encrypt)</td></tr>
+      <tr><td>Code location</td><td>/var/www/mjnhealthcare/</td></tr>
+      <tr><td>Git repository</td><td>github.com/btembong/mjnhealthcare</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warning">
+    <strong>SSH Access:</strong> Credentials are held by the system administrator. Store securely — do not share over email or messaging apps.
+  </div>
+
+  <!-- S3 -->
+  <h2 id="s3"><span class="sec-num">3</span> Architecture</h2>
+
+  <div class="arch-box">
+    <span class="teal">Browser / Mobile</span><br/>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<br/>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br/>
+    <span class="hl">Caddy</span> (ports 80 + 443, auto SSL)<br/>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<br/>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|── mjnhealthcare.com&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;──▶ <span class="teal">Next.js</span> (port 3001)<br/>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|── portal.mjnhealthcare.com&nbsp;&nbsp;──▶ <span class="teal">Next.js</span> (port 3002)<br/>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|── partner.mjnhealthcare.com ──▶ <span class="teal">Next.js</span> (port 3003)<br/>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|── admin.mjnhealthcare.com&nbsp;&nbsp;&nbsp;──▶ <span class="teal">Next.js</span> (port 3004)<br/>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|── api.mjnhealthcare.com&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;──▶ <span class="teal">NestJS</span> (port 3000)
+  </div>
+
+  <table>
+    <thead><tr><th>Layer</th><th>Technology</th></tr></thead>
+    <tbody>
+      <tr><td>Backend API</td><td>NestJS (Node.js) — modular monolith</td></tr>
+      <tr><td>Frontend (all 4 apps)</td><td>Next.js 16, React 19, App Router</td></tr>
+      <tr><td>Database</td><td>Neon PostgreSQL (cloud-hosted, serverless)</td></tr>
+      <tr><td>ORM</td><td>Prisma</td></tr>
+      <tr><td>Job queue</td><td>BullMQ + Upstash Redis</td></tr>
+      <tr><td>File storage</td><td>Cloudflare R2 (encrypted at rest)</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S4 -->
+  <h2 id="s4"><span class="sec-num">4</span> Domain & DNS</h2>
+  <p><strong>Registrar / DNS manager:</strong> Namecheap &nbsp;|&nbsp; <strong>Domain:</strong> mjnhealthcare.com</p>
+
+  <table>
+    <thead><tr><th>Type</th><th>Host</th><th>Value</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>A</td><td>@</td><td>Server IPv4</td><td>Main domain → server</td></tr>
+      <tr><td>A</td><td>www</td><td>Server IPv4</td><td>www redirect</td></tr>
+      <tr><td>A</td><td>portal</td><td>Server IPv4</td><td>Client portal</td></tr>
+      <tr><td>A</td><td>partner</td><td>Server IPv4</td><td>Partner portal</td></tr>
+      <tr><td>A</td><td>admin</td><td>Server IPv4</td><td>Admin console</td></tr>
+      <tr><td>A</td><td>api</td><td>Server IPv4</td><td>Backend API</td></tr>
+      <tr><td>AAAA</td><td>@</td><td>2a02:4780:f:7f83::1</td><td>IPv6 — Starlink / modern networks</td></tr>
+      <tr><td>AAAA</td><td>www</td><td>2a02:4780:f:7f83::1</td><td>IPv6 www</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">SSL certificates are issued and renewed <strong>automatically</strong> by Caddy via Let's Encrypt. No manual renewal required.</div>
+
+  <!-- S5 -->
+  <h2 id="s5"><span class="sec-num">5</span> Third-Party Services</h2>
+
+  <table>
+    <thead><tr><th>Service</th><th>Purpose</th><th>Dashboard</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Neon</strong></td><td>PostgreSQL database</td><td>neon.tech</td></tr>
+      <tr><td><strong>Cloudflare R2</strong></td><td>Document file storage (passports, licences)</td><td>cloudflare.com</td></tr>
+      <tr><td><strong>Brevo</strong></td><td>Transactional email (receipts, notifications)</td><td>brevo.com</td></tr>
+      <tr><td><strong>Africa's Talking</strong></td><td>SMS and phone OTP for African numbers</td><td>africastalking.com</td></tr>
+      <tr><td><strong>Twilio</strong></td><td>WhatsApp notifications</td><td>twilio.com</td></tr>
+      <tr><td><strong>Tranzak</strong></td><td>Payments (African cards + mobile money)</td><td>tranzak.me</td></tr>
+      <tr><td><strong>Dropbox Sign</strong></td><td>E-signature for engagement letters and POA</td><td>dropbox.com/sign</td></tr>
+      <tr><td><strong>Daily.co</strong></td><td>Live virtual classroom video</td><td>daily.co</td></tr>
+      <tr><td><strong>Upstash</strong></td><td>Redis — OTP cache, job queue</td><td>upstash.com</td></tr>
+      <tr><td><strong>Anthropic</strong></td><td>Claude AI — Study Assistant, support bot</td><td>console.anthropic.com</td></tr>
+      <tr><td><strong>Namecheap</strong></td><td>Domain registration and DNS</td><td>namecheap.com</td></tr>
+      <tr><td><strong>Hostinger</strong></td><td>VPS server hosting</td><td>hpanel.hostinger.com</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S6 -->
+  <h2 id="s6"><span class="sec-num">6</span> Environment Variables</h2>
+
+  <div class="callout danger"><strong>Security:</strong> Never commit <code>.env</code> files to Git. The <code>.gitignore</code> already excludes them. Do not share these values over email or messaging apps.</div>
+
+  <p>Variables live in two files on the server:</p>
+  <ul>
+    <li><code>/var/www/mjnhealthcare/.env</code> — root shared file</li>
+    <li><code>/var/www/mjnhealthcare/apps/api/.env</code> — API-specific copy (must stay in sync with root)</li>
+  </ul>
+
+  <table>
+    <thead><tr><th>Group</th><th>Key Names</th><th>Controls</th></tr></thead>
+    <tbody>
+      <tr><td>Database</td><td>DATABASE_URL</td><td>Neon PostgreSQL connection</td></tr>
+      <tr><td>Auth</td><td>JWT_SECRET</td><td>Token signing and verification</td></tr>
+      <tr><td>Storage</td><td>R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ENDPOINT</td><td>Cloudflare R2 file uploads</td></tr>
+      <tr><td>Email</td><td>BREVO_API_KEY</td><td>Transactional email sending</td></tr>
+      <tr><td>SMS</td><td>AT_API_KEY, AT_USERNAME</td><td>Africa's Talking OTP and SMS</td></tr>
+      <tr><td>WhatsApp</td><td>TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM</td><td>WhatsApp notifications</td></tr>
+      <tr><td>Payments</td><td>TRANZAK_APP_ID, TRANZAK_APP_KEY</td><td>Payment processing</td></tr>
+      <tr><td>E-signature</td><td>DROPBOX_SIGN_API_KEY, DROPBOX_SIGN_TEMPLATE_ID</td><td>Engagement letter signing</td></tr>
+      <tr><td>Video</td><td>DAILY_CO_API_KEY</td><td>Live class video rooms</td></tr>
+      <tr><td>Redis</td><td>UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN</td><td>OTP cache and job queue</td></tr>
+      <tr><td>AI</td><td>ANTHROPIC_API_KEY</td><td>Claude AI features</td></tr>
+    </tbody>
+  </table>
+
+  <!-- S7 -->
+  <h2 id="s7"><span class="sec-num">7</span> Process Management — PM2</h2>
+  <p>PM2 configuration: <code>/var/www/mjnhealthcare/ecosystem.config.js</code></p>
+
+  <pre># View all running processes
+pm2 status
+
+# View live logs
+pm2 logs mjn-api
+pm2 logs mjn-web
+pm2 logs mjn-portal
+pm2 logs mjn-admin
+pm2 logs mjn-partner
+
+# Restart a single app
+pm2 restart mjn-api
+
+# Restart all apps
+pm2 restart all
+
+# Ensure PM2 restarts on server reboot
+pm2 startup
+pm2 save</pre>
+
+  <!-- S8 -->
+  <h2 id="s8"><span class="sec-num">8</span> Deployment Procedure</h2>
+  <p>All code changes are deployed from the Git repository. Run these commands after every update:</p>
+
+  <pre># 1. SSH into server
+ssh root@&lt;server-ip&gt;
+
+# 2. Pull latest code
+cd /var/www/mjnhealthcare && git pull origin main
+
+# 3. Build and restart affected app(s)
+cd apps/api    && pnpm build && pm2 restart mjn-api      # Backend API
+cd apps/web    && pnpm build && pm2 restart mjn-web      # Public site
+cd apps/portal && pnpm build && pm2 restart mjn-portal   # Client portal
+cd apps/admin  && pnpm build && pm2 restart mjn-admin    # Admin console
+
+# 4. Verify all processes are online
+pm2 status</pre>
+
+  <div class="callout warning">If database schema changes were included, run migrations <strong>before</strong> restarting the API:<br/><br/>
+  <code>cd /var/www/mjnhealthcare/packages/database</code><br/>
+  <code>export DATABASE_URL="&lt;value from .env&gt;"</code><br/>
+  <code>npx prisma migrate deploy</code>
+  </div>
+
+  <!-- S9 -->
+  <h2 id="s9"><span class="sec-num">9</span> Database</h2>
+
+  <table>
+    <thead><tr><th>Item</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>Provider</td><td>Neon (neon.tech)</td></tr>
+      <tr><td>Engine</td><td>PostgreSQL 16</td></tr>
+      <tr><td>ORM</td><td>Prisma</td></tr>
+      <tr><td>Schema location</td><td>packages/database/prisma/schema.prisma</td></tr>
+      <tr><td>Migrations</td><td>packages/database/prisma/migrations/</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout danger">Never edit the database directly in production. All schema changes must go through Prisma migrations. Neon provides automatic point-in-time recovery — manage backups at neon.tech.</div>
+
+  <!-- S10 -->
+  <h2 id="s10"><span class="sec-num">10</span> Caddy — Reverse Proxy & SSL</h2>
+  <p>Configuration file: <code>/var/www/mjnhealthcare/Caddyfile</code></p>
+
+  <pre># Check Caddy status
+systemctl status caddy
+
+# Reload after editing Caddyfile
+systemctl reload caddy
+
+# View live Caddy logs
+journalctl -u caddy -f</pre>
+
+  <!-- S11 -->
+  <h2 id="s11"><span class="sec-num">11</span> Troubleshooting</h2>
+
+  <h3>Site not loading</h3>
+  <pre>pm2 status                       # All processes should show "online"
+pm2 logs mjn-web --lines 50      # Check for errors
+systemctl status caddy           # Check reverse proxy is running</pre>
+
+  <h3>API errors / 500 responses</h3>
+  <pre>pm2 logs mjn-api --lines 100     # Check for exceptions</pre>
+
+  <table>
+    <thead><tr><th>Symptom</th><th>First check</th></tr></thead>
+    <tbody>
+      <tr><td>OTP / SMS not arriving</td><td>Africa's Talking dashboard → delivery reports + account balance. Check AT_API_KEY in .env</td></tr>
+      <tr><td>Payments not processing</td><td>Tranzak dashboard → webhook logs. Check TRANZAK_APP_ID / APP_KEY in .env</td></tr>
+      <tr><td>Emails not sending</td><td>Brevo dashboard → bounces/blocks. Check daily quota. Verify BREVO_API_KEY</td></tr>
+      <tr><td>Site unreachable on Starlink</td><td>Confirm AAAA records exist in Namecheap. Run: <code>ss -tlnp | grep caddy</code> — should show *:443</td></tr>
+      <tr><td>Documents not uploading</td><td>Check R2 credentials in .env. Check Cloudflare R2 bucket status</td></tr>
+      <tr><td>AI features not working</td><td>Verify ANTHROPIC_API_KEY in .env. Check console.anthropic.com for quota</td></tr>
+    </tbody>
+  </table>
+
+</div>
+
+<!-- ══ PART B ═════════════════════════════════════════════════════════ -->
+<div class="part-break">
+  <div class="part-header">
+    <div class="part-label">Part B</div>
+    <h2>Project Delivery Agreement</h2>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="ref-box">
+    <strong>Agreement reference:</strong> DT-MJN-2026-001 &nbsp;|&nbsp;
+    <strong>Date:</strong> August 2026 &nbsp;|&nbsp;
+    <strong>Between:</strong> Digos Technologies <em>(Developer)</em> and MJN Health Academy and Professional Services LTD <em>(Client)</em>
+  </div>
+
+  <h2 id="b1"><span class="sec-num">1</span> Scope of Delivered Work</h2>
+  <p>The Developer has designed, developed, and delivered the following digital platform on behalf of the Client:</p>
+
+  <h3>1.1 Public Marketing Website (mjnhealthcare.com)</h3>
+  <ul>
+    <li>Full multi-page marketing site — home, services, academy, success stories, blog, contact, get-started, and all destination pages (UAE, UK, US, Ireland, Canada, Australia)</li>
+    <li>SEO optimization: sitemap.xml, structured data, Open Graph meta, robots.txt</li>
+    <li>Bilingual-ready architecture (English / French routing)</li>
+    <li>Mobile-responsive design with scroll-driven carousels and accordion footer</li>
+    <li>WhatsApp chat widget and AI-powered public support bot</li>
+    <li>Lead capture and free consultation booking flow</li>
+    <li>Per-story detail pages for success stories (/success-stories/[slug])</li>
+  </ul>
+
+  <h3>1.2 Client / Candidate Portal (portal.mjnhealthcare.com)</h3>
+  <ul>
+    <li>Secure authenticated candidate dashboard with KPI cards and activity feed</li>
+    <li>Case management and pipeline tracking with milestone view</li>
+    <li>Document vault — upload, verification status, expiry alerts</li>
+    <li>Payment history and receipt management</li>
+    <li>Multi-step checkout with category grouping, installment support, and Tranzak payment redirect</li>
+    <li>Academy — courses, question banks, study plans, AI study assistant (Claude)</li>
+    <li>Consultation booking with Daily.co video room provisioning</li>
+    <li>Engagement letter signing integration via Dropbox Sign</li>
+    <li>Phone OTP authentication (Africa's Talking)</li>
+  </ul>
+
+  <h3>1.3 Partner Portal (partner.mjnhealthcare.com)</h3>
+  <ul>
+    <li>Authenticated partner / employer access</li>
+    <li>Opportunity management and candidate pipeline visibility</li>
+  </ul>
+
+  <h3>1.4 Admin Console (admin.mjnhealthcare.com)</h3>
+  <ul>
+    <li>Staff authentication with role-based access control</li>
+    <li>Caseload management, compliance queue, document verification workflow</li>
+    <li>AI drafts review and approval queue</li>
+    <li>Financial reporting, lead management</li>
+    <li>Course and content management, consultant and payout management</li>
+  </ul>
+
+  <h3>1.5 Backend API (api.mjnhealthcare.com)</h3>
+  <ul>
+    <li>NestJS modular API with 17 modules: Auth, Person, Engagement, Licensing, Staffing, Academy, StudentSupport, Catalog, Order, Payment, Document, Booking, Partner, Notification, Compliance, AI, Consultation</li>
+    <li>Event-driven notifications via email (Brevo), SMS and WhatsApp (Africa's Talking / Twilio)</li>
+    <li>PDF receipt generation with company logo</li>
+    <li>Installment tracking and dunning automation (day 7 → 14 → 21 hold)</li>
+    <li>Document expiry scanning — daily cron, alerts at 30 / 14 / 3 days</li>
+    <li>Dropbox Sign webhook integration for engagement letter completion</li>
+    <li>Tranzak payment processing and HMAC webhook verification</li>
+    <li>Full Prisma schema across all entities with migration history</li>
+  </ul>
+
+  <h3>1.6 Infrastructure & Deployment</h3>
+  <ul>
+    <li>Hostinger KVM2 VPS provisioned and configured</li>
+    <li>Caddy reverse proxy with automatic SSL (Let's Encrypt)</li>
+    <li>PM2 process management with startup persistence</li>
+    <li>IPv4 and IPv6 dual-stack DNS configuration (Namecheap)</li>
+    <li>Git-based deployment workflow (GitHub: btembong/mjnhealthcare)</li>
+  </ul>
+
+  <h2 id="b2"><span class="sec-num">2</span> Delivery Acceptance</h2>
+  <p>The Client acknowledges receipt and acceptance of the delivered platform as described in Section 1, subject to:</p>
+  <ul>
+    <li>All features listed above being operational as of the date of this agreement</li>
+    <li>The Client having received login credentials, server access, and all third-party service account details</li>
+    <li>A full walkthrough and handover session having been conducted</li>
+  </ul>
+
+  <div class="sig-grid no-break">
+    <div class="sig-block">
+      <h4>Client Acceptance</h4>
+      <div class="sig-line"></div><div class="sig-label">Signature</div>
+      <div class="sig-line"></div><div class="sig-label">Name</div>
+      <div class="sig-line"></div><div class="sig-label">Title</div>
+      <div class="sig-line"></div><div class="sig-label">Date</div>
+      <div class="sig-line"></div><div class="sig-label">Company stamp</div>
+    </div>
+    <div class="sig-block">
+      <h4>Developer Representative</h4>
+      <div class="sig-line"></div><div class="sig-label">Signature</div>
+      <div class="sig-line"></div><div class="sig-label">Name</div>
+      <div class="sig-line"></div><div class="sig-label">Title</div>
+      <div class="sig-line"></div><div class="sig-label">Date</div>
+      <div class="sig-line"></div><div class="sig-label">Company stamp</div>
+    </div>
+  </div>
+
+  <h2 id="b3"><span class="sec-num">3</span> Intellectual Property</h2>
+  <p>Upon receipt of full payment for the delivered project:</p>
+  <ul>
+    <li>The <strong>Client owns</strong> all custom code, designs, and content developed specifically for this platform</li>
+    <li>The Developer retains no claim over the platform or its derivatives after handover</li>
+    <li>Third-party libraries, frameworks, and services remain subject to their respective licences</li>
+    <li>The Developer retains the right to reference this project in its portfolio without disclosing confidential business data</li>
+  </ul>
+
+  <h2 id="b4"><span class="sec-num">4</span> Warranties & Limitations</h2>
+  <p>The Developer warrants that the platform has been built using industry-standard practices and that the code is original work except where open-source libraries are used.</p>
+  <p>The Developer does not warrant: uninterrupted operation of third-party services; exam pass rates, visa approvals, or job placement outcomes (subject to regulatory bodies beyond any party's control); or compatibility with future browser / OS versions without ongoing maintenance.</p>
+
+</div>
+
+<!-- ══ PART C ═════════════════════════════════════════════════════════ -->
+<div class="part-break">
+  <div class="part-header">
+    <div class="part-label">Part C</div>
+    <h2>Maintenance & Support Agreement</h2>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="ref-box">
+    <strong>Reference:</strong> DT-MJN-2026-MSA-001 &nbsp;|&nbsp;
+    <strong>Effective:</strong> Upon signing &nbsp;|&nbsp;
+    <strong>Governing law:</strong> Republic of Cameroon
+  </div>
+
+  <h2 id="c1"><span class="sec-num">1</span> Maintenance Plans</h2>
+
+  <div class="tier-grid">
+
+    <div class="tier-card">
+      <div class="tier-card-head">
+        <div class="tier-name">Essential</div>
+        <div class="tier-price">$350</div>
+        <div class="tier-period">per month</div>
+      </div>
+      <div class="tier-card-body">
+        <div class="tier-item"><span class="tier-check">✓</span> 24/7 uptime monitoring</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Security patches & dependency updates</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Monthly server health check</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Critical bug fixes within 24h</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Up to 3 minor bug fixes/month</div>
+        <div class="tier-item"><span class="tier-x">✗</span> Feature development</div>
+        <div class="tier-item"><span class="tier-x">✗</span> Content updates</div>
+        <div class="tier-item"><span class="tier-x">✗</span> Emergency out-of-hours support</div>
+        <div class="tier-item"><span class="tier-check">↷</span> Response: 24h (business hours)</div>
+      </div>
+    </div>
+
+    <div class="tier-card featured">
+      <div class="tier-card-head">
+        <div class="tier-name">Standard — Recommended</div>
+        <div class="tier-price">$600</div>
+        <div class="tier-period">per month</div>
+      </div>
+      <div class="tier-card-body">
+        <div class="tier-item"><span class="tier-check">✓</span> Everything in Essential</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Unlimited minor bug fixes</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Minor features (10 hrs/month)</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Up to 5 content updates/month</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Monthly backup verification</div>
+        <div class="tier-item"><span class="tier-check">✓</span> 3rd-party service monitoring</div>
+        <div class="tier-item"><span class="tier-check">✓</span> 1 emergency incident/month</div>
+        <div class="tier-item"><span class="tier-check">↷</span> Response: 12h</div>
+      </div>
+    </div>
+
+    <div class="tier-card">
+      <div class="tier-card-head">
+        <div class="tier-name">Premium</div>
+        <div class="tier-price">$950</div>
+        <div class="tier-period">per month</div>
+      </div>
+      <div class="tier-card-body">
+        <div class="tier-item"><span class="tier-check">✓</span> Everything in Standard</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Features up to 20 hrs/month</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Unlimited content updates</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Quarterly performance audit</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Monthly progress report</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Unlimited emergency support</div>
+        <div class="tier-item"><span class="tier-check">✓</span> Dedicated WhatsApp support line</div>
+        <div class="tier-item"><span class="tier-check">↷</span> Response: 4h (priority)</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="ref-box no-break">
+    <strong>Selected plan:</strong> &nbsp; Tier _____ &nbsp;|&nbsp; USD _____ / month
+    <p style="margin-top:8px;font-size:11.5px;color:var(--muted);">Client initials to confirm selected tier: _______</p>
+  </div>
+
+  <h2 id="c2"><span class="sec-num">2</span> Payment Terms</h2>
+  <ul>
+    <li>Maintenance fee is billed monthly, in advance, on the 1st of each month</li>
+    <li>Payment is due within <strong>7 days</strong> of invoice</li>
+    <li>Accepted methods: bank transfer, mobile money (MTN / Orange Money), or Tranzak</li>
+    <li>Late payment beyond 14 days may result in suspension of non-critical support</li>
+    <li>Non-payment beyond 30 days entitles the Developer to suspend all maintenance activities until the account is settled</li>
+  </ul>
+
+  <h2 id="c3"><span class="sec-num">3</span> Scope & Exclusions</h2>
+  <h3>Included</h3>
+  <p>All five applications as delivered (web, portal, partner, admin, api), server configuration, PM2 / Caddy setup, and existing third-party service integrations.</p>
+
+  <h3>Not included — quoted separately</h3>
+  <ul>
+    <li>New modules or features beyond the monthly hour allocation</li>
+    <li>Third-party subscription costs — Neon, Brevo, Tranzak, etc. (Client pays directly)</li>
+    <li>Domain registration and renewal (Client manages via Namecheap)</li>
+    <li>VPS hosting costs (Client manages via Hostinger)</li>
+    <li>Legal compliance advisory</li>
+    <li>Content creation — articles, course material, marketing copy</li>
+  </ul>
+
+  <h2 id="c4"><span class="sec-num">4</span> Response Time & Communication</h2>
+  <p>All support requests via <strong>email to the designated Digos Technologies support address</strong>. Tier 3 clients also have access to a dedicated WhatsApp support line. Response time commitments apply Monday–Friday, 08:00–18:00 WAT, except where emergency coverage is included.</p>
+
+  <h2 id="c5"><span class="sec-num">5</span> Term & Termination</h2>
+  <ul>
+    <li>Month-to-month — no minimum commitment</li>
+    <li>Either party may terminate with <strong>30 days written notice</strong></li>
+    <li>On termination, the Developer provides a final handover and all relevant credentials</li>
+    <li>Outstanding invoices remain due regardless of termination</li>
+  </ul>
+
+  <h2 id="c6"><span class="sec-num">6</span> Confidentiality</h2>
+  <p>Both parties agree to keep confidential: server credentials and environment variables, client business and candidate data, and pricing terms in this agreement. This obligation survives termination.</p>
+
+  <h2 id="c7"><span class="sec-num">7</span> Limitation of Liability</h2>
+  <p>The Developer's total liability shall not exceed <strong>three (3) months</strong> of the applicable monthly fee. The Developer is not liable for downtime caused by third-party outages, data loss caused by the Client's own actions, or losses arising from regulatory decisions, exam outcomes, or visa decisions.</p>
+
+  <h2 id="c8"><span class="sec-num">8</span> Governing Law & Dispute Resolution</h2>
+  <p>This agreement is governed by the laws of the <strong>Republic of Cameroon</strong>. Disputes not resolved amicably within 30 days shall be referred to the competent courts of Yaoundé, Cameroon.</p>
+
+  <h2 id="c9"><span class="sec-num">9</span> Signatures</h2>
+  <p>By signing below, both parties agree to the terms of this Maintenance & Support Agreement.</p>
+
+  <div class="sig-grid no-break">
+    <div class="sig-block">
+      <h4>MJN Health Academy and Professional Services LTD</h4>
+      <div class="sig-line"></div><div class="sig-label">Signature</div>
+      <div class="sig-line"></div><div class="sig-label">Full name</div>
+      <div class="sig-line"></div><div class="sig-label">Title / position</div>
+      <div class="sig-line"></div><div class="sig-label">Date</div>
+      <div class="sig-line"></div><div class="sig-label">Company stamp</div>
+    </div>
+    <div class="sig-block">
+      <h4>Digos Technologies</h4>
+      <div class="sig-line"></div><div class="sig-label">Signature</div>
+      <div class="sig-line"></div><div class="sig-label">Full name</div>
+      <div class="sig-line"></div><div class="sig-label">Title / position</div>
+      <div class="sig-line"></div><div class="sig-label">Date</div>
+      <div class="sig-line"></div><div class="sig-label">Company stamp</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ DOC FOOTER ════════════════════════════════════════════════════ -->
+<div class="doc-footer">
+  <span>MJN Health Academy and Professional Services LTD / Digos Technologies</span>
+  <span>Ref: DT-MJN-2026-001 v1.0 — Confidential</span>
+</div>
+
+</body>
+</html>
