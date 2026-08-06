@@ -54,6 +54,7 @@ export class CreateConsultantDto {
 
 export class UpdateConsultantDto {
   @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsEmail() email?: string;
   @IsOptional() @IsString() specialty?: string;
   @IsOptional() @IsString() bio?: string;
   @IsOptional() @IsString() @IsUrl() photoUrl?: string;
