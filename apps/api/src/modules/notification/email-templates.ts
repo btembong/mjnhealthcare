@@ -671,6 +671,19 @@ export function tplStaleLeadsAdmin(opts: {
   );
 }
 
+export function tplLeadAcknowledgement(opts: { name: string }): string {
+  return shell(
+    greeting(opts.name) +
+    label('Enquiry received') +
+    h1('We\'ve received your enquiry') +
+    p('Thank you for reaching out to MJN Healthcare. One of our consultants will review your details and get in touch with you within 24 hours.') +
+    p('In the meantime, feel free to explore our services or book a free consultation if you haven\'t already.') +
+    btn('Book a free consultation', `${PORTAL()}/consult`) +
+    divider() +
+    pSmall('If you have any immediate questions, WhatsApp us directly at +971 50 863 8660 or reply to this email.')
+  );
+}
+
 export function tplOtp(opts: { otp: string }): string {
   const digitCells = opts.otp.split('').map(d =>
     `<td style="width:44px;height:54px;text-align:center;vertical-align:middle;background:#F4F8FF;border:1.5px solid #BDD0E8;border-radius:6px;font-size:26px;font-weight:700;color:${NAVY};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">${d}</td>`

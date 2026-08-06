@@ -258,12 +258,20 @@ export class NotificationListener {
     profession?: string | null; destination?: string | null;
     serviceInterest?: string | null; source: string;
   }) {
-    await this.notificationService.sendEmail(
-      process.env.ADMIN_EMAIL ?? 'hello@mjnhealthcare.com',
-      `New Lead — ${payload.name} (${payload.source})`,
-      T.tplLeadNewAdmin(payload),
-    );
-    this.logger.log(`Admin notified of new lead: ${payload.email}`);
+    await Promise.allSettled([
+      this.notificationService.sendEmail(
+        process.env.ADMIN_EMAIL ?? 'hello@mjnhealthcare.com',
+        `New Lead — ${payload.name} (${payload.source})`,
+        T.tplLeadNewAdmin(payload),
+      ),
+      this.notificationService.sendEmail(
+        payload.email,
+        'We\'ve received your enquiry — MJN Healthcare',
+        T.tplLeadAcknowledgement({ name: payload.name }),
+        payload.name,
+      ),
+    ]);
+    this.logger.log(`Lead acknowledgement sent to ${payload.email}, admin notified`);
   }
 
   @OnEvent('lead.assigned')
