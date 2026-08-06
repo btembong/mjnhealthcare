@@ -168,18 +168,27 @@ export default function LeadsPage() {
                     {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    {lead.status === 'CONVERTED' ? (
-                      lead.convertedPersonId ? (
-                        <Link
-                          href={`/caseload/${lead.convertedPersonId}`}
-                          className="flex items-center gap-1.5 rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/5"
-                        >
-                          <ArrowSquareOut className="h-3.5 w-3.5" />
-                          Go to case
-                        </Link>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )
+                    {lead.status === 'CONVERTED' && lead.convertedPersonId ? (
+                      <Link
+                        href={`/caseload/${lead.convertedPersonId}`}
+                        className="flex items-center gap-1.5 rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/5"
+                      >
+                        <ArrowSquareOut className="h-3.5 w-3.5" />
+                        Go to case
+                      </Link>
+                    ) : lead.status === 'CONVERTED' && !lead.convertedPersonId ? (
+                      <button
+                        onClick={() => handleConvert(lead.id)}
+                        disabled={!!actionLoading}
+                        title="Person was never created — click to fix and send portal invite"
+                        className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
+                      >
+                        {actionLoading === lead.id + '_convert'
+                          ? <ArrowsClockwise className="h-3.5 w-3.5 animate-spin" />
+                          : <ArrowsClockwise className="h-3.5 w-3.5" />
+                        }
+                        Fix &amp; resend invite
+                      </button>
                     ) : (
                       <button
                         onClick={() => handleConvert(lead.id)}
