@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MJN Health — Onboarding & Operations Manual</title>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box; margin: 0; padding: 0;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    :root {
+      --primary: #0F4C81;
+      --teal: #00A896;
+      --accent: #F4A261;
+      --text: #1a2234;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --bg-light: #f8fafc;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    body { font-family: 'Exo 2', sans-serif; color: var(--text); font-size: 13px; line-height: 1.7; background: #fff; }
+
+    @media print {
+      body { font-size: 11.5px; }
+      .cover { min-height: 100vh; page-break-after: always; }
+      .toc { page-break-after: always; }
+      .part-break { page-break-before: always; }
+      h2 { page-break-after: avoid; }
+      h3 { page-break-after: avoid; }
+      table { page-break-inside: avoid; }
+      .no-break { page-break-inside: avoid; }
+      .step-flow { page-break-inside: avoid; }
+      @page { margin: 18mm 16mm; }
+    }
+
+    /* COVER */
+    .cover {
+      display: flex; flex-direction: column; min-height: 100vh;
+      background: linear-gradient(135deg, #0F4C81 0%, #0a3460 60%, #062244 100%);
+      color: #fff; padding: 60px 56px; position: relative; overflow: hidden;
+    }
+    .cover::before { content:''; position:absolute; top:-80px; right:-80px; width:400px; height:400px; border-radius:50%; background:rgba(255,255,255,0.04); }
+    .cover::after { content:''; position:absolute; bottom:-80px; left:-80px; width:300px; height:300px; border-radius:50%; background:rgba(0,168,150,0.12); }
+    .cover-bar { position:absolute; left:0; top:0; bottom:0; width:6px; background:linear-gradient(180deg,var(--teal),#0F4C81); }
+    .cover-logo { display:flex; align-items:center; gap:12px; margin-bottom:auto; }
+    .cover-logo img { height:48px; width:auto; filter:brightness(0) invert(1); }
+    .cover-logo-text { font-size:18px; font-weight:700; }
+    .cover-body { position:relative; z-index:1; }
+    .cover-badge { display:inline-block; background:rgba(0,168,150,0.25); border:1px solid rgba(0,168,150,0.4); border-radius:999px; padding:4px 14px; font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:20px; color:rgba(255,255,255,0.9); }
+    .cover h1 { font-size:40px; font-weight:800; line-height:1.12; letter-spacing:-0.5px; margin-bottom:10px; }
+    .cover h1 span { color:var(--teal); }
+    .cover-sub { font-size:15px; color:rgba(255,255,255,0.6); margin-bottom:40px; }
+    .cover-parts { display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:520px; }
+    .cover-part { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:14px 16px; }
+    .cover-part .label { font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-bottom:4px; }
+    .cover-part .title { font-size:13px; font-weight:700; color:#fff; }
+    .cover-footer { margin-top:48px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.12); display:flex; justify-content:space-between; font-size:11px; color:rgba(255,255,255,0.4); }
+
+    /* TOC */
+    .toc { max-width:860px; margin:0 auto; padding:48px 56px; }
+    .toc-title { font-size:22px; font-weight:800; color:var(--primary); margin-bottom:24px; padding-bottom:12px; border-bottom:2px solid var(--border); }
+    .toc-part { margin-bottom:22px; }
+    .toc-part-label { font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--teal); margin-bottom:8px; }
+    .toc-item { display:flex; justify-content:space-between; align-items:baseline; padding:4px 0; border-bottom:1px dotted var(--border); }
+    .toc-item a { text-decoration:none; color:var(--text); font-size:13px; font-weight:500; }
+    .toc-item a:hover { color:var(--primary); }
+    .toc-num { color:var(--muted); font-size:12px; }
+
+    /* PART HEADER */
+    .part-break { break-before: page; }
+    .part-header { background:var(--primary); color:#fff; padding:40px 56px; margin-bottom:0; }
+    .part-header .part-label { font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:8px; }
+    .part-header h2 { font-size:26px; font-weight:800; color:#fff; border:none; margin:0; padding:0; }
+    .part-header p { color:rgba(255,255,255,0.65); margin-top:8px; font-size:13px; }
+
+    /* CONTAINER */
+    .container { max-width:860px; margin:0 auto; padding:40px 56px; }
+
+    /* TYPOGRAPHY */
+    h2 { font-size:20px; font-weight:800; color:var(--primary); margin:40px 0 14px; padding-bottom:10px; border-bottom:2px solid var(--border); }
+    h3 { font-size:15px; font-weight:700; color:var(--text); margin:26px 0 10px; }
+    h4 { font-size:13px; font-weight:700; color:var(--primary); margin:18px 0 8px; }
+    p { margin-bottom:10px; }
+    ul, ol { margin:8px 0 12px 20px; }
+    li { margin-bottom:5px; }
+    strong { font-weight:700; }
+
+    /* TABLES */
+    table { width:100%; border-collapse:collapse; margin:14px 0 22px; font-size:12.5px; }
+    th { background:var(--primary); color:#fff; font-weight:600; font-size:11px; letter-spacing:0.05em; text-transform:uppercase; padding:10px 14px; text-align:left; }
+    td { padding:9px 14px; border-bottom:1px solid var(--border); vertical-align:top; }
+    tr:nth-child(even) td { background:var(--bg-light); }
+    tr:last-child td { border-bottom:none; }
+
+    /* CODE */
+    code { font-family:'Courier New',monospace; font-size:12px; background:#f1f5f9; padding:1px 5px; border-radius:3px; color:var(--primary); }
+
+    /* CALLOUT */
+    .callout { border-left:4px solid var(--teal); background:#f0fdfb; padding:14px 18px; border-radius:0 6px 6px 0; margin:14px 0 20px; font-size:12.5px; }
+    .callout.warning { border-left-color:var(--warning); background:#fffbeb; }
+    .callout.danger { border-left-color:var(--danger); background:#fef2f2; }
+    .callout.info { border-left-color:var(--primary); background:#eff6ff; }
+
+    /* STEP FLOW */
+    .step-flow { margin:20px 0 28px; }
+    .step { display:flex; gap:16px; margin-bottom:4px; position:relative; }
+    .step-connector { position:absolute; left:19px; top:40px; width:2px; height:calc(100% + 4px); background:var(--border); }
+    .step:last-child .step-connector { display:none; }
+    .step-num { flex-shrink:0; width:38px; height:38px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; position:relative; z-index:1; }
+    .step-body { flex:1; background:var(--bg-light); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:4px; }
+    .step-title { font-weight:700; font-size:13.5px; color:var(--text); margin-bottom:4px; }
+    .step-who { display:inline-block; font-size:10.5px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; border-radius:999px; padding:2px 10px; margin-bottom:6px; }
+    .step-who.admin { background:#dbeafe; color:#1d4ed8; }
+    .step-who.client { background:#d1fae5; color:#065f46; }
+    .step-who.system { background:#f3e8ff; color:#6b21a8; }
+    .step-who.both { background:#fef9c3; color:#854d0e; }
+    .step-desc { font-size:12.5px; color:var(--muted); line-height:1.6; }
+
+    /* ROLE BADGE */
+    .badge { display:inline-block; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:600; }
+    .badge-admin { background:#dbeafe; color:#1e40af; }
+    .badge-client { background:#d1fae5; color:#065f46; }
+    .badge-system { background:#f3e8ff; color:#6b21a8; }
+
+    /* SCREEN MOCKUP */
+    .screen { border:2px solid var(--border); border-radius:10px; overflow:hidden; margin:16px 0 24px; box-shadow:0 4px 16px rgba(0,0,0,0.07); }
+    .screen-bar { background:var(--bg-light); border-bottom:1px solid var(--border); padding:10px 16px; display:flex; align-items:center; gap:8px; }
+    .screen-dot { width:10px; height:10px; border-radius:50%; }
+    .screen-url { background:#fff; border:1px solid var(--border); border-radius:999px; padding:3px 14px; font-size:11px; color:var(--muted); flex:1; text-align:center; }
+    .screen-body { padding:20px 24px; background:#fff; }
+
+    /* TASK CARD */
+    .task-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0 24px; }
+    .task-card { border:1px solid var(--border); border-radius:8px; padding:16px; }
+    .task-card h4 { margin-top:0; margin-bottom:6px; }
+    .task-num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--primary); color:#fff; font-size:10px; font-weight:800; margin-right:6px; }
+
+    /* ALACARTE CARD */
+    .alacarte-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0 28px; }
+    .alacarte-card { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .alacarte-head { padding:16px 18px; border-bottom:1px solid var(--border); }
+    .alacarte-head .service-name { font-size:15px; font-weight:800; color:var(--primary); margin-bottom:2px; }
+    .alacarte-head .service-tag { font-size:11px; color:var(--muted); }
+    .alacarte-body { padding:16px 18px; }
+    .alacarte-body li { font-size:12.5px; }
+
+    /* QUICK REF */
+    .qr-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin:16px 0; }
+    .qr-card { border:1px solid var(--border); border-radius:8px; padding:14px; }
+    .qr-card .qr-page { font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--teal); margin-bottom:6px; }
+    .qr-card h4 { font-size:13px; margin:0 0 8px; }
+    .qr-card ol { margin-left:16px; }
+    .qr-card li { font-size:11.5px; color:var(--muted); margin-bottom:3px; }
+
+    /* STATUS CHIP */
+    .chip { display:inline-block; border-radius:999px; padding:2px 10px; font-size:11px; font-weight:600; margin:1px; }
+    .chip-green { background:#d1fae5; color:#065f46; }
+    .chip-amber { background:#fef3c7; color:#92400e; }
+    .chip-rose { background:#fee2e2; color:#991b1b; }
+    .chip-blue { background:#dbeafe; color:#1e40af; }
+    .chip-purple { background:#f3e8ff; color:#6b21a8; }
+
+    /* SEC NUM */
+    .sec-num { display:inline-block; background:var(--primary); color:#fff; font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; margin-right:6px; vertical-align:middle; }
+
+    /* DOC FOOTER */
+    .doc-footer { margin-top:60px; padding:20px 56px; border-top:2px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:var(--muted); }
+
+    /* DIVIDER */
+    .divider { border:none; border-top:1px solid var(--border); margin:28px 0; }
+
+    /* ICON LABEL */
+    .icon-row { display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; }
+    .icon-dot { width:8px; height:8px; border-radius:50%; background:var(--teal); flex-shrink:0; margin-top:6px; }
+  </style>
+</head>
+<body>
+
+<!-- ══ COVER ══════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-bar"></div>
+  <div class="cover-logo">
+    <img src="../apps/web/public/mjnlogo.png" alt="MJN" onerror="this.style.display='none'" />
+    <span class="cover-logo-text">MJN Healthcare</span>
+  </div>
+  <div class="cover-body">
+    <div class="cover-badge">Internal Operations Manual</div>
+    <h1>Onboarding &<br/><span>Operations Guide</span></h1>
+    <p class="cover-sub">Complete reference for admin staff, consultants, and candidates<br/>from first contact through to international deployment</p>
+    <div class="cover-parts">
+      <div class="cover-part"><div class="label">Part A</div><div class="title">Admin Console Guide</div></div>
+      <div class="cover-part"><div class="label">Part B</div><div class="title">Client Portal Guide</div></div>
+      <div class="cover-part"><div class="label">Part C</div><div class="title">Full Pipeline — Start to End</div></div>
+      <div class="cover-part"><div class="label">Part D</div><div class="title">A La Carte Services</div></div>
+      <div class="cover-part" style="grid-column:span 2"><div class="label">Part E</div><div class="title">Quick Reference Card</div></div>
+    </div>
+    <div class="cover-footer">
+      <span>MJN Health Academy and Professional Services LTD</span>
+      <span>August 2026 · v1.0 · Internal Use</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TABLE OF CONTENTS ══════════════════════════════════════════════ -->
+<div class="toc">
+  <div class="toc-title">Table of Contents</div>
+
+  <div class="toc-part">
+    <div class="toc-part-label">Part A — Admin Console Guide</div>
+    <div class="toc-item"><a href="#a1">A1. Logging In & Roles</a><span class="toc-num">A-1</span></div>
+    <div class="toc-item"><a href="#a2">A2. Dashboard Overview</a><span class="toc-num">A-1</span></div>
+    <div class="toc-item"><a href="#a3">A3. Lead Management</a><span class="toc-num">A-2</span></div>
+    <div class="toc-item"><a href="#a4">A4. Caseload & Engagement Management</a><span class="toc-num">A-2</span></div>
+    <div class="toc-item"><a href="#a5">A5. Document Verification Queue</a><span class="toc-num">A-3</span></div>
+    <div class="toc-item"><a href="#a6">A6. AI Drafts — Review & Approval</a><span class="toc-num">A-3</span></div>
+    <div class="toc-item"><a href="#a7">A7. Academy & Course Management</a><span class="toc-num">A-4</span></div>
+    <div class="toc-item"><a href="#a8">A8. Consultant Management & Payouts</a><span class="toc-num">A-4</span></div>
+    <div class="toc-item"><a href="#a9">A9. Financial Reports & Receipts</a><span class="toc-num">A-5</span></div>
+  </div>
+
+  <div class="toc-part">
+    <div class="toc-part-label">Part B — Client Portal Guide</div>
+    <div class="toc-item"><a href="#b1">B1. Creating an Account & Logging In</a><span class="toc-num">B-1</span></div>
+    <div class="toc-item"><a href="#b2">B2. Dashboard — First Look</a><span class="toc-num">B-1</span></div>
+    <div class="toc-item"><a href="#b3">B3. Case Page — Your Pipeline</a><span class="toc-num">B-2</span></div>
+    <div class="toc-item"><a href="#b4">B4. Documents — Upload & Track</a><span class="toc-num">B-2</span></div>
+    <div class="toc-item"><a href="#b5">B5. Checkout — Paying for Services</a><span class="toc-num">B-3</span></div>
+    <div class="toc-item"><a href="#b6">B6. Academy — Study & Exam Prep</a><span class="toc-num">B-3</span></div>
+    <div class="toc-item"><a href="#b7">B7. Booking a Consultation</a><span class="toc-num">B-4</span></div>
+    <div class="toc-item"><a href="#b8">B8. Payments & Receipts</a><span class="toc-num">B-4</span></div>
+  </div>
+
+  <div class="toc-part">
+    <div class="toc-part-label">Part C — Full Pipeline (Lead to Deployment)</div>
+    <div class="toc-item"><a href="#c1">C1. Stage 1 — Lead Capture</a><span class="toc-num">C-1</span></div>
+    <div class="toc-item"><a href="#c2">C2. Stage 2 — Free Consultation</a><span class="toc-num">C-1</span></div>
+    <div class="toc-item"><a href="#c3">C3. Stage 3 — Engagement & Payment</a><span class="toc-num">C-2</span></div>
+    <div class="toc-item"><a href="#c4">C4. Stage 4 — Document Collection</a><span class="toc-num">C-2</span></div>
+    <div class="toc-item"><a href="#c5">C5. Stage 5 — Licensing Application</a><span class="toc-num">C-3</span></div>
+    <div class="toc-item"><a href="#c6">C6. Stage 6 — Exam Preparation</a><span class="toc-num">C-3</span></div>
+    <div class="toc-item"><a href="#c7">C7. Stage 7 — Job Placement</a><span class="toc-num">C-4</span></div>
+    <div class="toc-item"><a href="#c8">C8. Stage 8 — Deployment & Follow-up</a><span class="toc-num">C-4</span></div>
+  </div>
+
+  <div class="toc-part">
+    <div class="toc-part-label">Part D — A La Carte Services</div>
+    <div class="toc-item"><a href="#d1">D1. UAE Licensing Only (DHA / DOH / MOH)</a><span class="toc-num">D-1</span></div>
+    <div class="toc-item"><a href="#d2">D2. NCLEX Exam Prep Only</a><span class="toc-num">D-1</span></div>
+    <div class="toc-item"><a href="#d3">D3. Student Support Only</a><span class="toc-num">D-2</span></div>
+    <div class="toc-item"><a href="#d4">D4. Academy / Exam Prep Only</a><span class="toc-num">D-2</span></div>
+    <div class="toc-item"><a href="#d5">D5. Health Consultation Only</a><span class="toc-num">D-2</span></div>
+  </div>
+
+  <div class="toc-part">
+    <div class="toc-part-label">Part E — Quick Reference Card</div>
+    <div class="toc-item"><a href="#e1">E1. Admin — Daily Task Checklist</a><span class="toc-num">E-1</span></div>
+    <div class="toc-item"><a href="#e2">E2. Client — Common Tasks Step-by-Step</a><span class="toc-num">E-1</span></div>
+    <div class="toc-item"><a href="#e3">E3. Status Codes & What They Mean</a><span class="toc-num">E-2</span></div>
+  </div>
+</div>
+
+<!-- ══ PART A ═════════════════════════════════════════════════════════ -->
+<div class="part-break">
+  <div class="part-header">
+    <div class="part-label">Part A</div>
+    <h2>Admin Console Guide</h2>
+    <p>For MJN staff, consultants, and operations managers — daily workflow inside admin.mjnhealthcare.com</p>
+  </div>
+</div>
+
+<div class="container">
+
+  <h2 id="a1"><span class="sec-num">A1</span> Logging In & Roles</h2>
+  <p>The admin console is accessed at <code>admin.mjnhealthcare.com</code>. It uses <strong>email and password</strong> authentication (not phone OTP — that is for candidates only).</p>
+
+  <div class="screen no-break">
+    <div class="screen-bar">
+      <div class="screen-dot" style="background:#ef4444"></div>
+      <div class="screen-dot" style="background:#f59e0b"></div>
+      <div class="screen-dot" style="background:#10b981"></div>
+      <div class="screen-url">admin.mjnhealthcare.com/login</div>
+    </div>
+    <div class="screen-body">
+      <p style="font-weight:700;margin-bottom:8px;">Admin Login</p>
+      <p style="font-size:12px;color:var(--muted);">Enter your work email address and password. If you forget your password, contact the system administrator — there is no self-service reset for admin accounts.</p>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>Role</th><th>Access level</th><th>Can do</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Super Admin</strong></td><td>Full access</td><td>Everything — including creating other staff accounts, managing billing, viewing all clients</td></tr>
+      <tr><td><strong>Consultant</strong></td><td>Assigned cases only</td><td>View and manage their own client cases, verify documents, review AI drafts, book sessions</td></tr>
+      <tr><td><strong>Operations</strong></td><td>Operational view</td><td>Leads, caseload overview, financial reports — cannot modify engagement letters or payment records</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="a2"><span class="sec-num">A2</span> Dashboard Overview</h2>
+  <p>The admin dashboard loads at <code>/</code> after login. It shows a live snapshot of platform activity.</p>
+
+  <table>
+    <thead><tr><th>Card / Section</th><th>What it shows</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Total Clients</strong></td><td>All registered persons in the system</td><td>Click → goes to caseload table</td></tr>
+      <tr><td><strong>Active Engagements</strong></td><td>Engagements currently in progress</td><td>Click → filters caseload to active only</td></tr>
+      <tr><td><strong>Pending Documents</strong></td><td>Uploaded documents awaiting verification</td><td>Click → goes to document queue</td></tr>
+      <tr><td><strong>Pending AI Drafts</strong></td><td>AI-generated messages awaiting review</td><td>Click → goes to drafts queue</td></tr>
+      <tr><td><strong>Document Queue</strong></td><td>List of documents to verify today</td><td>Click Verify/Reject on each</td></tr>
+      <tr><td><strong>AI Drafts Queue</strong></td><td>Draft messages waiting for consultant sign-off</td><td>Approve or reject with edits</td></tr>
+      <tr><td><strong>Leads Table</strong></td><td>Recent leads from the website support bot</td><td>Assign to consultant, mark contacted</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info"><strong>Daily habit:</strong> Open the dashboard first thing. Clear the document queue and AI drafts queue before handling other tasks — these directly affect client experience and are time-sensitive.</div>
+
+  <h2 id="a3"><span class="sec-num">A3</span> Lead Management</h2>
+  <p>Leads arrive from two sources: the public website support bot (auto-captured) and manual entry by staff after a WhatsApp or phone enquiry.</p>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Lead arrives in Leads table</div>
+        <div><span class="step-who system">System</span></div>
+        <div class="step-desc">Name, email, phone, and the question they asked are captured automatically. Source is marked as "website bot" or "manual".</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Assign to a consultant</div>
+        <div><span class="step-who admin">Admin</span></div>
+        <div class="step-desc">Click the lead row → assign to a consultant from the dropdown. The consultant receives a notification.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Consultant contacts lead within 24 hours</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">Via WhatsApp or phone. Goal is to book a free consultation call. Mark lead as "Contacted" in the table.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Book free consultation</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">Use the Bookings section to create a consultation slot and send the link to the lead. Or direct them to mjnhealthcare.com/get-started.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Convert to client</div>
+        <div><span class="step-who admin">Admin</span></div>
+        <div class="step-desc">After a successful consultation, create a Person record and an Engagement. The lead is then moved out of the leads table.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="a4"><span class="sec-num">A4</span> Caseload & Engagement Management</h2>
+  <p>Navigate to <strong>Caseload</strong> in the sidebar. You will see all clients with their current engagement status.</p>
+
+  <table>
+    <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Client name</td><td>Click to open the full client profile and case detail</td></tr>
+      <tr><td>Engagement status</td><td><span class="chip chip-green">Active</span> <span class="chip chip-amber">On Hold</span> <span class="chip chip-rose">Terminated</span> <span class="chip chip-blue">Completed</span></td></tr>
+      <tr><td>Letter status</td><td><span class="chip chip-green">Signed</span> or <span class="chip chip-amber">Pending Signature</span> — no work should proceed if pending</td></tr>
+      <tr><td>Pathway</td><td>Target country and regulatory body (e.g. UAE / DHA)</td></tr>
+      <tr><td>Current stage</td><td>Which licensing stage the client is on right now</td></tr>
+      <tr><td>Assigned consultant</td><td>Who owns this case</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Advancing a Stage</h4>
+  <p>Open a client's case → scroll to the Milestones section → click <strong>Advance Stage</strong> once the current stage requirements are confirmed complete. This triggers an automatic client notification and updates the portal dashboard.</p>
+
+  <div class="callout warning"><strong>Rule:</strong> Never advance a stage unless documents for that stage are verified and any associated payment is confirmed. Advancing a stage is a formal record — it cannot be reversed without contacting the system administrator.</div>
+
+  <h4>Putting a Case On Hold</h4>
+  <p>If a client has an overdue second instalment (21+ days), the system automatically moves the engagement to <strong>On Hold</strong>. You can also manually set On Hold from the engagement detail page — use this if the client requests a pause or has a document issue that blocks progress.</p>
+
+  <h2 id="a5"><span class="sec-num">A5</span> Document Verification Queue</h2>
+  <p>Navigate to <strong>Documents</strong> in the sidebar. Documents with status <span class="chip chip-amber">Pending</span> need review.</p>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Open the document</div>
+        <div><span class="step-who admin">Admin / Consultant</span></div>
+        <div class="step-desc">Click the document name to view the file. Check: name matches the person record, document is not expired, all fields are legible, translation matches original.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Verify or Reject</div>
+        <div><span class="step-who admin">Admin / Consultant</span></div>
+        <div class="step-desc">Click <strong>Verify</strong> if the document is acceptable. Click <strong>Reject</strong> and add a clear rejection reason (e.g. "Name mismatch — passport reads ATANGCH but application reads ATANGCH-SIRRIR. Please re-upload the correct page"). The client receives an automatic notification.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Client re-uploads</div>
+        <div><span class="step-who client">Client</span></div>
+        <div class="step-desc">Client sees the rejection reason in their portal and uploads the corrected document. It re-enters the queue as Pending.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout"><strong>Best practice:</strong> Always write the rejection reason in plain language the client can understand. Avoid technical jargon. The client may not have a consultant immediately available to explain it.</div>
+
+  <h2 id="a6"><span class="sec-num">A6</span> AI Drafts — Review & Approval</h2>
+  <p>The system uses Claude AI to draft client-facing messages — status updates, stage change notifications, and follow-ups. <strong>No AI-drafted message reaches a client without a consultant reviewing it first.</strong></p>
+
+  <p>Navigate to <strong>AI Drafts</strong> in the sidebar. Each draft shows:</p>
+  <ul>
+    <li>The trigger event (e.g. "Licensing stage advanced — DataFlow submitted")</li>
+    <li>The client it was drafted for</li>
+    <li>The draft message text</li>
+    <li>The channel it will be sent via (email / WhatsApp)</li>
+  </ul>
+
+  <table>
+    <thead><tr><th>Action</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Approve</strong></td><td>Sends the message as-is to the client via the specified channel</td></tr>
+      <tr><td><strong>Edit then Approve</strong></td><td>Opens the draft for editing before sending — use when the AI draft is mostly right but needs personalisation</td></tr>
+      <tr><td><strong>Reject</strong></td><td>Discards the draft — you should then follow up with the client manually</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout danger"><strong>Mandatory rule:</strong> Any draft touching licensing eligibility, visa guidance, or exam-pass likelihood must be reviewed especially carefully. If you are unsure, reject it and send a manually written message. Incorrect guidance in these areas can cause real harm to clients.</div>
+
+  <h2 id="a7"><span class="sec-num">A7</span> Academy & Course Management</h2>
+  <p>Navigate to <strong>Courses</strong> in the sidebar. You can create, edit, and publish courses and question banks.</p>
+
+  <table>
+    <thead><tr><th>Task</th><th>Where</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Create a new course</td><td>Courses → New Course</td><td>Set title, description, duration (hours), exam type, and published status. Unpublished courses are invisible to candidates.</td></tr>
+      <tr><td>Add a question bank</td><td>Courses → Question Banks → New Bank</td><td>Set the exam type (NCLEX, DHA, HAAD, etc.) and total questions. Add questions one by one or via import.</td></tr>
+      <tr><td>Add questions</td><td>Question Banks → [Bank] → Add Question</td><td>Each question needs: stem, 4 options, correct answer, and a rationale (the explanation shown after answering).</td></tr>
+      <tr><td>Publish / unpublish</td><td>Course list → toggle Published</td><td>Only published courses appear in the client portal Academy tab.</td></tr>
+      <tr><td>View enrolments</td><td>Courses → [Course] → Enrolments</td><td>See which candidates are enrolled and their progress percentage.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="a8"><span class="sec-num">A8</span> Consultant Management & Payouts</h2>
+  <p>Navigate to <strong>Consultants</strong> in the sidebar. Three tabs: <em>Consultants</em>, <em>Payouts</em>, <em>Applications</em>.</p>
+
+  <h4>Creating a Staff Consultant</h4>
+  <p>Consultants → New Consultant → fill in name, email, specialisation (UAE / UK / US / Academy), type = STAFF. Staff consultants do not receive commission payouts — their income is handled through payroll.</p>
+
+  <h4>Reviewing Partner Consultant Applications</h4>
+  <p>Applications tab → open an application → read the bio and qualifications → click <strong>Approve</strong> or <strong>Reject</strong> with notes. Approving automatically creates a ConsultantProfile and sets a commission rate (default 75% to consultant, 25% platform fee).</p>
+
+  <h4>Processing Payouts</h4>
+  <p>Payouts tab shows all pending payouts for partner consultants after a completed consultation. Click <strong>Mark Paid</strong> once the bank transfer or mobile money transfer has been made. This records the payment date and closes the payout.</p>
+
+  <h2 id="a9"><span class="sec-num">A9</span> Financial Reports & Receipts</h2>
+  <p>Navigate to <strong>Payments</strong> in the sidebar.</p>
+
+  <table>
+    <thead><tr><th>View</th><th>Shows</th></tr></thead>
+    <tbody>
+      <tr><td>All payments</td><td>Every payment made across all clients with date, amount, status (paid / partial / pending)</td></tr>
+      <tr><td>Receipts</td><td>PDF receipts generated at time of payment — immutable, never recomputed</td></tr>
+      <tr><td>Installments</td><td>Clients on a 2-instalment plan — shows which instalment is outstanding and its due date</td></tr>
+      <tr><td>Overdue</td><td>Clients whose second instalment is past due — shows dunning step (reminder sent, warning sent, on hold)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warning"><strong>Instalment dunning timeline:</strong> Day +7 → payment reminder sent. Day +14 → final warning sent. Day +21 → engagement automatically placed On Hold and admin alerted. To reinstate, collect payment then manually change engagement status back to Active.</div>
+
+</div>
+
+<!-- ══ PART B ═════════════════════════════════════════════════════════ -->
+<div class="part-break">
+  <div class="part-header">
+    <div class="part-label">Part B</div>
+    <h2>Client Portal Guide</h2>
+    <p>For candidates and healthcare professionals using portal.mjnhealthcare.com</p>
+  </div>
+</div>
+
+<div class="container">
+
+  <h2 id="b1"><span class="sec-num">B1</span> Creating an Account & Logging In</h2>
+  <p>The client portal is at <code>portal.mjnhealthcare.com</code>. Candidates log in using their <strong>phone number and a one-time password (OTP)</strong> sent via SMS — no email and password needed.</p>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Go to portal.mjnhealthcare.com</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">Open in any browser on your phone or computer. No app download needed.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Enter your phone number</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">Include your country code (e.g. +237 for Cameroon, +233 for Ghana, +234 for Nigeria). Click Send OTP.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Enter the 6-digit OTP</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">You will receive an SMS within 60 seconds. The code is valid for 10 minutes. Enter the 6 digits — the boxes auto-advance as you type.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Complete your profile (first time only)</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">On first login an onboarding form appears. Fill in: full name, profession (nurse / physician / allied health / student), country, and preferred language (English or French). This cannot be skipped — it is required before accessing any services.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warning"><strong>OTP not arriving?</strong> Check you have mobile signal. Wait 60 seconds then tap Resend. If using a data-only SIM with no SMS capability, contact your MJN consultant to have your account set up manually.</div>
+
+  <h2 id="b2"><span class="sec-num">B2</span> Dashboard — First Look</h2>
+  <p>After login you land on your dashboard. Here is what each section means:</p>
+
+  <table>
+    <thead><tr><th>Section</th><th>What it shows</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Next Action Banner</strong></td><td>The single most important thing you need to do right now</td><td>Follow the instruction — e.g. "Sign your engagement letter" or "Upload your passport"</td></tr>
+      <tr><td><strong>Documents Verified</strong></td><td>How many of your uploaded documents have been confirmed</td><td>Upload missing documents from the Documents page</td></tr>
+      <tr><td><strong>Payments</strong></td><td>Total paid vs outstanding amount</td><td>Go to Checkout if a payment is due</td></tr>
+      <tr><td><strong>Engagement Status</strong></td><td>Whether your engagement is Active, On Hold, or Complete</td><td>If On Hold, check Payments — an instalment may be overdue</td></tr>
+      <tr><td><strong>Stage Progress</strong></td><td>Which step of your licensing pathway you are currently on</td><td>View the Case page for the full milestone list</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout"><strong>Tip:</strong> The Next Action Banner tells you exactly what to do next. Always start there. If it says "All clear," your case is progressing and no action is needed from you right now.</div>
+
+  <h2 id="b3"><span class="sec-num">B3</span> Case Page — Your Pipeline</h2>
+  <p>Navigate to <strong>Case</strong> in the sidebar. This is the most detailed view of your engagement.</p>
+
+  <table>
+    <thead><tr><th>Section</th><th>What it shows</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Engagement Letter</strong></td><td>Status of your signed agreement with MJN. Shows Signed (green) or Pending — click Sign Letter to complete it. No services proceed until this is signed.</td></tr>
+      <tr><td><strong>Documents Summary</strong></td><td>Quick count of verified / pending / rejected documents. Click through to see each one.</td></tr>
+      <tr><td><strong>Payments Summary</strong></td><td>What you have paid and what is outstanding across all orders.</td></tr>
+      <tr><td><strong>Milestones</strong></td><td>The ordered stages of your specific licensing pathway — e.g. DataFlow Submitted → DataFlow Approved → Exam Booked → Exam Passed → Licence Issued. Each stage shows its status and date completed.</td></tr>
+      <tr><td><strong>Activity Feed</strong></td><td>A chronological record of everything that has happened on your case — useful for seeing what your consultant has done and when.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="b4"><span class="sec-num">B4</span> Documents — Upload & Track</h2>
+  <p>Navigate to <strong>Documents</strong> in the sidebar. Your consultant will tell you exactly which documents are needed — but the general list for licensing includes:</p>
+
+  <table>
+    <thead><tr><th>Document type</th><th>Typical requirement</th></tr></thead>
+    <tbody>
+      <tr><td>Passport (bio page)</td><td>Clear scan, all four corners visible, not expired</td></tr>
+      <tr><td>Nursing / Medical licence</td><td>Issued by your home country regulatory body, valid, name must match passport exactly</td></tr>
+      <tr><td>Academic certificates</td><td>Degree/diploma — original or certified copy</td></tr>
+      <tr><td>Transcripts</td><td>Official academic record — certified</td></tr>
+      <tr><td>Experience letter(s)</td><td>Signed by employer on letterhead, with dates and role</td></tr>
+      <tr><td>Good Standing Certificate</td><td>From your home country regulatory board, dated within 3 months</td></tr>
+      <tr><td>Passport-size photo</td><td>White background, recent</td></tr>
+    </tbody>
+  </table>
+
+  <h4>How to upload</h4>
+  <ol>
+    <li>Go to Documents → click <strong>Upload Document</strong></li>
+    <li>Select the document type from the dropdown</li>
+    <li>Choose your file (PDF or image — max 10MB)</li>
+    <li>If the document has an expiry date (e.g. passport, licence), enter it</li>
+    <li>Click Upload</li>
+  </ol>
+
+  <div class="callout warning"><strong>If a document is rejected:</strong> You will receive an SMS and WhatsApp notification with the reason. Return to the Documents page, read the rejection note, and upload the corrected version. Do not upload the same file again without fixing the issue.</div>
+
+  <h4>Document expiry alerts</h4>
+  <p>The system scans for expiring documents daily. You will receive reminders at <strong>30 days, 14 days, and 3 days</strong> before a document expires. Act immediately — an expired document can halt your licensing application.</p>
+
+  <h2 id="b5"><span class="sec-num">B5</span> Checkout — Paying for Services</h2>
+  <p>Navigate to <strong>Checkout</strong> in the sidebar. Before paying, your engagement letter must be signed.</p>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Select your services</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">Services are grouped by category (UAE Licensure, NCLEX, Student Support, etc.). The $50 engagement fee is mandatory and pre-selected. Check the boxes for the services you need — your consultant will have advised you on which ones apply to your pathway.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Review your order</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">Step 2 shows your full itemised bill, your billing details, and a "What Happens Next" timeline. The total is shown including tax. If anything is wrong, click Back.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Pay via Tranzak</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">Click Proceed to Payment. You are redirected to Tranzak to pay by mobile money (MTN, Orange Money) or card. After payment you are returned to the portal and a PDF receipt is sent to your email and WhatsApp.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout info"><strong>Instalments:</strong> Some service items (e.g. NCLEX processing) are billed in two instalments. You only pay the first instalment at checkout. The second will be invoiced automatically when the relevant stage of your case is reached. You will receive an SMS and email reminder before the second payment is due.</div>
+
+  <h2 id="b6"><span class="sec-num">B6</span> Academy — Study & Exam Prep</h2>
+  <p>Navigate to <strong>Academy</strong> in the sidebar. Three tabs: Courses, Study Plan, Practice History.</p>
+
+  <table>
+    <thead><tr><th>Tab</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Courses</strong></td><td>Browse available courses. Click Enrol on any course relevant to your exam. Once enrolled, click into the course to access materials and live class schedules.</td></tr>
+      <tr><td><strong>Study Plan</strong></td><td>Your personalised weekly study plan. Topics are ordered by priority. Tick a topic as complete when you finish it. Overdue topics are highlighted in amber.</td></tr>
+      <tr><td><strong>Practice History</strong></td><td>Your scores from each practice session. Weak areas (topics where you score below 60%) are flagged — these feed your study plan automatically.</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Using the AI Study Assistant</h4>
+  <p>A floating chat button appears in the bottom-right of the Academy page. Click it to open the Study Assistant — powered by Claude AI. You can:</p>
+  <ul>
+    <li>Ask it to explain any question you got wrong in practice</li>
+    <li>Ask about exam topics (NCLEX pharmacology, DHA anatomy, etc.)</li>
+    <li>Ask for a study strategy for a specific weakness</li>
+    <li>Communicate in English or French — it responds in whichever language you use</li>
+  </ul>
+  <div class="callout"><strong>Note:</strong> The Study Assistant is for exam content and study guidance only. For questions about your case status, visa, or licensing eligibility, contact your assigned consultant directly.</div>
+
+  <h2 id="b7"><span class="sec-num">B7</span> Booking a Consultation</h2>
+  <p>Navigate to <strong>Book a Consultation</strong> in the sidebar (or go to <code>portal.mjnhealthcare.com/consult</code>).</p>
+  <ol>
+    <li>Select consultation type: Health, Career, or Both</li>
+    <li>Choose a consultant from the list (name, specialisation, rating shown)</li>
+    <li>Select an available date and time slot</li>
+    <li>Enter your details and any notes for the consultant</li>
+    <li>Pay — you are redirected to Tranzak. On payment confirmation, a Daily.co video room is created and the link is sent to you via email and WhatsApp</li>
+  </ol>
+  <p>You will receive a <strong>reminder 24 hours and 1 hour before</strong> your session. Click the meeting link in your reminder to join the video call — no app download required.</p>
+
+  <h4>Cancelling a booking</h4>
+  <p>Go to Bookings → find your booking → click Cancel. Refund policy: cancellation <strong>more than 24 hours before</strong> = 100% refund. <strong>4–24 hours before</strong> = 50% refund. <strong>Less than 4 hours before</strong> = no refund.</p>
+
+  <h2 id="b8"><span class="sec-num">B8</span> Payments & Receipts</h2>
+  <p>Navigate to <strong>Payments</strong> in the sidebar to see your full payment history.</p>
+  <ul>
+    <li>Each payment shows the date, amount, services paid for, and status</li>
+    <li>Click <strong>View Receipt</strong> on any paid order to download the PDF receipt</li>
+    <li>Receipts are permanent records — the itemised amounts are locked at the time of payment and never change</li>
+    <li>If you believe a payment has not been recorded, contact your consultant with your Tranzak transaction reference number</li>
+  </ul>
+
+</div>
+
+<!-- ══ PART C ═════════════════════════════════════════════════════════ -->
+<div class="part-break">
+  <div class="part-header">
+    <div class="part-label">Part C</div>
+    <h2>Full Pipeline — Lead to Deployment</h2>
+    <p>Complete end-to-end workflow for a candidate going from first contact to working abroad</p>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="callout info">This section covers the <strong>full-service pathway</strong> — licensing + exam prep + job placement. A la carte (individual service) pipelines are in Part D.</div>
+
+  <h2 id="c1"><span class="sec-num">C1</span> Stage 1 — Lead Capture</h2>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Lead discovers MJN</div>
+        <div><span class="step-who client">Lead</span></div>
+        <div class="step-desc">Via website, WhatsApp, Facebook, referral, or direct contact. They visit mjnhealthcare.com and interact with the support bot, or message MJN directly on WhatsApp.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Contact details captured</div>
+        <div><span class="step-who system">System</span></div>
+        <div class="step-desc">Website bot captures name, email/phone, profession, and target country. Appears in admin Leads table immediately.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Admin assigns to consultant</div>
+        <div><span class="step-who admin">Admin</span></div>
+        <div class="step-desc">Assign within the day. Match consultant to lead based on target country and profession.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Consultant contacts within 24 hours</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">WhatsApp preferred. Goal: book the free 30-minute consultation. Send the booking link: mjnhealthcare.com/get-started</div>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="c2"><span class="sec-num">C2</span> Stage 2 — Free Consultation</h2>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Free 30-minute consultation call</div>
+        <div><span class="step-who both">Consultant + Candidate</span></div>
+        <div class="step-desc">Via Daily.co video or phone. Consultant reviews: profession, qualifications, current registration status, target country, timeline expectations, and financial readiness.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Pathway mapped</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">Consultant determines the exact licensing body, exam requirements, and document list. Gives a realistic timeline and total cost estimate. <strong>Be honest — overpromising timelines or pass rates is not permitted.</strong></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Decision — proceed or not</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">Candidate decides to proceed. If yes, consultant creates the Person record in the system (if not already existing) and initiates the Engagement.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="c3"><span class="sec-num">C3</span> Stage 3 — Engagement & Payment</h2>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Engagement letter sent</div>
+        <div><span class="step-who system">System (Dropbox Sign)</span></div>
+        <div class="step-desc">Admin triggers the engagement letter from the admin console. Candidate receives it via email. The letter details: exact services included, total fees, payment schedule, and explicit disclaimers (no guarantee of exam pass, visa approval, or job placement).</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Candidate signs the letter</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">Signed electronically via Dropbox Sign. The portal Case page shows Signed status once complete. <strong>No work proceeds and no payment is taken before the letter is signed.</strong></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Candidate completes checkout</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">Goes to portal Checkout. Selects services as advised by consultant. $50 engagement fee is mandatory. First instalment of any 2-part fee is charged. Payment via Tranzak (mobile money or card).</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Receipt issued, consultant notified</div>
+        <div><span class="step-who system">System</span></div>
+        <div class="step-desc">PDF receipt sent to candidate via email and WhatsApp. Consultant receives a notification that payment is confirmed and work can begin.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="c4"><span class="sec-num">C4</span> Stage 4 — Document Collection</h2>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Consultant sends document checklist</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">Via WhatsApp or email. The checklist is specific to the candidate's pathway and regulatory body. For UAE DataFlow: passport, licence, certificates, transcripts, experience letters, good standing, photo.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Candidate uploads documents to portal</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">One by one in the Documents section. Each upload is stored securely in Cloudflare R2 (encrypted).</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Admin verifies each document</div>
+        <div><span class="step-who admin">Admin / Consultant</span></div>
+        <div class="step-desc">Checks name consistency, validity, and completeness. Approves or rejects with reason. Rejected documents are flagged to the candidate for re-upload.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">All documents verified</div>
+        <div><span class="step-who both">Consultant</span></div>
+        <div class="step-desc">Once all required documents are verified, consultant advances the stage to "Documents Complete" and proceeds to submit to the regulatory body.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="c5"><span class="sec-num">C5</span> Stage 5 — Licensing Application</h2>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">POA / Letter of Authorization collected</div>
+        <div><span class="step-who both">Consultant + Candidate</span></div>
+        <div class="step-desc">Before submitting anything to a third party on the candidate's behalf, a signed Power of Attorney or Letter of Authorization is required. This is separate from the engagement letter.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Submission to regulatory body</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">E.g. DataFlow submission for UAE, CGFNS for US NCLEX, NMC for UK. Consultant submits on behalf of the candidate, tracks the reference number, and advances the portal stage.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Monitoring and follow-up</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">DataFlow takes 45–90 days. Consultant monitors regularly and follows up with the regulatory body if processing is delayed. Status updates sent to candidate every 2 weeks minimum.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Application approved</div>
+        <div><span class="step-who system">Regulatory body → Consultant → System</span></div>
+        <div class="step-desc">Consultant marks stage complete. Candidate notified. Second instalment (if applicable) is now invoiced automatically by the system.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="c6"><span class="sec-num">C6</span> Stage 6 — Exam Preparation & Sitting</h2>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Enrol in Academy exam prep course</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">Via portal Academy tab. Consultant advises which course matches the exam (DHA, NCLEX, HAAD, NMC CBT, etc.).</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Follow study plan and attend live classes</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">Study plan adapts weekly based on practice scores. AI Study Assistant available for question explanations. Attend live sessions on scheduled dates.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Exam booked</div>
+        <div><span class="step-who both">Consultant + Candidate</span></div>
+        <div class="step-desc">Consultant assists with exam scheduling (Prometric for DHA, Pearson VUE for NCLEX). ATT/exam authorisation codes have expiry dates — book promptly.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Candidate sits exam and receives result</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">Results are typically available within 48 hours (DHA) or on the day (NCLEX via quick results). Candidate shares result with consultant. Stage advanced accordingly.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warning"><strong>Failed exam:</strong> Consultant books a follow-up call to review weak areas and update the study plan. A retake can be arranged — fees depend on the regulatory body's retake policy. Retake service items may apply.</div>
+
+  <h2 id="c7"><span class="sec-num">C7</span> Stage 7 — Job Placement</h2>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">CV preparation</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">Consultant reviews and prepares the candidate's CV for the target market. UAE employers expect a specific format different from Cameroonian/West African CVs.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Submitted to partner employers</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">MJN's verified employer partners (hospitals, clinics, agencies) are matched to the candidate's profile and licence. CVs submitted on behalf of the candidate.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Interview preparation</div>
+        <div><span class="step-who both">Consultant + Candidate</span></div>
+        <div class="step-desc">Consultant briefs candidate on employer expectations, common interview questions for the target country, and salary negotiation norms.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Offer received and accepted</div>
+        <div><span class="step-who both">Consultant + Candidate</span></div>
+        <div class="step-desc">Consultant reviews the offer letter with the candidate. Checks: salary, benefits, visa sponsorship, start date, contract duration. Advises on negotiation if needed.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="c8"><span class="sec-num">C8</span> Stage 8 — Deployment & Follow-up</h2>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Visa and relocation support</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">Employer typically sponsors the work visa. Consultant advises on what documents to prepare for the visa application and what to expect on arrival.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Candidate arrives and starts work</div>
+        <div><span class="step-who client">Candidate</span></div>
+        <div class="step-desc">MJN remains the point of contact for the first 90 days in-country. Any issues with the employer or local registration are escalated through the consultant.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Engagement marked Complete</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">Admin marks the engagement as Complete in the system. Partner commission invoice is triggered automatically if applicable. Candidate's success story is recorded.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">CPD and ongoing relationship</div>
+        <div><span class="step-who both">Consultant + Candidate</span></div>
+        <div class="step-desc">Candidate remains in the MJN community. CPD programs available for licence renewal. Document expiry reminders continue automatically for passport, licence, and certifications.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ PART D ═════════════════════════════════════════════════════════ -->
+<div class="part-break">
+  <div class="part-header">
+    <div class="part-label">Part D</div>
+    <h2>A La Carte Services</h2>
+    <p>Individual service pathways for candidates who need a specific service, not the full pipeline</p>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="callout info">All a la carte services still require a signed engagement letter and the $50 engagement fee. The difference is that services outside the selected scope are not included and not billed.</div>
+
+  <h2 id="d1"><span class="sec-num">D1</span> UAE Licensing Only — DHA / DOH / MOH</h2>
+  <p>For candidates who are already employed or have an employer, and only need the licensing process managed.</p>
+
+  <table>
+    <thead><tr><th>Step</th><th>Who</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>1. Consultation — determine correct authority</td><td>Consultant</td><td>DHA = Dubai. DOH = Abu Dhabi. MOH = Northern Emirates (Sharjah, Ajman, RAK, etc.). Wrong authority = wasted time and fees.</td></tr>
+      <tr><td>2. Document collection and verification</td><td>Both</td><td>Standard document set as per Stage 4 of full pipeline</td></tr>
+      <tr><td>3. DataFlow submission</td><td>Consultant</td><td>Primary Source Verification — takes 45–90 days. MJN tracks and follows up.</td></tr>
+      <tr><td>4. DHA / DOH / MOH exam registration</td><td>Consultant</td><td>After DataFlow approval, exam is registered via Prometric. ATT code has expiry — book promptly.</td></tr>
+      <tr><td>5. Exam preparation (optional add-on)</td><td>Candidate</td><td>Can be added at checkout — Academy exam prep course and AI study assistant</td></tr>
+      <tr><td>6. Exam sitting and result</td><td>Candidate</td><td>Consultant monitors result and advances stage</td></tr>
+      <tr><td>7. Licence issued</td><td>Regulatory body</td><td>Consultant assists with licence registration and any data card collection (Dubai Health Authority data card, etc.)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout"><strong>Pricing note:</strong> DataFlow verification fee varies by profession — nurse vs physician. The correct fee is auto-selected at checkout based on the profession on the candidate's profile.</div>
+
+  <h2 id="d2"><span class="sec-num">D2</span> NCLEX Exam Prep Only</h2>
+  <p>For candidates who have already begun the NCLEX process independently and need structured exam support only — or those targeting the US from scratch.</p>
+
+  <table>
+    <thead><tr><th>Step</th><th>Who</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>1. Eligibility check</td><td>Consultant</td><td>Verify CGFNS / ERES / JSA route based on state board and nationality</td></tr>
+      <tr><td>2. Credential evaluation submission</td><td>Consultant</td><td>CGFNS, ERES, or JSA depending on chosen state. MJN submits on candidate's behalf.</td></tr>
+      <tr><td>3. State board application</td><td>Consultant</td><td>Application to the chosen state's Board of Nursing for ATT (Authorization to Test)</td></tr>
+      <tr><td>4. NCLEX exam prep — Academy enrolment</td><td>Candidate</td><td>Enrol in the NCLEX course on the portal Academy tab. Follow the study plan. Use AI Study Assistant for weak areas.</td></tr>
+      <tr><td>5. ATT received — book Pearson VUE</td><td>Both</td><td>ATT is valid 90 days. Book immediately to avoid expiry. Consultant assists with Pearson VUE scheduling.</td></tr>
+      <tr><td>6. NCLEX sitting</td><td>Candidate</td><td>Results via Quick Results (48h) or official letter. Candidate shares result with consultant.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warning"><strong>ATT expiry:</strong> If the ATT expires before the exam is booked, the candidate must re-apply and pay another ATT fee. The study plan is adjusted to reflect the delay. Always book the exam within 2 weeks of receiving the ATT.</div>
+
+  <h2 id="d3"><span class="sec-num">D3</span> Student Support Only</h2>
+  <p>For healthcare students seeking internship placement or university application guidance.</p>
+
+  <table>
+    <thead><tr><th>Service</th><th>What MJN does</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Local internship</strong></td><td>Matches student to a local hospital or clinic partner. Prepares application letter, follows up with the placement coordinator.</td></tr>
+      <tr><td><strong>International internship</strong></td><td>Sources international clinical placement opportunities (UAE, UK, Ireland). Assists with visa documentation for short-stay clinical attachments.</td></tr>
+      <tr><td><strong>Study abroad</strong></td><td>Guidance on target institution, programme requirements, application timeline, and personal statement. WES evaluation if required.</td></tr>
+      <tr><td><strong>University application</strong></td><td>Application package preparation, reference letter guidance, deadline management.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="d4"><span class="sec-num">D4</span> Academy / Exam Prep Only</h2>
+  <p>For professionals who only need structured study support and are managing their licensing independently.</p>
+  <ul>
+    <li>Candidate creates a portal account and enrols in the relevant exam prep course</li>
+    <li>Access to question banks (5,000+ questions, updated to current exam blueprints)</li>
+    <li>AI Study Assistant for question rationale and personalised guidance</li>
+    <li>Live virtual classes (Daily.co) — small cohorts, real instructors</li>
+    <li>Study plan auto-generated from diagnostic and practice performance</li>
+    <li>Weak-area detection flags topics for extra review</li>
+    <li>Available in English and French</li>
+  </ul>
+  <div class="callout">Academy-only access does not include document verification, licensing submission, or job placement. Candidates can upgrade to a full engagement at any point by signing an engagement letter and paying the engagement fee.</div>
+
+  <h2 id="d5"><span class="sec-num">D5</span> Health Consultation Only</h2>
+  <p>For individuals seeking a one-time professional health or career consultation session — no ongoing engagement required.</p>
+
+  <table>
+    <thead><tr><th>Step</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>1. Book via website or portal</td><td>Go to mjnhealthcare.com/consult or portal.mjnhealthcare.com/consult</td></tr>
+      <tr><td>2. Select type</td><td>Health (clinical questions, second opinion), Career (pathway planning, destination advice), or Both</td></tr>
+      <tr><td>3. Choose consultant and time slot</td><td>Consultants are listed with specialisation and rating</td></tr>
+      <tr><td>4. Pay via Tranzak</td><td>Payment triggers Daily.co room creation and sends join link via email and WhatsApp</td></tr>
+      <tr><td>5. Attend session</td><td>Video call in browser — no app required. 45–60 minutes.</td></tr>
+      <tr><td>6. Session notes</td><td>Consultant sends a brief summary of advice and any recommended next steps via WhatsApp after the call</td></tr>
+    </tbody>
+  </table>
+
+</div>
+
+<!-- ══ PART E ═════════════════════════════════════════════════════════ -->
+<div class="part-break">
+  <div class="part-header">
+    <div class="part-label">Part E</div>
+    <h2>Quick Reference Card</h2>
+    <p>Daily checklists, common task steps, and status code guide</p>
+  </div>
+</div>
+
+<div class="container">
+
+  <h2 id="e1"><span class="sec-num">E1</span> Admin — Daily Task Checklist</h2>
+
+  <table>
+    <thead><tr><th>Priority</th><th>Task</th><th>Where</th><th>Target time</th></tr></thead>
+    <tbody>
+      <tr><td>1 — Urgent</td><td>Clear document verification queue</td><td>Admin → Documents → Pending</td><td>Before 10:00 AM</td></tr>
+      <tr><td>2 — Urgent</td><td>Review and action AI drafts queue</td><td>Admin → AI Drafts → Pending</td><td>Before 10:00 AM</td></tr>
+      <tr><td>3 — High</td><td>Check new leads and assign</td><td>Admin → Leads</td><td>Before 12:00 PM</td></tr>
+      <tr><td>4 — High</td><td>Follow up on overdue instalments</td><td>Admin → Payments → Overdue</td><td>Daily</td></tr>
+      <tr><td>5 — Normal</td><td>Check cases with expiring documents (30 days)</td><td>Admin → Documents → Expiring Soon</td><td>Weekly</td></tr>
+      <tr><td>6 — Normal</td><td>Process consultant payouts marked for payment</td><td>Admin → Consultants → Payouts</td><td>Weekly (Fridays)</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="e2"><span class="sec-num">E2</span> Client — Common Tasks Step-by-Step</h2>
+
+  <div class="qr-grid">
+    <div class="qr-card no-break">
+      <div class="qr-page">Portal → Login</div>
+      <h4>How to log in</h4>
+      <ol>
+        <li>Go to portal.mjnhealthcare.com</li>
+        <li>Enter phone number with country code</li>
+        <li>Click Send OTP</li>
+        <li>Enter 6-digit code from SMS</li>
+        <li>You are in</li>
+      </ol>
+    </div>
+    <div class="qr-card no-break">
+      <div class="qr-page">Portal → Documents</div>
+      <h4>How to upload a document</h4>
+      <ol>
+        <li>Click Documents in sidebar</li>
+        <li>Click Upload Document</li>
+        <li>Select type from dropdown</li>
+        <li>Choose file (PDF or image)</li>
+        <li>Add expiry date if applicable</li>
+        <li>Click Upload</li>
+      </ol>
+    </div>
+    <div class="qr-card no-break">
+      <div class="qr-page">Portal → Checkout</div>
+      <h4>How to pay for services</h4>
+      <ol>
+        <li>Click Checkout in sidebar</li>
+        <li>Select service categories</li>
+        <li>Tick the items you need</li>
+        <li>Click Continue to Review</li>
+        <li>Confirm order details</li>
+        <li>Click Pay → Tranzak opens</li>
+        <li>Complete payment</li>
+      </ol>
+    </div>
+    <div class="qr-card no-break">
+      <div class="qr-page">Portal → Case</div>
+      <h4>How to sign your engagement letter</h4>
+      <ol>
+        <li>Click Case in sidebar</li>
+        <li>Find Engagement Letter section</li>
+        <li>Click Sign Letter</li>
+        <li>Dropbox Sign opens in browser</li>
+        <li>Read the document fully</li>
+        <li>Sign electronically</li>
+        <li>Return to portal — status updates to Signed</li>
+      </ol>
+    </div>
+    <div class="qr-card no-break">
+      <div class="qr-page">Portal → Academy</div>
+      <h4>How to start exam prep</h4>
+      <ol>
+        <li>Click Academy in sidebar</li>
+        <li>Click Courses tab</li>
+        <li>Find your exam course</li>
+        <li>Click Enrol</li>
+        <li>Go to Study Plan tab</li>
+        <li>Follow weekly plan</li>
+        <li>Use AI chat for questions</li>
+      </ol>
+    </div>
+    <div class="qr-card no-break">
+      <div class="qr-page">Portal → Payments</div>
+      <h4>How to download a receipt</h4>
+      <ol>
+        <li>Click Payments in sidebar</li>
+        <li>Find the order</li>
+        <li>Click View Receipt</li>
+        <li>PDF opens / downloads</li>
+      </ol>
+    </div>
+  </div>
+
+  <h2 id="e3"><span class="sec-num">E3</span> Status Codes & What They Mean</h2>
+
+  <h3>Engagement Status</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Meaning</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip chip-green">Active</span></td><td>Engagement is in progress — work is happening</td><td>Nothing — follow any outstanding actions in the Next Action Banner</td></tr>
+      <tr><td><span class="chip chip-amber">On Hold</span></td><td>Work is paused — usually due to overdue payment or client-requested pause</td><td>Check Payments tab. Contact your consultant if payment is not the issue.</td></tr>
+      <tr><td><span class="chip chip-blue">Completed</span></td><td>All agreed services have been delivered</td><td>Nothing — engagement is closed. Portal access remains for records.</td></tr>
+      <tr><td><span class="chip chip-rose">Terminated</span></td><td>Engagement ended early — by mutual agreement or non-payment</td><td>Contact MJN to discuss restarting or refund eligibility</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Document Status</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Meaning</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip chip-amber">Pending</span></td><td>Uploaded and awaiting review by MJN staff</td><td>Wait — typical review time is 1 business day</td></tr>
+      <tr><td><span class="chip chip-green">Verified</span></td><td>Confirmed acceptable by MJN</td><td>Nothing needed</td></tr>
+      <tr><td><span class="chip chip-rose">Rejected</span></td><td>Not acceptable — reason given</td><td>Read rejection reason. Upload corrected version.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Payment Status</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Meaning</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip chip-green">Paid</span></td><td>Full payment received and confirmed</td><td>Nothing</td></tr>
+      <tr><td><span class="chip chip-amber">Partially Paid</span></td><td>First instalment paid, second outstanding</td><td>Second instalment will be invoiced on a trigger date — watch for the invoice</td></tr>
+      <tr><td><span class="chip chip-rose">Overdue</span></td><td>Payment is past the due date</td><td>Pay immediately to avoid engagement going On Hold</td></tr>
+      <tr><td><span class="chip chip-blue">Pending</span></td><td>Payment initiated but not yet confirmed</td><td>Wait 30 minutes. If still pending, contact consultant with Tranzak reference.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Licensing Stage Status</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip chip-blue">Not Started</span></td><td>Stage is upcoming — prerequisites not yet complete</td></tr>
+      <tr><td><span class="chip chip-amber">In Progress</span></td><td>Active work is being done on this stage by MJN or the candidate</td></tr>
+      <tr><td><span class="chip chip-green">Complete</span></td><td>Stage requirements confirmed done — next stage unlocked</td></tr>
+    </tbody>
+  </table>
+
+  <hr class="divider" />
+
+  <div class="callout info" style="text-align:center;">
+    <strong>Need help?</strong> Contact your assigned MJN consultant via WhatsApp. For urgent technical issues with the portal, email <strong>hello@mjnhealthcare.com</strong>
+  </div>
+
+</div>
+
+<!-- ══ DOC FOOTER ════════════════════════════════════════════════════ -->
+<div class="doc-footer">
+  <span>MJN Health Academy and Professional Services LTD — Internal Operations Manual v1.0</span>
+  <span>August 2026 · Prepared by Digos Technologies</span>
+</div>
+
+</body>
+</html>
