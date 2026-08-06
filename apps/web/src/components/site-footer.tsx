@@ -46,7 +46,7 @@ const footerSections = [
 ];
 
 export function SiteFooter() {
-  const [openSection, setOpenSection] = React.useState<string | null>(null);
+  const [openSection, setOpenSection] = React.useState<string | null>('Company');
 
   function toggle(title: string) {
     setOpenSection((prev) => (prev === title ? null : title));
