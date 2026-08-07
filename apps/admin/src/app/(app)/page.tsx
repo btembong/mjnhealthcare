@@ -163,8 +163,9 @@ function ConsultantDashboard() {
     } finally { setLoading(false); }
   }
 
-  // ── Fix #4: no || !myId fallback ──────────────────────────────────────────
-  const myCases = engagements.filter((e) => e.consultantId === myId);
+  // ── Fix #4: filter by consultant email (consultantId stores ConsultantProfile.id, not Person.id)
+  const myEmail = me?.email;
+  const myCases = engagements.filter((e) => e.consultantEmail && myEmail && e.consultantEmail === myEmail);
 
   // ── Fix #5: scope docs + drafts to my clients only ────────────────────────
   const myPersonIds   = new Set(myCases.map((e) => e.personId ?? e.person?.id).filter(Boolean));

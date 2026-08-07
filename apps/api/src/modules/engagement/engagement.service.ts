@@ -21,19 +21,25 @@ export class EngagementService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Attach consultant names — consultantId stores a ConsultantProfile.id
+    // Attach consultant name + email — consultantId stores a ConsultantProfile.id
     const ids = [...new Set(engagements.map((e) => e.consultantId).filter(Boolean))] as string[];
-    const nameMap: Record<string, string> = {};
+    const nameMap:  Record<string, string> = {};
+    const emailMap: Record<string, string> = {};
     if (ids.length) {
       const profiles = await this.db.consultantProfile.findMany({
         where: { id: { in: ids } },
+        select: { id: true, name: true, email: true },
       });
-      profiles.forEach((p) => { nameMap[p.id] = p.name ?? p.id; });
+      profiles.forEach((p) => {
+        nameMap[p.id]  = p.name ?? p.id;
+        if (p.email) emailMap[p.id] = p.email;
+      });
     }
 
     return engagements.map((e) => ({
       ...e,
-      consultantName: e.consultantId ? (nameMap[e.consultantId] ?? null) : null,
+      consultantName:  e.consultantId ? (nameMap[e.consultantId]  ?? null) : null,
+      consultantEmail: e.consultantId ? (emailMap[e.consultantId] ?? null) : null,
     }));
   }
 
