@@ -79,7 +79,7 @@ export default function AdminLoginPage() {
       {/* Right panel */}
       <div className="relative z-10 flex flex-1 items-center justify-center p-6">
         <div className="w-full max-w-md">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur">
+          <div className="rounded-2xl border border-white/15 bg-white/10 p-8 backdrop-blur-md">
             {/* Mobile logo */}
             <div className="mb-8 flex items-center gap-2 lg:hidden">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10">
@@ -119,7 +119,7 @@ export default function AdminLoginPage() {
                         placeholder="staff@mjnhealth.com"
                         autoFocus
                         required
-                        className="h-11 w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-4 text-sm text-white placeholder-white/30 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="h-11 w-full rounded-xl border border-white/20 bg-white/10 pl-10 pr-4 text-sm text-white placeholder-white/40 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                   </div>
@@ -139,7 +139,7 @@ export default function AdminLoginPage() {
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••"
                         required
-                        className="h-11 w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-4 text-sm text-white placeholder-white/30 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="h-11 w-full rounded-xl border border-white/20 bg-white/10 pl-10 pr-4 text-sm text-white placeholder-white/40 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                   </div>

@@ -59,7 +59,7 @@ function ResetPasswordForm() {
           <span className="font-bold text-white">Admin Console</span>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur">
+        <div className="rounded-2xl border border-white/15 bg-white/10 p-8 backdrop-blur-md">
           {done ? (
             /* ── Success state ── */
             <div className="py-6 text-center">
@@ -109,7 +109,7 @@ function ResetPasswordForm() {
                       placeholder="At least 8 characters"
                       required
                       autoFocus
-                      className="h-11 w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-10 text-sm text-white placeholder-white/30 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="h-11 w-full rounded-xl border border-white/20 bg-white/10 pl-10 pr-10 text-sm text-white placeholder-white/40 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                     <button
                       type="button"
