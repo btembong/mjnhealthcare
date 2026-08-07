@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { MarketingNav } from '../../components/marketing-nav';
 import { SiteFooter } from '../../components/site-footer';
@@ -9,74 +7,9 @@ import {
   Scales, Translate, MapPin, Users, GraduationCap,
   Medal, ClockCounterClockwise, ShieldCheck,
   ArrowUpRight, Quotes, Star, SealCheck,
-  Stethoscope, BookOpen, Certificate, AirplaneTakeoff,
-  Hospital, ChalkboardTeacher, Camera,
-} from '@phosphor-icons/react';
-
-// ── Photo strip data ──────────────────────────────────────────────────────────
-
-const photoStripRow1 = [
-  { label: 'DHA Exam Prep Session', sub: 'Dubai · 2025', icon: Stethoscope, gradient: 'from-[#0F4C81] to-[#0a3560]' },
-  { label: 'Academy Live Class', sub: 'Yaoundé · 2025', icon: ChalkboardTeacher, gradient: 'from-[#00A896] to-[#006e62]' },
-  { label: 'Client Placement Ceremony', sub: 'London · 2024', icon: Certificate, gradient: 'from-[#0F4C81] to-[#00A896]' },
-  { label: 'NCLEX Study Group', sub: 'Online · 2025', icon: BookOpen, gradient: 'from-[#0a3560] to-[#0F4C81]' },
-  { label: 'UAE Licensing Workshop', sub: 'Dubai · 2024', icon: Hospital, gradient: 'from-[#00A896] to-[#0F4C81]' },
-  { label: 'Pre-Departure Briefing', sub: 'Yaoundé · 2025', icon: AirplaneTakeoff, gradient: 'from-[#0F4C81] to-[#005f54]' },
-  { label: 'Team Meeting — Q2', sub: 'Yaoundé · 2025', icon: Users, gradient: 'from-[#0a3560] to-[#00A896]' },
-  { label: 'Partner Hospital Visit', sub: 'Dublin · 2024', icon: Handshake, gradient: 'from-[#00A896] to-[#007a6e]' },
-];
-
-const photoStripRow2 = [
-  { label: 'NMC CBT Prep Cohort', sub: 'Online · 2025', icon: BookOpen, gradient: 'from-[#0F4C81] to-[#00A896]' },
-  { label: 'Ireland NMBI Workshop', sub: 'Dublin · 2024', icon: Globe, gradient: 'from-[#006e62] to-[#0F4C81]' },
-  { label: 'Scholarship Ceremony', sub: 'Douala · 2025', icon: GraduationCap, gradient: 'from-[#00A896] to-[#0a3560]' },
-  { label: 'DataFlow Document Review', sub: 'Dubai · 2025', icon: Certificate, gradient: 'from-[#0a3560] to-[#005f54]' },
-  { label: 'Founder Keynote', sub: 'Yaoundé · 2024', icon: ChalkboardTeacher, gradient: 'from-[#0F4C81] to-[#0a3560]' },
-  { label: 'Student Internship Cohort', sub: 'Lagos · 2025', icon: Users, gradient: 'from-[#007a6e] to-[#0F4C81]' },
-  { label: 'Healthcare Conference', sub: 'Abuja · 2024', icon: Hospital, gradient: 'from-[#00A896] to-[#0F4C81]' },
-  { label: 'Behind the Scenes', sub: 'MJN HQ · 2025', icon: Camera, gradient: 'from-[#0a3560] to-[#00A896]' },
-];
-
-// ── Photo strip component ─────────────────────────────────────────────────────
-
-type PhotoCard = typeof photoStripRow1[0];
-
-function PhotoCard({ card }: { card: PhotoCard }) {
-  const Icon = card.icon;
-  return (
-    <div className={`relative flex-shrink-0 w-52 h-36 rounded-2xl overflow-hidden bg-gradient-to-br ${card.gradient} shadow-md`}>
-      {/* decorative circle */}
-      <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
-      <div className="absolute -left-4 -bottom-4 h-16 w-16 rounded-full bg-white/10" />
-      {/* icon */}
-      <div className="absolute top-4 left-4 flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
-        <Icon className="h-4.5 w-4.5 text-white" />
-      </div>
-      {/* label */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-4 py-3">
-        <p className="text-xs font-bold text-white leading-tight">{card.label}</p>
-        <p className="text-xs text-white/70 mt-0.5">{card.sub}</p>
-      </div>
-    </div>
-  );
-}
-
-function PhotoStrip({ cards, reverse = false }: { cards: PhotoCard[]; reverse?: boolean }) {
-  // duplicate cards to fill the loop seamlessly
-  const doubled = [...cards, ...cards];
-  return (
-    <div className="overflow-hidden">
-      <div
-        className={`flex gap-4 w-max ${reverse ? 'animate-marquee-reverse' : 'animate-marquee'}`}
-        style={{ willChange: 'transform' }}
-      >
-        {doubled.map((card, i) => (
-          <PhotoCard key={i} card={card} />
-        ))}
-      </div>
-    </div>
-  );
-}
+} from '@phosphor-icons/react/dist/ssr';
+import { PhotoStrip } from './photo-strip';
+import { members } from '../team/data';
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -154,67 +87,51 @@ const timeline = [
   { year: '2025', event: 'Ministerial Authorization No. M032517649867P/RC/YAO/2025/B/637 obtained. 350+ professionals placed internationally. Platform fully rebuilt.' },
 ];
 
-const team = [
-  {
-    name: 'Mbout John Nyah (MJN)',
-    initials: 'MJN',
-    photo: '/nyah-ceo.png',
-    role: 'Founder & Chief Executive Officer',
-    credentials: 'MBA-HCM · BSN · RN',
-    bio: 'Founded MJN Healthcare in 2016 in the UAE after witnessing firsthand how preventable documentation failures — not clinical incompetence — derailed qualified African healthcare professionals. MBA in Healthcare Management, BSN, and registered nurse with deep personal experience in international licensing.',
-  },
-  {
-    name: 'Sylvie Etame',
-    initials: 'SE',
-    role: 'Head of Licensing Operations',
-    credentials: 'RN · DHA-Licensed · NMC (UK)',
-    bio: 'Registered nurse with both DHA and NMC registration. Has managed 400+ DataFlow applications and maintains direct working relationships with case officers at UAE licensing authorities.',
-  },
-  {
-    name: 'Emmanuel Biya',
-    initials: 'EB',
-    role: 'Head of Academy & Education',
-    credentials: 'BSN · NCLEX Coach · Curriculum Designer',
-    bio: 'Former NCLEX instructor with a 96% first-attempt pass rate across personally coached students. Leads curriculum design for all MJN Academy exam preparation programmes.',
-  },
-  {
-    name: 'Amina Ousseini',
-    initials: 'AO',
-    role: 'Head of Student Support',
-    credentials: 'RN · NMBI (Ireland) · BA Education',
-    bio: 'Completed her nursing degree in Ireland under NMBI registration. Leads student support and early-career planning with particular expertise in francophone West Africa.',
-  },
-];
-
-const offices = [
-  { city: 'Yaoundé', country: 'Cameroon', flag: '🇨🇲', role: 'Headquarters & Academy', detail: 'Dr. Raïssa Fombe · Emmanuel Biya' },
-  { city: 'Dubai', country: 'UAE', flag: '🇦🇪', role: 'UAE Operations', detail: 'Sylvie Etame · DHA / DOH / MOH licensing' },
-  { city: 'London', country: 'United Kingdom', flag: '🇬🇧', role: 'UK Placement', detail: 'Patrick Mbang · NHS employer relations' },
-  { city: 'Dublin', country: 'Ireland', flag: '🇮🇪', role: 'Ireland Support', detail: 'Amina Ousseini · NMBI & Critical Skills' },
-  { city: 'United States', country: 'USA', flag: '🇺🇸', role: 'CEO & Global Leadership', detail: 'Mbout John Nyah · NCLEX & US Pathway' },
-];
-
 const testimonials = [
   {
     quote: 'I had tried to navigate DataFlow on my own for six months. MJN reviewed my documents, spotted two errors immediately, and we submitted within three weeks. My DHA license came through in 11 weeks.',
     name: 'Blessing O.',
+    initials: 'BO',
     role: 'Registered Nurse · Now practising in Dubai',
   },
   {
     quote: 'The AI study assistant in the Academy explained NCLEX clinical reasoning in a way my textbooks never did. Passed in 75 questions on first attempt.',
     name: 'Amara D.',
+    initials: 'AD',
     role: 'NCLEX Passer · US placement in progress',
   },
   {
     quote: 'What I appreciated most was the honesty. They told me my NMBI application might require an adaptation period — and explained exactly what that meant — before I paid anything.',
     name: 'Carole F.',
+    initials: 'CF',
     role: 'RN · Now registered in Ireland',
   },
+];
+
+const offices = [
+  { city: 'Yaoundé', country: 'Cameroon', flag: '🇨🇲', role: 'Headquarters & Academy', detail: 'Mbout John Nyah · Louis Tita' },
+  { city: 'Dubai', country: 'UAE', flag: '🇦🇪', role: 'UAE Operations', detail: 'Arrey Manor · DHA / DOH / MOH licensing' },
+  { city: 'London', country: 'United Kingdom', flag: '🇬🇧', role: 'UK Placement', detail: 'Constance Che · NHS employer relations' },
+  { city: 'Dublin', country: 'Ireland', flag: '🇮🇪', role: 'Ireland Support', detail: 'NMBI & Critical Skills pathway' },
+  { city: 'United States', country: 'USA', flag: '🇺🇸', role: 'CEO & Global Leadership', detail: 'Mbout John Nyah · NCLEX & US Pathway' },
+];
+
+const regulatoryBodies = [
+  { name: 'DHA', flag: '🇦🇪', full: 'Dubai Health Authority' },
+  { name: 'DOH', flag: '🇦🇪', full: 'Dept. of Health Abu Dhabi' },
+  { name: 'MOH UAE', flag: '🇦🇪', full: 'Ministry of Health UAE' },
+  { name: 'NMC', flag: '🇬🇧', full: 'Nursing & Midwifery Council (UK)' },
+  { name: 'NCLEX', flag: '🇺🇸', full: 'US Nursing Licensure' },
+  { name: 'CGFNS', flag: '🇺🇸', full: 'Commission on Graduates of Foreign Nursing Schools' },
+  { name: 'NMBI', flag: '🇮🇪', full: 'Nursing & Midwifery Board of Ireland' },
+  { name: 'DataFlow', flag: '🇦🇪', full: 'Primary Source Verification (UAE)' },
 ];
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AboutPage() {
+  const featuredMembers = members.slice(0, 4);
+
   return (
     <>
       <MarketingNav />
@@ -244,13 +161,19 @@ export default function AboutPage() {
                   href="/get-started"
                   className="flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-primary hover:bg-white/90 transition-colors"
                 >
-                  Book Free Consultation <ArrowRight className="h-4 w-4" />
+                  Book Free Consultation
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                  </svg>
                 </Link>
                 <Link
                   href="/success-stories"
                   className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white hover:bg-white/20 transition-colors backdrop-blur-sm"
                 >
-                  Read Success Stories <ArrowUpRight className="h-4 w-4" />
+                  Read Success Stories
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
                 </Link>
               </div>
             </div>
@@ -271,9 +194,11 @@ export default function AboutPage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-2 mb-4">
-                  <Quotes className="h-5 w-5 text-white/40 shrink-0 mt-0.5" weight="fill" />
+                  <svg className="h-5 w-5 text-white/40 shrink-0 mt-0.5 fill-current" viewBox="0 0 256 256">
+                    <path d="M100,56H60A36,36,0,0,0,24,92v16a36,36,0,0,0,36,36h4a36,36,0,0,1-36,36,12,12,0,0,0,0,24,84.09,84.09,0,0,0,84-84V92A36,36,0,0,0,100,56Zm96,0H156a36,36,0,0,0-36,36v16a36,36,0,0,0,36,36h4a36,36,0,0,1-36,36,12,12,0,0,0,0,24,84.09,84.09,0,0,0,84-84V92A36,36,0,0,0,196,56Z" />
+                  </svg>
                   <p className="text-sm text-white/80 leading-relaxed italic">
-                    "I founded MJN to remove every preventable barrier between African healthcare professionals and international practice — because I lived those barriers myself."
+                    &ldquo;I founded MJN to remove every preventable barrier between African healthcare professionals and international practice — because I lived those barriers myself.&rdquo;
                   </p>
                 </div>
                 <div className="border-t border-white/10 pt-4 space-y-2">
@@ -283,7 +208,9 @@ export default function AboutPage() {
                     'Ministerial Authorization No. M032517649867P',
                   ].map((c) => (
                     <div key={c} className="flex items-center gap-2 text-xs text-white/60">
-                      <SealCheck className="h-3.5 w-3.5 text-secondary shrink-0" />
+                      <svg className="h-3.5 w-3.5 text-secondary shrink-0 fill-current" viewBox="0 0 256 256">
+                        <path d="M225.86,102.82c-3.77-3.94-7.67-8-9.14-11.57-1.36-3.27-1.44-8.69-1.52-13.94-.15-9.76-.31-20.82-8-28.51s-18.75-7.85-28.51-8c-5.25-.08-10.67-.16-13.94-1.52-3.56-1.47-7.63-5.37-11.57-9.14C147.13,24.69,138.66,17,128,17s-19.13,7.69-25.18,13.14c-3.94,3.77-8,7.67-11.57,9.14C88,40.64,82.56,40.72,77.31,40.8c-9.76.15-20.82.31-28.51,8S40.95,67.55,40.8,77.31c-.08,5.25-.16,10.67-1.52,13.94-1.47,3.56-5.37,7.63-9.14,11.57C24.69,108.87,17,117.34,17,128s7.69,19.13,13.14,25.18c3.77,3.94,7.67,8,9.14,11.57,1.36,3.27,1.44,8.69,1.52,13.94.15,9.76.31,20.82,8,28.51s18.75,7.85,28.51,8c5.25.08,10.67.16,13.94,1.52,3.56,1.47,7.63,5.37,11.57,9.14C108.87,231.31,117.34,239,128,239s19.13-7.69,25.18-13.14c3.94-3.77,8-7.67,11.57-9.14,3.27-1.36,8.69-1.44,13.94-1.52,9.76-.15,20.82-.31,28.51-8s7.85-18.75,8-28.51c.08-5.25.16-10.67,1.52-13.94,1.47-3.56,5.37-7.63,9.14-11.57C231.31,147.13,239,138.66,239,128S231.31,108.87,225.86,102.82Zm-52.2,6.84-56,56a12,12,0,0,1-17,0l-24-24a12,12,0,0,1,17-17L109,140.07l47.53-47.54a12,12,0,0,1,17,17Z" />
+                      </svg>
                       {c}
                     </div>
                   ))}
@@ -322,20 +249,7 @@ export default function AboutPage() {
       </section>
 
       {/* PHOTO STRIP ──────────────────────────────────────────────────────── */}
-      <section className="py-10 border-b border-border bg-muted/20 photo-strip-wrap overflow-hidden">
-        <div className="mb-2 px-6">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground text-center">
-            Team, events & placements
-          </p>
-        </div>
-        <div className="space-y-4 mt-5">
-          <PhotoStrip cards={photoStripRow1} reverse={false} />
-          <PhotoStrip cards={photoStripRow2} reverse={true} />
-        </div>
-        <p className="text-center text-xs text-muted-foreground mt-5 px-6">
-          Hover to pause &nbsp;·&nbsp; Real photos coming soon as we update our gallery
-        </p>
-      </section>
+      <PhotoStrip />
 
       {/* FOUNDER NARRATIVE ─────────────────────────────────────────────────── */}
       <section className="border-b border-border bg-white px-6 py-16">
@@ -366,7 +280,9 @@ export default function AboutPage() {
             <div className="space-y-4">
               <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6">
                 <div className="flex items-start gap-3 mb-4">
-                  <Quotes className="h-6 w-6 text-primary/40 shrink-0 mt-0.5" weight="fill" />
+                  <svg className="h-6 w-6 text-primary/40 shrink-0 mt-0.5 fill-current" viewBox="0 0 256 256">
+                    <path d="M100,56H60A36,36,0,0,0,24,92v16a36,36,0,0,0,36,36h4a36,36,0,0,1-36,36,12,12,0,0,0,0,24,84.09,84.09,0,0,0,84-84V92A36,36,0,0,0,100,56Zm96,0H156a36,36,0,0,0-36,36v16a36,36,0,0,0,36,36h4a36,36,0,0,1-36,36,12,12,0,0,0,0,24,84.09,84.09,0,0,0,84-84V92A36,36,0,0,0,196,56Z" />
+                  </svg>
                   <p className="text-base font-semibold text-foreground leading-relaxed">
                     Remove every preventable barrier between African healthcare professionals and international practice.
                   </p>
@@ -457,30 +373,34 @@ export default function AboutPage() {
               href="/team"
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors shrink-0"
             >
-              Meet the full team <ArrowRight className="h-4 w-4" />
+              Meet the full team
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+              </svg>
             </Link>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {team.map(({ name, initials, photo, role, credentials, bio }: any) => (
-              <div
-                key={name}
+            {featuredMembers.map((member) => (
+              <Link
+                key={member.slug}
+                href={`/team/${member.slug}`}
                 className="group rounded-2xl border border-border bg-white p-5 shadow-sm hover:border-primary/30 hover:shadow-md transition-all"
               >
                 <div className="mb-4">
-                  {photo ? (
+                  {member.photo ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={photo} alt={name} className="h-12 w-12 rounded-xl object-cover border border-border" />
+                    <img src={member.photo} alt={member.name} className="h-12 w-12 rounded-xl object-cover object-top border border-border" />
                   ) : (
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-sm font-extrabold text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                      {initials}
+                      {member.initials}
                     </div>
                   )}
                 </div>
-                <p className="font-bold text-foreground text-sm">{name}</p>
-                <p className="text-xs font-semibold text-primary mt-0.5 mb-1">{role}</p>
-                <p className="text-xs text-muted-foreground mb-3">{credentials}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed border-t border-border pt-3">{bio}</p>
-              </div>
+                <p className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">{member.name}</p>
+                <p className="text-xs font-semibold text-primary mt-0.5 mb-1">{member.role.split('—')[0].trim()}</p>
+                <p className="text-xs text-muted-foreground mb-3">{member.credentials.slice(0, 3).join(' · ')}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed border-t border-border pt-3 line-clamp-3">{member.credibility}</p>
+              </Link>
             ))}
           </div>
         </div>
@@ -497,7 +417,7 @@ export default function AboutPage() {
             {/* vertical line */}
             <div className="absolute left-5 top-5 bottom-5 w-0.5 bg-border" />
             <div className="space-y-0">
-              {timeline.map(({ year, event }, i) => (
+              {timeline.map(({ year, event }) => (
                 <div key={year} className="flex gap-6 group">
                   <div className="relative flex flex-col items-center">
                     <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white border-2 border-primary text-xs font-extrabold text-primary group-hover:bg-primary group-hover:text-white transition-colors">
@@ -523,7 +443,7 @@ export default function AboutPage() {
             <h2 className="text-3xl font-bold text-foreground">In Their Own Words</h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            {testimonials.map(({ quote, name, role }) => (
+            {testimonials.map(({ quote, name, initials, role }) => (
               <div key={name} className="rounded-2xl border border-border bg-white p-6 shadow-sm flex flex-col gap-4">
                 <div className="flex gap-0.5">
                   {[...Array(5)].map((_, i) => (
@@ -531,9 +451,14 @@ export default function AboutPage() {
                   ))}
                 </div>
                 <p className="flex-1 text-sm text-muted-foreground leading-relaxed italic">&ldquo;{quote}&rdquo;</p>
-                <div className="border-t border-border pt-4">
-                  <p className="text-sm font-bold text-foreground">{name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{role}</p>
+                <div className="border-t border-border pt-4 flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-extrabold text-primary">
+                    {initials}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{role}</p>
+                  </div>
                 </div>
               </div>
             ))}
@@ -543,7 +468,10 @@ export default function AboutPage() {
               href="/success-stories"
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
             >
-              Read all success stories <ArrowRight className="h-4 w-4" />
+              Read all success stories
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+              </svg>
             </Link>
           </div>
         </div>
@@ -556,7 +484,7 @@ export default function AboutPage() {
             <Badge variant="outline" className="mb-3">Locations</Badge>
             <h2 className="text-2xl font-bold text-foreground">Where We Operate</h2>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {offices.map(({ city, country, flag, role, detail }) => (
               <div key={city} className="rounded-2xl border border-border bg-white p-5 shadow-sm hover:border-primary/20 hover:shadow-md transition-all">
                 <div className="mb-4 flex items-center gap-3">
@@ -584,22 +512,14 @@ export default function AboutPage() {
             We work with professionals targeting these regulatory bodies
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            {[
-              { name: 'DHA', full: 'Dubai Health Authority' },
-              { name: 'DOH', full: 'Dept. of Health Abu Dhabi' },
-              { name: 'MOH UAE', full: 'Ministry of Health UAE' },
-              { name: 'NMC', full: 'Nursing & Midwifery Council (UK)' },
-              { name: 'NCLEX', full: 'US Nursing Licensure' },
-              { name: 'CGFNS', full: 'Commission on Graduates of Foreign Nursing Schools' },
-              { name: 'NMBI', full: 'Nursing & Midwifery Board of Ireland' },
-              { name: 'DataFlow', full: 'Primary Source Verification (UAE)' },
-            ].map(({ name, full }) => (
+            {regulatoryBodies.map(({ name, flag, full }) => (
               <div
                 key={name}
                 title={full}
-                className="rounded-xl border border-border bg-white px-4 py-2 text-sm font-semibold text-foreground shadow-sm hover:border-primary/30 hover:text-primary transition-colors cursor-default"
+                className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-4 py-2 text-sm font-semibold text-foreground shadow-sm hover:border-primary/30 hover:text-primary transition-colors cursor-default"
               >
-                {name}
+                <span>{flag}</span>
+                <span>{name}</span>
               </div>
             ))}
           </div>
@@ -623,7 +543,12 @@ export default function AboutPage() {
                   Book a free 30-minute consultation. We will review your qualifications, identify the right pathway, and give you a realistic timeline and cost.
                 </p>
                 <Button className="bg-white text-primary hover:bg-white/90 rounded-xl font-bold" asChild>
-                  <Link href="/get-started">Book Free Consultation <ArrowRight className="h-4 w-4" /></Link>
+                  <Link href="/get-started">
+                    Book Free Consultation
+                    <svg className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -640,7 +565,12 @@ export default function AboutPage() {
                   We place verified, licensed healthcare professionals with hospitals, clinics, and institutions. Commission-based — you only pay on successful placement.
                 </p>
                 <Button variant="outline" className="rounded-xl font-bold border-primary/40 text-primary hover:bg-primary hover:text-white transition-colors" asChild>
-                  <Link href="/partner">Partner With Us <ArrowRight className="h-4 w-4" /></Link>
+                  <Link href="/partner">
+                    Partner With Us
+                    <svg className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -648,28 +578,6 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
-
-      {/* keyframes injected once */}
-      <style>{`
-        @keyframes marquee {
-          0%   { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        @keyframes marquee-reverse {
-          0%   { transform: translateX(-50%); }
-          100% { transform: translateX(0); }
-        }
-        .animate-marquee {
-          animation: marquee 35s linear infinite;
-        }
-        .animate-marquee-reverse {
-          animation: marquee-reverse 35s linear infinite;
-        }
-        .photo-strip-wrap:hover .animate-marquee,
-        .photo-strip-wrap:hover .animate-marquee-reverse {
-          animation-play-state: paused;
-        }
-      `}</style>
 
       <SiteFooter />
     </>
