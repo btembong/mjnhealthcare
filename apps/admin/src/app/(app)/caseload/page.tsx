@@ -18,6 +18,7 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 import { api } from '../../../lib/api';
+import { useAdmin } from '../../../contexts/admin-context';
 
 function statusLabel(s: string) {
   return s?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) ?? '—';
@@ -201,6 +202,9 @@ function KanbanView({ engagements, onCardClick }: { engagements: Engagement[]; o
 
 export default function CaseloadPage() {
   const router = useRouter();
+  const { me } = useAdmin();
+  const isConsultant = (me?.role as string)?.toUpperCase() === 'CONSULTANT';
+
   const [engagements, setEngagements] = useState<Engagement[]>([]);
   const [loading, setLoading] = useState(true);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -230,16 +234,21 @@ export default function CaseloadPage() {
 
   const filtered = useMemo(() => {
     let result = engagements;
-    if (statusFilter !== 'ALL') result = result.filter((e) => e.status === statusFilter);
-    if (consultantFilter !== 'ALL') {
-      if (consultantFilter === 'UNASSIGNED') {
-        result = result.filter((e) => !e.consultantEmail);
-      } else {
-        result = result.filter((e) => e.consultantEmail === consultantFilter);
+    // Consultants only see their own cases — not overridable
+    if (isConsultant && me?.email) {
+      result = result.filter((e) => e.consultantEmail === me.email);
+    } else {
+      if (consultantFilter !== 'ALL') {
+        if (consultantFilter === 'UNASSIGNED') {
+          result = result.filter((e) => !e.consultantEmail);
+        } else {
+          result = result.filter((e) => e.consultantEmail === consultantFilter);
+        }
       }
     }
+    if (statusFilter !== 'ALL') result = result.filter((e) => e.status === statusFilter);
     return result;
-  }, [engagements, statusFilter, consultantFilter]);
+  }, [engagements, statusFilter, consultantFilter, isConsultant, me?.email]);
 
   const table = useReactTable({
     data: filtered,
@@ -266,7 +275,7 @@ export default function CaseloadPage() {
     <div className="space-y-5">
         <PageHeader
           title="Caseload"
-          subtitle={`${engagements.length} total engagements`}
+          subtitle={isConsultant ? `${filtered.length} case${filtered.length !== 1 ? 's' : ''} assigned to you` : `${engagements.length} total engagements`}
           actions={
             <button
               onClick={() => router.push('/caseload/new')}
@@ -300,17 +309,19 @@ export default function CaseloadPage() {
             <option value="ON_HOLD">On hold</option>
             <option value="TERMINATED">Terminated</option>
           </select>
-          <select
-            value={consultantFilter}
-            onChange={(e) => setConsultantFilter(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary"
-          >
-            <option value="ALL">All consultants</option>
-            <option value="UNASSIGNED">Unassigned</option>
-            {consultantOptions.map((opt) => (
-              <option key={opt.email} value={opt.email}>{opt.label}</option>
-            ))}
-          </select>
+          {!isConsultant && (
+            <select
+              value={consultantFilter}
+              onChange={(e) => setConsultantFilter(e.target.value)}
+              className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary"
+            >
+              <option value="ALL">All consultants</option>
+              <option value="UNASSIGNED">Unassigned</option>
+              {consultantOptions.map((opt) => (
+                <option key={opt.email} value={opt.email}>{opt.label}</option>
+              ))}
+            </select>
+          )}
           {/* View toggle */}
           <div className="flex items-center rounded-xl border border-border bg-white overflow-hidden">
             <button
