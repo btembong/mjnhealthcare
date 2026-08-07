@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { PageHeader, Skeleton } from '@mjn/ui';
 import {
   MegaphoneSimple, Plus, X, CircleNotch, PaperPlaneTilt, Pencil,
-  UploadSimple, Spreadsheet, CheckCircle, Warning, Users,
+  UploadSimple, FileArrowUp, CheckCircle, Warning, Users,
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 
@@ -397,7 +397,7 @@ export default function CampaignsPage() {
             onClick={() => setShowImport(true)}
             className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/40 transition-colors shadow-sm"
           >
-            <Spreadsheet className="h-4 w-4 text-primary" /> Import List
+            <FileArrowUp className="h-4 w-4 text-primary" /> Import List
           </button>
           <button
             onClick={openCreate}
