@@ -37,6 +37,7 @@ type Engagement = {
   paymentMode?: string;
   consultantId?: string;
   consultantName?: string | null;
+  consultantEmail?: string | null;
   createdAt?: string;
   person?: { name?: string; email?: string; profession?: string };
 };
@@ -204,6 +205,7 @@ export default function CaseloadPage() {
   const [loading, setLoading] = useState(true);
   const [globalFilter, setGlobalFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [consultantFilter, setConsultantFilter] = useState('ALL');
   const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
   const [view, setView] = useState<'table' | 'kanban'>('table');
 
@@ -214,10 +216,30 @@ export default function CaseloadPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = useMemo(
-    () => statusFilter === 'ALL' ? engagements : engagements.filter((e) => e.status === statusFilter),
-    [engagements, statusFilter],
-  );
+  const consultantOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: { label: string; email: string }[] = [];
+    for (const e of engagements) {
+      if (e.consultantEmail && !seen.has(e.consultantEmail)) {
+        seen.add(e.consultantEmail);
+        opts.push({ label: e.consultantName ?? e.consultantEmail, email: e.consultantEmail });
+      }
+    }
+    return opts.sort((a, b) => a.label.localeCompare(b.label));
+  }, [engagements]);
+
+  const filtered = useMemo(() => {
+    let result = engagements;
+    if (statusFilter !== 'ALL') result = result.filter((e) => e.status === statusFilter);
+    if (consultantFilter !== 'ALL') {
+      if (consultantFilter === 'UNASSIGNED') {
+        result = result.filter((e) => !e.consultantEmail);
+      } else {
+        result = result.filter((e) => e.consultantEmail === consultantFilter);
+      }
+    }
+    return result;
+  }, [engagements, statusFilter, consultantFilter]);
 
   const table = useReactTable({
     data: filtered,
@@ -266,20 +288,29 @@ export default function CaseloadPage() {
               className="h-10 w-full rounded-xl border border-border bg-white pl-9 pr-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
           </div>
-          {view === 'table' && (
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary"
-            >
-              <option value="ALL">All statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="PENDING_SIGNATURE">Pending signature</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="ON_HOLD">On hold</option>
-              <option value="TERMINATED">Terminated</option>
-            </select>
-          )}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary"
+          >
+            <option value="ALL">All statuses</option>
+            <option value="ACTIVE">Active</option>
+            <option value="PENDING_SIGNATURE">Pending signature</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="ON_HOLD">On hold</option>
+            <option value="TERMINATED">Terminated</option>
+          </select>
+          <select
+            value={consultantFilter}
+            onChange={(e) => setConsultantFilter(e.target.value)}
+            className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary"
+          >
+            <option value="ALL">All consultants</option>
+            <option value="UNASSIGNED">Unassigned</option>
+            {consultantOptions.map((opt) => (
+              <option key={opt.email} value={opt.email}>{opt.label}</option>
+            ))}
+          </select>
           {/* View toggle */}
           <div className="flex items-center rounded-xl border border-border bg-white overflow-hidden">
             <button
