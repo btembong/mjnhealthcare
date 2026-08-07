@@ -1,6 +1,6 @@
 #!/bin/bash
 # MJN Health — full deploy script
-# Run this from /var/www/mjn-health after git pull
+# Run this from /var/www/mjnhealthcare after git pull
 
 set -e
 
@@ -23,6 +23,6 @@ pnpm --filter @mjn/partner build
 pnpm --filter @mjn/admin build
 
 echo "==> Restarting PM2 processes..."
-pm2 startOrRestart /var/www/mjn-health/ecosystem.config.js --env production
+pm2 startOrRestart /var/www/mjnhealthcare/ecosystem.config.js --env production
 
 echo "==> Done. Check status with: pm2 status"

@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'mjn-api',
-      cwd: '/var/www/mjn-health/apps/api',
+      cwd: '/var/www/mjnhealthcare/apps/api',
       script: 'node',
       args: 'dist/main.js',
       env_production: { NODE_ENV: 'production', PORT: 3000 },
@@ -12,7 +12,7 @@ module.exports = {
     },
     {
       name: 'mjn-web',
-      cwd: '/var/www/mjn-health/apps/web',
+      cwd: '/var/www/mjnhealthcare/apps/web',
       script: 'node',
       args: 'node_modules/next/dist/bin/next start -p 3001',
       env_production: { NODE_ENV: 'production' },
@@ -22,7 +22,7 @@ module.exports = {
     },
     {
       name: 'mjn-portal',
-      cwd: '/var/www/mjn-health/apps/portal',
+      cwd: '/var/www/mjnhealthcare/apps/portal',
       script: 'node',
       args: 'node_modules/next/dist/bin/next start -p 3002',
       env_production: { NODE_ENV: 'production' },
@@ -32,7 +32,7 @@ module.exports = {
     },
     {
       name: 'mjn-partner',
-      cwd: '/var/www/mjn-health/apps/partner',
+      cwd: '/var/www/mjnhealthcare/apps/partner',
       script: 'node',
       args: 'node_modules/next/dist/bin/next start -p 3003',
       env_production: { NODE_ENV: 'production' },
@@ -42,7 +42,7 @@ module.exports = {
     },
     {
       name: 'mjn-admin',
-      cwd: '/var/www/mjn-health/apps/admin',
+      cwd: '/var/www/mjnhealthcare/apps/admin',
       script: 'node',
       args: 'node_modules/next/dist/bin/next start -p 3004',
       env_production: { NODE_ENV: 'production' },
