@@ -277,7 +277,8 @@ export default function BookNewPage() {
     setLoading(true); setError('');
     try {
       const res = await fetch(`${API}/consultations/consultants?category=${cat}`);
-      setConsultants(Array.isArray(await res.json()) ? await res.json() : []);
+      const data = await res.json();
+      setConsultants(Array.isArray(data) ? data : []);
     } catch { setError('Could not load consultants.'); }
     setLoading(false);
   }
