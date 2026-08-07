@@ -38,30 +38,28 @@ const row2: PhotoItem[] = [
 function PhotoCardItem({ item }: { item: PhotoItem }) {
   if (item.kind === 'photo') {
     return (
-      <div className="relative flex-shrink-0 w-52 h-36 rounded-2xl overflow-hidden shadow-md bg-muted">
+      <div className="relative flex-shrink-0 w-72 h-48 rounded-2xl overflow-hidden shadow-md bg-muted">
         <img
           src={item.src}
           alt={item.label}
           className="h-full w-full object-cover object-top"
         />
         {/* scrim */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/5 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 px-4 py-3">
-          <p className="text-xs font-bold text-white leading-tight">{item.label}</p>
-          <p className="text-[11px] text-white/70 mt-0.5">{item.sub}</p>
+          <p className="text-[11px] font-semibold text-white/90 leading-tight">{item.label}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`relative flex-shrink-0 w-52 h-36 rounded-2xl overflow-hidden bg-gradient-to-br ${item.gradient} shadow-md`}>
-      <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
-      <div className="absolute -left-4 -bottom-4 h-16 w-16 rounded-full bg-white/10" />
-      <div className="absolute top-4 left-4 text-2xl">{item.icon}</div>
+    <div className={`relative flex-shrink-0 w-72 h-48 rounded-2xl overflow-hidden bg-gradient-to-br ${item.gradient} shadow-md`}>
+      <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/10" />
+      <div className="absolute -left-4 -bottom-4 h-20 w-20 rounded-full bg-white/10" />
+      <div className="absolute top-5 left-5 text-3xl">{item.icon}</div>
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-4 py-3">
-        <p className="text-xs font-bold text-white leading-tight">{item.label}</p>
-        <p className="text-[11px] text-white/70 mt-0.5">{item.sub}</p>
+        <p className="text-[11px] font-semibold text-white/90 leading-tight">{item.label}</p>
       </div>
     </div>
   );
