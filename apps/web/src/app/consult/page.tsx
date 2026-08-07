@@ -298,7 +298,7 @@ export default function ConsultPage() {
                     subtitle: 'Map your international pathway',
                     desc: 'A personalised roadmap for licensing in UAE, UK, US or Ireland — from MJN consultants who have placed hundreds of professionals.',
                     includes: ['Pathway assessment', 'Document checklist', 'Country-specific advice', 'Exam strategy'],
-                    price: 'From $40',
+                    price: 'From $35',
                     duration: '45 min session',
                     badge: 'MJN Consultant',
                     cta: 'See available consultants',
