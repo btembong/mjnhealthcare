@@ -8,10 +8,39 @@ import {
   ArrowRight, ArrowLeft, VideoCamera, Heart, Briefcase,
   Star, Clock, CheckCircle, CalendarBlank, User, Warning,
   Lock, CircleNotch, Shield, CurrencyDollar, Phone, EnvelopeSimple,
-  ChatText, SealCheck, CaretRight,
+  ChatText, SealCheck, CaretRight, Globe,
 } from '@phosphor-icons/react';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
+
+const TIMEZONES = [
+  { value: 'Africa/Douala',       label: 'Cameroon (WAT, UTC+1)' },
+  { value: 'Africa/Lagos',        label: 'Nigeria (WAT, UTC+1)' },
+  { value: 'Africa/Accra',        label: 'Ghana (GMT, UTC+0)' },
+  { value: 'Africa/Nairobi',      label: 'Kenya (EAT, UTC+3)' },
+  { value: 'Africa/Johannesburg', label: 'South Africa (SAST, UTC+2)' },
+  { value: 'Europe/London',       label: 'United Kingdom (GMT/BST)' },
+  { value: 'Europe/Paris',        label: 'France (CET/CEST)' },
+  { value: 'Asia/Dubai',          label: 'UAE (GST, UTC+4)' },
+  { value: 'America/New_York',    label: 'US East (EST/EDT)' },
+  { value: 'America/Chicago',     label: 'US Central (CST/CDT)' },
+  { value: 'America/Los_Angeles', label: 'US West (PST/PDT)' },
+];
+
+function detectTimezone(): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (TIMEZONES.find((t) => t.value === tz)) return tz;
+  } catch {}
+  return 'Africa/Douala';
+}
+
+function tzAbbr(tz: string) {
+  const found = TIMEZONES.find((t) => t.value === tz);
+  if (!found) return 'WAT';
+  const m = found.label.match(/\(([^)]+)\)/);
+  return m ? m[1].split(',')[0] : tz;
+}
 
 type Category = 'HEALTH' | 'CAREER';
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -23,10 +52,10 @@ interface Consultant {
 }
 interface Slot { id: string; startAt: string; durationMinutes: number; }
 
-function groupSlotsByDate(slots: Slot[]): Record<string, Slot[]> {
+function groupSlotsByDate(slots: Slot[], tz: string): Record<string, Slot[]> {
   return slots.reduce<Record<string, Slot[]>>((acc, slot) => {
     const date = new Date(slot.startAt).toLocaleDateString('en-GB', {
-      weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Africa/Douala',
+      weekday: 'long', day: 'numeric', month: 'long', timeZone: tz,
     });
     if (!acc[date]) acc[date] = [];
     acc[date].push(slot);
@@ -79,6 +108,7 @@ export default function ConsultPage() {
   const [preSessionNote, setPreSessionNote]       = React.useState('');
   const [recordingConsent, setRecordingConsent]   = React.useState(false);
   const [termsConsent, setTermsConsent]           = React.useState(false);
+  const [tz, setTz]                               = React.useState(detectTimezone);
 
   async function handleCategorySelect(cat: Category) {
     setCategory(cat);
@@ -138,7 +168,7 @@ export default function ConsultPage() {
     }
   }
 
-  const slotsByDate = groupSlotsByDate(slots);
+  const slotsByDate = groupSlotsByDate(slots, tz);
   const currentStepIndex = step - 1;
 
   return (
@@ -506,7 +536,19 @@ export default function ConsultPage() {
 
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-foreground">Pick a date & time</h2>
-                <p className="mt-1 text-sm text-muted-foreground">All times shown in WAT (West Africa Time, UTC+1).</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <select
+                    value={tz}
+                    onChange={(e) => setTz(e.target.value)}
+                    className="flex-1 rounded-lg border border-border bg-white px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    {TIMEZONES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">All times shown in {tzAbbr(tz)}.</p>
               </div>
 
               {loadingSlots ? (
@@ -547,7 +589,7 @@ export default function ConsultPage() {
                             >
                               {isSelected && <CheckCircle className="h-3.5 w-3.5" weight="fill" />}
                               {new Date(slot.startAt).toLocaleTimeString('en-GB', {
-                                hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Douala',
+                                hour: '2-digit', minute: '2-digit', timeZone: tz,
                               })}
                             </button>
                           );
@@ -569,8 +611,8 @@ export default function ConsultPage() {
                       <p className="font-semibold text-foreground">
                         {new Date(pendingSlot.startAt).toLocaleString('en-GB', {
                           weekday: 'long', day: 'numeric', month: 'long',
-                          hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Douala',
-                        })} WAT
+                          hour: '2-digit', minute: '2-digit', timeZone: tz,
+                        })} {tzAbbr(tz)}
                       </p>
                       <p className="mt-0.5 text-sm text-muted-foreground">{pendingSlot.durationMinutes} min · with {selectedConsultant.name}</p>
                     </div>
@@ -730,8 +772,8 @@ export default function ConsultPage() {
                             label: 'Date & time',
                             value: new Date(selectedSlot.startAt).toLocaleString('en-GB', {
                               weekday: 'short', day: 'numeric', month: 'short',
-                              hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Douala',
-                            }) + ' WAT',
+                              hour: '2-digit', minute: '2-digit', timeZone: tz,
+                            }) + ' ' + tzAbbr(tz),
                           },
                           { label: 'Duration', value: `${selectedSlot.durationMinutes} minutes` },
                         ].map(({ label, value }) => (
