@@ -5,7 +5,7 @@ import {
   UsersThree, FileText, Robot, BookOpen, UsersFour, Briefcase,
   ChartLineUp, SignOut, User, Tag, CalendarBlank, CurrencyDollar,
   MagnifyingGlass, VideoCamera, Gavel, GearSix, ClipboardText, Buildings,
-  Headset, MegaphoneSimple, MapTrifold, ChartBar,
+  Headset, MegaphoneSimple, MapTrifold, ChartBar, ChatCircle,
 } from '@phosphor-icons/react';
 import { AdminProvider, useAdmin } from '../../contexts/admin-context';
 
@@ -37,6 +37,7 @@ function useSidebarSections(
         items: [
           { label: 'My Dashboard', href: '/', icon: ChartLineUp },
           { label: 'My Caseload', href: '/caseload', icon: UsersThree },
+          { label: 'Messages', href: '/messages', icon: ChatCircle },
           { label: 'Sessions', href: '/sessions', icon: VideoCamera },
           { label: 'Documents', href: '/documents', icon: FileText, badge: counts.pendingDocs > 0 ? String(counts.pendingDocs) : undefined },
           { label: 'AI Drafts', href: '/drafts', icon: Robot, badge: counts.pendingDrafts > 0 ? String(counts.pendingDrafts) : undefined },

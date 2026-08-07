@@ -60,12 +60,18 @@ export default function SessionsPage() {
   const [completing, setCompleting] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => { loadSessions(); }, []);
+  useEffect(() => { loadSessions(); }, [me]);
 
   async function loadSessions() {
     setLoading(true);
     try {
-      const raw = await api.getSessions() as any[];
+      let consultantId: string | undefined;
+      if (role === 'CONSULTANT' && me?.email) {
+        const profiles = await api.getConsultants().catch(() => []);
+        const myProfile = profiles.find((p: any) => p.email?.toLowerCase() === me.email?.toLowerCase());
+        consultantId = myProfile?.id;
+      }
+      const raw = await api.getSessions(consultantId ? { consultantId } : undefined) as any[];
       setSessions(raw.map((s: any) => ({
         id: s.id,
         clientName: s.clientName ?? '—',

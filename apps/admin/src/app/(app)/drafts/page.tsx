@@ -1,14 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@mjn/ui';
 import {
   CircleNotch, CheckCircle, Robot,
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
+import { useAdmin } from '../../../contexts/admin-context';
 
 export default function DraftsPage() {
+  const { me } = useAdmin();
+  const isConsultant = (me?.role as string)?.toUpperCase() === 'CONSULTANT';
+  const reviewerName = me?.name || me?.email || 'admin';
+
   const [drafts, setDrafts] = useState<any[]>([]);
+  const [myPersonIds, setMyPersonIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState('');
@@ -18,10 +24,28 @@ export default function DraftsPage() {
     api.getPendingDrafts().then(setDrafts).catch(console.error).finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!isConsultant || !me?.email) { setMyPersonIds(null); return; }
+    api.getAllEngagements()
+      .then((engs: any[]) => {
+        const ids = new Set(
+          engs.filter((e) => e.consultantEmail?.toLowerCase() === me.email?.toLowerCase())
+              .map((e) => e.personId).filter(Boolean)
+        );
+        setMyPersonIds(ids);
+      })
+      .catch(() => setMyPersonIds(new Set()));
+  }, [isConsultant, me?.email]);
+
+  const visibleDrafts = useMemo(() => {
+    if (!isConsultant || myPersonIds === null) return drafts;
+    return drafts.filter((d) => myPersonIds.has(d.engagement?.personId ?? d.personId));
+  }, [drafts, isConsultant, myPersonIds]);
+
   async function handleApprove(id: string) {
     setActionLoading(id);
     try {
-      await api.approveDraft(id, 'admin');
+      await api.approveDraft(id, reviewerName);
       setDrafts((prev) => prev.filter((d) => d.id !== id));
       showToast('Draft approved — consultant can now send it.');
     } catch (err: any) {
@@ -71,7 +95,7 @@ export default function DraftsPage() {
         <div className="flex justify-center py-16">
           <CircleNotch className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : drafts.length === 0 ? (
+      ) : visibleDrafts.length === 0 ? (
         <div className="rounded-2xl border border-border bg-white p-10 text-center shadow-sm">
           <Robot className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
           <h3 className="font-semibold text-foreground">No drafts pending</h3>
@@ -81,7 +105,7 @@ export default function DraftsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {drafts.map((draft: any) => (
+          {visibleDrafts.map((draft: any) => (
             <div key={draft.id} className="rounded-2xl border border-border bg-white p-6 shadow-sm">
               <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
                 <Robot className="h-3.5 w-3.5 text-violet-500" />

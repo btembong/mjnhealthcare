@@ -9,6 +9,7 @@ import {
   FileText, User, CalendarBlank, Funnel,
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
+import { useAdmin } from '../../../contexts/admin-context';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -47,11 +48,13 @@ function daysUntil(date: string) {
 
 function DocPanel({
   doc,
+  reviewerName,
   onClose,
   onVerified,
   onRejected,
 }: {
   doc: any;
+  reviewerName: string;
   onClose: () => void;
   onVerified: (id: string) => void;
   onRejected: (id: string) => void;
@@ -80,7 +83,7 @@ function DocPanel({
   async function handleVerify() {
     setActionLoading('verify');
     try {
-      await api.verifyDocument(doc.id, 'admin');
+      await api.verifyDocument(doc.id, reviewerName);
       toast.success('Document verified.');
       onVerified(doc.id);
       onClose();
@@ -95,7 +98,7 @@ function DocPanel({
     if (!rejectReason.trim()) { toast.error('Enter a rejection reason.'); return; }
     setActionLoading('reject');
     try {
-      await api.rejectDocument(doc.id, 'admin', rejectReason);
+      await api.rejectDocument(doc.id, reviewerName, rejectReason);
       toast.success('Document rejected.');
       onRejected(doc.id);
       onClose();
@@ -291,13 +294,31 @@ function DocPanel({
 type TabKey = 'ALL' | 'PENDING' | 'VERIFIED' | 'REJECTED';
 
 export default function DocumentsPage() {
+  const { me } = useAdmin();
+  const isConsultant = (me?.role as string)?.toUpperCase() === 'CONSULTANT';
+  const reviewerName = me?.name || me?.email || 'admin';
+
   const [docs, setDocs] = useState<any[]>([]);
+  const [myPersonIds, setMyPersonIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any | null>(null);
   const [tab, setTab] = useState<TabKey>('PENDING');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const searchRef = useRef<any>(null);
+
+  // If consultant, build their client personId set once
+  useEffect(() => {
+    if (!isConsultant || !me?.email) { setMyPersonIds(null); return; }
+    api.getAllEngagements()
+      .then((engs: any[]) => {
+        const ids = new Set(
+          engs.filter((e) => e.consultantEmail?.toLowerCase() === me.email?.toLowerCase())
+              .map((e) => e.personId).filter(Boolean)
+        );
+        setMyPersonIds(ids);
+      })
+      .catch(() => setMyPersonIds(new Set()));
+  }, [isConsultant, me?.email]);
 
   const load = useCallback((t: TabKey) => {
     setLoading(true);
@@ -317,8 +338,9 @@ export default function DocumentsPage() {
     setDocs((prev) => prev.map((d) => d.id === id ? { ...d, status: 'REJECTED' } : d));
   }
 
-  // Filtered view
+  // Filtered view — consultants see only their clients' docs
   const filtered = docs.filter((d) => {
+    if (isConsultant && myPersonIds !== null && !myPersonIds.has(d.personId)) return false;
     const q = search.toLowerCase();
     const nameMatch = !q || d.person?.name?.toLowerCase().includes(q) || d.person?.email?.toLowerCase().includes(q) || d.type?.toLowerCase().includes(q);
     const typeMatch = !typeFilter || d.type === typeFilter;
@@ -529,6 +551,7 @@ export default function DocumentsPage() {
       {selected && (
         <DocPanel
           doc={selected}
+          reviewerName={reviewerName}
           onClose={() => setSelected(null)}
           onVerified={handleVerified}
           onRejected={handleRejected}
