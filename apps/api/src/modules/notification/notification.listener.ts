@@ -256,22 +256,40 @@ export class NotificationListener {
   async onLeadCreated(payload: {
     name: string; email: string; phone?: string | null;
     profession?: string | null; destination?: string | null;
-    serviceInterest?: string | null; source: string;
+    serviceInterest?: string | null; notes?: string | null; source: string;
   }) {
+    const isLibrary = payload.serviceInterest === 'library';
+
+    // Extract resource title from notes: "Requested free resource: \"Title\""
+    const resourceTitle = isLibrary && payload.notes
+      ? (payload.notes.match(/^Requested free resource:\s*"?(.+?)"?\s*$/) ?? [])[1] ?? payload.notes
+      : null;
+
+    const clientEmail = isLibrary && resourceTitle
+      ? this.notificationService.sendEmail(
+          payload.email,
+          `Your free resource from MJN Healthcare — "${resourceTitle}"`,
+          T.tplLibraryResourceDelivery({ name: payload.name, resourceTitle }),
+          payload.name,
+        )
+      : this.notificationService.sendEmail(
+          payload.email,
+          'We\'ve received your enquiry — MJN Healthcare',
+          T.tplLeadAcknowledgement({ name: payload.name }),
+          payload.name,
+        );
+
     await Promise.allSettled([
       this.notificationService.sendEmail(
         process.env.ADMIN_EMAIL ?? 'hello@mjnhealthcare.com',
-        `New Lead — ${payload.name} (${payload.source})`,
+        isLibrary
+          ? `Library download — ${payload.name} (${resourceTitle ?? 'unknown resource'})`
+          : `New Lead — ${payload.name} (${payload.source})`,
         T.tplLeadNewAdmin(payload),
       ),
-      this.notificationService.sendEmail(
-        payload.email,
-        'We\'ve received your enquiry — MJN Healthcare',
-        T.tplLeadAcknowledgement({ name: payload.name }),
-        payload.name,
-      ),
+      clientEmail,
     ]);
-    this.logger.log(`Lead acknowledgement sent to ${payload.email}, admin notified`);
+    this.logger.log(`Lead email sent to ${payload.email} (${isLibrary ? `library: ${resourceTitle}` : payload.source}), admin notified`);
   }
 
   @OnEvent('lead.assigned')

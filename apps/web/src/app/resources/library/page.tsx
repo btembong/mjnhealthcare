@@ -250,8 +250,8 @@ function GateModal({
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim(),
-          source: 'library',
-          message: `Requested free resource: "${resource.title}"`,
+          serviceInterest: 'library',
+          notes: `Requested free resource: "${resource.title}"`,
         }),
       });
       setDone(true);

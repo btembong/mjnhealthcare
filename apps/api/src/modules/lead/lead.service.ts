@@ -28,6 +28,7 @@ export class LeadService {
       profession: lead.profession,
       destination: lead.destination,
       serviceInterest: lead.serviceInterest,
+      notes: lead.notes,
       source: 'Web form',
     });
     return lead;

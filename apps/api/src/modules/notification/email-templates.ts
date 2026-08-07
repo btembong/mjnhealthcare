@@ -712,9 +712,39 @@ export function tplLeadAcknowledgement(opts: { name: string }): string {
     h1('We\'ve received your enquiry') +
     p('Thank you for reaching out to MJN Healthcare. One of our consultants will review your details and get in touch with you within 24 hours.') +
     p('In the meantime, feel free to explore our services or book a free consultation if you haven\'t already.') +
-    btn('Book a free consultation', `${PORTAL()}/consult`) +
+    btn('Book a free consultation', `${WEB()}/consult`) +
     divider() +
     pSmall('If you have any immediate questions, WhatsApp us directly at +971 50 863 8660 or reply to this email.')
+  );
+}
+
+export function tplLibraryResourceDelivery(opts: { name: string; resourceTitle: string }): string {
+  return shell(
+    greeting(opts.name) +
+    label('Your free resource') +
+    h1(`Here's your guide`) +
+    p(`Thank you for downloading from the MJN Healthcare Resource Library. Your requested resource is ready:`) +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;">
+      <tr>
+        <td style="background:#F0F6FF;border-left:3px solid ${NAVY};border-radius:0 6px 6px 0;padding:16px 20px;">
+          <p style="margin:0;font-size:15px;font-weight:700;color:${NAVY};">${opts.resourceTitle}</p>
+          <p style="margin:4px 0 0;font-size:12px;color:${MUTED};">MJN Healthcare Free Library — 2026 edition</p>
+        </td>
+      </tr>
+    </table>` +
+    p('A consultant from our team will email you the full PDF document within a few hours. In the meantime, you can explore our Academy for study materials and exam prep resources.') +
+    btn('Go to MJN Academy', `${WEB()}/academy`) +
+    divider() +
+    infoTable([
+      row('Resource', opts.resourceTitle),
+      row('Format', 'PDF document'),
+      row('Delivery', 'Email from our team within a few hours'),
+    ]) +
+    divider() +
+    p('While you wait, consider booking a free 15-minute consultation to discuss your specific pathway with one of our licensed consultants.') +
+    btn('Book free consultation', `${WEB()}/get-started`) +
+    divider() +
+    pSmall('Questions? Reply to this email or WhatsApp us at +971 50 863 8660. We typically respond within a few hours during business days.')
   );
 }
 
