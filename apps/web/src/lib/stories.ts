@@ -68,7 +68,7 @@ export const stories: Story[] = [
     quote:
       'My cases are often extremely challenging, especially when I am at the final step and feeling stuck. MJN has consistently been the bridge that has carried me from the point of giving up to success. My eligibility letter application was returned twice and eventually rejected for not meeting the requirements. But when MJN submitted it, it was approved in no time. MJN, you have earned all my highest recommendations!',
     rating: 5,
-    year: '2025',
+    year: '2022',
     flag: '🇺🇸',
     photo: '/atangchpascaline.webp',
     fullStory: [
@@ -98,7 +98,7 @@ export const stories: Story[] = [
     quote:
       'My journey with MJN Consulting has been truly remarkable. They played a pivotal role in my quest to become an international nurse, providing the support and guidance I needed to obtain my RN licence in the UAE with ease. My association with MJN did not end there — they continued to mentor me throughout my NCLEX journey, from the very beginning to the final steps. Thanks to their immense support and expertise, I successfully passed the NCLEX exam. Working with MJN Consulting has been an absolute pleasure.',
     rating: 5,
-    year: '2025',
+    year: '2022',
     flag: '🇦🇪',
     photo: '/jeffreyasiedu.webp',
     fullStory: [
@@ -129,7 +129,7 @@ export const stories: Story[] = [
     quote:
       'I am writing to express my heartfelt appreciation to MJN and Ma\'am Arrey for your exceptional patience, unwavering support, and diligent follow-up, which ultimately led to my success. I vividly recall the challenges — the delays, the frustrations, and my failure to respond promptly to the DataFlow verification process. Despite these hurdles, you remained steadfast and committed. May God continue to bless your team with the spirit of dedication.',
     rating: 5,
-    year: '2025',
+    year: '2022',
     flag: '🇦🇪',
     photo: '/vonvonglangmia.webp',
     fullStory: [
@@ -160,7 +160,7 @@ export const stories: Story[] = [
     quote:
       'The benefits of MJN Healthcare Consulting cannot be overemphasised — her services are just the best. I was followed up through DataFlow, supported from my country, received on arrival, and helped to build a powerful CV for job search. The care and attention at every stage was something I had not experienced anywhere else.',
     rating: 5,
-    year: '2025',
+    year: '2022',
     flag: '🇦🇪',
     photo: '/titam.webp',
     fullStory: [
@@ -191,7 +191,7 @@ export const stories: Story[] = [
     quote:
       'MJN Healthcare Consulting has been the best link to me — contributing to my successful documentation and the assurance of arriving at my desired destination. Their patience, teamwork skills, and good communication is the best.',
     rating: 5,
-    year: '2025',
+    year: '2022',
     flag: '🇦🇪',
     photo: '/sarahdanso.webp',
     fullStory: [
@@ -222,7 +222,7 @@ export const stories: Story[] = [
     quote:
       'I thank MJN Healthcare Consulting so much for their immense contribution towards my DataFlow processing and licence application. Despite the difficulty, they stood by me from the beginning till I had my licence in less than two months.',
     rating: 5,
-    year: '2025',
+    year: '2022',
     flag: '🇦🇪',
     photo: '/richard.webp',
     fullStory: [
@@ -251,7 +251,7 @@ export const stories: Story[] = [
     quote:
       'I had tried the DataFlow process on my own for 8 months and got nowhere. MJN took over everything and had my DHA licence in 4 months. The difference was having someone who knew exactly what the case officers expected.',
     rating: 5,
-    year: '2025',
+    year: '2022',
     flag: '🇦🇪',
     fullStory: [
       'Christelle had spent eight months attempting the DataFlow process independently before engaging MJN. Eight months — and her case had not progressed. Without a clear understanding of what DataFlow case officers expected at each stage, the process had stalled in a cycle of incomplete submissions and unanswered queries.',
@@ -278,7 +278,7 @@ export const stories: Story[] = [
     quote:
       'The GMC PLAB process is brutal if you do not know the system. My MJN consultant had gone through it personally as a Cameroonian doctor. She knew exactly which PLAB 2 centres to apply to, how to prepare my portfolio, and which trusts had active overseas recruitment. I would not have done it without MJN.',
     rating: 5,
-    year: '2025',
+    year: '2022',
     flag: '🇬🇧',
     fullStory: [
       'UK GMC registration for internationally qualified doctors involves two examinations — PLAB 1 and PLAB 2 — followed by a portfolio assessment and employment in an approved training post. For a Cameroonian doctor, this is a multi-stage, multi-year process if navigated without structured support.',
@@ -306,7 +306,7 @@ export const stories: Story[] = [
     quote:
       'What MJN understood that I did not was that the family piece matters as much as the job. My consultant mapped the Critical Skills permit implications for my husband from the very first call. He is now working in Dublin without needing a separate permit. The whole family moved together.',
     rating: 5,
-    year: '2024',
+    year: '2022',
     flag: '🇮🇪',
     fullStory: [
       'Patience\'s story is one of the most complete outcomes in MJN\'s casebook — not just a nursing licence and a job, but an entire family relocated and settled in Dublin. From Kumba, Cameroon to HSE Staff Nurse in eight months, with her husband and two children now in Ireland.',
@@ -335,7 +335,7 @@ export const stories: Story[] = [
     quote:
       'I specifically wanted Abu Dhabi because of the DOH hospitals and the salary bands. My consultant knew the difference in requirements between DHA and DOH — most advisors I had spoken to did not. That specificity made all the difference.',
     rating: 5,
-    year: '2025',
+    year: '2022',
     flag: '🇦🇪',
     fullStory: [
       'Blaise arrived at MJN with a specific goal: Abu Dhabi, not Dubai. This distinction matters because the UAE\'s healthcare licensing authorities are split by emirate — DHA covers Dubai, while DOH covers Abu Dhabi. The examination requirements, fees, and recognition differ between the two authorities, and the salary bands in Abu Dhabi\'s government teaching hospitals are typically higher.',
@@ -363,7 +363,7 @@ export const stories: Story[] = [
     quote:
       'I had no idea which UAE authority to apply to for pharmacy. DHA, DOH, MOH — the differences were completely unclear to me. My consultant explained it in 10 minutes and had me on the right track immediately. The MOH exam was harder than I expected but the study plan helped.',
     rating: 5,
-    year: '2024',
+    year: '2022',
     flag: '🇦🇪',
     fullStory: [
       'Sandra\'s first question to MJN was the right one: "Which UAE licensing authority do I apply to?" For pharmacists, this is not obvious. The UAE\'s three main healthcare regulatory bodies — DHA (Dubai), DOH (Abu Dhabi), and MOH (Ministry of Health, covering the Northern Emirates including Sharjah) — each licence pharmacy practice in their jurisdiction. The right answer depends on where you intend to work.',
@@ -392,7 +392,7 @@ export const stories: Story[] = [
     quote:
       'The OSCE is where most midwives from West Africa fail. My consultant prepared me for the UK expectations specifically — how to document, how to communicate with the examiner, what the OSCE stations actually test. I passed first time. Two colleagues who tried without support failed and had to wait 6 months for a second slot.',
     rating: 5,
-    year: '2025',
+    year: '2022',
     flag: '🇬🇧',
     fullStory: [
       'NMC registration for internationally educated midwives includes a critical clinical assessment stage: the Objective Structured Clinical Examination, or OSCE. For West African midwives in particular, the OSCE has a high first-attempt failure rate — not because of clinical incompetence, but because of specific UK documentation conventions, communication expectations, and examination formats that differ significantly from training in Guinea or other West African countries.',
@@ -421,7 +421,7 @@ export const stories: Story[] = [
     quote:
       'The US process is long. MJN was honest about that from the start — including the EB-3 retrogression realities for Cameroonians. They helped me choose the right state board, prepared a clean CGFNS submission, and introduced me to three hospital systems. I chose the best offer. 18 months was realistic.',
     rating: 5,
-    year: '2024',
+    year: '2022',
     flag: '🇺🇸',
     fullStory: [
       'Jean-Marc\'s journey to the United States is one of MJN\'s longer engagements — 18 months from first consultation to employed Registered Nurse at the Texas Medical Center. The US nursing immigration pathway is genuinely long, and Jean-Marc knew this going in. What he needed was a realistic map, not optimistic timelines.',
@@ -450,7 +450,7 @@ export const stories: Story[] = [
     quote:
       'CORU registration for allied health professionals is less documented than NMBI nurses. Finding accurate information was almost impossible online. MJN had done it before for physios — my consultant knew the exact documentation CORU needed and we had no back-and-forth queries. Smooth from start to finish.',
     rating: 5,
-    year: '2025',
+    year: '2022',
     flag: '🇮🇪',
     fullStory: [
       'CORU — the Health and Social Care Professionals Council — regulates physiotherapy registration in Ireland. Unlike NMBI for nurses, CORU registration for internationally educated allied health professionals is significantly less documented online. There is limited peer-to-peer guidance, fewer case studies, and less clarity on what CORU assessors look for in a submission from a Cameroonian physiotherapy qualification.',
