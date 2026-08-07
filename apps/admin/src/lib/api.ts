@@ -397,7 +397,7 @@ export const api = {
   createCampaign: (data: { name: string; subject: string; body: string; audienceFilter?: any; scheduledAt?: string }) =>
     request<any>('/campaigns', { method: 'POST', body: JSON.stringify(data) }),
 
-  updateCampaign: (id: string, data: { name?: string; subject?: string; body?: string; scheduledAt?: string }) =>
+  updateCampaign: (id: string, data: { name?: string; subject?: string; body?: string; scheduledAt?: string; audienceFilter?: Record<string, any> }) =>
     request<any>(`/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   sendCampaignNow: (id: string) =>

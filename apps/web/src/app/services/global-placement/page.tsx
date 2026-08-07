@@ -57,6 +57,22 @@ const destinations = [
     href: '/services/uae',
     highlight: 'Coming Soon',
   },
+  {
+    flag: '🇶🇦',
+    country: 'Qatar',
+    detail: 'QCHP · DataFlow verification · Prometric exams',
+    avg: '3–6 months',
+    href: '/get-started',
+    highlight: 'Gulf Region',
+  },
+  {
+    flag: '🇸🇦',
+    country: 'Saudi Arabia',
+    detail: 'SCFHS · DataFlow · Prometric · Mumaris+ portal',
+    avg: '4–8 months',
+    href: '/get-started',
+    highlight: 'Gulf Region',
+  },
 ];
 
 const process = [
@@ -131,7 +147,7 @@ export default function GlobalPlacementPage() {
           </div>
           <div className="mt-10 flex flex-wrap gap-6 text-sm text-blue-100">
             <span className="flex items-center gap-1.5"><CheckCircle className="h-4 w-4 text-teal-300" /> 1,200+ professionals placed</span>
-            <span className="flex items-center gap-1.5"><Globe className="h-4 w-4 text-teal-300" /> 6 destination countries</span>
+            <span className="flex items-center gap-1.5"><Globe className="h-4 w-4 text-teal-300" /> 8 destination countries</span>
             <span className="flex items-center gap-1.5"><Users className="h-4 w-4 text-teal-300" /> 8 professions served</span>
           </div>
         </div>

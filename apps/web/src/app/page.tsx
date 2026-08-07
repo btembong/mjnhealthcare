@@ -96,6 +96,8 @@ const destinations = [
   { code: 'IE', country: 'Ireland', bodies: 'NMBI · IMC · CORU', timeline: '5–8 months', href: '/services/ireland', placed: '280+', salary: '€36k–55k / yr' },
   { code: 'CA', country: 'Canada', bodies: 'NCLEX-RN · NNAS', timeline: '8–14 months', href: '/services/canada', placed: '80+', salary: 'CAD 68k–88k / yr' },
   { code: 'AU', country: 'Australia', bodies: 'AHPRA · AMC', timeline: '9–15 months', href: '/services/australia', placed: '60+', salary: 'AUD 72k–95k / yr' },
+  { code: 'QA', country: 'Qatar', bodies: 'QCHP · DataFlow · Prometric', timeline: '3–6 months', href: '/get-started', placed: 'New', salary: 'QAR 12,000–22,000 / mo' },
+  { code: 'SA', country: 'Saudi Arabia', bodies: 'SCFHS · DataFlow · Mumaris+', timeline: '4–8 months', href: '/get-started', placed: 'New', salary: 'SAR 8,000–18,000 / mo' },
 ];
 
 const comparison = [
@@ -312,6 +314,8 @@ export default function HomePage() {
             { flag: '🇬🇧', label: 'UK' },
             { flag: '🇺🇸', label: 'US' },
             { flag: '🇮🇪', label: 'Ireland' },
+            { flag: '🇶🇦', label: 'Qatar' },
+            { flag: '🇸🇦', label: 'Saudi Arabia' },
             { flag: '🇨🇦', label: 'Canada' },
             { flag: '🇦🇺', label: 'Australia' },
           ].map(({ flag, label }) => (
@@ -533,7 +537,7 @@ export default function HomePage() {
           })()}
 
           {/* Rest */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {destinations.filter((d) => !d.featured).map(({ code, country, bodies, timeline, href, placed, salary }) => (
               <Link key={code} href={href} className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-white p-5 shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
                 <div className="mb-4 flex items-start justify-between">

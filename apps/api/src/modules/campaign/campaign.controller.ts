@@ -22,6 +22,7 @@ class UpdateCampaignDto {
   @IsString() @IsOptional() subject?: string;
   @IsString() @IsOptional() body?: string;
   @IsDateString() @IsOptional() scheduledAt?: string;
+  @IsObject() @IsOptional() audienceFilter?: Record<string, any>;
 }
 
 @ApiTags('campaigns')

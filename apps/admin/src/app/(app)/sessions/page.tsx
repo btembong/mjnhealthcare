@@ -78,7 +78,7 @@ export default function SessionsPage() {
         clientEmail: s.clientEmail ?? '—',
         category: s.category ?? '—',
         status: s.status ?? 'PENDING',
-        paidAmount: Number(s.paidAmount ?? 0),
+        paidAmount: Number(s.amountPaid ?? s.paidAmount ?? 0),
         roomUrl: s.roomUrl,
         createdAt: s.createdAt,
         slot: s.slot ? {

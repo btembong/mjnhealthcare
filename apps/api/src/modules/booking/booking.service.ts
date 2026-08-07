@@ -81,6 +81,7 @@ export class BookingService {
       include: {
         slot: true,
         person: { select: { id: true, name: true, email: true } },
+        lead: { select: { id: true, name: true, email: true } },
       },
       orderBy: { createdAt: 'desc' },
     });

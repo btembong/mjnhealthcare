@@ -7,11 +7,17 @@ import { CampaignStatus } from '@mjn/database';
 export class CampaignService {
   private readonly logger = new Logger(CampaignService.name);
   private readonly emailCampaignsApi: Brevo.EmailCampaignsApi;
+  private readonly transactionalApi: Brevo.TransactionalEmailsApi;
 
   constructor(private readonly db: DatabaseService) {
     this.emailCampaignsApi = new Brevo.EmailCampaignsApi();
     this.emailCampaignsApi.setApiKey(
       Brevo.EmailCampaignsApiApiKeys.apiKey,
+      process.env.BREVO_API_KEY ?? '',
+    );
+    this.transactionalApi = new Brevo.TransactionalEmailsApi();
+    this.transactionalApi.setApiKey(
+      Brevo.TransactionalEmailsApiApiKeys.apiKey,
       process.env.BREVO_API_KEY ?? '',
     );
   }
@@ -82,7 +88,31 @@ export class CampaignService {
     if (!campaign) throw new NotFoundException('Campaign not found');
     if (campaign.status === CampaignStatus.SENT) throw new BadRequestException('Already sent');
 
-    if (campaign.brevoId) {
+    const af = campaign.audienceFilter as any;
+    const sender = {
+      email: process.env.BREVO_FROM_EMAIL ?? 'hello@mjnhealth.com',
+      name: process.env.BREVO_FROM_NAME ?? 'MJN Healthcare',
+    };
+
+    if (af?.type === 'custom_list' && Array.isArray(af.contacts) && af.contacts.length > 0) {
+      // Send transactional email to each imported contact
+      let sent = 0;
+      for (const contact of af.contacts as Array<{ name?: string; email: string }>) {
+        if (!contact.email) continue;
+        try {
+          await this.transactionalApi.sendTransacEmail({
+            to: [{ email: contact.email, name: contact.name ?? contact.email }],
+            subject: campaign.subject,
+            htmlContent: campaign.body,
+            sender,
+          } as any);
+          sent++;
+        } catch (err) {
+          this.logger.warn(`Failed to send to ${contact.email}: ${err}`);
+        }
+      }
+      this.logger.log(`Custom list campaign "${campaign.name}" sent to ${sent}/${af.contacts.length} contacts`);
+    } else if (campaign.brevoId) {
       try {
         await this.emailCampaignsApi.sendEmailCampaignNow(campaign.brevoId);
       } catch (err) {
@@ -97,7 +127,7 @@ export class CampaignService {
     });
   }
 
-  async updateCampaign(id: string, data: { name?: string; subject?: string; body?: string; scheduledAt?: Date }) {
+  async updateCampaign(id: string, data: { name?: string; subject?: string; body?: string; scheduledAt?: Date; audienceFilter?: Record<string, any> }) {
     const campaign = await this.db.campaign.findUnique({ where: { id } });
     if (!campaign) throw new NotFoundException('Campaign not found');
     if (campaign.status === CampaignStatus.SENT) throw new BadRequestException('Cannot edit a sent campaign');

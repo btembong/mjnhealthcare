@@ -26,10 +26,12 @@ export default function BookingsPage() {
   }, []);
 
   const filtered = bookings.filter((b) => {
+    const name = b.person?.name ?? b.lead?.name ?? '';
+    const email = b.person?.email ?? b.lead?.email ?? '';
     const q = search.toLowerCase();
     return !q
-      || b.person?.name?.toLowerCase().includes(q)
-      || b.person?.email?.toLowerCase().includes(q)
+      || name.toLowerCase().includes(q)
+      || email.toLowerCase().includes(q)
       || b.type?.toLowerCase().includes(q);
   });
 
@@ -74,8 +76,8 @@ export default function BookingsPage() {
               {filtered.map((b: any) => (
                 <tr key={b.id} className="hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3">
-                    <div className="font-medium text-foreground">{b.person?.name ?? '—'}</div>
-                    <div className="text-xs text-muted-foreground">{b.person?.email ?? '—'}</div>
+                    <div className="font-medium text-foreground">{b.person?.name ?? b.lead?.name ?? '—'}</div>
+                    <div className="text-xs text-muted-foreground">{b.person?.email ?? b.lead?.email ?? '—'}</div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground capitalize">{b.type ?? '—'}</td>
                   <td className="px-4 py-3 text-muted-foreground">
