@@ -119,91 +119,356 @@ function ActivityIcon({ type }: { type: ActivityEvent['type'] }) {
 
 // ── Consultant-scoped dashboard ───────────────────────────────────────────────
 
+const PIPELINE_STAGES = [
+  { key: 'PENDING_SIGNATURE', label: 'Pending Sig', color: '#f59e0b', bg: 'bg-amber-100', text: 'text-amber-700' },
+  { key: 'ACTIVE',            label: 'Active',      color: '#10b981', bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  { key: 'ON_HOLD',           label: 'On Hold',     color: '#f97316', bg: 'bg-orange-100', text: 'text-orange-700' },
+  { key: 'COMPLETED',         label: 'Completed',   color: '#3b82f6', bg: 'bg-blue-100', text: 'text-blue-700' },
+];
+
 function ConsultantDashboard() {
   const router = useRouter();
   const { me } = useAdmin();
   const [engagements, setEngagements] = useState<any[]>([]);
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions]       = useState<any[]>([]);
   const [pendingDocs, setPendingDocs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [pendingDrafts, setPendingDrafts] = useState<any[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [now, setNow]                 = useState(new Date());
 
-  const myId = me?.id;
+  const myId      = me?.id;
   const staffName = me?.name ?? 'Consultant';
 
-  useEffect(() => { loadData(); }, [myId]);
+  // Live clock for countdown — tick every 30s
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => { if (myId) loadData(); }, [myId]);
 
   async function loadData() {
     setLoading(true);
     try {
-      const [rEngs, rSessions, rDocs] = await Promise.allSettled([
+      const [rEngs, rSessions, rDocs, rDrafts] = await Promise.allSettled([
         api.getAllEngagements(),
         api.getSessions({ consultantId: myId }),
         api.getPendingDocuments(),
+        api.getPendingDrafts(),
       ]);
-      if (rEngs.status === 'fulfilled') setEngagements(rEngs.value ?? []);
+      if (rEngs.status    === 'fulfilled') setEngagements(rEngs.value ?? []);
       if (rSessions.status === 'fulfilled') setSessions(rSessions.value ?? []);
-      if (rDocs.status === 'fulfilled') setPendingDocs(rDocs.value ?? []);
+      if (rDocs.status    === 'fulfilled') setPendingDocs(rDocs.value ?? []);
+      if (rDrafts.status  === 'fulfilled') setPendingDrafts(rDrafts.value ?? []);
     } finally { setLoading(false); }
   }
 
-  const myCases = engagements.filter((e) => e.consultantId === myId || !myId);
-  const active = myCases.filter((e) => e.status === 'ACTIVE');
-  const pending = myCases.filter((e) => e.status === 'PENDING_SIGNATURE');
-  const completed = myCases.filter((e) => e.status === 'COMPLETED');
+  // ── Fix #4: no || !myId fallback ──────────────────────────────────────────
+  const myCases = engagements.filter((e) => e.consultantId === myId);
 
+  // ── Fix #5: scope docs + drafts to my clients only ────────────────────────
+  const myPersonIds   = new Set(myCases.map((e) => e.personId ?? e.person?.id).filter(Boolean));
+  const myPendingDocs = pendingDocs.filter((d) => myPersonIds.has(d.personId ?? d.person?.id));
+  const myDrafts      = pendingDrafts.filter((d) => {
+    const pid = d.engagement?.personId ?? d.engagement?.person?.id;
+    return myPersonIds.has(pid);
+  });
+
+  // ── Derived counts ────────────────────────────────────────────────────────
+  const active    = myCases.filter((e) => e.status === 'ACTIVE');
+  const pendingSig = myCases.filter((e) => e.status === 'PENDING_SIGNATURE');
+  const onHold    = myCases.filter((e) => e.status === 'ON_HOLD');
+  const completed = myCases.filter((e) => e.status === 'COMPLETED');
+  const completionRate = myCases.length > 0
+    ? Math.round((completed.length / myCases.length) * 100)
+    : 0;
+
+  // ── Sessions ──────────────────────────────────────────────────────────────
   const upcomingSessions = sessions
     .filter((s) => s.status === 'CONFIRMED' && s.slot?.startAt && !isPast(new Date(s.slot.startAt)))
     .sort((a, b) => new Date(a.slot.startAt).getTime() - new Date(b.slot.startAt).getTime());
-  const todaySessions = upcomingSessions.filter((s) => isToday(new Date(s.slot.startAt)));
+  const todaySessions = upcomingSessions.filter((s) => isToday(new Date(s.slot?.startAt)));
+  const nextSession   = upcomingSessions[0] ?? null;
+  const nextMins      = nextSession
+    ? Math.round((new Date(nextSession.slot.startAt).getTime() - now.getTime()) / 60_000)
+    : null;
+  const isImminent    = nextMins !== null && nextMins >= 0 && nextMins <= 120;
+
+  // ── Priority inbox ────────────────────────────────────────────────────────
+  const urgentItems = [
+    ...myPendingDocs.slice(0, 3).map((d) => ({
+      id: d.id, name: d.person?.name ?? 'Unknown',
+      label: `${d.type ?? 'Document'} needs verification`,
+      href: '/documents',
+    })),
+    ...myDrafts.slice(0, 2).map((d) => ({
+      id: d.id, name: d.engagement?.person?.name ?? 'Unknown',
+      label: 'AI draft awaiting your review',
+      href: '/drafts',
+    })),
+  ];
+  const attentionItems = pendingSig.slice(0, 4).map((e) => ({
+    id: e.id, name: e.person?.name ?? 'Unknown',
+    label: 'Engagement letter not yet signed',
+    href: '/caseload/' + e.id,
+  }));
+  const todayItems = todaySessions.slice(0, 4).map((s) => ({
+    id: s.id, name: s.clientName ?? s.person?.name ?? 'Client',
+    label: s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm a') + ' · ' + (s.category ?? 'Session') : 'Session today',
+    href: '/sessions',
+    roomUrl: s.roomUrl,
+  }));
+  const urgentCount = urgentItems.length + attentionItems.length;
+
+  // ── Activity feed (my cases only) ─────────────────────────────────────────
+  const activityFeed: ActivityEvent[] = [
+    ...myCases.slice(0, 6).map((e) => ({
+      id: e.id, type: 'engagement' as const,
+      person: e.person?.name ?? 'Unknown',
+      label: `Engagement ${statusLabel(e.status).toLowerCase()}`,
+      ts: e.updatedAt ?? e.createdAt,
+    })),
+    ...sessions.slice(0, 5).map((s) => ({
+      id: s.id, type: 'booking' as const,
+      person: s.clientName ?? s.person?.name ?? 'Unknown',
+      label: `Session confirmed · ${s.slot?.startAt ? format(new Date(s.slot.startAt), 'MMM d, h:mm a') : ''}`,
+      ts: s.createdAt,
+    })),
+    ...myPendingDocs.slice(0, 4).map((d) => ({
+      id: d.id, type: 'document' as const,
+      person: d.person?.name ?? 'Unknown',
+      label: `Document uploaded · ${d.type ?? 'file'}`,
+      ts: d.uploadedAt ?? d.createdAt,
+    })),
+  ]
+    .filter((e) => e.ts)
+    .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+    .slice(0, 12);
 
   if (loading) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-5">
-      {/* Greeting + situation bar */}
-      <div className="rounded-2xl border border-border bg-white px-6 py-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
-          <div>
-            <p className="text-base font-bold text-foreground">{greeting(staffName)}</p>
-            <p className="text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
+
+      {/* ── Zone 1: Hero ──────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-[#00A896] p-6 shadow-lg text-white">
+        <div className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute -right-4 -top-4 h-32 w-32 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute right-40 -bottom-10 h-40 w-40 rounded-full bg-white/5" />
+
+        <div className="relative">
+          {/* Greeting + urgent badge + quick actions */}
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="text-lg font-bold text-white">{greeting(staffName)}</p>
+                {urgentCount > 0 && (
+                  <span className="flex items-center gap-1 rounded-full bg-rose-500/90 px-2 py-0.5 text-xs font-bold text-white">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/80 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+                    </span>
+                    {urgentCount} urgent
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-white/60">
+                {format(new Date(), 'EEEE, MMMM d, yyyy')} · {myCases.length} cases assigned to you
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => router.push('/caseload')}
+                className="flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-bold text-primary hover:bg-white/90 transition-colors"
+              >
+                <UserCircle className="h-3.5 w-3.5" /> My Cases
+              </button>
+              <button
+                onClick={() => router.push('/documents')}
+                className="flex items-center gap-1.5 rounded-xl border border-white/30 bg-white/10 px-3.5 py-2 text-xs font-bold text-white hover:bg-white/20 transition-colors"
+              >
+                <FolderOpen className="h-3.5 w-3.5" /> Doc Queue {myPendingDocs.length > 0 && `(${myPendingDocs.length})`}
+              </button>
+              <button
+                onClick={() => router.push('/sessions')}
+                className="flex items-center gap-1.5 rounded-xl border border-white/30 bg-white/10 px-3.5 py-2 text-xs font-bold text-white hover:bg-white/20 transition-colors"
+              >
+                <CalendarBlank className="h-3.5 w-3.5" /> Sessions
+              </button>
+            </div>
           </div>
-          <div className="h-10 w-px bg-border hidden sm:block" />
-          <div>
-            <p className="text-xs text-muted-foreground">Active cases</p>
-            <p className="text-xl font-bold text-foreground tabular-nums">{active.length}</p>
-          </div>
-          <div className="h-10 w-px bg-border hidden sm:block" />
-          <div>
-            <p className="text-xs text-muted-foreground">Today's sessions</p>
-            <p className="text-xl font-bold text-foreground tabular-nums">{todaySessions.length}</p>
-          </div>
-          <div className="h-10 w-px bg-border hidden md:block" />
-          <div>
-            <p className="text-xs text-muted-foreground">Pending signature</p>
-            <p className="text-xl font-bold text-amber-600 tabular-nums">{pending.length}</p>
-          </div>
-          <div className="h-10 w-px bg-border hidden md:block" />
-          <div>
-            <p className="text-xs text-muted-foreground">Completed</p>
-            <p className="text-xl font-bold text-emerald-600 tabular-nums">{completed.length}</p>
+
+          {/* KPI tiles */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: 'Active Cases',      value: active.length,       sub: `${myCases.length} total`,           accent: false },
+              { label: "Today's Sessions",  value: todaySessions.length, sub: `${upcomingSessions.length} upcoming`, accent: false },
+              { label: 'Pending Docs',      value: myPendingDocs.length, sub: myPendingDocs.length > 0 ? 'needs review' : 'all clear', accent: myPendingDocs.length > 0 },
+              { label: 'Completion Rate',   value: `${completionRate}%`, sub: `${completed.length} completed`,     accent: false },
+            ].map((tile) => (
+              <div
+                key={tile.label}
+                className={`rounded-xl px-4 py-3 backdrop-blur-sm ${
+                  tile.accent
+                    ? 'bg-rose-500/25 border border-rose-300/30'
+                    : 'bg-white/15 border border-white/20'
+                }`}
+              >
+                <p className="text-xs font-medium text-white/60 mb-0.5">{tile.label}</p>
+                <p className={`text-2xl font-bold tabular-nums leading-tight ${tile.accent ? 'text-rose-200' : 'text-white'}`}>
+                  {tile.value}
+                </p>
+                <p className="text-xs text-white/50 mt-0.5">{tile.sub}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
+      {/* ── Zone 2: Next Up alert (only when imminent) ─────────────────────── */}
+      {isImminent && nextSession && (
+        <div className="flex items-center gap-4 rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4 shadow-sm">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <ClockCountdown className="h-5 w-5 text-primary" weight="fill" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-foreground">
+              Session with {nextSession.clientName ?? nextSession.person?.name ?? 'client'} in{' '}
+              {nextMins === 0 ? 'under a minute' : `${nextMins} min${nextMins === 1 ? '' : 's'}`}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {nextSession.slot?.startAt ? format(new Date(nextSession.slot.startAt), 'h:mm a') : ''} · {nextSession.category ?? 'Consultation'}
+            </p>
+          </div>
+          {nextSession.roomUrl && (
+            <a
+              href={nextSession.roomUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors shrink-0"
+            >
+              Join Now <ArrowRight className="h-4 w-4" />
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* ── Zone 3: Priority Inbox + Caseload ─────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* My active caseload */}
+
+        {/* Priority Inbox */}
+        <div className="lg:col-span-2 rounded-2xl border border-border bg-white shadow-sm overflow-hidden flex flex-col">
+          <div className="px-5 py-4 border-b border-border">
+            <h3 className="font-semibold text-foreground text-sm">Priority Inbox</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Items requiring your attention</p>
+          </div>
+          <div className="flex-1 overflow-y-auto divide-y divide-border">
+
+            {urgentItems.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 px-5 py-2 bg-rose-50">
+                  <Pulse className="h-3 w-3 text-rose-500" weight="fill" />
+                  <span className="text-xs font-bold text-rose-600 uppercase tracking-wide">Urgent</span>
+                  <span className="ml-auto text-xs font-bold text-rose-500">{urgentItems.length}</span>
+                </div>
+                {urgentItems.map((item) => (
+                  <div key={item.id} onClick={() => router.push(item.href)}
+                    className="flex items-center gap-3 px-5 py-3 border-l-4 border-l-rose-400 hover:bg-rose-50/50 cursor-pointer transition-colors group"
+                  >
+                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${avatarColor(item.name)} text-white text-xs font-bold`}>
+                      {initials(item.name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-foreground truncate">{item.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{item.label}</p>
+                    </div>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {attentionItems.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 px-5 py-2 bg-amber-50">
+                  <Warning className="h-3 w-3 text-amber-500" weight="fill" />
+                  <span className="text-xs font-bold text-amber-600 uppercase tracking-wide">Attention</span>
+                  <span className="ml-auto text-xs font-bold text-amber-500">{attentionItems.length}</span>
+                </div>
+                {attentionItems.map((item) => (
+                  <div key={item.id} onClick={() => router.push(item.href)}
+                    className="flex items-center gap-3 px-5 py-3 border-l-4 border-l-amber-400 hover:bg-amber-50/50 cursor-pointer transition-colors group"
+                  >
+                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${avatarColor(item.name)} text-white text-xs font-bold`}>
+                      {initials(item.name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-foreground truncate">{item.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{item.label}</p>
+                    </div>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {todayItems.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 px-5 py-2 bg-emerald-50">
+                  <ClockCountdown className="h-3 w-3 text-emerald-500" weight="fill" />
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wide">Today</span>
+                  <span className="ml-auto text-xs font-bold text-emerald-500">{todayItems.length}</span>
+                </div>
+                {todayItems.map((item) => (
+                  <div key={item.id}
+                    className="flex items-center gap-3 px-5 py-3 border-l-4 border-l-emerald-400 hover:bg-emerald-50/50 cursor-pointer transition-colors group"
+                    onClick={() => router.push(item.href)}
+                  >
+                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${avatarColor(item.name)} text-white text-xs font-bold`}>
+                      {initials(item.name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-foreground truncate">{item.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{item.label}</p>
+                    </div>
+                    {item.roomUrl && (
+                      <a href={item.roomUrl} target="_blank" rel="noopener noreferrer"
+                        className="shrink-0 rounded-lg bg-primary px-2 py-0.5 text-xs font-bold text-white hover:bg-primary/90"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Join
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {urgentItems.length === 0 && attentionItems.length === 0 && todayItems.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center px-6">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
+                  <CheckCircle className="h-6 w-6 text-emerald-500" weight="fill" />
+                </div>
+                <p className="text-sm font-semibold text-foreground">Inbox zero</p>
+                <p className="mt-1 text-xs text-muted-foreground">No items require attention right now.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* My Caseload */}
         <div className="lg:col-span-3 rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <div>
               <h3 className="font-semibold text-foreground text-sm">My Caseload</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">{myCases.length} total cases assigned</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{myCases.length} cases assigned to you</p>
             </div>
             <button onClick={() => router.push('/caseload')} className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
               View all <ArrowUpRight className="h-3 w-3" />
             </button>
           </div>
           <div className="divide-y divide-border">
-            {myCases.slice(0, 6).map((e) => (
+            {myCases.slice(0, 7).map((e) => (
               <div
                 key={e.id}
                 onClick={() => router.push('/caseload/' + e.id)}
@@ -214,7 +479,7 @@ function ConsultantDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground truncate">{e.person?.name ?? '—'}</p>
-                  <p className="text-xs text-muted-foreground truncate">{e.person?.profession ?? e.person?.email ?? e.id}</p>
+                  <p className="text-xs text-muted-foreground truncate">{e.person?.profession ?? e.person?.email ?? '—'}</p>
                 </div>
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${STATUS_STYLES[e.status] ?? 'bg-muted text-muted-foreground border-border'}`}>
                   {statusLabel(e.status)}
@@ -230,80 +495,177 @@ function ConsultantDashboard() {
             )}
           </div>
         </div>
+      </div>
 
-        {/* Upcoming sessions + pending docs */}
-        <div className="lg:col-span-2 space-y-5">
-          {/* Upcoming sessions */}
-          <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h3 className="font-semibold text-foreground text-sm">Upcoming Sessions</h3>
-              <button onClick={() => router.push('/sessions')} className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-                All <ArrowUpRight className="h-3 w-3" />
-              </button>
+      {/* ── Zone 4: Mini-pipeline + Performance + AI Drafts ───────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+        {/* Mini pipeline */}
+        <div className="rounded-2xl border border-border bg-white shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">My Pipeline</p>
+              <p className="text-2xl font-bold text-foreground tabular-nums mt-0.5">{myCases.length}</p>
             </div>
-            <div className="divide-y divide-border">
-              {upcomingSessions.slice(0, 4).map((s) => (
-                <div key={s.id} className="flex items-center gap-3 px-5 py-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <CalendarBlank className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{s.clientName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {s.slot?.startAt ? format(new Date(s.slot.startAt), 'MMM d · h:mm a') : '—'}
-                      {isToday(new Date(s.slot?.startAt)) && <span className="ml-1 text-primary font-semibold">· Today</span>}
-                    </p>
-                  </div>
-                  {s.roomUrl && (
-                    <a href={s.roomUrl} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-semibold text-white hover:bg-primary/90"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Join
-                    </a>
-                  )}
-                </div>
-              ))}
-              {upcomingSessions.length === 0 && (
-                <div className="py-8 text-center">
-                  <p className="text-sm text-muted-foreground">No upcoming sessions.</p>
-                </div>
-              )}
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+              <TrendUp className="h-5 w-5 text-primary" />
             </div>
           </div>
+          <div className="space-y-3">
+            {PIPELINE_STAGES.map((stage) => {
+              const count = myCases.filter((e) => e.status === stage.key).length;
+              const pct   = myCases.length > 0 ? Math.round((count / myCases.length) * 100) : 0;
+              return (
+                <div key={stage.key}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">{stage.label}</span>
+                    <span className="text-xs font-semibold text-foreground tabular-nums">{count}</span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-muted">
+                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: stage.color }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button onClick={() => router.push('/caseload')} className="mt-4 flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+            Full caseload <ArrowRight className="h-3 w-3" />
+          </button>
+        </div>
 
-          {/* Pending docs on my cases */}
-          <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h3 className="font-semibold text-foreground text-sm">Pending Documents</h3>
-              <button onClick={() => router.push('/documents')} className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-                Review <ArrowUpRight className="h-3 w-3" />
-              </button>
+        {/* Performance */}
+        <div className="rounded-2xl border border-border bg-white shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Performance</p>
+              <p className="text-2xl font-bold text-foreground tabular-nums mt-0.5">{completionRate}%</p>
             </div>
-            <div className="divide-y divide-border">
-              {pendingDocs.slice(0, 4).map((d) => (
-                <div key={d.id} className="flex items-center gap-3 px-5 py-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100">
-                    <Warning className="h-4 w-4 text-amber-600" weight="fill" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{d.person?.name ?? 'Unknown'}</p>
-                    <p className="text-xs text-muted-foreground truncate">{d.type ?? 'Document'} needs verification</p>
-                  </div>
-                </div>
-              ))}
-              {pendingDocs.length === 0 && (
-                <div className="py-8 text-center">
-                  <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50">
-                    <CheckCircle className="h-4 w-4 text-emerald-500" weight="fill" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">No pending docs.</p>
-                </div>
-              )}
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50">
+              <Circle className="h-5 w-5 text-emerald-600" weight="fill" />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mb-4">Completion rate across all assigned cases</p>
+          {/* Donut-style progress ring */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
+              <svg className="h-20 w-20 -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f1f5f9" strokeWidth="3" />
+                <circle
+                  cx="18" cy="18" r="15.9" fill="none"
+                  stroke="#10b981" strokeWidth="3"
+                  strokeDasharray={`${completionRate} ${100 - completionRate}`}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="absolute text-sm font-bold text-foreground">{completionRate}%</span>
+            </div>
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="text-muted-foreground">Completed</span>
+                <span className="ml-auto font-semibold text-foreground">{completed.length}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-blue-400" />
+                <span className="text-muted-foreground">Active</span>
+                <span className="ml-auto font-semibold text-foreground">{active.length}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-orange-400" />
+                <span className="text-muted-foreground">On Hold</span>
+                <span className="ml-auto font-semibold text-foreground">{onHold.length}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-amber-400" />
+                <span className="text-muted-foreground">Pending Sig</span>
+                <span className="ml-auto font-semibold text-foreground">{pendingSig.length}</span>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* AI Drafts */}
+        <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">AI Drafts</p>
+              <p className="text-2xl font-bold text-foreground tabular-nums mt-0.5">{myDrafts.length}</p>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50">
+              <Sparkle className="h-5 w-5 text-violet-500" />
+            </div>
+          </div>
+          <div className="divide-y divide-border">
+            {myDrafts.slice(0, 4).map((d) => (
+              <div key={d.id} onClick={() => router.push('/drafts')}
+                className="flex items-center gap-3 px-5 py-3 hover:bg-muted/20 cursor-pointer transition-colors group"
+              >
+                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${avatarColor(d.engagement?.person?.name ?? '')} text-white text-xs font-bold`}>
+                  {initials(d.engagement?.person?.name ?? '?')}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-foreground truncate">{d.engagement?.person?.name ?? 'Unknown'}</p>
+                  <p className="text-xs text-muted-foreground truncate">Awaiting your review</p>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              </div>
+            ))}
+            {myDrafts.length === 0 && (
+              <div className="py-8 text-center px-5">
+                <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50">
+                  <CheckCircle className="h-4 w-4 text-emerald-500" weight="fill" />
+                </div>
+                <p className="text-sm text-muted-foreground">No drafts pending.</p>
+              </div>
+            )}
+          </div>
+          {myDrafts.length > 0 && (
+            <div className="px-5 py-3 border-t border-border">
+              <button onClick={() => router.push('/drafts')} className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                Review all drafts <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* ── Zone 5: Activity Feed ─────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted/60">
+              <Sparkle className="h-4 w-4 text-foreground/50" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
+              <p className="text-xs text-muted-foreground">Latest events on your cases</p>
+            </div>
+          </div>
+          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+            {activityFeed.length} events
+          </span>
+        </div>
+        {activityFeed.length === 0 ? (
+          <div className="flex flex-col items-center py-12 text-center">
+            <Envelope className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">No recent activity on your cases.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {activityFeed.map((ev) => (
+              <div key={`${ev.type}-${ev.id}`} className="flex items-start gap-3 px-5 py-3 hover:bg-muted/20 transition-colors">
+                <ActivityIcon type={ev.type} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">{ev.person}</p>
+                  <p className="text-xs text-muted-foreground">{ev.label}</p>
+                </div>
+                <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{relTime(ev.ts)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
