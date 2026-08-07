@@ -24,6 +24,20 @@ const offices = [
     hours: 'Mon–Fri 9:00 AM – 5:00 PM WAT',
     flag: '🇨🇲',
   },
+  {
+    city: 'Dallas',
+    country: 'United States',
+    address: '3104 Grimaldo Dr, Forney, Dallas, Texas 75126',
+    hours: 'Mon–Fri 9:00 AM – 5:00 PM CST',
+    flag: '🇺🇸',
+  },
+  {
+    city: 'Abu Dhabi',
+    country: 'United Arab Emirates',
+    address: 'Tourist Club Area, Abu Dhabi, UAE',
+    hours: 'Mon–Fri 8:00 AM – 6:00 PM GST',
+    flag: '🇦🇪',
+  },
 ];
 
 const enquiryTypes = [
