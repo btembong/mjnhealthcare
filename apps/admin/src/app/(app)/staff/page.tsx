@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { PageHeader, Button } from '@mjn/ui';
 import {
   CircleNotch, User, Plus, X, WarningCircle, CaretDown,
-  CheckCircle, XCircle,
+  CheckCircle, XCircle, IdentificationBadge,
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 
@@ -17,18 +17,33 @@ const ROLE_STYLES: Record<string, string> = {
   COMPLIANCE: 'bg-amber-100 text-amber-700',
 };
 
+const CATEGORIES = ['HEALTH', 'CAREER', 'BOTH'] as const;
+const LANGUAGES = ['English', 'French', 'Arabic', 'Portuguese', 'Swahili'];
+
 export default function StaffPage() {
   const [staff, setStaff] = useState<any[]>([]);
+  const [consultantProfiles, setConsultantProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
+  // Add staff modal fields
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'CONSULTANT' | 'ADMIN' | 'COMPLIANCE'>('CONSULTANT');
+
+  // Create consultant profile modal
+  const [profileTarget, setProfileTarget] = useState<{ name: string; email: string } | null>(null);
+  const [cpBio, setCpBio] = useState('');
+  const [cpSpecialty, setCpSpecialty] = useState('');
+  const [cpCategory, setCpCategory] = useState<string>('CAREER');
+  const [cpPrice, setCpPrice] = useState('150');
+  const [cpLangs, setCpLangs] = useState<string[]>(['English']);
+  const [cpSaving, setCpSaving] = useState(false);
+  const [cpError, setCpError] = useState('');
 
   const [loadError, setLoadError] = useState('');
 
@@ -38,9 +53,12 @@ export default function StaffPage() {
     setLoading(true);
     setLoadError('');
     try {
-      // Use getPersons (no role guard) and filter staff roles client-side
-      const all = await api.getPersons();
+      const [all, profiles] = await Promise.all([
+        api.getPersons(),
+        api.getConsultants().catch(() => []),
+      ]);
       setStaff(all.filter((p: any) => ['ADMIN', 'CONSULTANT', 'COMPLIANCE'].includes(p.role?.toUpperCase())));
+      setConsultantProfiles(profiles);
     } catch (err: any) {
       setLoadError(err.message);
       toast.error(err.message);
@@ -92,6 +110,50 @@ export default function StaffPage() {
     }
   }
 
+  function openProfileModal(person: any) {
+    setProfileTarget({ name: person.name ?? '', email: person.email ?? '' });
+    setCpBio('');
+    setCpSpecialty('');
+    setCpCategory('CAREER');
+    setCpPrice('150');
+    setCpLangs(['English']);
+    setCpError('');
+  }
+
+  async function handleCreateProfile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!profileTarget) return;
+    setCpSaving(true);
+    setCpError('');
+    try {
+      const created = await api.createConsultant({
+        name: profileTarget.name,
+        email: profileTarget.email,
+        bio: cpBio,
+        specialty: cpSpecialty,
+        languages: cpLangs,
+        type: 'STAFF',
+        consultationCategory: cpCategory,
+        priceUsd: parseFloat(cpPrice) || 150,
+      });
+      setConsultantProfiles((prev) => [...prev, created]);
+      setProfileTarget(null);
+      toast.success('Consultant profile created. Cases will now appear on their dashboard.');
+    } catch (err: any) {
+      setCpError(err.message ?? 'Failed to create profile.');
+    } finally {
+      setCpSaving(false);
+    }
+  }
+
+  function toggleLang(lang: string) {
+    setCpLangs((prev) =>
+      prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
+    );
+  }
+
+  const profileEmails = new Set(consultantProfiles.map((p: any) => p.email?.toLowerCase()));
+
   return (
     <>
       <div className="space-y-6">
@@ -123,6 +185,8 @@ export default function StaffPage() {
             <div className="divide-y divide-border">
               {staff.map((person: any) => {
                 const isActive = person.isActive !== false;
+                const isConsultant = person.role?.toUpperCase() === 'CONSULTANT';
+                const hasProfile = isConsultant && profileEmails.has(person.email?.toLowerCase());
                 return (
                   <div
                     key={person.id}
@@ -134,7 +198,14 @@ export default function StaffPage() {
                         {person.name?.slice(0, 2).toUpperCase() ?? '??'}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{person.name ?? '—'}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-foreground truncate">{person.name ?? '—'}</p>
+                          {isConsultant && (
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${hasProfile ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {hasProfile ? 'Profile linked' : 'No profile'}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground truncate">{person.email ?? '—'}</p>
                       </div>
                     </div>
@@ -143,6 +214,16 @@ export default function StaffPage() {
                     <span className="hidden sm:block shrink-0 text-xs text-muted-foreground">
                       Joined {person.createdAt ? new Date(person.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'}
                     </span>
+
+                    {/* Create profile button for consultants without one */}
+                    {isConsultant && !hasProfile && (
+                      <button
+                        onClick={() => openProfileModal(person)}
+                        className="shrink-0 flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
+                      >
+                        <IdentificationBadge className="h-3 w-3" /> Create Profile
+                      </button>
+                    )}
 
                     {/* Role selector */}
                     <div className="relative shrink-0">
@@ -236,6 +317,93 @@ export default function StaffPage() {
                   {saving ? 'Creating…' : 'Create staff member'}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => { setShowModal(false); setError(''); }}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Consultant Profile Modal */}
+      {profileTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-white p-6 shadow-xl">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Create Consultant Profile</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  For <span className="font-semibold text-foreground">{profileTarget.name}</span> ({profileTarget.email})
+                </p>
+              </div>
+              <button onClick={() => setProfileTarget(null)} className="rounded-lg p-1.5 hover:bg-muted/60 transition-colors">
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+
+            <div className="mb-4 rounded-xl bg-violet-50 border border-violet-200 px-4 py-3 text-xs text-violet-700">
+              Once created, this consultant's cases will appear on their dashboard and they'll be bookable by clients.
+            </div>
+
+            <form onSubmit={handleCreateProfile} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-foreground">Specialty</label>
+                <input required value={cpSpecialty} onChange={(e) => setCpSpecialty(e.target.value)}
+                  placeholder="e.g. UAE Licensing, NCLEX Prep, Career Placement"
+                  className="h-10 w-full rounded-xl border border-border px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-foreground">Bio</label>
+                <textarea required value={cpBio} onChange={(e) => setCpBio(e.target.value)}
+                  rows={3} placeholder="Short professional bio shown to clients"
+                  className="w-full rounded-xl border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-foreground">Consultation category</label>
+                  <select value={cpCategory} onChange={(e) => setCpCategory(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-border px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20">
+                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-foreground">Session price (USD)</label>
+                  <input required type="number" min="0" step="1" value={cpPrice} onChange={(e) => setCpPrice(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-border px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">Languages</label>
+                <div className="flex flex-wrap gap-2">
+                  {LANGUAGES.map((lang) => (
+                    <button
+                      key={lang}
+                      type="button"
+                      onClick={() => toggleLang(lang)}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold border transition-colors ${
+                        cpLangs.includes(lang)
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-white text-muted-foreground hover:border-primary/40'
+                      }`}
+                    >
+                      {lang}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {cpError && (
+                <div className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-600">
+                  <WarningCircle className="h-4 w-4 shrink-0" /> {cpError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <Button type="submit" disabled={cpSaving || cpLangs.length === 0} className="flex-1">
+                  {cpSaving ? <CircleNotch className="h-4 w-4 animate-spin" /> : <IdentificationBadge className="h-4 w-4" />}
+                  {cpSaving ? 'Creating…' : 'Create consultant profile'}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setProfileTarget(null)}>
                   Cancel
                 </Button>
               </div>
