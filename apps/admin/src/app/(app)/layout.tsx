@@ -13,6 +13,16 @@ import { AdminProvider, useAdmin } from '../../contexts/admin-context';
 
 type Role = 'ADMIN' | 'CONSULTANT' | 'COMPLIANCE' | string;
 
+function getRoleFromToken(): string {
+  if (typeof window === 'undefined') return '';
+  const token = localStorage.getItem('mjn_admin_token');
+  if (!token) return '';
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return (payload.role as string)?.toUpperCase() ?? '';
+  } catch { return ''; }
+}
+
 function useSidebarSections(
   role: Role,
   counts: { pendingDocs: number; pendingDrafts: number; leads: number },
@@ -134,7 +144,7 @@ function ShellSkeleton() {
 
 function AdminShell({ children }: { children: React.ReactNode }) {
   const { me, counts, loading, signOut } = useAdmin();
-  const role: Role = (me?.role as string)?.toUpperCase() ?? 'ADMIN';
+  const role: Role = (me?.role as string)?.toUpperCase() || getRoleFromToken() || 'ADMIN';
   const sections = useSidebarSections(role, counts);
 
   const staffName = me?.name ?? 'Admin';
