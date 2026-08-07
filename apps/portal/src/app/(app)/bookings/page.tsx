@@ -6,9 +6,12 @@ import { PageHeader, Badge, Skeleton } from '@mjn/ui';
 import {
   CalendarBlank, CheckCircle, Clock, X, VideoCamera,
   BookOpen, FileText, Stethoscope, Users, ArrowRight,
-  Bell, ChatCircle, Plus, User,
+  Bell, ChatCircle, Plus, User, Prohibit, CircleNotch,
 } from '@phosphor-icons/react';
+import { toast } from 'sonner';
 import { useUser } from '../../../contexts/user-context';
+
+const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
 
 // Normalise a ConsultationBooking (from /consult flow) to the same shape as a BookingModule booking
 function normaliseConsultationBooking(cb: any): any {
@@ -247,8 +250,28 @@ function BookingsSidebar({
 
 export default function BookingsPage() {
   const router = useRouter();
-  const { bookings, consultationBookings, loading } = useUser();
+  const { bookings, consultationBookings, loading, refreshBookings } = useUser();
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [cancelConfirm, setCancelConfirm] = useState<string | null>(null); // bookingId
+  const [cancelling, setCancelling] = useState(false);
+
+  async function handleCancel(bookingId: string) {
+    setCancelling(true);
+    try {
+      const res = await fetch(`${API}/consultations/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, reason: 'Cancelled by client' }),
+      });
+      if (!res.ok) throw new Error('Cancel failed');
+      toast.success('Session cancelled.');
+      setCancelConfirm(null);
+      if (typeof (refreshBookings as any) === 'function') (refreshBookings as any)();
+    } catch {
+      toast.error('Could not cancel. Contact your consultant directly.');
+    }
+    setCancelling(false);
+  }
 
   // Merge both booking types into one list
   const allBookings = [
@@ -567,6 +590,35 @@ export default function BookingsPage() {
                             >
                               <CalendarBlank className="h-3.5 w-3.5" /> Add to calendar
                             </button>
+                          )}
+
+                          {/* Cancel — upcoming only */}
+                          {isFuture(start ?? '') && booking.status !== 'CANCELLED' && (
+                            cancelConfirm === booking.id ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-rose-600 font-medium">Cancel this session?</span>
+                                <button
+                                  onClick={() => handleCancel(booking.id)}
+                                  disabled={cancelling}
+                                  className="flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50 transition-colors"
+                                >
+                                  {cancelling ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : 'Yes, cancel'}
+                                </button>
+                                <button
+                                  onClick={() => setCancelConfirm(null)}
+                                  className="rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted/50 transition-colors"
+                                >
+                                  Keep
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setCancelConfirm(booking.id)}
+                                className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition-colors"
+                              >
+                                <Prohibit className="h-3.5 w-3.5" /> Cancel
+                              </button>
+                            )
                           )}
                         </div>
                       </div>
