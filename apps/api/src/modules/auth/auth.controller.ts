@@ -39,6 +39,20 @@ class VerifyOtpDto {
   via?: 'email' | 'phone';
 }
 
+class ForgotPasswordDto {
+  @IsEmail()
+  email!: string;
+}
+
+class ResetPasswordDto {
+  @IsString()
+  token!: string;
+
+  @IsString()
+  @MinLength(8)
+  newPassword!: string;
+}
+
 class RegisterStaffDto {
   @IsString()
   name!: string;
@@ -101,5 +115,20 @@ export class AuthController {
   @Patch('change-password')
   changePassword(@Request() req: any, @Body() body: { currentPassword: string; newPassword: string }) {
     return this.authService.changePassword(req.user.id, body.currentPassword, body.newPassword);
+  }
+
+  @ApiOperation({ summary: 'Request a password reset link (staff)' })
+  @HttpCode(HttpStatus.OK)
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(dto.email);
+    return { message: 'If that email is registered, a reset link has been sent.' };
+  }
+
+  @ApiOperation({ summary: 'Reset password using token from email link' })
+  @HttpCode(HttpStatus.OK)
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 }

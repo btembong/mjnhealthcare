@@ -748,6 +748,31 @@ export function tplLibraryResourceDelivery(opts: { name: string; resourceTitle: 
   );
 }
 
+export function tplPasswordReset(opts: { name: string; resetUrl: string }): string {
+  return shell(
+    greeting(opts.name) +
+    label('Password Reset') +
+    h1('Reset your password') +
+    p('We received a request to reset your MJN staff account password. Click the button below to choose a new password. This link expires in <strong>15 minutes</strong> and can only be used once.') +
+    btn('Reset My Password', opts.resetUrl) +
+    divider() +
+    p('If you did not request a password reset, you can safely ignore this email — your password will not change.') +
+    pSmall('For your security: never share this link with anyone. MJN Healthcare staff will never ask for it.')
+  );
+}
+
+export function tplPasswordChanged(opts: { name: string }): string {
+  return shell(
+    greeting(opts.name) +
+    label('Security Notice') +
+    h1('Your password was changed') +
+    p('Your MJN staff account password was successfully updated. If you made this change, no further action is needed.') +
+    divider() +
+    p('If you did <strong>not</strong> make this change, contact your administrator immediately or reply to this email.') +
+    pSmall('This is an automated security notification from MJN Healthcare.')
+  );
+}
+
 export function tplOtp(opts: { otp: string }): string {
   const digitCells = opts.otp.split('').map(d =>
     `<td style="width:44px;height:54px;text-align:center;vertical-align:middle;background:#F4F8FF;border:1.5px solid #BDD0E8;border-radius:6px;font-size:26px;font-weight:700;color:${NAVY};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">${d}</td>`

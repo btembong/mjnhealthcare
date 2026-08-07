@@ -5,7 +5,8 @@ import { Redis } from '@upstash/redis';
 import { PersonService } from '../person/person.service';
 import { NotificationService } from '../notification/notification.service';
 import { REDIS_CLIENT } from './auth.constants';
-import { tplOtp } from '../notification/email-templates';
+import { randomBytes } from 'crypto';
+import { tplOtp, tplPasswordReset, tplPasswordChanged } from '../notification/email-templates';
 
 export type JwtPayload = {
   sub: string;
@@ -122,5 +123,53 @@ export class AuthService {
 
   async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, 12);
+  }
+
+  // ── Forgot / reset password ─────────────────────────────────────────────────
+
+  async forgotPassword(email: string): Promise<void> {
+    const person = await this.personService.findByEmail(email);
+    // Always respond OK — don't reveal whether the email exists
+    if (!person || !person.passwordHash) return;
+
+    const token = randomBytes(32).toString('hex');
+    const FIFTEEN_MIN = 15 * 60;
+    await this.redis.set(`pwd-reset:${token}`, person.id, { ex: FIFTEEN_MIN });
+
+    const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
+    const resetUrl = `${adminUrl}/reset-password?token=${token}`;
+
+    await this.notificationService.sendEmail(
+      email,
+      'Reset your MJN staff password',
+      tplPasswordReset({ name: person.name, resetUrl }),
+    );
+    this.logger.log(`Password reset link sent to ${email}`);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ access_token: string }> {
+    const personId = await this.redis.get<string>(`pwd-reset:${token}`);
+    if (!personId) throw new UnauthorizedException('Reset link is invalid or has expired');
+
+    // Consume token immediately (one-time use)
+    await this.redis.del(`pwd-reset:${token}`);
+
+    const hash = await bcrypt.hash(newPassword, 12);
+    await this.personService.updatePassword(personId, hash);
+
+    const person = await this.personService.findById(personId);
+    if (!person) throw new UnauthorizedException('User not found');
+
+    // Send security notification
+    if (person.email) {
+      await this.notificationService.sendEmail(
+        person.email,
+        'Your MJN staff password was changed',
+        tplPasswordChanged({ name: person.name }),
+      ).catch(() => {}); // non-fatal
+    }
+
+    const payload: JwtPayload = { sub: person.id, email: person.email ?? undefined, role: person.role };
+    return { access_token: this.jwtService.sign(payload) };
   }
 }

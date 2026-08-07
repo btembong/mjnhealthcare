@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, setToken } from '../../lib/api';
+import Link from 'next/link';
 import { Envelope, LockKey, ArrowRight, CircleNotch, CheckCircle, ShieldCheck } from '@phosphor-icons/react';
 
 export default function AdminLoginPage() {
@@ -124,9 +125,12 @@ export default function AdminLoginPage() {
                   </div>
 
                   <div>
-                    <label className="mb-1.5 block text-sm font-semibold text-white/80">
-                      Password
-                    </label>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label className="text-sm font-semibold text-white/80">Password</label>
+                      <Link href="/forgot-password" className="text-xs text-white/40 hover:text-white/70 transition-colors">
+                        Forgot password?
+                      </Link>
+                    </div>
                     <div className="relative">
                       <LockKey className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
                       <input
