@@ -487,9 +487,17 @@ export default function BookNewPage() {
                       className="w-full flex items-start gap-4 rounded-2xl border-2 border-border bg-white p-5 text-left hover:border-primary/40 hover:shadow-lg transition-all group"
                     >
                       {/* Avatar */}
-                      <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${avatarGradient(c.name ?? '')} text-white text-xl font-bold shadow-sm`}>
-                        {c.name?.charAt(0)?.toUpperCase() ?? '?'}
-                      </div>
+                      {c.photoUrl ? (
+                        <img
+                          src={c.photoUrl}
+                          alt={c.name}
+                          className="h-14 w-14 shrink-0 rounded-2xl object-cover shadow-sm"
+                        />
+                      ) : (
+                        <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${avatarGradient(c.name ?? '')} text-white text-xl font-bold shadow-sm`}>
+                          {c.name?.charAt(0)?.toUpperCase() ?? '?'}
+                        </div>
+                      )}
 
                       <div className="flex-1 min-w-0">
                         {/* Name + stars */}
