@@ -250,7 +250,7 @@ function BookingsSidebar({
 
 export default function BookingsPage() {
   const router = useRouter();
-  const { bookings, consultationBookings, loading, refreshBookings } = useUser();
+  const { bookings, consultationBookings, loading } = useUser();
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   const [cancelConfirm, setCancelConfirm] = useState<string | null>(null); // bookingId
   const [cancelling, setCancelling] = useState(false);
@@ -266,7 +266,7 @@ export default function BookingsPage() {
       if (!res.ok) throw new Error('Cancel failed');
       toast.success('Session cancelled.');
       setCancelConfirm(null);
-      if (typeof (refreshBookings as any) === 'function') (refreshBookings as any)();
+      window.location.reload();
     } catch {
       toast.error('Could not cancel. Contact your consultant directly.');
     }
