@@ -117,7 +117,7 @@ const successStories = [
     quote: 'My process began in Cameroon. Once DataFlow was ready I travelled to Dubai, sat the exam the second week, and passed first attempt.',
   },
   {
-    initial: 'EA', image: '/jeffreyasiedu.webp', name: 'Effery Asiedu',
+    initial: 'JA', image: '/jeffreyasiedu.webp', name: 'Jeffrey Asiedu',
     role: 'Registered Nurse · Ghana', destination: 'UAE & United States',
     licensingBody: 'DOH + NCLEX — Passed', timeline: 'End-to-end',
     quote: 'MJN guided me to my UAE licence, then mentored me through every step of NCLEX. I passed both. An absolute pleasure to work with.',
