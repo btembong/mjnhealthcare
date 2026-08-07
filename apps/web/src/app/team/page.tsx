@@ -1,122 +1,28 @@
-'use client';
-
 import Link from 'next/link';
 import { MarketingNav } from '../../components/marketing-nav';
 import { SiteFooter } from '../../components/site-footer';
-import { Button, Badge } from '@mjn/ui';
-import { ArrowRight } from '@phosphor-icons/react';
+import { Badge } from '@mjn/ui';
+import { members, advisors } from './data';
 
-export const members = [
-  {
-    slug: 'mbout-john-nyah',
-    name: 'MBOUT John Nyah (MJN)',
-    role: 'Founder & Chief Executive Officer',
-    initials: 'MJN',
-    location: 'Cameroon',
-    flag: '🇨🇲',
-    background: 'MBA-HCM · BSN · RN · Founder of MJN Health Academy and Professional Services',
-    bio: 'MBOUT John Nyah (MJN) founded MJN Health Academy and Professional Services to bridge the gap between African healthcare professionals and international licensing opportunities. Holding an MBA in Healthcare Management alongside his BSN and RN credentials, he combines executive leadership with frontline clinical experience — building MJN from the ground up to ensure every client is guided by someone who has walked the same path and understands both the clinical and business dimensions of international healthcare careers.',
-    expertise: ['Strategic Leadership', 'International Licensing', 'US NCLEX Pathway', 'Organisational Development'],
-    credibility: 'MBA-HCM, BSN, RN — founded MJN after personally navigating international nursing licensure, combining clinical expertise with healthcare management leadership.',
-    credentials: ['MBA-HCM', 'BSN', 'RN'],
-    photo: '/nyah-ceo.png',
-  },
-  {
-    slug: 'arrey-manor-besongngem',
-    name: 'Arrey Manor Besongngem',
-    role: 'Licensing Officer — Cameroon & West Africa',
-    initials: 'AM',
-    location: 'Cameroon',
-    flag: '🇨🇲',
-    background: 'BSN · R.N · Licensing specialist for Cameroon and West African countries',
-    bio: 'Arrey Manor leads licensing support for clients from Cameroon and across West Africa, guiding nurses and healthcare professionals through credential evaluation, regulatory body applications, and document submission. His deep familiarity with West African nursing education systems and licensing bodies ensures clients receive accurate, context-specific guidance from the very first step.',
-    expertise: ['Credential Evaluation', 'West Africa Licensing', 'Document Preparation', 'Regulatory Body Applications'],
-    credibility: 'Specialist in Cameroon and West African licensing pathways with hands-on regulatory experience.',
-    credentials: ['BSN', 'R.N'],
-    photo: '/arreymanor.webp',
-  },
-  {
-    slug: 'louis-tita-manoji',
-    name: 'Louis Tita Manoji',
-    role: 'Licensing Officer — Nigeria & East Africa',
-    initials: 'LT',
-    location: 'Nigeria',
-    flag: '🇳🇬',
-    background: 'BSN · RN · Licensing specialist for Nigeria and East African countries',
-    bio: 'Louis Tita manages licensing engagements for clients from Nigeria and East Africa — one of the highest-volume regions in MJN\'s portfolio. He specialises in navigating country-specific credential verification requirements, NCLEX eligibility timelines, and EB-3 retrogression realities for Nigerian candidates pursuing the US pathway, as well as UAE and UK licensing routes for East African professionals.',
-    expertise: ['Nigeria Licensing Pathways', 'East Africa Credential Verification', 'NCLEX Eligibility', 'UAE / UK Licensing'],
-    credibility: 'Specialist in Nigeria and East Africa — highest-volume markets in MJN\'s licensing portfolio.',
-    credentials: ['BSN', 'RN'],
-    photo: '/louistita.webp',
-  },
-  {
-    slug: 'amina-ousseini',
-    name: 'Amina Ousseini',
-    role: 'Head of Student Support',
-    initials: 'AO',
-    location: 'Dublin, Ireland',
-    flag: '🇮🇪',
-    background: 'BSN (University of Ngaoundéré) · NMBI Registered Nurse · Postgraduate Diploma in Healthcare Management (UCD)',
-    bio: 'Amina completed her own nursing degree in Cameroon and navigated the NMBI registration and Critical Skills Employment Permit process herself in 2021. She is now based in Dublin, working at an Irish voluntary hospital while leading MJN\'s student support services. She has particular expertise in francophone West and Central African candidates pursuing the Ireland pathway.',
-    expertise: ['NMBI Registration', 'Ireland Critical Skills Permit', 'Student Advisory', 'French-Language Support'],
-    credibility: 'Completed NMBI + Ireland Critical Skills Permit personally in 2021.',
-    credentials: ['NMBI Registered', 'PG Dip UCD', 'BSN'],
-    photo: null,
-  },
-  {
-    slug: 'patrick-mbang',
-    name: 'Patrick Mbang',
-    role: 'Head of Staffing & Employer Relations',
-    initials: 'PM',
-    location: 'London, UK',
-    flag: '🇬🇧',
-    background: 'MBA (University of Bath) · Former NHS HR Director · 15 years international healthcare recruitment',
-    bio: 'Patrick brings an employer perspective that most recruitment agencies lack — he spent 8 years on the NHS trust side managing overseas nurse recruitment before joining MJN. He built the employer partner network from 12 to 80+ institutions and designed the placement compliance documentation package that reduced employer onboarding friction significantly.',
-    expertise: ['NHS Employer Relations', 'Healthcare Recruitment', 'Employment Contracts', 'Partner Development'],
-    credibility: '8 years inside NHS trusts as HR director. Built 80+ institution employer network.',
-    credentials: ['MBA Bath', 'Former NHS HR', '15 yrs Recruitment'],
-    photo: null,
-  },
-  {
-    slug: 'raissa-fombe',
-    name: 'Dr. Raïssa Fombe',
-    role: 'Head of Health Training',
-    initials: 'RF',
-    location: 'Douala, Cameroon',
-    flag: '🇨🇲',
-    background: 'MD (FMSB Yaoundé) · MPH (Tulane University) · WHO West Africa Fellow · 10 years health systems work',
-    bio: 'Raïssa leads MJN\'s Africa-based health training division, bringing a public health systems perspective to clinical workforce development. She has designed training programmes for Ministry of Health teams in Cameroon and Nigeria, and led WHO-funded IPC training during the 2022 outbreak response. She holds a Master of Public Health from Tulane University.',
-    expertise: ['Health Systems Strengthening', 'Community Health Training', 'Public Health Emergency Preparedness', 'WHO Frameworks'],
-    credibility: 'Led WHO-funded IPC training in 2022 outbreak response. MPH Tulane.',
-    credentials: ['MD', 'MPH Tulane', 'WHO Fellow'],
-    photo: null,
-  },
-];
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const advisors = [
-  {
-    name: 'Prof. Jean-Claude Assiga',
-    role: 'Academic Advisor — Medical Education',
-    affiliation: 'Faculty of Medicine and Biomedical Sciences, University of Yaoundé I',
-  },
-  {
-    name: 'Nurse Charlotte Osei',
-    role: 'Clinical Advisor — UAE Operations',
-    affiliation: 'Senior Staff Nurse, Dubai Health Authority facility; DHA 2018',
-  },
-  {
-    name: 'Barrister Ngozi Adeyemi',
-    role: 'Legal Advisor — UK & Irish Operations',
-    affiliation: 'Healthcare & Immigration Law, London',
-  },
-];
+function avatarInitials(name: string) {
+  return name
+    .split(' ')
+    .filter((p) => p.length > 2)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('');
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TeamPage() {
   return (
     <>
       <MarketingNav />
 
-      {/* HERO */}
+      {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="gradient-hero relative overflow-hidden pt-28 pb-16 text-white">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-24 -right-24 h-80 w-80 rounded-full bg-white/5 blur-3xl" />
@@ -129,10 +35,13 @@ export default function TeamPage() {
           <h1 className="max-w-3xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl">
             We Have Been Where You Are Going
           </h1>
-          <p className="mt-5 max-w-2xl text-lg text-blue-100">
-            Every MJN team member has personally navigated the licensing or placement process they now advise on — as an internationally educated professional from Africa.
+          <p className="mt-5 max-w-2xl text-lg text-blue-100 leading-relaxed">
+            Every MJN team member has personally navigated the licensing or placement process they now advise on —
+            as an internationally educated professional from Africa.
           </p>
-          <div className="mt-10 flex flex-wrap gap-3">
+
+          {/* Office locations */}
+          <div className="mt-8 flex flex-wrap gap-3">
             {[
               { city: 'Yaoundé', flag: '🇨🇲', role: 'HQ & Academy' },
               { city: 'Dubai', flag: '🇦🇪', role: 'UAE Operations' },
@@ -149,72 +58,166 @@ export default function TeamPage() {
         </div>
       </section>
 
-      {/* LEADERSHIP TEAM */}
+      {/* ── TRUST STATS ──────────────────────────────────────────────────── */}
+      <section className="border-b border-border bg-white">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="grid grid-cols-2 divide-x divide-border sm:grid-cols-4">
+            {[
+              { value: '6', label: 'Specialists on staff' },
+              { value: '4', label: 'Countries represented' },
+              { value: '5,000+', label: 'Clients guided' },
+              { value: '80+', label: 'Employer partners' },
+            ].map(({ value, label }) => (
+              <div key={label} className="px-6 py-6 text-center">
+                <p className="text-2xl font-extrabold text-primary sm:text-3xl">{value}</p>
+                <p className="mt-1 text-xs font-medium text-muted-foreground">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── WHY FIRST-HAND EXPERIENCE MATTERS ────────────────────────────── */}
+      <section className="bg-muted/20 border-b border-border px-6 py-14">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-10 text-center">
+            <Badge variant="outline" className="mb-3">Why It Matters</Badge>
+            <h2 className="text-3xl font-bold">Advisors Who Have Done It. Not Just Studied It.</h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted-foreground text-sm leading-relaxed">
+              Most licensing agencies hire administrative staff who follow a checklist. MJN hires professionals
+              who navigated the exact process before they advised on it.
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-3">
+            {[
+              {
+                icon: '🧭',
+                title: 'Real Pathway Knowledge',
+                desc: 'When our advisor tells you what to expect from a DataFlow submission or NMBI application, they are recalling their own experience — not reading from a guide they were handed on day one.',
+              },
+              {
+                icon: '🌍',
+                title: 'African Context Built In',
+                desc: 'Our team understands the realities of African nursing education, document attestation from Cameroon, Nigeria, and Kenya, and the specific challenges francophone candidates face at English-language regulatory bodies.',
+              },
+              {
+                icon: '⚖️',
+                title: 'Honest About What Takes Time',
+                desc: 'Because our consultants have been through it themselves, they will not give you unrealistic timelines. They know exactly where delays happen and how to prevent them.',
+              },
+            ].map(({ icon, title, desc }) => (
+              <div key={title} className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/8 text-xl">
+                  {icon}
+                </div>
+                <h3 className="font-bold text-foreground mb-2">{title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── LEADERSHIP TEAM ──────────────────────────────────────────────── */}
       <section className="px-6 py-16">
         <div className="mx-auto max-w-6xl">
           <div className="mb-12 text-center">
             <Badge variant="outline" className="mb-3">Leadership Team</Badge>
-            <h2 className="text-4xl font-bold">Six Specialists. Four Countries.</h2>
-            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+            <h2 className="text-3xl font-bold">Six Specialists. Four Countries.</h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted-foreground text-sm">
               Each assigned to the service area they know from personal experience — not from a manual.
             </p>
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {members.map(({ slug, name, role, initials, location, flag, credentials, credibility, photo }) => (
+            {members.map((member) => (
               <Link
-                key={slug}
-                href={`/team/${slug}`}
-                className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-md transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-primary/10"
+                key={member.slug}
+                href={`/team/${member.slug}`}
+                className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/8 hover:ring-primary/20"
               >
-                {/* ── Portrait photo area ── */}
-                <div className="relative aspect-[3/4] w-full overflow-hidden">
-                  {photo ? (
-                    <img src={photo} alt={name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                {/* Photo / avatar — square */}
+                <div className="relative aspect-square w-full overflow-hidden bg-muted">
+                  {member.photo ? (
+                    <img
+                      src={member.photo}
+                      alt={member.name}
+                      className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                    />
                   ) : (
                     <div className="gradient-hero flex h-full w-full items-center justify-center">
-                      {/* Decorative orbs */}
-                      <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/6 blur-2xl" />
-                      <div className="pointer-events-none absolute -bottom-10 -left-8 h-36 w-36 rounded-full bg-white/4 blur-xl" />
-                      <span className="relative text-6xl font-extrabold tracking-tight text-white/80 select-none">
-                        {initials}
+                      <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/8 blur-2xl" />
+                      <div className="pointer-events-none absolute -bottom-8 -left-6 h-32 w-32 rounded-full bg-white/5 blur-xl" />
+                      <span className="relative text-5xl font-extrabold tracking-tight text-white/80 select-none">
+                        {member.initials}
                       </span>
                     </div>
                   )}
 
                   {/* Bottom scrim */}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent" />
 
-                  {/* Location badge — bottom left */}
-                  <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 backdrop-blur-sm ring-1 ring-white/20">
-                    <span className="text-sm leading-none">{flag}</span>
-                    <span className="text-xs font-semibold text-white">{location}</span>
+                  {/* Location badge */}
+                  <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 backdrop-blur-sm">
+                    <span className="text-sm leading-none">{member.flag}</span>
+                    <span className="text-xs font-semibold text-white">{member.location}</span>
                   </div>
 
-                  {/* Hover overlay — credibility reveal */}
-                  <div className="absolute inset-0 flex flex-col justify-end bg-black/55 p-5 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                    <p className="text-xs font-medium leading-relaxed text-white/85">{credibility}</p>
-                    <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-white">
-                      View profile <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                    </div>
+                  {/* Language badges — top right */}
+                  <div className="absolute right-3 top-3 flex gap-1">
+                    {member.languages.map((lang) => (
+                      <span
+                        key={lang}
+                        className="rounded-md bg-black/40 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm"
+                      >
+                        {lang}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
-                {/* ── Card body ── */}
-                <div className="flex flex-col p-5">
-                  <p className="text-base font-bold leading-tight text-foreground">{name}</p>
-                  <p className="mt-0.5 text-sm font-medium text-primary">{role}</p>
+                {/* Card body */}
+                <div className="flex flex-1 flex-col p-5">
+                  <p className="text-base font-bold leading-tight text-foreground group-hover:text-primary transition-colors">
+                    {member.name}
+                  </p>
+                  <p className="mt-0.5 text-sm font-medium text-primary">{member.role}</p>
+
+                  {/* Credibility — always visible */}
+                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                    {member.credibility}
+                  </p>
 
                   {/* Credential pills */}
-                  {credentials && credentials.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {credentials.map((c) => (
-                        <span key={c} className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {member.credentials.map((c) => (
+                      <span key={c} className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Expertise chips */}
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {member.expertise.slice(0, 2).map((e) => (
+                      <span key={e} className="rounded-full bg-primary/8 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                        {e}
+                      </span>
+                    ))}
+                    {member.expertise.length > 2 && (
+                      <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] text-muted-foreground">
+                        +{member.expertise.length - 2} more
+                      </span>
+                    )}
+                  </div>
+
+                  {/* View profile link */}
+                  <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                    View full profile
+                    <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                  </div>
                 </div>
               </Link>
             ))}
@@ -222,53 +225,79 @@ export default function TeamPage() {
         </div>
       </section>
 
-      {/* ADVISORS */}
+      {/* ── ADVISORY BOARD ───────────────────────────────────────────────── */}
       <section className="bg-muted/30 px-6 py-16">
         <div className="mx-auto max-w-6xl">
           <div className="mb-10 text-center">
             <Badge variant="outline" className="mb-3">Advisory Board</Badge>
-            <h2 className="text-4xl font-bold">External Advisors</h2>
-            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              Independent advisors who challenge our thinking, validate clinical content, and provide specialist legal and academic guidance.
+            <h2 className="text-3xl font-bold">Independent Advisors</h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted-foreground text-sm">
+              External specialists who challenge our thinking, validate clinical content, and provide legal and academic oversight.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {advisors.map(({ name, role, affiliation }) => (
-              <div key={name} className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-sm font-bold text-primary">
-                  {name.split(' ').filter((p: string) => p.length > 2).slice(-2).map((p: string) => p[0]).join('')}
+          <div className="grid gap-5 sm:grid-cols-3">
+            {advisors.map((advisor) => (
+              <div key={advisor.name} className="flex flex-col rounded-2xl border border-border bg-white p-6 shadow-sm">
+                {/* Avatar */}
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-sm font-bold text-primary">
+                  {avatarInitials(advisor.name)}
                 </div>
-                <p className="font-semibold text-foreground">{name}</p>
-                <p className="text-xs font-medium text-primary">{role}</p>
-                <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{affiliation}</p>
+                <p className="font-bold text-foreground">{advisor.name}</p>
+                <p className="mt-0.5 text-xs font-semibold text-primary">{advisor.role}</p>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{advisor.affiliation}</p>
+                {/* Contributes */}
+                <div className="mt-4 rounded-xl border border-border bg-muted/40 px-4 py-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Contributes</p>
+                  <p className="text-xs text-foreground leading-relaxed">{advisor.contributes}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
+      {/* ── CTA ──────────────────────────────────────────────────────────── */}
       <section className="px-6 py-16">
         <div className="mx-auto max-w-4xl">
-          <div className="gradient-hero relative overflow-hidden rounded-3xl p-7 sm:p-10 text-white">
-            <div className="relative grid gap-6 sm:grid-cols-2 sm:gap-10 items-center">
+          <div className="gradient-hero relative overflow-hidden rounded-3xl p-8 sm:p-12 text-white">
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/5 blur-2xl" />
+              <div className="absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-teal-400/10 blur-2xl" />
+            </div>
+            <div className="relative grid gap-8 sm:grid-cols-2 sm:gap-12 items-start">
               <div>
-                <h2 className="text-3xl font-bold">Work With Our Team</h2>
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-white/60">Work With Us</p>
+                <h2 className="text-2xl font-bold">Speak to the Right Specialist</h2>
                 <p className="mt-3 text-blue-100 text-sm leading-relaxed">
-                  Book a free consultation. You&apos;ll be assigned to the specialist who knows your destination and profession from personal experience.
+                  Book a free consultation and you will be matched with the team member who knows your
+                  destination country and profession from personal experience.
                 </p>
-                <Button size="lg" className="mt-6 rounded-xl bg-white px-8 text-primary hover:bg-white/90" asChild>
-                  <Link href="/get-started">Book Free Consultation</Link>
-                </Button>
+                <Link
+                  href="/get-started"
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-primary hover:bg-white/90 transition-colors"
+                >
+                  Book Free Consultation
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                  </svg>
+                </Link>
               </div>
-              <div className="border-t border-white/20 pt-6 sm:border-t-0 sm:border-l sm:pl-10">
-                <h2 className="text-3xl font-bold">Join Our Team</h2>
+              <div className="border-t border-white/20 pt-8 sm:border-t-0 sm:border-l sm:pl-12">
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-white/60">Join Us</p>
+                <h2 className="text-2xl font-bold">Become a Consultant</h2>
                 <p className="mt-3 text-blue-100 text-sm leading-relaxed">
-                  We hire consultants who have personally navigated the licensing processes they advise on. If that is you, we want to hear from you.
+                  We hire consultants who have personally navigated the licensing processes they advise on.
+                  If that is you, we want to hear from you.
                 </p>
-                <Button size="lg" variant="ghost" className="mt-6 text-white hover:bg-white/10 px-0" asChild>
-                  <Link href="/careers">View Open Roles <ArrowRight className="h-4 w-4 ml-1" /></Link>
-                </Button>
+                <Link
+                  href="/become-a-consultant"
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white hover:bg-white/20 transition-colors"
+                >
+                  Apply to Join
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                  </svg>
+                </Link>
               </div>
             </div>
           </div>
