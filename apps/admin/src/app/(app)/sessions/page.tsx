@@ -81,7 +81,7 @@ export default function SessionsPage() {
         category: s.category ?? '—',
         status: s.status ?? 'PENDING',
         paidAmount: Number(s.amountPaid ?? s.paidAmount ?? 0),
-        roomUrl: s.roomUrl,
+        roomUrl: s.dailyRoomUrl ?? s.roomUrl,
         createdAt: s.createdAt,
         slot: s.slot ? {
           startAt: s.slot.startAt,
