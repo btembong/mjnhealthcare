@@ -40,21 +40,6 @@ export default function TeamPage() {
             as an internationally educated professional from Africa.
           </p>
 
-          {/* Office locations */}
-          <div className="mt-8 flex flex-wrap gap-3">
-            {[
-              { city: 'Yaoundé', flag: '🇨🇲', role: 'HQ & Academy' },
-              { city: 'Dubai', flag: '🇦🇪', role: 'UAE Operations' },
-              { city: 'London', flag: '🇬🇧', role: 'UK Placement' },
-              { city: 'Dublin', flag: '🇮🇪', role: 'Ireland Support' },
-            ].map(({ city, flag, role }) => (
-              <div key={city} className="flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 text-sm backdrop-blur-sm ring-1 ring-white/20">
-                <span>{flag}</span>
-                <span className="font-semibold text-white">{city}</span>
-                <span className="text-blue-200">· {role}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -154,15 +139,6 @@ export default function TeamPage() {
                     </div>
                   )}
 
-                  {/* Bottom scrim */}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent" />
-
-                  {/* Location badge */}
-                  <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 backdrop-blur-sm">
-                    <span className="text-sm leading-none">{member.flag}</span>
-                    <span className="text-xs font-semibold text-white">{member.location}</span>
-                  </div>
-
                   {/* Language badges — top right */}
                   <div className="absolute right-3 top-3 flex gap-1">
                     {member.languages.map((lang) => (
@@ -257,11 +233,6 @@ export default function TeamPage() {
                       </span>
                     </div>
                   )}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 backdrop-blur-sm">
-                    <span className="text-sm leading-none">{officer.flag}</span>
-                    <span className="text-xs font-semibold text-white">{officer.location}</span>
-                  </div>
                   <div className="absolute right-3 top-3 flex gap-1">
                     {officer.languages.map((lang) => (
                       <span
