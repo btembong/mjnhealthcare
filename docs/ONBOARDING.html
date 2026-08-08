@@ -197,11 +197,12 @@
       <div class="cover-part"><div class="label">Part B</div><div class="title">Client Portal Guide</div></div>
       <div class="cover-part"><div class="label">Part C</div><div class="title">Full Pipeline — Start to End</div></div>
       <div class="cover-part"><div class="label">Part D</div><div class="title">A La Carte Services</div></div>
-      <div class="cover-part" style="grid-column:span 2"><div class="label">Part E</div><div class="title">Quick Reference Card</div></div>
+      <div class="cover-part"><div class="label">Part E</div><div class="title">Quick Reference Card</div></div>
+      <div class="cover-part"><div class="label">Part F</div><div class="title">Processing Officers Guide</div></div>
     </div>
     <div class="cover-footer">
       <span>MJN Health Academy and Professional Services LTD</span>
-      <span>August 2026 · v1.0 · Internal Use</span>
+      <span>August 2026 · v1.1 · Internal Use</span>
     </div>
   </div>
 </div>
@@ -221,6 +222,7 @@
     <div class="toc-item"><a href="#a7">A7. Academy & Course Management</a><span class="toc-num">A-4</span></div>
     <div class="toc-item"><a href="#a8">A8. Consultant Management & Payouts</a><span class="toc-num">A-4</span></div>
     <div class="toc-item"><a href="#a9">A9. Financial Reports & Receipts</a><span class="toc-num">A-5</span></div>
+    <div class="toc-item"><a href="#a10">A10. Processing Officers & Escalations</a><span class="toc-num">A-6</span></div>
   </div>
 
   <div class="toc-part">
@@ -262,6 +264,17 @@
     <div class="toc-item"><a href="#e2">E2. Client — Common Tasks Step-by-Step</a><span class="toc-num">E-1</span></div>
     <div class="toc-item"><a href="#e3">E3. Status Codes & What They Mean</a><span class="toc-num">E-2</span></div>
   </div>
+
+  <div class="toc-part">
+    <div class="toc-part-label">Part F — Processing Officers Guide</div>
+    <div class="toc-item"><a href="#f1">F1. Role Overview & System Access</a><span class="toc-num">F-1</span></div>
+    <div class="toc-item"><a href="#f2">F2. My Caseload</a><span class="toc-num">F-1</span></div>
+    <div class="toc-item"><a href="#f3">F3. Case Detail View</a><span class="toc-num">F-2</span></div>
+    <div class="toc-item"><a href="#f4">F4. Tracking Application Submissions</a><span class="toc-num">F-2</span></div>
+    <div class="toc-item"><a href="#f5">F5. Case Notes</a><span class="toc-num">F-3</span></div>
+    <div class="toc-item"><a href="#f6">F6. Escalating to a Consultant</a><span class="toc-num">F-3</span></div>
+    <div class="toc-item"><a href="#f7">F7. Consultant — Escalation Inbox</a><span class="toc-num">F-4</span></div>
+  </div>
 </div>
 
 <!-- ══ PART A ═════════════════════════════════════════════════════════ -->
@@ -295,7 +308,8 @@
     <thead><tr><th>Role</th><th>Access level</th><th>Can do</th></tr></thead>
     <tbody>
       <tr><td><strong>Super Admin</strong></td><td>Full access</td><td>Everything — including creating other staff accounts, managing billing, viewing all clients</td></tr>
-      <tr><td><strong>Consultant</strong></td><td>Assigned cases only</td><td>View and manage their own client cases, verify documents, review AI drafts, book sessions</td></tr>
+      <tr><td><strong>Consultant</strong></td><td>Assigned cases only</td><td>View and manage their own client cases, verify documents, review AI drafts, book sessions, resolve escalations</td></tr>
+      <tr><td><strong>Processing Officer</strong></td><td>Assigned cases only</td><td>Track application submissions to regulatory bodies (DataFlow, DHA, NMC, etc.), add case notes, escalate issues to consultants. Cannot modify engagement letters or payments.</td></tr>
       <tr><td><strong>Operations</strong></td><td>Operational view</td><td>Leads, caseload overview, financial reports — cannot modify engagement letters or payment records</td></tr>
     </tbody>
   </table>
@@ -489,6 +503,25 @@
   </table>
 
   <div class="callout warning"><strong>Instalment dunning timeline:</strong> Day +7 → payment reminder sent. Day +14 → final warning sent. Day +21 → engagement automatically placed On Hold and admin alerted. To reinstate, collect payment then manually change engagement status back to Active.</div>
+
+  <h2 id="a10"><span class="sec-num">A10</span> Processing Officers & Escalations</h2>
+  <p>Processing Officers are back-office staff who handle the administrative submission work: sending documents to DataFlow, DHA, NMC, CGFNS, and other regulatory bodies, and tracking those submissions through to completion. They operate within the admin console under their own restricted sidebar.</p>
+
+  <h4>Creating a Processing Officer Account</h4>
+  <p>Navigate to <strong>Staff</strong> in the admin sidebar → New Staff Member → set Role to <strong>Processing Officer</strong>. The account uses email and password login (same as other staff).</p>
+
+  <h4>Assigning an Officer to an Engagement</h4>
+  <p>Navigate to <strong>Officers</strong> in the admin sidebar. This page shows:</p>
+  <ul>
+    <li>All active processing officers with their current caseload count</li>
+    <li>Active engagements that have not yet been assigned an officer (shown as a warning at the top)</li>
+  </ul>
+  <p>Click <strong>Assign Cases</strong> next to an officer to open the assignment modal — select which engagements to assign. An officer can be unassigned from a case at any time by selecting "Unassigned" in the same modal.</p>
+
+  <div class="callout info"><strong>Best practice:</strong> Assign a processing officer at the same time as Stage 4 begins (document collection). Officers should be in place before any regulatory body submission is due.</div>
+
+  <h4>Consultant Escalation Inbox</h4>
+  <p>When a processing officer escalates a case, the assigned consultant receives a notification and the escalation appears in their <strong>Escalations</strong> sidebar entry. Consultants can see all open escalations, the reason given by the officer, and can resolve each escalation with a response. Resolved escalations are archived but remain visible for audit purposes.</p>
 
 </div>
 
@@ -1129,15 +1162,30 @@
 
   <h2 id="e1"><span class="sec-num">E1</span> Admin — Daily Task Checklist</h2>
 
+  <p style="font-size:12px;color:var(--muted);margin-bottom:6px;"><strong>For Admin / Consultants:</strong></p>
   <table>
     <thead><tr><th>Priority</th><th>Task</th><th>Where</th><th>Target time</th></tr></thead>
     <tbody>
       <tr><td>1 — Urgent</td><td>Clear document verification queue</td><td>Admin → Documents → Pending</td><td>Before 10:00 AM</td></tr>
       <tr><td>2 — Urgent</td><td>Review and action AI drafts queue</td><td>Admin → AI Drafts → Pending</td><td>Before 10:00 AM</td></tr>
-      <tr><td>3 — High</td><td>Check new leads and assign</td><td>Admin → Leads</td><td>Before 12:00 PM</td></tr>
-      <tr><td>4 — High</td><td>Follow up on overdue instalments</td><td>Admin → Payments → Overdue</td><td>Daily</td></tr>
-      <tr><td>5 — Normal</td><td>Check cases with expiring documents (30 days)</td><td>Admin → Documents → Expiring Soon</td><td>Weekly</td></tr>
-      <tr><td>6 — Normal</td><td>Process consultant payouts marked for payment</td><td>Admin → Consultants → Payouts</td><td>Weekly (Fridays)</td></tr>
+      <tr><td>3 — Urgent</td><td>Check escalation inbox (consultants only)</td><td>Admin → Escalations</td><td>Before 10:00 AM</td></tr>
+      <tr><td>4 — High</td><td>Check new leads and assign</td><td>Admin → Leads</td><td>Before 12:00 PM</td></tr>
+      <tr><td>5 — High</td><td>Follow up on overdue instalments</td><td>Admin → Payments → Overdue</td><td>Daily</td></tr>
+      <tr><td>6 — Normal</td><td>Check cases with expiring documents (30 days)</td><td>Admin → Documents → Expiring Soon</td><td>Weekly</td></tr>
+      <tr><td>7 — Normal</td><td>Process consultant payouts marked for payment</td><td>Admin → Consultants → Payouts</td><td>Weekly (Fridays)</td></tr>
+      <tr><td>8 — Normal</td><td>Check unassigned engagements need officer assignment</td><td>Admin → Officers</td><td>Weekly (Mondays)</td></tr>
+    </tbody>
+  </table>
+
+  <p style="font-size:12px;color:var(--muted);margin-bottom:6px;margin-top:18px;"><strong>For Processing Officers:</strong></p>
+  <table>
+    <thead><tr><th>Priority</th><th>Task</th><th>Where</th><th>Target time</th></tr></thead>
+    <tbody>
+      <tr><td>1 — Urgent</td><td>Check my caseload for any new assignments</td><td>Officer → My Caseload</td><td>Start of day</td></tr>
+      <tr><td>2 — High</td><td>Log any new submission reference numbers received</td><td>Officer → Cases → [Case] → Track Application</td><td>Same day as receipt</td></tr>
+      <tr><td>3 — High</td><td>Update status on in-progress submissions</td><td>Officer → Stage Tracker</td><td>Daily</td></tr>
+      <tr><td>4 — Normal</td><td>Add case notes for any progress or issues</td><td>Officer → Cases → [Case] → Notes</td><td>End of day</td></tr>
+      <tr><td>5 — Normal</td><td>Review my escalation history</td><td>Officer → Escalations</td><td>Weekly</td></tr>
     </tbody>
   </table>
 
@@ -1270,9 +1318,269 @@
 
 </div>
 
+<!-- ══ PART F ═════════════════════════════════════════════════════════ -->
+<div class="part-break">
+  <div class="part-header">
+    <div class="part-label">Part F</div>
+    <h2>Processing Officers Guide</h2>
+    <p>For back-office staff managing regulatory body submissions — DataFlow, DHA, MOH, DOH, NMC, CGFNS, and more</p>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="callout info">Processing Officers are separate from consultants. Their job is administrative execution — submitting documents to regulatory bodies, tracking reference numbers, and flagging issues. Consultants retain ownership of the client relationship and all decisions about eligibility or strategy.</div>
+
+  <h2 id="f1"><span class="sec-num">F1</span> Role Overview & System Access</h2>
+
+  <p>Processing Officers log into the admin console at <code>admin.mjnhealthcare.com</code> using email and password. After login, the sidebar shows an officer-specific menu — the general admin and consultant menus are not visible to this role.</p>
+
+  <table>
+    <thead><tr><th>Officer can do</th><th>Officer cannot do</th></tr></thead>
+    <tbody>
+      <tr><td>View cases assigned to them by admin</td><td>View cases assigned to other officers</td></tr>
+      <tr><td>Add internal case notes</td><td>Approve or reject client documents</td></tr>
+      <tr><td>Log application submission entries (portal, reference number, status, dates)</td><td>Advance licensing stages</td></tr>
+      <tr><td>Escalate a case to a consultant</td><td>Modify engagement letters or payment records</td></tr>
+      <tr><td>View all documents on assigned cases</td><td>Create or delete Person or Engagement records</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warning"><strong>Important:</strong> If you encounter a situation where a client is asking you directly for advice about their eligibility or timeline, do not answer — escalate to the assigned consultant immediately. Processing Officers are not authorised to give clients professional guidance.</div>
+
+  <h2 id="f2"><span class="sec-num">F2</span> My Caseload</h2>
+
+  <p>Navigate to <strong>My Caseload</strong> in the sidebar. This shows all engagements assigned to you by an admin.</p>
+
+  <table>
+    <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Client name + profession</td><td>The candidate whose case you are managing</td></tr>
+      <tr><td>Status badge</td><td>Current engagement status — Active, On Hold, Completed, Terminated</td></tr>
+      <tr><td>Latest milestone</td><td>The most recently completed stage in the licensing pathway</td></tr>
+      <tr><td>Notes count</td><td>How many case notes are on this case (yours and others)</td></tr>
+      <tr><td>Open Case button</td><td>Click to open the full case detail view</td></tr>
+    </tbody>
+  </table>
+
+  <p>If you have been assigned a case but do not see it here, contact your admin — it may not have been saved correctly, or you may be looking at the wrong login.</p>
+
+  <h2 id="f3"><span class="sec-num">F3</span> Case Detail View</h2>
+
+  <p>Click <strong>Open Case</strong> on any case in your caseload. The case detail page has three columns:</p>
+
+  <table>
+    <thead><tr><th>Section</th><th>What it shows</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Milestones</strong></td><td>The ordered stages of this client's licensing pathway. Green dots = completed. Grey = pending. Dates shown for completed stages.</td></tr>
+      <tr><td><strong>Application Tracking</strong></td><td>All submission entries you (or previous officers) have logged for this case. Each entry shows the portal/body, reference number, status, and next action date.</td></tr>
+      <tr><td><strong>Orders</strong></td><td>Summary of what the client has paid for — useful to confirm which services are in scope before submitting anything.</td></tr>
+      <tr><td><strong>Case Notes</strong></td><td>Internal notes from all staff who have worked on this case. A text box lets you add a new note directly from this page.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Two action buttons appear at the top right of the case detail:</p>
+  <ul>
+    <li><strong>Track Application</strong> — goes to the full application tracking page for this case</li>
+    <li><strong>Escalate</strong> (rose button) — opens the escalation form</li>
+  </ul>
+
+  <h2 id="f4"><span class="sec-num">F4</span> Tracking Application Submissions</h2>
+
+  <p>Navigate to <strong>Officer → Cases → [Case] → Track Application</strong>, or click Track Application from the case detail page. This is where you log every submission you make to a regulatory body on behalf of the client.</p>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Select the portal or body</div>
+        <div><span class="step-who admin">Processing Officer</span></div>
+        <div class="step-desc">Choose from: DataFlow, DHA, MOH, DOH, NMC, NCLEX/CGFNS, NMBI, or Other. This identifies which regulatory body the submission was made to.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Enter the reference number</div>
+        <div><span class="step-who admin">Processing Officer</span></div>
+        <div class="step-desc">Enter the reference or application number provided by the regulatory body after submission. Example: <code>DHA-2025-001234</code>. This is critical — without it, you cannot follow up later.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Set submission date and status</div>
+        <div><span class="step-who admin">Processing Officer</span></div>
+        <div class="step-desc">Enter the date the submission was made. Set the status: <span class="chip chip-blue">Submitted</span> for a fresh submission, or <span class="chip chip-amber">In Review</span> if the body has acknowledged it. See status definitions below.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Set next action date</div>
+        <div><span class="step-who admin">Processing Officer</span></div>
+        <div class="step-desc">Set a follow-up date — this appears in amber on the tracking history and in your Stage Tracker view. For DataFlow, typical follow-up is 2 weeks after submission. For DHA exam results, follow up within 48 hours.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Add notes and submit</div>
+        <div><span class="step-who admin">Processing Officer</span></div>
+        <div class="step-desc">Add any relevant notes (e.g. "Submitted without transcript — client re-uploading, will resubmit"). Click Add Entry. The entry appears in the Submission History panel on the right.</div>
+      </div>
+    </div>
+  </div>
+
+  <h4>Submission Status Codes</h4>
+  <table>
+    <thead><tr><th>Status</th><th>Meaning</th><th>When to use</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip chip-blue">Submitted</span></td><td>Application sent to the regulatory body</td><td>Immediately after submitting online or by post</td></tr>
+      <tr><td><span class="chip chip-amber">In Review</span></td><td>Body has acknowledged receipt and is processing</td><td>When you receive a confirmation email or portal status update</td></tr>
+      <tr><td><span class="chip chip-amber">Pending Docs</span></td><td>Body has requested additional documents</td><td>When you receive a deficiency notice — escalate to consultant immediately</td></tr>
+      <tr><td><span class="chip chip-blue">Resubmitted</span></td><td>Additional docs sent after a deficiency notice</td><td>After re-sending requested documents</td></tr>
+      <tr><td><span class="chip chip-green">Approved</span></td><td>Application approved by the regulatory body</td><td>When approval is confirmed — notify consultant to advance the stage</td></tr>
+      <tr><td><span class="chip chip-rose">Rejected</span></td><td>Application rejected</td><td>On receipt of rejection — escalate to consultant immediately, do not act independently</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout danger"><strong>Rejection or deficiency notice:</strong> Always escalate to the assigned consultant before taking any action. Do not respond to a regulatory body directly on a rejection without consultant sign-off.</div>
+
+  <h2 id="f5"><span class="sec-num">F5</span> Case Notes</h2>
+
+  <p>Case notes are internal — they are <strong>never visible to the client</strong>. They are a record for MJN staff of what has happened on a case.</p>
+
+  <h4>Adding a note from the Case Detail page</h4>
+  <ol>
+    <li>Open the case → scroll to the Case Notes section on the right</li>
+    <li>Type your note in the text box</li>
+    <li>Click <strong>Add Note</strong></li>
+  </ol>
+
+  <h4>Viewing all notes across your cases</h4>
+  <p>Navigate to <strong>Case Notes</strong> in the sidebar. This shows all notes across all your assigned cases, sorted by date (most recent first). Useful for a daily review of activity.</p>
+
+  <h4>What to put in a case note</h4>
+  <table>
+    <thead><tr><th>Good note</th><th>Not helpful</th></tr></thead>
+    <tbody>
+      <tr><td>"Submitted DataFlow application for [client]. Ref DHA-2025-8821. Follow-up due 15 Aug."</td><td>"Application submitted."</td></tr>
+      <tr><td>"Received deficiency notice from DataFlow — requesting certified transcript. Escalated to consultant [name]."</td><td>"Problem with application."</td></tr>
+      <tr><td>"Resent experience letter from City Hospital after consultant confirmed the format issue was corrected."</td><td>"Resent docs."</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="f6"><span class="sec-num">F6</span> Escalating to a Consultant</h2>
+
+  <p>Escalate when you encounter something that requires consultant decision-making — a compliance concern, an unexpected rejection, a client contact attempt, or anything outside the scope of your administrative role.</p>
+
+  <div class="callout danger"><strong>Always escalate:</strong> regulatory body rejection, deficiency notice requiring professional judgement, client contacting you directly for advice, suspicion of document fraud, or anything that could affect the client's eligibility or timeline.</div>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Open the case and click Escalate</div>
+        <div><span class="step-who admin">Processing Officer</span></div>
+        <div class="step-desc">From the case detail page, click the red <strong>Escalate</strong> button at the top right. This opens the escalation form.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Select the consultant</div>
+        <div><span class="step-who admin">Processing Officer</span></div>
+        <div class="step-desc">Choose from the list of active consultants. If you know who is assigned to the case, select them. If not, select the team lead or supervisor.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Write a clear reason</div>
+        <div><span class="step-who admin">Processing Officer</span></div>
+        <div class="step-desc">Be specific. Include: what happened, what you have already done, what decision or action you need from the consultant. The consultant receives this text in their notification — they need enough information to act without calling you first.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Click Escalate Case</div>
+        <div><span class="step-who system">System</span></div>
+        <div class="step-desc">The consultant receives an email and WhatsApp notification. The escalation appears in their Escalations inbox in the admin console. You can view your sent escalations under Officer → Escalations.</div>
+      </div>
+    </div>
+  </div>
+
+  <h4>My Escalations page</h4>
+  <p>Navigate to <strong>Escalations</strong> in the officer sidebar. This shows all escalations you have raised, their status (Open or Resolved), and the consultant's resolution response once they have actioned it.</p>
+
+  <h2 id="f7"><span class="sec-num">F7</span> Consultant — Escalation Inbox</h2>
+
+  <p>When a processing officer escalates a case to you, it appears in your <strong>Escalations</strong> sidebar entry in the admin console. This section covers how consultants handle escalations.</p>
+
+  <div class="screen no-break">
+    <div class="screen-bar">
+      <div class="screen-dot" style="background:#ef4444"></div>
+      <div class="screen-dot" style="background:#f59e0b"></div>
+      <div class="screen-dot" style="background:#10b981"></div>
+      <div class="screen-url">admin.mjnhealthcare.com/escalations</div>
+    </div>
+    <div class="screen-body">
+      <p style="font-weight:700;margin-bottom:6px;">Escalation Inbox</p>
+      <p style="font-size:12px;color:var(--muted);">Two sections: <strong>Open Escalations</strong> (requiring your attention) and <strong>Resolved</strong> (archived). Each open escalation shows the client name, officer name, reason, and a resolution text box.</p>
+    </div>
+  </div>
+
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Review the escalation</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">Read the reason carefully. Click the client name link to open the case detail in a new view if needed. Check the application tracking history and case notes for context.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Take action on the case</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">Handle the underlying issue — contact the regulatory body, advise the client, decide on next steps. Document what you did in a case note before resolving the escalation.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Write resolution notes and click Resolve</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">In the resolution text box, summarise what action you took and what the officer should do next (if anything). Click <strong>Resolve Escalation</strong>. The officer is notified and the escalation moves to Resolved.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warning"><strong>SLA target:</strong> Respond to open escalations within 4 business hours. A processing officer who has escalated a case is blocked from proceeding until they hear back — delays directly affect client timelines.</div>
+
+  <h4>Escalation audit trail</h4>
+  <p>All escalations are logged permanently with: who raised it, when, the reason text, who resolved it, when, and the resolution notes. This is part of the compliance audit trail and can be reviewed by the Super Admin at any time.</p>
+
+</div>
+
 <!-- ══ DOC FOOTER ════════════════════════════════════════════════════ -->
 <div class="doc-footer">
-  <span>MJN Health Academy and Professional Services LTD — Internal Operations Manual v1.0</span>
+  <span>MJN Health Academy and Professional Services LTD — Internal Operations Manual v1.1</span>
   <span>August 2026 · Prepared by Digos Technologies</span>
 </div>
 

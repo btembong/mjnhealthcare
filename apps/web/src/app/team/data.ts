@@ -115,6 +115,46 @@ export const members: TeamMember[] = [
   },
 ];
 
+export interface ProcessingOfficer {
+  slug: string;
+  name: string;
+  role: string;
+  initials: string;
+  location: string;
+  flag: string;
+  email: string;
+  expertise: string[];
+  languages: string[];
+  photo: string | null;
+}
+
+export const processingOfficers: ProcessingOfficer[] = [
+  {
+    slug: 'elangwe-lois-makane',
+    name: 'Elangwe Lois Makane',
+    role: 'Processing Officer',
+    initials: 'EL',
+    location: 'Cameroon',
+    flag: '🇨🇲',
+    email: 'Lois.makene@mjnhealthcare.com',
+    expertise: ['DataFlow Submissions', 'Document Processing', 'DHA / DOH Applications', 'Application Tracking'],
+    languages: ['EN', 'FR'],
+    photo: '/lois.jpeg',
+  },
+  {
+    slug: 'claude-nji-atanga',
+    name: 'Claude Nji Atanga',
+    role: 'Processing Officer',
+    initials: 'CN',
+    location: 'Cameroon',
+    flag: '🇨🇲',
+    email: 'claude.nji@mjnhealthcare.com',
+    expertise: ['NMC Applications', 'CGFNS Processing', 'Regulatory Submissions', 'Application Tracking'],
+    languages: ['EN', 'FR'],
+    photo: '/claude.jpeg',
+  },
+];
+
 export const advisors: Advisor[] = [
   {
     name: 'Prof. Jean-Claude Assiga',

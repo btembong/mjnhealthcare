@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { MarketingNav } from '../../components/marketing-nav';
 import { SiteFooter } from '../../components/site-footer';
 import { Badge } from '@mjn/ui';
-import { members, advisors } from './data';
+import { members, advisors, processingOfficers } from './data';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -220,6 +220,73 @@ export default function TeamPage() {
                   </div>
                 </div>
               </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── PROCESSING OFFICERS ──────────────────────────────────────────── */}
+      <section className="bg-muted/20 border-t border-border px-6 py-16">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-10 text-center">
+            <Badge variant="outline" className="mb-3">Processing Officers</Badge>
+            <h2 className="text-3xl font-bold">The Team Behind Every Submission</h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted-foreground text-sm leading-relaxed">
+              Our processing officers handle the administrative execution — submitting documents to regulatory bodies,
+              tracking applications, and ensuring nothing falls through the cracks.
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {processingOfficers.map((officer) => (
+              <div
+                key={officer.slug}
+                className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-border"
+              >
+                {/* Photo / avatar */}
+                <div className="relative aspect-square w-full overflow-hidden bg-muted">
+                  {officer.photo ? (
+                    <img
+                      src={officer.photo}
+                      alt={officer.name}
+                      className="h-full w-full object-cover object-top"
+                    />
+                  ) : (
+                    <div className="gradient-hero flex h-full w-full items-center justify-center">
+                      <span className="text-5xl font-extrabold tracking-tight text-white/80 select-none">
+                        {officer.initials}
+                      </span>
+                    </div>
+                  )}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent" />
+                  <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 backdrop-blur-sm">
+                    <span className="text-sm leading-none">{officer.flag}</span>
+                    <span className="text-xs font-semibold text-white">{officer.location}</span>
+                  </div>
+                  <div className="absolute right-3 top-3 flex gap-1">
+                    {officer.languages.map((lang) => (
+                      <span
+                        key={lang}
+                        className="rounded-md bg-black/40 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm"
+                      >
+                        {lang}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Card body */}
+                <div className="flex flex-1 flex-col p-5">
+                  <p className="text-base font-bold leading-tight text-foreground">{officer.name}</p>
+                  <p className="mt-0.5 text-sm font-medium text-primary">{officer.role}</p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {officer.expertise.map((e) => (
+                      <span key={e} className="rounded-full bg-primary/8 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                        {e}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
