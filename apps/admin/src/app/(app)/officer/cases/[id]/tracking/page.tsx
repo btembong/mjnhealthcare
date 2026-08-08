@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@mjn/ui';
 import { ArrowSquareUpRight, Plus } from '@phosphor-icons/react';
-import { api } from '../../../../../lib/api';
+import { api } from '../../../../../../lib/api';
 import { toast } from 'sonner';
 import Link from 'next/link';
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@mjn/ui';
 import { Note, User } from '@phosphor-icons/react';
-import { api } from '../../../lib/api';
+import { api } from '../../../../lib/api';
 import Link from 'next/link';
 
 export default function OfficerNotesPage() {
