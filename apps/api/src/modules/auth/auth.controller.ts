@@ -64,8 +64,8 @@ class RegisterStaffDto {
   @MinLength(8)
   password!: string;
 
-  @IsEnum(['CONSULTANT', 'ADMIN', 'PARTNER'])
-  role!: 'CONSULTANT' | 'ADMIN' | 'PARTNER';
+  @IsEnum(['CONSULTANT', 'ADMIN', 'PARTNER', 'PROCESSING_OFFICER'])
+  role!: 'CONSULTANT' | 'ADMIN' | 'PARTNER' | 'PROCESSING_OFFICER';
 }
 
 @ApiTags('auth')

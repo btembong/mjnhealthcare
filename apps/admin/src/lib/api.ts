@@ -472,4 +472,57 @@ export const api = {
 
   sendEngagementMessage: (engagementId: string, content: string) =>
     request<any>(`/messages/engagement/${engagementId}`, { method: 'POST', body: JSON.stringify({ content }) }),
+
+  // ── Officer module ────────────────────────────────────────────────────────
+  listOfficers: () => request<any[]>('/admin/officers'),
+
+  createOfficer: (data: { name: string; email: string; password: string }) =>
+    request<any>('/admin/officers', { method: 'POST', body: JSON.stringify(data) }),
+
+  assignOfficer: (engagementId: string, officerId: string | null) =>
+    request<any>(`/engagements/${engagementId}/assign-officer`, {
+      method: 'PATCH',
+      body: JSON.stringify({ officerId }),
+    }),
+
+  getOfficerCases: () => request<any[]>('/officer/my-cases'),
+
+  getOfficerCase: (id: string) => request<any>(`/officer/cases/${id}`),
+
+  addCaseNote: (engagementId: string, content: string, isInternal = true) =>
+    request<any>(`/officer/cases/${engagementId}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ content, isInternal }),
+    }),
+
+  getCaseNotes: (engagementId: string) =>
+    request<any[]>(`/officer/cases/${engagementId}/notes`),
+
+  addTracking: (engagementId: string, data: {
+    portal: string; referenceNumber?: string; submittedAt?: string;
+    status?: string; notes?: string; nextActionDate?: string;
+  }) =>
+    request<any>(`/officer/cases/${engagementId}/tracking`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getTracking: (engagementId: string) =>
+    request<any[]>(`/officer/cases/${engagementId}/tracking`),
+
+  escalateCase: (engagementId: string, consultantId: string, reason: string) =>
+    request<any>(`/officer/cases/${engagementId}/escalate`, {
+      method: 'POST',
+      body: JSON.stringify({ consultantId, reason }),
+    }),
+
+  getMyEscalations: () => request<any[]>('/officer/my-escalations'),
+
+  getConsultantEscalationsInbox: () => request<any[]>('/officer/escalations/inbox'),
+
+  resolveEscalation: (id: string, resolution: string) =>
+    request<any>(`/officer/escalations/${id}/resolve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ resolution }),
+    }),
 };

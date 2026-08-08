@@ -6,12 +6,13 @@ import {
   ChartLineUp, SignOut, User, Tag, CalendarBlank, CurrencyDollar,
   MagnifyingGlass, VideoCamera, Gavel, GearSix, ClipboardText, Buildings,
   Headset, MegaphoneSimple, MapTrifold, ChartBar, ChatCircle,
+  Clipboard, ListChecks, Warning,
 } from '@phosphor-icons/react';
 import { AdminProvider, useAdmin } from '../../contexts/admin-context';
 
 // ── Role-gated sidebar sections ───────────────────────────────────────────────
 
-type Role = 'ADMIN' | 'CONSULTANT' | 'COMPLIANCE' | string;
+type Role = 'ADMIN' | 'CONSULTANT' | 'COMPLIANCE' | 'PROCESSING_OFFICER' | string;
 
 function getRoleFromToken(): string {
   if (typeof window === 'undefined') return '';
@@ -27,9 +28,29 @@ function useSidebarSections(
   role: Role,
   counts: { pendingDocs: number; pendingDrafts: number; leads: number },
 ) {
-  const isAdmin = role === 'ADMIN';
   const isConsultant = role === 'CONSULTANT';
   const isCompliance = role === 'COMPLIANCE';
+  const isOfficer = role === 'PROCESSING_OFFICER';
+
+  if (isOfficer) {
+    return [
+      {
+        items: [
+          { label: 'My Caseload', href: '/officer/caseload', icon: UsersThree },
+          { label: 'Documents', href: '/officer/documents', icon: FileText },
+          { label: 'Stage Tracker', href: '/officer/stages', icon: ListChecks },
+          { label: 'Case Notes', href: '/officer/notes', icon: Clipboard },
+          { label: 'Escalations', href: '/officer/escalations', icon: Warning },
+        ],
+      },
+      {
+        title: 'Account',
+        items: [
+          { label: 'Settings', href: '/settings', icon: GearSix },
+        ],
+      },
+    ];
+  }
 
   if (isConsultant) {
     return [
@@ -41,6 +62,7 @@ function useSidebarSections(
           { label: 'Sessions', href: '/sessions', icon: VideoCamera },
           { label: 'Documents', href: '/documents', icon: FileText, badge: counts.pendingDocs > 0 ? String(counts.pendingDocs) : undefined },
           { label: 'AI Drafts', href: '/drafts', icon: Robot, badge: counts.pendingDrafts > 0 ? String(counts.pendingDrafts) : undefined },
+          { label: 'Escalations', href: '/escalations', icon: Warning },
         ],
       },
       {
@@ -97,6 +119,7 @@ function useSidebarSections(
         { label: 'Jobs', href: '/jobs', icon: Briefcase },
         { label: 'Partners', href: '/partners', icon: Buildings },
         { label: 'Staff', href: '/staff', icon: User },
+        { label: 'Officers', href: '/officers', icon: Clipboard },
         { label: 'Catalog', href: '/catalog', icon: Tag },
         { label: 'Bookings', href: '/bookings', icon: CalendarBlank },
         { label: 'Payments', href: '/payments', icon: CurrencyDollar },

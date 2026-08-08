@@ -27,6 +27,7 @@ import { MessagingModule } from './modules/messaging/messaging.module';
 import { TicketModule } from './modules/ticket/ticket.module';
 import { CampaignModule } from './modules/campaign/campaign.module';
 import { PaymentAdminModule } from './modules/payment-admin/payment-admin.module';
+import { OfficerModule } from './modules/officer/officer.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { PaymentAdminModule } from './modules/payment-admin/payment-admin.module
     TicketModule,
     CampaignModule,
     PaymentAdminModule,
+    OfficerModule,
     PartnerModule,
     NotificationModule,
     ComplianceModule,

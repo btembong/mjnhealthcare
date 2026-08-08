@@ -9,7 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 
-const ROLES = ['ADMIN', 'CONSULTANT', 'COMPLIANCE'] as const;
+const ROLES = ['ADMIN', 'CONSULTANT', 'COMPLIANCE', 'PROCESSING_OFFICER'] as const;
 
 const ROLE_STYLES: Record<string, string> = {
   CONSULTANT: 'bg-violet-100 text-violet-700',
@@ -33,7 +33,7 @@ export default function StaffPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'CONSULTANT' | 'ADMIN' | 'COMPLIANCE'>('CONSULTANT');
+  const [role, setRole] = useState<'CONSULTANT' | 'ADMIN' | 'COMPLIANCE' | 'PROCESSING_OFFICER'>('CONSULTANT');
 
   // Create consultant profile modal
   const [profileTarget, setProfileTarget] = useState<{ name: string; email: string } | null>(null);

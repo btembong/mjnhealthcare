@@ -18,6 +18,7 @@ enum PersonRole {
   CANDIDATE
   STUDENT
   CONSULTANT
+  PROCESSING_OFFICER
   ADMIN
   PARTNER
 }
@@ -122,8 +123,12 @@ model Person {
   poaRecords         PoaRecord[]
   aiDrafts           AiDraft[]
   licensingProgress  LicensingProgress[]
-  sentMessages       EngagementMessage[]
-  supportTickets     SupportTicket[]
+  sentMessages        EngagementMessage[]
+  supportTickets      SupportTicket[]
+  officerEngagements  Engagement[]       @relation("OfficerEngagements")
+  caseNotes           CaseNote[]
+  escalations         CaseEscalation[]   @relation("EscalationOfficer")
+  escalationsReceived CaseEscalation[]   @relation("EscalationConsultant")
 
   @@map("persons")
 }
@@ -135,6 +140,8 @@ model Engagement {
   personId            String
   person              Person           @relation(fields: [personId], references: [id])
   consultantId        String
+  officerId           String?
+  officer             Person?          @relation("OfficerEngagements", fields: [officerId], references: [id])
   status              EngagementStatus @default(PENDING_SIGNATURE)
   paymentMode         PaymentMode      @default(FULL)
   letterSignedAt      DateTime?
@@ -150,6 +157,9 @@ model Engagement {
   aiDrafts              AiDraft[]
   engagementServicePlan EngagementServicePlan[]
   messages              EngagementMessage[]
+  caseNotes             CaseNote[]
+  applicationTracking   ApplicationTracking[]
+  escalations           CaseEscalation[]
 
   @@map("engagements")
 }
@@ -959,6 +969,54 @@ enum TicketAuthorRole {
   CLIENT
   CONSULTANT
   ADMIN
+}
+
+// ─── Processing Officer Models ────────────────────────────────────────────────
+
+model CaseNote {
+  id           String     @id @default(cuid())
+  engagementId String
+  engagement   Engagement @relation(fields: [engagementId], references: [id])
+  authorId     String
+  author       Person     @relation(fields: [authorId], references: [id])
+  content      String
+  isInternal   Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  @@map("case_notes")
+}
+
+model ApplicationTracking {
+  id              String     @id @default(cuid())
+  engagementId    String
+  engagement      Engagement @relation(fields: [engagementId], references: [id])
+  portal          String     // e.g. "DataFlow", "DHA", "NMC", "CGFNS"
+  referenceNumber String?
+  submittedAt     DateTime?
+  status          String     @default("SUBMITTED") // SUBMITTED | PENDING | APPROVED | REJECTED | RESUBMITTED
+  notes           String?
+  nextActionDate  DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@map("application_tracking")
+}
+
+model CaseEscalation {
+  id            String     @id @default(cuid())
+  engagementId  String
+  engagement    Engagement @relation(fields: [engagementId], references: [id])
+  officerId     String
+  officer       Person     @relation("EscalationOfficer", fields: [officerId], references: [id])
+  consultantId  String
+  consultant    Person     @relation("EscalationConsultant", fields: [consultantId], references: [id])
+  reason        String
+  status        String     @default("OPEN") // OPEN | RESOLVED | DISMISSED
+  resolvedAt    DateTime?
+  resolution    String?
+  createdAt     DateTime   @default(now())
+
+  @@map("case_escalations")
 }
 
 model SupportTicket {
