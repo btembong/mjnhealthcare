@@ -369,6 +369,21 @@ export class ConsultationService {
     return { roomUrl: booking.dailyRoomUrl, token, consultantName: booking.consultant.name, message: null };
   }
 
+  // ── Admin: host join (owner token) ──────────────────────────────────────────
+
+  async getHostJoinInfo(bookingId: string, hostName: string) {
+    const booking = await this.db.consultationBooking.findUnique({
+      where: { id: bookingId },
+      include: { consultant: true },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+    if (!booking.dailyRoomName || !booking.dailyRoomUrl) {
+      return { roomUrl: null, token: null, message: 'Room not yet created for this session.' };
+    }
+    const token = await this.dailyCo.createMeetingToken(booking.dailyRoomName, true, hostName);
+    return { roomUrl: booking.dailyRoomUrl, token, clientName: booking.clientName, message: null };
+  }
+
   // ── Public: cancel booking ──────────────────────────────────────────────────
 
   async cancelBooking(bookingId: string, clientEmail: string) {

@@ -59,6 +59,8 @@ export default function SessionsPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [completing, setCompleting] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [activeRoom, setActiveRoom] = useState<{ url: string; token: string | null; clientName: string } | null>(null);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
 
   useEffect(() => { loadSessions(); }, [me]);
 
@@ -88,6 +90,17 @@ export default function SessionsPage() {
         } : undefined,
       })));
     } catch (e) { console.error(e); } finally { setLoading(false); }
+  }
+
+  async function handleJoin(sessionId: string) {
+    setJoiningId(sessionId);
+    try {
+      const data = await api.getHostJoinInfo(sessionId);
+      if (!data.roomUrl) { alert(data.message ?? 'Room not ready.'); return; }
+      const url = data.token ? `${data.roomUrl}?t=${data.token}` : data.roomUrl;
+      setActiveRoom({ url, token: data.token ?? null, clientName: data.clientName });
+    } catch (e) { console.error(e); alert('Could not load session room.'); }
+    finally { setJoiningId(null); }
   }
 
   async function handleMarkCompleted(id: string) {
@@ -271,15 +284,16 @@ export default function SessionsPage() {
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             {s.roomUrl && s.status === 'CONFIRMED' && (
-                              <a
-                                href={s.roomUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
+                              <button
+                                onClick={() => handleJoin(s.id)}
+                                disabled={joiningId === s.id}
+                                className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60 transition-colors"
                               >
-                                <VideoCamera className="h-3.5 w-3.5" /> Join
-                                <ArrowSquareOut className="h-3 w-3" />
-                              </a>
+                                {joiningId === s.id
+                                  ? <CircleNotch className="h-3.5 w-3.5 animate-spin" />
+                                  : <VideoCamera className="h-3.5 w-3.5" />}
+                                Join as host
+                              </button>
                             )}
                             {s.status === 'CONFIRMED' && (
                               <button
@@ -342,6 +356,28 @@ export default function SessionsPage() {
               {filtered.length} session{filtered.length !== 1 ? 's' : ''} shown
             </p>
           </div>
+        </div>
+      )}
+
+      {/* ── Host video modal ───────────────────────────────────────────────── */}
+      {activeRoom && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          <div className="flex items-center justify-between bg-gray-900 px-4 py-2 shrink-0">
+            <span className="text-sm font-semibold text-white">
+              Session with {activeRoom.clientName} — Host View
+            </span>
+            <button
+              onClick={() => setActiveRoom(null)}
+              className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" /> Leave session
+            </button>
+          </div>
+          <iframe
+            src={activeRoom.url}
+            allow="camera; microphone; fullscreen; display-capture; autoplay"
+            className="flex-1 w-full border-0"
+          />
         </div>
       )}
     </div>

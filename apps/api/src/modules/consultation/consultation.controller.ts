@@ -150,6 +150,14 @@ export class ConsultationController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'CONSULTANT')
+  @Get('admin/bookings/:id/join')
+  getHostJoinInfo(@Param('id') id: string, @Req() req: any) {
+    return this.svc.getHostJoinInfo(id, req.user?.name ?? req.user?.email ?? 'Consultant');
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
   @Post('admin/bookings/:id/complete')
   @HttpCode(HttpStatus.OK)
   markCompleted(@Param('id') id: string) {

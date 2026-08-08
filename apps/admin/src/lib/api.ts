@@ -292,6 +292,11 @@ export const api = {
   markSessionCompleted: (bookingId: string) =>
     request<any>(`/consultations/admin/bookings/${bookingId}/complete`, { method: 'POST' }),
 
+  getHostJoinInfo: (bookingId: string) =>
+    request<{ roomUrl: string | null; token: string | null; clientName: string; message: string | null }>(
+      `/consultations/admin/bookings/${bookingId}/join`,
+    ),
+
   // ── Partners (admin) ──────────────────────────────────────────────────────
   getPartners: (status?: string) =>
     request<any[]>(`/partners${status ? `?status=${status}` : ''}`),
