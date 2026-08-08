@@ -137,11 +137,12 @@ function BookingsSkeleton() {
 // ── Right Sidebar ─────────────────────────────────────────────────────────────
 
 function BookingsSidebar({
-  nextSession, router, onBook,
+  nextSession, router, onBook, onJoin,
 }: {
   nextSession: any;
   router: ReturnType<typeof useRouter>;
   onBook: () => void;
+  onJoin: (url: string) => void;
 }) {
   return (
     <div className="hidden xl:block w-[280px] shrink-0 sticky top-6 self-start space-y-4">
@@ -180,15 +181,13 @@ function BookingsSidebar({
               </div>
             )}
             {nextSession.meetingUrl && nextSession.status === 'CONFIRMED' ? (
-              <a
-                href={nextSession.meetingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => onJoin(nextSession.meetingUrl)}
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors"
               >
                 <VideoCamera className="h-4 w-4" />
                 {joinable ? 'Join now' : 'Join session'}
-              </a>
+              </button>
             ) : nextSession.status === 'PENDING' ? (
               <div className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-white px-4 py-2.5 text-xs font-semibold text-muted-foreground">
                 <Bell className="h-3.5 w-3.5" /> Awaiting confirmation
@@ -254,6 +253,7 @@ export default function BookingsPage() {
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   const [cancelConfirm, setCancelConfirm] = useState<string | null>(null); // bookingId
   const [cancelling, setCancelling] = useState(false);
+  const [activeRoomUrl, setActiveRoomUrl] = useState<string | null>(null);
 
   async function handleCancel(bookingId: string) {
     setCancelling(true);
@@ -379,15 +379,13 @@ export default function BookingsPage() {
 
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     {nextSession.meetingUrl && nextSession.status === 'CONFIRMED' ? (
-                      <a
-                        href={nextSession.meetingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => setActiveRoomUrl(nextSession.meetingUrl)}
                         className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-primary hover:bg-white/90 transition-colors"
                       >
                         <VideoCamera className="h-4 w-4" />
                         {joinable ? 'Join now' : 'Join session'}
-                      </a>
+                      </button>
                     ) : nextSession.status === 'PENDING' ? (
                       <span className="flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold">
                         <Bell className="h-4 w-4" /> Awaiting confirmation
@@ -572,15 +570,13 @@ export default function BookingsPage() {
 
                         <div className="mt-2 flex flex-wrap gap-2">
                           {booking.meetingUrl && booking.status === 'CONFIRMED' && start && isFuture(start) && (
-                            <a
-                              href={booking.meetingUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              onClick={() => setActiveRoomUrl(booking.meetingUrl)}
                               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
                             >
                               <VideoCamera className="h-3.5 w-3.5" />
                               {joinable ? 'Join now' : 'Join session'}
-                            </a>
+                            </button>
                           )}
 
                           {start && booking.status === 'CONFIRMED' && isFuture(start) && (
@@ -659,8 +655,29 @@ export default function BookingsPage() {
           nextSession={nextSession}
           router={router}
           onBook={() => router.push('/bookings/new')}
+          onJoin={setActiveRoomUrl}
         />
       </div>
+
+      {/* ── Video room modal ──────────────────────────────────────────────── */}
+      {activeRoomUrl && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          <div className="flex items-center justify-between bg-gray-900 px-4 py-2 shrink-0">
+            <span className="text-sm font-semibold text-white">MJN Healthcare — Video Session</span>
+            <button
+              onClick={() => setActiveRoomUrl(null)}
+              className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" /> Leave session
+            </button>
+          </div>
+          <iframe
+            src={activeRoomUrl}
+            allow="camera; microphone; fullscreen; display-capture; autoplay"
+            className="flex-1 w-full border-0"
+          />
+        </div>
+      )}
     </div>
   );
 }
