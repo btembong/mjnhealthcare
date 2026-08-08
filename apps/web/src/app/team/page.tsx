@@ -48,7 +48,7 @@ export default function TeamPage() {
         <div className="mx-auto max-w-6xl px-6">
           <div className="grid grid-cols-2 divide-x divide-border sm:grid-cols-4">
             {[
-              { value: '6', label: 'Specialists on staff' },
+              { value: '3', label: 'Specialists on staff' },
               { value: '4', label: 'Countries represented' },
               { value: '5,000+', label: 'Clients guided' },
               { value: '80+', label: 'Employer partners' },
@@ -108,7 +108,7 @@ export default function TeamPage() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-12 text-center">
             <Badge variant="outline" className="mb-3">Leadership Team</Badge>
-            <h2 className="text-3xl font-bold">Six Specialists. Four Countries.</h2>
+            <h2 className="text-3xl font-bold">Meet the Team</h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground text-sm">
               Each assigned to the service area they know from personal experience — not from a manual.
             </p>
