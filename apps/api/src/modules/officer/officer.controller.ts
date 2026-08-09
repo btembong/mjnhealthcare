@@ -289,6 +289,12 @@ export class OfficerController {
     );
   }
 
+  @ApiOperation({ summary: "Officer dashboard — stats + cases + activity" })
+  @Get('officer/my-dashboard')
+  getMyDashboard(@Req() req: any) {
+    return this.svc.getMyDashboard(req.user.id);
+  }
+
   @ApiOperation({ summary: "Officer's own escalation history" })
   @Get('officer/my-escalations')
   getEscalations(@Req() req: any) {

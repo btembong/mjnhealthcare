@@ -38,6 +38,7 @@ function useSidebarSections(
     return [
       {
         items: [
+          { label: 'Dashboard', href: '/officer', icon: ChartLineUp },
           { label: 'My Caseload', href: '/officer/caseload', icon: UsersThree },
           { label: 'Documents', href: '/officer/documents', icon: FileText },
           { label: 'Stage Tracker', href: '/officer/stages', icon: ListChecks },

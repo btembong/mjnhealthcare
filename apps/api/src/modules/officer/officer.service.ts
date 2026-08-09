@@ -331,6 +331,89 @@ export class OfficerService {
 
   // ── Client-facing updates (approved + non-approval notes) ────────────────
 
+  async getMyDashboard(officerId: string) {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    // All engagements assigned to this officer
+    const cases = await this.db.engagement.findMany({
+      where: { officerId },
+      include: {
+        person: { select: { id: true, name: true, email: true, profession: true } },
+        caseNotes: {
+          where: { author: { id: officerId } },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        trackingEntries: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    // Overdue tracking entries (nextActionDate past)
+    const overdueTracking = await this.db.applicationTracking.findMany({
+      where: {
+        engagement: { officerId },
+        nextActionDate: { lte: today },
+        status: { notIn: ['APPROVED', 'REJECTED'] },
+      },
+      include: { engagement: { include: { person: { select: { name: true } } } } },
+      orderBy: { nextActionDate: 'asc' },
+    });
+
+    // Open escalations raised by this officer
+    const escalations = await this.db.escalation.findMany({
+      where: { raisedById: officerId, status: 'OPEN' },
+      include: { engagement: { include: { person: { select: { name: true } } } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Sensitive updates awaiting consultant approval
+    const pendingApprovals = await this.db.caseNote.findMany({
+      where: {
+        authorId: officerId,
+        requiresApproval: true,
+        approvedAt: null,
+        isInternal: false,
+      },
+      include: { engagement: { include: { person: { select: { name: true } } } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Recent activity (notes + tracking) across all cases
+    const recentNotes = await this.db.caseNote.findMany({
+      where: { authorId: officerId },
+      include: { engagement: { include: { person: { select: { name: true } } } } },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+    });
+
+    const recentTracking = await this.db.applicationTracking.findMany({
+      where: { engagement: { officerId } },
+      include: { engagement: { include: { person: { select: { name: true } } } } },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+    });
+
+    return {
+      stats: {
+        totalCases: cases.length,
+        slaAlerts: overdueTracking.length,
+        openEscalations: escalations.length,
+        awaitingApproval: pendingApprovals.length,
+      },
+      cases,
+      overdueTracking,
+      escalations,
+      pendingApprovals,
+      recentActivity: [...recentNotes.map(n => ({ ...n, _type: 'note' })), ...recentTracking.map(t => ({ ...t, _type: 'tracking' }))]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10),
+    };
+  }
+
   async getRecentOfficerNotes(limit = 20) {
     return this.db.caseNote.findMany({
       where: { author: { role: 'PROCESSING_OFFICER' } },
