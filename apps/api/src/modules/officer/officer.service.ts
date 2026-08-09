@@ -397,6 +397,48 @@ export class OfficerService {
       take: 8,
     });
 
+    // Upcoming deadlines: nextActionDate in next 7 days (not overdue, not terminal)
+    const sevenDaysOut = new Date();
+    sevenDaysOut.setDate(sevenDaysOut.getDate() + 7);
+    sevenDaysOut.setHours(23, 59, 59, 999);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const upcomingDeadlines = await this.db.applicationTracking.findMany({
+      where: {
+        engagement: { officerId },
+        nextActionDate: { gte: now, lte: sevenDaysOut },
+        status: { notIn: ['APPROVED', 'REJECTED'] },
+      },
+      include: { engagement: { include: { person: { select: { name: true } } } } },
+      orderBy: { nextActionDate: 'asc' },
+    });
+
+    // This week's activity counts
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+
+    const [weekNotes, weekClientUpdates, weekTracking] = await Promise.all([
+      this.db.caseNote.count({ where: { authorId: officerId, isInternal: true, createdAt: { gte: weekStart } } }),
+      this.db.caseNote.count({ where: { authorId: officerId, isInternal: false, createdAt: { gte: weekStart } } }),
+      this.db.applicationTracking.count({ where: { engagement: { officerId }, createdAt: { gte: weekStart } } }),
+    ]);
+
+    // Pipeline breakdown: latest tracking status per case
+    const allTracking = await this.db.applicationTracking.findMany({
+      where: { engagement: { officerId } },
+      orderBy: { createdAt: 'desc' },
+    });
+    const latestPerCase = new Map<string, string>();
+    allTracking.forEach(t => { if (!latestPerCase.has(t.engagementId)) latestPerCase.set(t.engagementId, t.status); });
+    const pipeline: Record<string, number> = { SUBMITTED: 0, IN_REVIEW: 0, PENDING_DOCS: 0, RESUBMITTED: 0, APPROVED: 0, REJECTED: 0, NO_TRACKING: 0 };
+    cases.forEach(c => {
+      const status = latestPerCase.get(c.id) ?? 'NO_TRACKING';
+      if (pipeline[status] !== undefined) pipeline[status]++;
+      else pipeline['NO_TRACKING']++;
+    });
+
     return {
       stats: {
         totalCases: cases.length,
@@ -404,8 +446,15 @@ export class OfficerService {
         openEscalations: escalations.length,
         awaitingApproval: pendingApprovals.length,
       },
+      thisWeek: {
+        notes: weekNotes,
+        clientUpdates: weekClientUpdates,
+        trackingEntries: weekTracking,
+      },
+      pipeline,
       cases,
       overdueTracking,
+      upcomingDeadlines,
       escalations,
       pendingApprovals,
       recentActivity: [...recentNotes.map(n => ({ ...n, _type: 'note' })), ...recentTracking.map(t => ({ ...t, _type: 'tracking' }))]
