@@ -345,7 +345,7 @@ export class OfficerService {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
-        trackingEntries: {
+        applicationTracking: {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
@@ -364,8 +364,8 @@ export class OfficerService {
     });
 
     // Open escalations raised by this officer
-    const escalations = await this.db.escalation.findMany({
-      where: { raisedById: officerId, status: 'OPEN' },
+    const escalations = await this.db.caseEscalation.findMany({
+      where: { officerId, status: 'OPEN' },
       include: { engagement: { include: { person: { select: { name: true } } } } },
       orderBy: { createdAt: 'desc' },
     });

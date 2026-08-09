@@ -78,8 +78,8 @@ export default function OfficerDashboard() {
   const sortedCases = [...cases].sort((a, b) => {
     const aOverdue = overdueEngagementIds.has(a.id) ? 0 : 1;
     const bOverdue = overdueEngagementIds.has(b.id) ? 0 : 1;
-    const aNoTracking = (a.trackingEntries?.length ?? 0) === 0 ? 0 : 1;
-    const bNoTracking = (b.trackingEntries?.length ?? 0) === 0 ? 0 : 1;
+    const aNoTracking = (a.applicationTracking?.length ?? 0) === 0 ? 0 : 1;
+    const bNoTracking = (b.applicationTracking?.length ?? 0) === 0 ? 0 : 1;
     return (aOverdue + aNoTracking) - (bOverdue + bNoTracking);
   });
 
@@ -159,8 +159,8 @@ export default function OfficerDashboard() {
             <div className="divide-y divide-border max-h-96 overflow-y-auto">
               {sortedCases.slice(0, 10).map((c: any) => {
                 const isOverdue = overdueEngagementIds.has(c.id);
-                const noTracking = (c.trackingEntries?.length ?? 0) === 0;
-                const lastTracking = c.trackingEntries?.[0];
+                const noTracking = (c.applicationTracking?.length ?? 0) === 0;
+                const lastTracking = c.applicationTracking?.[0];
                 return (
                   <div
                     key={c.id}
