@@ -23,7 +23,13 @@ export default function AdminLoginPage() {
       const { access_token } = await api.loginStaff(email.trim(), password);
       setToken(access_token);
       setDone(true);
-      setTimeout(() => router.push('/'), 800);
+      let role = '';
+      try {
+        const payload = JSON.parse(atob(access_token.split('.')[1]));
+        role = (payload.role as string)?.toUpperCase() ?? '';
+      } catch {}
+      const dest = role === 'PROCESSING_OFFICER' ? '/officer/caseload' : '/';
+      setTimeout(() => router.push(dest), 800);
     } catch (err: any) {
       setError(err.message ?? 'Invalid credentials');
     } finally {

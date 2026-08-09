@@ -494,6 +494,126 @@ export class NotificationListener {
     );
   }
 
+  // ── Processing Officer events ─────────────────────────────────────────────
+
+  @OnEvent('officer.client_update_sent')
+  async onOfficerClientUpdate(payload: {
+    engagementId: string; authorId: string;
+    clientName: string; clientEmail?: string | null; clientPhone?: string | null;
+    content: string;
+  }) {
+    if (payload.clientEmail) {
+      await this.notificationService.sendEmail(
+        payload.clientEmail,
+        'Case Update from MJN Healthcare',
+        T.shell(
+          T.h1('Update on Your Case') +
+          T.p(`Hello ${payload.clientName},`) +
+          T.p(payload.content) +
+          T.btn('View Your Case', `${process.env.PORTAL_URL ?? 'http://localhost:3002'}/case`),
+        ),
+        payload.clientName,
+      );
+    }
+    if (payload.clientPhone) {
+      await this.notificationService.sendWhatsApp(
+        payload.clientPhone,
+        `MJN Healthcare case update: ${payload.content.slice(0, 200)}${payload.content.length > 200 ? '…' : ''} — Log in for details: ${process.env.PORTAL_URL ?? 'http://localhost:3002'}/case`,
+      );
+    }
+    this.logger.log(`Officer client update sent for engagement ${payload.engagementId}`);
+  }
+
+  @OnEvent('officer.assigned')
+  async onOfficerAssigned(payload: {
+    engagementId: string; officerId: string;
+    officerEmail?: string | null; officerName?: string | null; officerPhone?: string | null;
+    clientName: string;
+  }) {
+    if (!payload.officerEmail) return;
+    await this.notificationService.sendEmail(
+      payload.officerEmail,
+      'New Case Assigned to You — MJN Healthcare',
+      T.shell(
+        T.h1('New Case Assigned') +
+        T.p(`Hello ${payload.officerName ?? 'Officer'},`) +
+        T.p(`A new case for <strong>${payload.clientName}</strong> has been assigned to you for processing.`) +
+        T.btn('View Case in Admin Console', `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/officer/caseload`),
+      ),
+      payload.officerName ?? undefined,
+    );
+    if (payload.officerPhone) {
+      await this.notificationService.sendWhatsApp(
+        payload.officerPhone,
+        `MJN Healthcare: A new case (${payload.clientName}) has been assigned to you. Log in to review: ${process.env.ADMIN_URL ?? 'http://localhost:3004'}/officer/caseload`,
+      );
+    }
+    this.logger.log(`Officer ${payload.officerEmail} notified of case assignment for ${payload.clientName}`);
+  }
+
+  @OnEvent('case.escalated')
+  async onCaseEscalated(payload: {
+    escalationId: string; engagementId: string;
+    officerId: string; consultantId: string; reason: string;
+  }) {
+    const [consultant, officer] = await Promise.all([
+      this.db.person.findUnique({ where: { id: payload.consultantId }, select: { name: true, email: true, phone: true } }),
+      this.db.person.findUnique({ where: { id: payload.officerId }, select: { name: true } }),
+    ]);
+    if (!consultant?.email) return;
+
+    await this.notificationService.sendEmail(
+      consultant.email,
+      'Case Escalated to You — Action Required — MJN Healthcare',
+      T.shell(
+        T.h1('Case Escalated to You') +
+        T.p(`Hello ${consultant.name ?? 'Consultant'},`) +
+        T.p(`Processing officer <strong>${officer?.name ?? 'an officer'}</strong> has escalated a case to you.`) +
+        T.infoTable([
+          T.row('Reason', payload.reason),
+          T.row('Escalation ID', payload.escalationId),
+        ]) +
+        T.btn('Review in Admin Console', `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/escalations`),
+      ),
+      consultant.name ?? undefined,
+    );
+    if (consultant.phone) {
+      await this.notificationService.sendWhatsApp(
+        consultant.phone,
+        `MJN Healthcare: A case has been escalated to you by ${officer?.name ?? 'an officer'}. Reason: ${payload.reason}. Review: ${process.env.ADMIN_URL ?? 'http://localhost:3004'}/escalations`,
+      );
+    }
+    this.logger.log(`Consultant ${consultant.email} notified of escalation ${payload.escalationId}`);
+  }
+
+  @OnEvent('case.escalation_resolved')
+  async onEscalationResolved(payload: {
+    escalationId: string;
+    officerEmail?: string | null; officerName?: string | null; officerPhone?: string | null;
+    clientName: string; resolution: string;
+  }) {
+    if (!payload.officerEmail) return;
+    await this.notificationService.sendEmail(
+      payload.officerEmail,
+      'Escalation Resolved — MJN Healthcare',
+      T.shell(
+        T.h1('Your Escalation Has Been Resolved') +
+        T.p(`Hello ${payload.officerName ?? 'Officer'},`) +
+        T.p(`The escalation for case <strong>${payload.clientName}</strong> has been resolved by the consultant.`) +
+        T.infoTable([T.row('Resolution', payload.resolution)]) +
+        T.btn('View Escalations', `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/officer/escalations`),
+      ),
+      payload.officerName ?? undefined,
+    );
+    if (payload.officerPhone) {
+      await this.notificationService.sendWhatsApp(
+        payload.officerPhone,
+        `MJN Healthcare: Your escalation for ${payload.clientName} has been resolved. Resolution: ${payload.resolution}`,
+      );
+    }
+    this.logger.log(`Officer ${payload.officerEmail} notified of escalation resolution ${payload.escalationId}`);
+  }
+
   // ── Engagement ────────────────────────────────────────────────────────────
 
   // ── Staffing / Job applications ───────────────────────────────────────────

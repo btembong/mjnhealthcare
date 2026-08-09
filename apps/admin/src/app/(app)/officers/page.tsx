@@ -16,6 +16,7 @@ export default function OfficersPage() {
   const [showAssign, setShowAssign] = useState(false);
   const [assignEngagementId, setAssignEngagementId] = useState('');
   const [assignOfficerId, setAssignOfficerId] = useState('');
+  const [handoverNotes, setHandoverNotes] = useState('');
   const [assignSaving, setAssignSaving] = useState(false);
 
   const load = () =>
@@ -31,11 +32,12 @@ export default function OfficersPage() {
     if (!assignEngagementId || !assignOfficerId) return;
     setAssignSaving(true);
     try {
-      await api.assignOfficer(assignEngagementId, assignOfficerId);
+      await api.assignOfficer(assignEngagementId, assignOfficerId, handoverNotes.trim() || undefined);
       toast.success('Officer assigned');
       setShowAssign(false);
       setAssignEngagementId('');
       setAssignOfficerId('');
+      setHandoverNotes('');
       load();
     } catch {
       toast.error('Failed to assign');
@@ -222,10 +224,22 @@ export default function OfficersPage() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="block text-xs font-medium mb-1">
+                  Handover Notes <span className="text-muted-foreground font-normal">(optional)</span>
+                </label>
+                <textarea
+                  value={handoverNotes}
+                  onChange={e => setHandoverNotes(e.target.value)}
+                  placeholder="Briefing notes for the officer — context, pending actions, any special instructions…"
+                  rows={3}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => { setShowAssign(false); setAssignEngagementId(''); setAssignOfficerId(''); }}
+                  onClick={() => { setShowAssign(false); setAssignEngagementId(''); setAssignOfficerId(''); setHandoverNotes(''); }}
                   className="flex-1 rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted transition-colors"
                 >
                   Cancel

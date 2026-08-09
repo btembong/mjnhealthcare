@@ -8,7 +8,7 @@ import {
   TrendUp, UploadSimple, Signature, Seal,
   ChatText, CreditCard, BookOpen, Copy, MapPin,
   Buildings, Envelope, ArrowRight, Warning,
-  Headset, Receipt, Flag,
+  Headset, Receipt, Flag, ArrowSquareUpRight,
 } from '@phosphor-icons/react';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
@@ -572,12 +572,19 @@ export default function CasePage() {
   const router = useRouter();
   const { engagement, progress, loading, me } = useUser();
   const [docs, setDocs] = useState<any[]>([]);
+  const [tracking, setTracking] = useState<any[]>([]);
 
   useEffect(() => {
     if (me?.id) {
       api.getDocuments(me.id).then(setDocs).catch(() => {});
     }
   }, [me?.id]);
+
+  useEffect(() => {
+    if (engagement?.id) {
+      api.getEngagementTracking(engagement.id).then(setTracking).catch(() => {});
+    }
+  }, [engagement?.id]);
 
   const milestones: any[] = engagement?.milestones ?? [];
   const completedCount = milestones.filter((m) => !!m.completedAt).length;
@@ -907,6 +914,45 @@ export default function CasePage() {
                         <p className="mt-1 text-sm font-bold text-foreground">{formatDate(progress.startedAt)}</p>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Application Progress */}
+              {tracking.length > 0 && (
+                <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+                  <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center gap-2">
+                    <ArrowSquareUpRight className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-semibold text-foreground">Application Progress</p>
+                    <span className="ml-auto text-xs text-muted-foreground">{tracking.length} submission{tracking.length > 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="divide-y divide-border/60">
+                    {tracking.map((t: any) => (
+                      <div key={t.id} className="px-5 py-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground">{t.portal}</p>
+                            {t.referenceNumber && (
+                              <p className="text-xs text-muted-foreground mt-0.5">Ref: {t.referenceNumber}</p>
+                            )}
+                            {t.submittedAt && (
+                              <p className="text-xs text-muted-foreground">Submitted {formatDate(t.submittedAt)}</p>
+                            )}
+                            {t.nextActionDate && (
+                              <p className="text-xs text-amber-600 mt-0.5">Next action: {formatDate(t.nextActionDate)}</p>
+                            )}
+                          </div>
+                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            t.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
+                            t.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' :
+                            t.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' :
+                            'bg-muted text-muted-foreground'
+                          }`}>
+                            {t.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

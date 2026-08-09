@@ -255,6 +255,9 @@ export const api = {
   signEngagementLetter: (engagementId: string) =>
     request<{ ok: boolean }>(`/engagements/${engagementId}/sign`, { method: 'POST' }),
 
+  getEngagementTracking: (engagementId: string) =>
+    request<any[]>(`/engagements/${engagementId}/tracking`),
+
   // ── AI ───────────────────────────────────────────────────────────────────
   studyChat: (personId: string, messages: { role: 'user' | 'assistant'; content: string }[], locale: 'en' | 'fr') =>
     request<{ content: { type: string; text: string }; requiresReview: boolean }>('/ai/study-chat', {

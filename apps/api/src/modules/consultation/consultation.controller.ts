@@ -82,7 +82,7 @@ export class ConsultationController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'CONSULTANT')
+  @Roles('ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER')
   @Get('admin/consultants')
   listAll() {
     return this.svc.listAllConsultants();

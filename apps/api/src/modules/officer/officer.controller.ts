@@ -31,6 +31,10 @@ class AssignOfficerDto {
   @IsOptional()
   @IsString()
   officerId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  handoverNotes?: string;
 }
 
 class AddNoteDto {
@@ -124,7 +128,7 @@ export class OfficerController {
     @Param('id') engagementId: string,
     @Body() dto: AssignOfficerDto,
   ) {
-    return this.svc.assignOfficer(engagementId, dto.officerId ?? null);
+    return this.svc.assignOfficer(engagementId, dto.officerId ?? null, dto.handoverNotes);
   }
 
   // ── Admin / Consultant: escalation inbox ──────────────────────────────────
@@ -231,5 +235,19 @@ export class OfficerController {
   @Get('officer/my-escalations')
   getEscalations(@Req() req: any) {
     return this.svc.getEscalations(req.user.id);
+  }
+
+  // ── Shared: officer activity feed (consultant + admin can call this) ───────
+
+  @ApiOperation({ summary: 'Unified officer activity feed for an engagement' })
+  @Get('engagements/:id/officer-activity')
+  getOfficerActivity(@Param('id') engagementId: string) {
+    return this.svc.getOfficerActivity(engagementId);
+  }
+
+  @ApiOperation({ summary: 'Application tracking for an engagement (portal-accessible)' })
+  @Get('engagements/:id/tracking')
+  getEngagementTracking(@Param('id') engagementId: string) {
+    return this.svc.getEngagementTracking(engagementId);
   }
 }

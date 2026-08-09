@@ -54,7 +54,7 @@ export class OfficerService {
 
   // ── Admin: assign officer to engagement ───────────────────────────────────
 
-  async assignOfficer(engagementId: string, officerId: string | null) {
+  async assignOfficer(engagementId: string, officerId: string | null, handoverNotes?: string) {
     const engagement = await this.db.engagement.findUnique({
       where: { id: engagementId },
     });
@@ -66,11 +66,27 @@ export class OfficerService {
         throw new NotFoundException('Officer not found');
     }
 
-    return this.db.engagement.update({
+    const updated = await this.db.engagement.update({
       where: { id: engagementId },
-      data: { officerId },
-      select: { id: true, officerId: true },
+      data: { officerId, ...(handoverNotes !== undefined ? { handoverNotes } : {}) },
+      include: {
+        person: { select: { name: true } },
+        officer: officerId ? { select: { id: true, name: true, email: true, phone: true } } : undefined,
+      },
     });
+
+    if (officerId && updated.officer) {
+      this.events.emit('officer.assigned', {
+        engagementId,
+        officerId,
+        officerEmail: updated.officer.email,
+        officerName: updated.officer.name,
+        officerPhone: (updated.officer as any).phone,
+        clientName: updated.person?.name ?? 'a client',
+      });
+    }
+
+    return { id: updated.id, officerId: updated.officerId };
   }
 
   // ── Officer: my assigned cases ────────────────────────────────────────────
@@ -131,10 +147,40 @@ export class OfficerService {
     });
     if (!engagement) throw new NotFoundException('Engagement not found');
 
-    return this.db.caseNote.create({
+    const note = await this.db.caseNote.create({
       data: { engagementId, authorId, content, isInternal },
       include: { author: { select: { id: true, name: true, role: true } } },
     });
+
+    // When isInternal=false, send update to client and log to CommunicationLog
+    if (!isInternal) {
+      const full = await this.db.engagement.findUnique({
+        where: { id: engagementId },
+        include: { person: { select: { id: true, name: true, email: true, phone: true } } },
+      });
+      if (full?.person) {
+        await this.db.communicationLog.create({
+          data: {
+            personId: full.person.id,
+            engagementId,
+            sentById: authorId,
+            channel: 'PORTAL',
+            direction: 'OUTBOUND',
+            content,
+          },
+        });
+        this.events.emit('officer.client_update_sent', {
+          engagementId,
+          clientName: full.person.name ?? 'Client',
+          clientEmail: full.person.email,
+          clientPhone: full.person.phone,
+          content,
+          authorId,
+        });
+      }
+    }
+
+    return note;
   }
 
   async getCaseNotes(engagementId: string) {
@@ -256,10 +302,25 @@ export class OfficerService {
     });
     if (!escalation) throw new NotFoundException('Escalation not found');
 
-    return this.db.caseEscalation.update({
+    const resolved = await this.db.caseEscalation.update({
       where: { id: escalationId },
       data: { status: 'RESOLVED', resolvedAt: new Date(), resolution },
+      include: {
+        officer: { select: { name: true, email: true, phone: true } },
+        engagement: { include: { person: { select: { name: true } } } },
+      },
     });
+
+    this.events.emit('case.escalation_resolved', {
+      escalationId,
+      officerEmail: resolved.officer?.email,
+      officerName: resolved.officer?.name,
+      officerPhone: (resolved.officer as any)?.phone,
+      clientName: resolved.engagement?.person?.name ?? 'a client',
+      resolution,
+    });
+
+    return resolved;
   }
 
   // ── Consultant: escalation inbox ─────────────────────────────────────────
@@ -276,6 +337,64 @@ export class OfficerService {
         officer: { select: { id: true, name: true, email: true } },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // ── Shared: officer activity feed (for consultant view) ───────────────────
+
+  async getOfficerActivity(engagementId: string) {
+    const [notes, tracking, escalations] = await Promise.all([
+      this.db.caseNote.findMany({
+        where: { engagementId },
+        include: { author: { select: { id: true, name: true, role: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.db.applicationTracking.findMany({
+        where: { engagementId },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.db.caseEscalation.findMany({
+        where: { engagementId },
+        include: {
+          officer: { select: { name: true } },
+          consultant: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    // Merge into unified timeline
+    const timeline = [
+      ...notes.map((n) => ({ type: 'note' as const, ts: n.createdAt, data: n })),
+      ...tracking.map((t) => ({ type: 'tracking' as const, ts: t.createdAt, data: t })),
+      ...escalations.map((e) => ({ type: 'escalation' as const, ts: e.createdAt, data: e })),
+    ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+
+    // SLA flag: last tracking update
+    const lastTracking = tracking[0];
+    const daysSinceUpdate = lastTracking
+      ? Math.floor((Date.now() - new Date(lastTracking.updatedAt).getTime()) / 86400000)
+      : null;
+    const slaAlert = daysSinceUpdate !== null && daysSinceUpdate >= 7;
+
+    return { timeline, slaAlert, daysSinceUpdate, notes, tracking, escalations };
+  }
+
+  // ── Portal: engagement tracking (client-facing) ───────────────────────────
+
+  async getEngagementTracking(engagementId: string) {
+    return this.db.applicationTracking.findMany({
+      where: { engagementId },
+      select: {
+        id: true,
+        portal: true,
+        referenceNumber: true,
+        submittedAt: true,
+        status: true,
+        nextActionDate: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
     });
   }
 }

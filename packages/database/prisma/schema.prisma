@@ -113,6 +113,7 @@ model Person {
   documents          Document[]
   payments           PaymentAttempt[]
   communicationLogs  CommunicationLog[]
+  sentCommunications CommunicationLog[] @relation("CommunicationSentBy")
   practiceResults    PracticeResult[]
   studyPlans         StudyPlan[]
   courseEnrollments  CourseEnrollment[]
@@ -147,6 +148,7 @@ model Engagement {
   letterSignedAt      DateTime?
   letterUrl           String?
   refundPolicyVersion String?
+  handoverNotes       String?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
@@ -160,6 +162,7 @@ model Engagement {
   caseNotes             CaseNote[]
   applicationTracking   ApplicationTracking[]
   escalations           CaseEscalation[]
+  communicationLogs     CommunicationLog[]
 
   @@map("engagements")
 }
@@ -732,13 +735,17 @@ model PoaRecord {
 // ─── Communication Log ────────────────────────────────────────────────────────
 
 model CommunicationLog {
-  id        String   @id @default(cuid())
-  personId  String
-  person    Person   @relation(fields: [personId], references: [id])
-  channel   String
-  direction String
-  content   String
-  sentAt    DateTime @default(now())
+  id           String      @id @default(cuid())
+  personId     String
+  person       Person      @relation(fields: [personId], references: [id])
+  engagementId String?
+  engagement   Engagement? @relation(fields: [engagementId], references: [id])
+  sentById     String?
+  sentBy       Person?     @relation("CommunicationSentBy", fields: [sentById], references: [id])
+  channel      String
+  direction    String
+  content      String
+  sentAt       DateTime    @default(now())
 
   @@map("communication_logs")
 }

@@ -8,6 +8,8 @@ import {
   Headset, MegaphoneSimple, MapTrifold, ChartBar, ChatCircle,
   Clipboard, ListChecks, Warning,
 } from '@phosphor-icons/react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import { AdminProvider, useAdmin } from '../../contexts/admin-context';
 
 // ── Role-gated sidebar sections ───────────────────────────────────────────────
@@ -170,6 +172,21 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   const { me, counts, loading, signOut } = useAdmin();
   const role: Role = (me?.role as string)?.toUpperCase() || getRoleFromToken() || 'ADMIN';
   const sections = useSidebarSections(role, counts);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Route protection: officers can only access /officer/* and /settings
+  // Non-officers are blocked from /officer/* routes
+  useEffect(() => {
+    if (!role || loading) return;
+    const isOfficerPath = pathname.startsWith('/officer');
+    const isOfficer = role === 'PROCESSING_OFFICER';
+    if (isOfficer && !isOfficerPath && pathname !== '/settings') {
+      router.replace('/officer/caseload');
+    } else if (!isOfficer && isOfficerPath) {
+      router.replace('/');
+    }
+  }, [role, pathname, loading]);
 
   const staffName = me?.name ?? 'Admin';
   const roleLabel = role.charAt(0) + role.slice(1).toLowerCase();

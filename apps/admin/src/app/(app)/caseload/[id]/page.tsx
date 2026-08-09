@@ -11,6 +11,7 @@ import {
   Chat, PaperPlaneRight, ArrowDown, ChatCircle,
   Paperclip, FileText, UploadSimple, Image as ImageIcon,
   FilePdf, FileDoc, Link as LinkIcon,
+  Note, ArrowSquareUpRight, Warning, Lock,
 } from '@phosphor-icons/react';
 import { api } from '../../../../lib/api';
 import { useAdmin } from '../../../../contexts/admin-context';
@@ -115,6 +116,12 @@ export default function CaseDetailPage() {
   const [planItems, setPlanItems] = useState<{ topic: string; dueDate: string }[]>([{ topic: '', dueDate: '' }]);
   const [savingPlan, setSavingPlan] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
+  // Officer Activity
+  const [officerActivity, setOfficerActivity] = useState<any>(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityLoaded, setActivityLoaded] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
 
   // Messages
   const [messages, setMessages] = useState<any[]>([]);
@@ -344,6 +351,18 @@ export default function CaseDetailPage() {
       return { msg, showDateSep, dateLabel, isLastInGroup };
     });
   }, [messages]);
+
+  async function loadOfficerActivity() {
+    if (activityLoaded) return;
+    setActivityLoading(true);
+    try {
+      const data = await api.getOfficerActivity(id);
+      setOfficerActivity(data);
+      setActivityLoaded(true);
+    } catch {} finally {
+      setActivityLoading(false);
+    }
+  }
 
   async function handleSendChecklist() {
     setSendingChecklist(true);
@@ -860,6 +879,108 @@ export default function CaseDetailPage() {
             <p className="text-sm text-muted-foreground">No study plan yet. Create one to guide this client's exam prep.</p>
           </div>
         ) : null}
+      </div>
+
+      {/* ── Officer Activity ───────────────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+        <button
+          onClick={() => {
+            const next = !activityOpen;
+            setActivityOpen(next);
+            if (next) loadOfficerActivity();
+          }}
+          className="w-full flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/20 hover:bg-muted/40 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Note className="h-4 w-4 text-primary" />
+            <p className="font-semibold text-foreground text-sm">Officer Activity</p>
+            {officerActivity?.slaAlert && (
+              <span className="flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">
+                <Warning className="h-3 w-3" /> SLA alert
+              </span>
+            )}
+          </div>
+          <CaretDown className={`h-4 w-4 text-muted-foreground transition-transform ${activityOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {activityOpen && (
+          <div className="p-5">
+            {activityLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <CircleNotch className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : !officerActivity || officerActivity.timeline?.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No officer activity yet for this case.</p>
+            ) : (
+              <>
+                {officerActivity.slaAlert && (
+                  <div className="mb-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    <Warning className="h-4 w-4 shrink-0" />
+                    No tracking update in {officerActivity.daysSinceUpdate} days — SLA threshold exceeded.
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {(officerActivity.timeline as any[]).map((item: any, i: number) => {
+                    if (item.type === 'note') {
+                      const n = item.data;
+                      return (
+                        <div key={n.id ?? i} className={`rounded-xl px-4 py-3 text-xs ${n.isInternal ? 'bg-muted/50 border border-border' : 'bg-teal-50 border border-teal-200'}`}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <Note className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="font-semibold text-foreground">{n.author?.name ?? 'Officer'}</span>
+                            {!n.isInternal && (
+                              <span className="rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700">Sent to client</span>
+                            )}
+                            {n.isInternal && (
+                              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground flex items-center gap-0.5">
+                                <Lock className="h-2.5 w-2.5" /> Internal
+                              </span>
+                            )}
+                            <span className="ml-auto text-muted-foreground">{new Date(item.ts).toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-foreground">{n.content}</p>
+                        </div>
+                      );
+                    }
+                    if (item.type === 'tracking') {
+                      const t = item.data;
+                      return (
+                        <div key={t.id ?? i} className="rounded-xl border border-border bg-blue-50/50 px-4 py-3 text-xs">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <ArrowSquareUpRight className="h-3.5 w-3.5 text-primary" />
+                            <span className="font-semibold text-foreground">{t.portal}</span>
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary font-medium">{t.status}</span>
+                            <span className="ml-auto text-muted-foreground">{new Date(item.ts).toLocaleDateString()}</span>
+                          </div>
+                          {t.referenceNumber && <p className="text-muted-foreground">Ref: {t.referenceNumber}</p>}
+                          {t.notes && <p className="text-muted-foreground mt-0.5">{t.notes}</p>}
+                        </div>
+                      );
+                    }
+                    if (item.type === 'escalation') {
+                      const e = item.data;
+                      return (
+                        <div key={e.id ?? i} className={`rounded-xl border px-4 py-3 text-xs ${e.status === 'RESOLVED' ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Warning className={`h-3.5 w-3.5 ${e.status === 'RESOLVED' ? 'text-emerald-600' : 'text-rose-600'}`} />
+                            <span className="font-semibold text-foreground">Escalation</span>
+                            <span className={`rounded-full px-2 py-0.5 font-medium ${e.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                              {e.status}
+                            </span>
+                            <span className="ml-auto text-muted-foreground">{new Date(item.ts).toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-foreground">{e.reason}</p>
+                          {e.resolution && <p className="text-emerald-700 mt-1">Resolution: {e.resolution}</p>}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Messages (WhatsApp-style) ─────────────────────────────────────────── */}

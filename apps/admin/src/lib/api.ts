@@ -479,10 +479,10 @@ export const api = {
   createOfficer: (data: { name: string; email: string; password: string }) =>
     request<any>('/admin/officers', { method: 'POST', body: JSON.stringify(data) }),
 
-  assignOfficer: (engagementId: string, officerId: string | null) =>
+  assignOfficer: (engagementId: string, officerId: string | null, handoverNotes?: string) =>
     request<any>(`/engagements/${engagementId}/assign-officer`, {
       method: 'PATCH',
-      body: JSON.stringify({ officerId }),
+      body: JSON.stringify({ officerId, handoverNotes }),
     }),
 
   getOfficerCases: () => request<any[]>('/officer/my-cases'),
@@ -525,4 +525,10 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ resolution }),
     }),
+
+  getOfficerActivity: (engagementId: string) =>
+    request<any>(`/engagements/${engagementId}/officer-activity`),
+
+  getEngagementTracking: (engagementId: string) =>
+    request<any[]>(`/engagements/${engagementId}/tracking`),
 };
