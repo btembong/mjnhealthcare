@@ -177,16 +177,14 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   // Route protection: officers can only access /officer/* and /settings
-  // Non-officers are blocked from /officer/* routes
   useEffect(() => {
     if (!role || loading) return;
     const isOfficerPath = pathname.startsWith('/officer');
     const isOfficer = role === 'PROCESSING_OFFICER';
     if (isOfficer && !isOfficerPath && pathname !== '/settings') {
       router.replace('/officer/caseload');
-    } else if (!isOfficer && isOfficerPath) {
-      router.replace('/');
     }
+    // Admins/consultants can access /officer/* routes (e.g. to review officer case pages)
   }, [role, pathname, loading]);
 
   const staffName = me?.name ?? 'Admin';
