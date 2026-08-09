@@ -105,6 +105,7 @@ model Person {
   locale       Locale     @default(en)
   role         PersonRole @default(CANDIDATE)
   isActive     Boolean    @default(true)
+  isAvailable  Boolean    @default(true)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -130,6 +131,7 @@ model Person {
   caseNotes           CaseNote[]
   escalations         CaseEscalation[]   @relation("EscalationOfficer")
   escalationsReceived CaseEscalation[]   @relation("EscalationConsultant")
+  approvedNotes       CaseNote[]         @relation("NoteApprover")
 
   @@map("persons")
 }
@@ -981,14 +983,18 @@ enum TicketAuthorRole {
 // ─── Processing Officer Models ────────────────────────────────────────────────
 
 model CaseNote {
-  id           String     @id @default(cuid())
-  engagementId String
-  engagement   Engagement @relation(fields: [engagementId], references: [id])
-  authorId     String
-  author       Person     @relation(fields: [authorId], references: [id])
-  content      String
-  isInternal   Boolean    @default(true)
-  createdAt    DateTime   @default(now())
+  id               String    @id @default(cuid())
+  engagementId     String
+  engagement       Engagement @relation(fields: [engagementId], references: [id])
+  authorId         String
+  author           Person     @relation(fields: [authorId], references: [id])
+  content          String
+  isInternal       Boolean    @default(true)
+  requiresApproval Boolean    @default(false)
+  approvedAt       DateTime?
+  approvedById     String?
+  approvedBy       Person?    @relation("NoteApprover", fields: [approvedById], references: [id])
+  createdAt        DateTime   @default(now())
 
   @@map("case_notes")
 }

@@ -754,4 +754,39 @@ export class NotificationListener {
       );
     }
   }
+
+  // ── Officer update pending approval ───────────────────────────────────────
+
+  @OnEvent('officer.update_pending_approval')
+  async onUpdatePendingApproval(payload: {
+    noteId: string;
+    engagementId: string;
+    authorId: string;
+    content: string;
+    clientName: string;
+    consultantId?: string | null;
+  }) {
+    if (!payload.consultantId) return;
+
+    const consultant = await this.db.person.findUnique({
+      where: { id: payload.consultantId },
+      select: { name: true, email: true, phone: true },
+    });
+    if (!consultant) return;
+
+    const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
+
+    if (consultant.email) {
+      await this.notificationService.sendEmail(
+        consultant.email,
+        `Action required: Officer update needs your approval`,
+        `<p>Hi ${consultant.name ?? 'Consultant'},</p>
+<p>A processing officer has drafted a sensitive client update for <strong>${payload.clientName}</strong> that requires your approval before it is sent.</p>
+<blockquote style="border-left:4px solid #0F4C81;padding:8px 16px;background:#f5f5f5;">${payload.content}</blockquote>
+<p><a href="${adminUrl}/approvals" style="background:#0F4C81;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Review &amp; Approve</a></p>`,
+      );
+    }
+
+    this.logger.log(`Pending approval notification sent to consultant ${payload.consultantId} for note ${payload.noteId}`);
+  }
 }

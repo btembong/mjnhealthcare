@@ -489,10 +489,10 @@ export const api = {
 
   getOfficerCase: (id: string) => request<any>(`/officer/cases/${id}`),
 
-  addCaseNote: (engagementId: string, content: string, isInternal = true) =>
+  addCaseNote: (engagementId: string, content: string, isInternal = true, requiresApproval = false) =>
     request<any>(`/officer/cases/${engagementId}/notes`, {
       method: 'POST',
-      body: JSON.stringify({ content, isInternal }),
+      body: JSON.stringify({ content, isInternal, requiresApproval }),
     }),
 
   getCaseNotes: (engagementId: string) =>
@@ -531,4 +531,22 @@ export const api = {
 
   getEngagementTracking: (engagementId: string) =>
     request<any[]>(`/engagements/${engagementId}/tracking`),
+
+  getClientUpdates: (engagementId: string) =>
+    request<any[]>(`/engagements/${engagementId}/client-updates`),
+
+  getPendingApprovals: () =>
+    request<any[]>('/officer/pending-approvals'),
+
+  approveNote: (noteId: string) =>
+    request<any>(`/officer/notes/${noteId}/approve`, { method: 'PATCH' }),
+
+  rejectNote: (noteId: string) =>
+    request<any>(`/officer/notes/${noteId}/reject`, { method: 'PATCH' }),
+
+  setOfficerAvailability: (officerId: string, isAvailable: boolean, reassignToOfficerId?: string | null) =>
+    request<any>(`/admin/officers/${officerId}/availability`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isAvailable, reassignToOfficerId }),
+    }),
 };

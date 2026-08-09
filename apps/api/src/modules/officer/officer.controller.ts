@@ -44,6 +44,19 @@ class AddNoteDto {
   @IsOptional()
   @IsBoolean()
   isInternal?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresApproval?: boolean;
+}
+
+class SetAvailabilityDto {
+  @IsBoolean()
+  isAvailable!: boolean;
+
+  @IsOptional()
+  @IsString()
+  reassignToOfficerId?: string | null;
 }
 
 class AddTrackingDto {
@@ -122,6 +135,19 @@ export class OfficerController {
     return this.svc.createOfficer(dto);
   }
 
+  @ApiOperation({ summary: 'Set officer availability + optionally bulk reassign' })
+  @Patch('admin/officers/:id/availability')
+  setAvailability(
+    @Param('id') officerId: string,
+    @Body() dto: SetAvailabilityDto,
+  ) {
+    return this.svc.setOfficerAvailability(
+      officerId,
+      dto.isAvailable,
+      dto.reassignToOfficerId,
+    );
+  }
+
   @ApiOperation({ summary: 'Assign / unassign officer to engagement' })
   @Patch('engagements/:id/assign-officer')
   assignOfficer(
@@ -177,6 +203,7 @@ export class OfficerController {
       req.user.id,
       dto.content,
       dto.isInternal ?? true,
+      dto.requiresApproval ?? false,
     );
   }
 
@@ -184,6 +211,30 @@ export class OfficerController {
   @Get('officer/cases/:id/notes')
   getNotes(@Param('id') engagementId: string) {
     return this.svc.getCaseNotes(engagementId);
+  }
+
+  @ApiOperation({ summary: 'Approve a pending client update note' })
+  @Patch('officer/notes/:noteId/approve')
+  approveNote(@Param('noteId') noteId: string, @Req() req: any) {
+    return this.svc.approveNote(noteId, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Reject a pending client update note' })
+  @Patch('officer/notes/:noteId/reject')
+  rejectNote(@Param('noteId') noteId: string) {
+    return this.svc.rejectNote(noteId);
+  }
+
+  @ApiOperation({ summary: 'Get pending approval notes for consultant' })
+  @Get('officer/pending-approvals')
+  getPendingApprovals(@Req() req: any) {
+    return this.svc.getPendingApprovals(req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Client-facing updates for an engagement' })
+  @Get('engagements/:id/client-updates')
+  getClientUpdates(@Param('id') engagementId: string) {
+    return this.svc.getClientUpdates(engagementId);
   }
 
   // ── Application Tracking ─────────────────────────────────────────────────

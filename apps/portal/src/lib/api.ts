@@ -258,6 +258,9 @@ export const api = {
   getEngagementTracking: (engagementId: string) =>
     request<any[]>(`/engagements/${engagementId}/tracking`),
 
+  getClientUpdates: (engagementId: string) =>
+    request<any[]>(`/engagements/${engagementId}/client-updates`),
+
   // ── AI ───────────────────────────────────────────────────────────────────
   studyChat: (personId: string, messages: { role: 'user' | 'assistant'; content: string }[], locale: 'en' | 'fr') =>
     request<{ content: { type: string; text: string }; requiresReview: boolean }>('/ai/study-chat', {

@@ -18,6 +18,7 @@ export default function OfficerCaseDetailPage() {
   const [noteText, setNoteText] = useState('');
   const [addingNote, setAddingNote] = useState(false);
   const [sendToClient, setSendToClient] = useState(false);
+  const [sensitiveUpdate, setSensitiveUpdate] = useState(false);
 
   useEffect(() => {
     api.getOfficerCase(id)
@@ -30,10 +31,15 @@ export default function OfficerCaseDetailPage() {
     if (!noteText.trim()) return;
     setAddingNote(true);
     try {
-      await api.addCaseNote(id, noteText, !sendToClient);
-      toast.success(sendToClient ? 'Note sent to client' : 'Note added');
+      await api.addCaseNote(id, noteText, !sendToClient, sensitiveUpdate && sendToClient);
+      toast.success(
+        !sendToClient ? 'Note added' :
+        sensitiveUpdate ? 'Update queued for consultant approval' :
+        'Note sent to client',
+      );
       setNoteText('');
       setSendToClient(false);
+      setSensitiveUpdate(false);
       const updated = await api.getOfficerCase(id);
       setEngagement(updated);
     } catch {
@@ -214,12 +220,33 @@ export default function OfficerCaseDetailPage() {
                 {sendToClient ? 'Send to client (email + WhatsApp)' : 'Internal note only'}
               </span>
             </label>
+            {/* Sensitive toggle — only visible when sendToClient is on */}
+            {sendToClient && (
+              <label className="flex items-center gap-2 mt-1.5 cursor-pointer select-none">
+                <div
+                  onClick={() => setSensitiveUpdate(p => !p)}
+                  className={`relative h-4 w-8 rounded-full transition-colors ${sensitiveUpdate ? 'bg-amber-500' : 'bg-muted-foreground/30'}`}
+                >
+                  <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${sensitiveUpdate ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </div>
+                <span className={`text-xs font-medium ${sensitiveUpdate ? 'text-amber-700' : 'text-muted-foreground'}`}>
+                  {sensitiveUpdate ? 'Sensitive — requires consultant approval first' : 'Routine update (sends directly)'}
+                </span>
+              </label>
+            )}
             <button
               onClick={submitNote}
               disabled={addingNote || !noteText.trim()}
-              className={`mt-2 w-full rounded-xl px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 transition-colors ${sendToClient ? 'bg-teal-600 hover:bg-teal-700' : 'bg-primary hover:bg-primary/90'}`}
+              className={`mt-2 w-full rounded-xl px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 transition-colors ${
+                !sendToClient ? 'bg-primary hover:bg-primary/90' :
+                sensitiveUpdate ? 'bg-amber-600 hover:bg-amber-700' :
+                'bg-teal-600 hover:bg-teal-700'
+              }`}
             >
-              {addingNote ? 'Saving…' : sendToClient ? 'Send Update to Client' : 'Add Internal Note'}
+              {addingNote ? 'Saving…' :
+               !sendToClient ? 'Add Internal Note' :
+               sensitiveUpdate ? 'Submit for Approval' :
+               'Send Update to Client'}
             </button>
           </Card>
         </div>

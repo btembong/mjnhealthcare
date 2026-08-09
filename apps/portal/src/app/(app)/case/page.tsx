@@ -573,6 +573,7 @@ export default function CasePage() {
   const { engagement, progress, loading, me } = useUser();
   const [docs, setDocs] = useState<any[]>([]);
   const [tracking, setTracking] = useState<any[]>([]);
+  const [caseUpdates, setCaseUpdates] = useState<any[]>([]);
 
   useEffect(() => {
     if (me?.id) {
@@ -583,6 +584,7 @@ export default function CasePage() {
   useEffect(() => {
     if (engagement?.id) {
       api.getEngagementTracking(engagement.id).then(setTracking).catch(() => {});
+      api.getClientUpdates(engagement.id).then(setCaseUpdates).catch(() => {});
     }
   }, [engagement?.id]);
 
@@ -914,6 +916,35 @@ export default function CasePage() {
                         <p className="mt-1 text-sm font-bold text-foreground">{formatDate(progress.startedAt)}</p>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Case Updates from officer */}
+              {caseUpdates.length > 0 && (
+                <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+                  <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center gap-2">
+                    <ChatText className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-semibold text-foreground">Case Updates</p>
+                    <span className="ml-auto text-xs text-muted-foreground">{caseUpdates.length} update{caseUpdates.length > 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="divide-y divide-border/60">
+                    {caseUpdates.map((u: any) => (
+                      <div key={u.id} className="px-5 py-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary mt-0.5">
+                            {(u.author?.name ?? 'MJN').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <p className="text-xs font-semibold text-foreground">{u.author?.name ?? 'MJN Healthcare'}</p>
+                              <span className="text-xs text-muted-foreground shrink-0">{formatDate(u.createdAt)}</span>
+                            </div>
+                            <p className="text-sm text-foreground whitespace-pre-wrap">{u.content}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

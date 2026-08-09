@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card } from '@mjn/ui';
-import { User, UsersThree, CheckCircle, Warning } from '@phosphor-icons/react';
+import { User, UsersThree, CheckCircle, Warning, Power, X, CaretDown } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 import { toast } from 'sonner';
 
@@ -18,6 +18,11 @@ export default function OfficersPage() {
   const [assignOfficerId, setAssignOfficerId] = useState('');
   const [handoverNotes, setHandoverNotes] = useState('');
   const [assignSaving, setAssignSaving] = useState(false);
+
+  // Availability modal state
+  const [availModal, setAvailModal] = useState<{ officer: any } | null>(null);
+  const [reassignTo, setReassignTo] = useState('');
+  const [availSaving, setAvailSaving] = useState(false);
 
   const load = () =>
     Promise.all([api.listOfficers(), api.getAllEngagements()])
@@ -43,6 +48,25 @@ export default function OfficersPage() {
       toast.error('Failed to assign');
     } finally {
       setAssignSaving(false);
+    }
+  }
+
+  async function handleSetAvailability(officerId: string, isAvailable: boolean, reassignToOfficerId?: string | null) {
+    setAvailSaving(true);
+    try {
+      const result = await api.setOfficerAvailability(officerId, isAvailable, reassignToOfficerId || null);
+      if (!isAvailable) {
+        toast.success(`Officer marked unavailable. ${result.casesReassigned ?? 0} case(s) ${reassignToOfficerId ? 'reassigned' : 'unassigned'}.`);
+      } else {
+        toast.success('Officer marked available');
+      }
+      setAvailModal(null);
+      setReassignTo('');
+      load();
+    } catch {
+      toast.error('Failed to update availability');
+    } finally {
+      setAvailSaving(false);
     }
   }
 
@@ -106,7 +130,7 @@ export default function OfficersPage() {
                     <p className="text-xs text-muted-foreground truncate">{o.email}</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between text-xs mb-2">
                   <span className="flex items-center gap-1 text-muted-foreground">
                     <UsersThree className="h-3.5 w-3.5" />
                     {o.officerEngagements?.length ?? 0} cases
@@ -115,6 +139,17 @@ export default function OfficersPage() {
                     {o.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
+                <button
+                  onClick={() => { setAvailModal({ officer: o }); setReassignTo(''); }}
+                  className={`w-full flex items-center justify-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    o.isAvailable !== false
+                      ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
+                      : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                  }`}
+                >
+                  <Power className="h-3.5 w-3.5" />
+                  {o.isAvailable !== false ? 'Mark Unavailable' : 'Mark Available'}
+                </button>
               </Card>
             ))}
           </div>
@@ -181,6 +216,90 @@ export default function OfficersPage() {
               </Card>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Availability / bulk reassign modal */}
+      {availModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <Card className="w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-foreground">
+                  {availModal.officer.isAvailable !== false ? 'Mark Officer Unavailable' : 'Mark Officer Available'}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{availModal.officer.name}</p>
+              </div>
+              <button onClick={() => setAvailModal(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {availModal.officer.isAvailable !== false ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  This will mark the officer as unavailable. Their{' '}
+                  <strong>{availModal.officer.officerEngagements?.filter((e: any) => e.status === 'ACTIVE').length ?? 0} active case(s)</strong>{' '}
+                  will be reassigned or unassigned.
+                </p>
+                <div>
+                  <label className="block text-xs font-medium mb-1">
+                    Reassign cases to <span className="text-muted-foreground font-normal">(optional — leave blank to unassign)</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={reassignTo}
+                      onChange={e => setReassignTo(e.target.value)}
+                      className="w-full appearance-none rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 pr-8"
+                    >
+                      <option value="">Unassign all cases</option>
+                      {officers
+                        .filter(o => o.id !== availModal.officer.id && o.isAvailable !== false && o.isActive)
+                        .map(o => (
+                          <option key={o.id} value={o.id}>
+                            {o.name} ({o.officerEngagements?.length ?? 0} cases)
+                          </option>
+                        ))}
+                    </select>
+                    <CaretDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => setAvailModal(null)}
+                    className="flex-1 rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleSetAvailability(availModal.officer.id, false, reassignTo || null)}
+                    disabled={availSaving}
+                    className="flex-1 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50 transition-colors"
+                  >
+                    {availSaving ? 'Saving…' : 'Confirm — Mark Unavailable'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  This will mark the officer as available again so they can be assigned new cases.
+                </p>
+                <div className="flex gap-3 pt-1">
+                  <button onClick={() => setAvailModal(null)} className="flex-1 rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted transition-colors">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleSetAvailability(availModal.officer.id, true)}
+                    disabled={availSaving}
+                    className="flex-1 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                  >
+                    {availSaving ? 'Saving…' : 'Mark Available'}
+                  </button>
+                </div>
+              </>
+            )}
+          </Card>
         </div>
       )}
 

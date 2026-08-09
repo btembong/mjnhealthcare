@@ -43,6 +43,7 @@ export class OfficerService {
         email: true,
         role: true,
         isActive: true,
+        isAvailable: true,
         createdAt: true,
         officerEngagements: {
           select: { id: true, status: true },
@@ -50,6 +51,57 @@ export class OfficerService {
       },
       orderBy: { name: 'asc' },
     });
+  }
+
+  async setOfficerAvailability(
+    officerId: string,
+    isAvailable: boolean,
+    reassignToOfficerId?: string | null,
+  ) {
+    const officer = await this.db.person.findUnique({ where: { id: officerId } });
+    if (!officer || officer.role !== 'PROCESSING_OFFICER')
+      throw new NotFoundException('Officer not found');
+
+    await this.db.person.update({
+      where: { id: officerId },
+      data: { isAvailable },
+    });
+
+    if (!isAvailable) {
+      // Bulk reassign or unassign all active cases
+      const cases = await this.db.engagement.findMany({
+        where: { officerId, status: { in: ['ACTIVE', 'PENDING_SIGNATURE'] } },
+        include: { person: { select: { name: true } } },
+      });
+
+      for (const eng of cases) {
+        await this.db.engagement.update({
+          where: { id: eng.id },
+          data: { officerId: reassignToOfficerId ?? null },
+        });
+
+        if (reassignToOfficerId) {
+          const newOfficer = await this.db.person.findUnique({
+            where: { id: reassignToOfficerId },
+            select: { name: true, email: true, phone: true },
+          });
+          if (newOfficer) {
+            this.events.emit('officer.assigned', {
+              engagementId: eng.id,
+              officerId: reassignToOfficerId,
+              officerEmail: newOfficer.email,
+              officerName: newOfficer.name,
+              officerPhone: (newOfficer as any).phone,
+              clientName: eng.person?.name ?? 'a client',
+            });
+          }
+        }
+      }
+
+      return { markedUnavailable: true, casesReassigned: cases.length };
+    }
+
+    return { markedUnavailable: false };
   }
 
   // ── Admin: assign officer to engagement ───────────────────────────────────
@@ -141,6 +193,7 @@ export class OfficerService {
     authorId: string,
     content: string,
     isInternal = true,
+    requiresApproval = false,
   ) {
     const engagement = await this.db.engagement.findUnique({
       where: { id: engagementId },
@@ -148,12 +201,12 @@ export class OfficerService {
     if (!engagement) throw new NotFoundException('Engagement not found');
 
     const note = await this.db.caseNote.create({
-      data: { engagementId, authorId, content, isInternal },
+      data: { engagementId, authorId, content, isInternal, requiresApproval },
       include: { author: { select: { id: true, name: true, role: true } } },
     });
 
-    // When isInternal=false, send update to client and log to CommunicationLog
-    if (!isInternal) {
+    // Sent-to-client AND no approval needed → deliver immediately
+    if (!isInternal && !requiresApproval) {
       const full = await this.db.engagement.findUnique({
         where: { id: engagementId },
         include: { person: { select: { id: true, name: true, email: true, phone: true } } },
@@ -180,7 +233,117 @@ export class OfficerService {
       }
     }
 
+    // Sent-to-client AND requires approval → notify consultant to review
+    if (!isInternal && requiresApproval) {
+      const full = await this.db.engagement.findUnique({
+        where: { id: engagementId },
+        include: {
+          person: { select: { id: true, name: true } },
+        },
+      });
+      this.events.emit('officer.update_pending_approval', {
+        noteId: note.id,
+        engagementId,
+        authorId,
+        content,
+        clientName: full?.person?.name ?? 'Client',
+        consultantId: full?.consultantId,
+      });
+    }
+
     return note;
+  }
+
+  // ── Note approval ─────────────────────────────────────────────────────────
+
+  async approveNote(noteId: string, approverId: string) {
+    const note = await this.db.caseNote.findUnique({
+      where: { id: noteId },
+      include: {
+        engagement: {
+          include: { person: { select: { id: true, name: true, email: true, phone: true } } },
+        },
+        author: { select: { id: true, name: true } },
+      },
+    });
+    if (!note) throw new NotFoundException('Note not found');
+    if (note.approvedAt) return note; // already approved
+
+    const approved = await this.db.caseNote.update({
+      where: { id: noteId },
+      data: { approvedAt: new Date(), approvedById: approverId },
+      include: { author: { select: { id: true, name: true, role: true } } },
+    });
+
+    // Now deliver to client
+    const person = note.engagement?.person;
+    if (person) {
+      await this.db.communicationLog.create({
+        data: {
+          personId: person.id,
+          engagementId: note.engagementId,
+          sentById: approverId,
+          channel: 'PORTAL',
+          direction: 'OUTBOUND',
+          content: note.content,
+        },
+      });
+      this.events.emit('officer.client_update_sent', {
+        engagementId: note.engagementId,
+        clientName: person.name ?? 'Client',
+        clientEmail: person.email,
+        clientPhone: (person as any).phone,
+        content: note.content,
+        authorId: note.authorId,
+      });
+    }
+
+    return approved;
+  }
+
+  async rejectNote(noteId: string) {
+    const note = await this.db.caseNote.findUnique({ where: { id: noteId } });
+    if (!note) throw new NotFoundException('Note not found');
+    // Rejection: make fully internal so it never reaches client
+    return this.db.caseNote.update({
+      where: { id: noteId },
+      data: { isInternal: true, requiresApproval: false },
+    });
+  }
+
+  async getPendingApprovals(consultantId: string) {
+    return this.db.caseNote.findMany({
+      where: {
+        isInternal: false,
+        requiresApproval: true,
+        approvedAt: null,
+        engagement: { consultantId },
+      },
+      include: {
+        author: { select: { id: true, name: true } },
+        engagement: {
+          include: { person: { select: { id: true, name: true, email: true } } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // ── Client-facing updates (approved + non-approval notes) ────────────────
+
+  async getClientUpdates(engagementId: string) {
+    return this.db.caseNote.findMany({
+      where: {
+        engagementId,
+        isInternal: false,
+        OR: [
+          { requiresApproval: false },
+          { requiresApproval: true, approvedAt: { not: null } },
+        ],
+      },
+      include: { author: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async getCaseNotes(engagementId: string) {
