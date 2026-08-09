@@ -508,13 +508,13 @@ export const api = {
     }),
 
   getTracking: (engagementId: string) =>
-    request<any[]>(),
+    request<any[]>(`/officer/cases/${engagementId}/tracking`),
 
   updateTracking: (engagementId: string, trackingId: string, data: {
     portal?: string; referenceNumber?: string; submittedAt?: string;
     status?: string; notes?: string; nextActionDate?: string;
   }) =>
-    request<any>(, {
+    request<any>(`/officer/cases/${engagementId}/tracking/${trackingId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
