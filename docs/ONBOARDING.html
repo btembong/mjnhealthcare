@@ -202,7 +202,7 @@
     </div>
     <div class="cover-footer">
       <span>MJN Health Academy and Professional Services LTD</span>
-      <span>August 2026 · v1.2 · Internal Use</span>
+      <span>August 2026 · v1.3 · Internal Use</span>
     </div>
   </div>
 </div>
@@ -274,6 +274,38 @@
     <div class="toc-item"><a href="#f5">F5. Case Notes</a><span class="toc-num">F-3</span></div>
     <div class="toc-item"><a href="#f6">F6. Escalating to a Consultant</a><span class="toc-num">F-3</span></div>
     <div class="toc-item"><a href="#f7">F7. Consultant — Escalation Inbox</a><span class="toc-num">F-4</span></div>
+  </div>
+</div>
+
+<!-- ══ WHAT'S NEW v1.3 ════════════════════════════════════════════════ -->
+<div class="container" style="padding-top:32px;padding-bottom:0;">
+  <div style="border:2px solid var(--primary);border-radius:12px;overflow:hidden;">
+    <div style="background:var(--primary);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:12px;">
+      <div style="background:rgba(255,255,255,0.2);border-radius:999px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">v1.3 · August 2026</div>
+      <span style="font-size:16px;font-weight:800;">What's New in This Release</span>
+    </div>
+    <div style="padding:20px 24px;background:#f0f6ff;">
+      <p style="font-size:13px;margin-bottom:14px;color:var(--muted);">This version adds consultant lifecycle management — admins can now deactivate or fully remove consultants from the system directly from the Consultants page.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Consultant Management</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Deactivate / Reactivate</strong> — hides a consultant from the client booking page immediately; fully reversible with one click (see A8)</li>
+            <li><strong>Remove from system</strong> — permanently removes the consultant profile; clears future slots, preserves past session and payout records for audit (see A8)</li>
+            <li><strong>Visual status in table</strong> — deactivated consultants show a greyed avatar, strikethrough name, and "Deactivated" label so status is visible at a glance</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Officer Dashboard</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Enterprise officer dashboard</strong> — dedicated landing page for processing officers with contextual welcome banner, quick actions strip, upcoming deadlines, case pipeline breakdown, and "this week" activity stats (see A10)</li>
+            <li><strong>Quick Actions strip</strong> — one-click access to My Caseload, Post a Note, Escalations, and Stage Tracker directly from the dashboard</li>
+            <li><strong>Upcoming Deadlines section</strong> — shows overdue and next-7-day tracking deadlines colour-coded by urgency</li>
+            <li><strong>Case Pipeline Breakdown</strong> — stacked bar showing submission status distribution across the officer's full caseload</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -533,6 +565,37 @@
 
   <h4>Processing Payouts</h4>
   <p>Payouts tab shows all pending payouts for partner consultants after a completed consultation. Click <strong>Mark Paid</strong> once the bank transfer or mobile money transfer has been made. This records the payment date and closes the payout.</p>
+
+  <h4 style="color:var(--primary);">&#9733; New — Deactivating a Consultant</h4>
+  <p>When a consultant's engagement with MJN ends but you want to keep their history on file, use <strong>Deactivate</strong>:</p>
+  <ol>
+    <li>Go to <strong>Consultants</strong> in the sidebar → <em>Consultants</em> tab.</li>
+    <li>Find the consultant row and click the amber <strong>Deactivate</strong> button on the right.</li>
+    <li>The consultant immediately disappears from the client-facing booking page (<code>/consult</code>). No clients can book them.</li>
+    <li>Their row in the admin table shows a greyed avatar, strikethrough name, and <em>Deactivated</em> label so you always know who is inactive.</li>
+    <li>To bring them back at any time, click the green <strong>Reactivate</strong> button that replaces the Deactivate button. They are immediately live on the booking page again.</li>
+  </ol>
+  <div class="callout"><strong>Use Deactivate first.</strong> It is fully reversible. Only proceed to Remove if you are certain the consultant will never return and you want to clear their profile from the system entirely.</div>
+
+  <h4 style="color:#be123c;">&#9733; New — Removing a Consultant from the System</h4>
+  <p>To permanently remove a consultant when their role is completely done:</p>
+  <ol>
+    <li>Go to <strong>Consultants</strong> → find the consultant row → click the <strong>red trash icon</strong> on the far right.</li>
+    <li>A confirmation modal appears, reminding you that Deactivate is the reversible option.</li>
+    <li>Click <strong>Yes, remove</strong> to confirm.</li>
+    <li>The system will: cancel and clear all future <em>available</em> booking slots for that consultant; set their profile status to INACTIVE; and remove them from the Consultants list in admin.</li>
+    <li>Past sessions, completed bookings, and payout records are <strong>preserved in full</strong> for audit purposes — they are not deleted.</li>
+  </ol>
+  <div class="callout warning"><strong>This action cannot be undone.</strong> The consultant's profile is deactivated at the database level. If they re-join MJN in future they will need to be created as a new consultant profile. Only use Remove when you are certain the engagement is permanently over.</div>
+
+  <table>
+    <thead><tr><th>Scenario</th><th>Use</th><th>Reversible?</th></tr></thead>
+    <tbody>
+      <tr><td>Consultant on leave / temporary break</td><td>Deactivate</td><td>Yes — Reactivate any time</td></tr>
+      <tr><td>Consultant finished their contract, may return</td><td>Deactivate</td><td>Yes</td></tr>
+      <tr><td>Consultant permanently done, profile no longer needed</td><td>Remove</td><td>No</td></tr>
+    </tbody>
+  </table>
 
   <h2 id="a9"><span class="sec-num">A9</span> Financial Reports & Receipts</h2>
   <p>Navigate to <strong>Payments</strong> in the sidebar.</p>
