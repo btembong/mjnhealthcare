@@ -331,6 +331,18 @@ export class OfficerService {
 
   // ── Client-facing updates (approved + non-approval notes) ────────────────
 
+  async getRecentOfficerNotes(limit = 20) {
+    return this.db.caseNote.findMany({
+      where: { author: { role: 'PROCESSING_OFFICER' } },
+      include: {
+        author: { select: { id: true, name: true } },
+        engagement: { include: { person: { select: { id: true, name: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
   async getClientUpdates(engagementId: string) {
     return this.db.caseNote.findMany({
       where: {

@@ -547,6 +547,9 @@ export const api = {
   getPendingApprovals: () =>
     request<any[]>('/officer/pending-approvals'),
 
+  getRecentOfficerNotes: (limit = 20) =>
+    request<any[]>('/officer/recent-notes?limit=' + limit),
+
   approveNote: (noteId: string) =>
     request<any>(`/officer/notes/${noteId}/approve`, { method: 'PATCH' }),
 

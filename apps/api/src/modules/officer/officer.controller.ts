@@ -6,6 +6,7 @@ import {
   Param,
   Body,
   Req,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -229,6 +230,12 @@ export class OfficerController {
   @Get('officer/pending-approvals')
   getPendingApprovals(@Req() req: any) {
     return this.svc.getPendingApprovals(req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Recent officer notes across all cases (admin view)' })
+  @Get('officer/recent-notes')
+  getRecentOfficerNotes(@Query('limit') limit?: string) {
+    return this.svc.getRecentOfficerNotes(limit ? parseInt(limit) : 20);
   }
 
   @ApiOperation({ summary: 'Client-facing updates for an engagement' })

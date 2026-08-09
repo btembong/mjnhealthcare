@@ -827,6 +827,7 @@ function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [officerNotes, setOfficerNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { load(); }, []);
@@ -834,7 +835,7 @@ function AdminDashboard() {
   async function load() {
     setLoading(true);
     try {
-      const [rPersons, rEngs, rDocs, rDrafts, rLeads, rOrders, rBookings] = await Promise.allSettled([
+      const [rPersons, rEngs, rDocs, rDrafts, rLeads, rOrders, rBookings, rOfficerNotes] = await Promise.allSettled([
         api.getPersons(),
         api.getAllEngagements(),
         api.getPendingDocuments(),
@@ -842,6 +843,7 @@ function AdminDashboard() {
         api.getLeads(),
         api.getAllOrders(),
         api.getAllBookings(),
+        api.getRecentOfficerNotes(15),
       ]);
       if (rPersons.status === 'fulfilled') setPersons(rPersons.value ?? []);
       if (rEngs.status === 'fulfilled') setEngagements(rEngs.value ?? []);
@@ -850,6 +852,7 @@ function AdminDashboard() {
       if (rLeads.status === 'fulfilled') setLeads(rLeads.value ?? []);
       if (rOrders.status === 'fulfilled') setOrders(rOrders.value ?? []);
       if (rBookings.status === 'fulfilled') setBookings(rBookings.value ?? []);
+      if (rOfficerNotes.status === 'fulfilled') setOfficerNotes(rOfficerNotes.value ?? []);
     } finally {
       setLoading(false);
     }
@@ -1401,6 +1404,45 @@ function AdminDashboard() {
               </div>
             )}
           </div>
+
+        {/* Recent Officer Activity */}
+        {officerNotes.length > 0 && (
+          <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h3 className="font-semibold text-foreground text-sm">Recent Officer Activity</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Latest updates posted by processing officers</p>
+              </div>
+              <button onClick={() => router.push('/officers')} className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                Officers <ArrowUpRight className="h-3 w-3" />
+              </button>
+            </div>
+            <div className="divide-y divide-border">
+              {officerNotes.map((note) => (
+                <div
+                  key={note.id}
+                  onClick={() => router.push('/officer/cases/' + note.engagementId)}
+                  className="flex items-start gap-3 px-5 py-3 hover:bg-muted/20 cursor-pointer transition-colors group"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700 text-xs font-bold">
+                    {(note.author?.name ?? 'O').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-foreground">{note.engagement?.person?.name ?? 'Unknown client'}</p>
+                      <span className={"rounded-full px-2 py-0.5 text-xs font-semibold " + (note.isInternal ? 'bg-muted text-muted-foreground' : note.requiresApproval && !note.approvedAt ? 'bg-amber-100 text-amber-700' : 'bg-teal-100 text-teal-700')}>
+                        {note.isInternal ? 'Internal' : note.requiresApproval && !note.approvedAt ? 'Awaiting approval' : 'Sent to client'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{note.content}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">by {note.author?.name ?? 'Officer'}</p>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{relTime(note.createdAt)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         </div>
   );
