@@ -508,7 +508,16 @@ export const api = {
     }),
 
   getTracking: (engagementId: string) =>
-    request<any[]>(`/officer/cases/${engagementId}/tracking`),
+    request<any[]>(),
+
+  updateTracking: (engagementId: string, trackingId: string, data: {
+    portal?: string; referenceNumber?: string; submittedAt?: string;
+    status?: string; notes?: string; nextActionDate?: string;
+  }) =>
+    request<any>(, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 
   escalateCase: (engagementId: string, consultantId: string, reason: string) =>
     request<any>(`/officer/cases/${engagementId}/escalate`, {
