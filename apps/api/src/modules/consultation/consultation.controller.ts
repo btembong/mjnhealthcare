@@ -138,6 +138,33 @@ export class ConsultationController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Patch('admin/consultants/:id/deactivate')
+  @HttpCode(HttpStatus.OK)
+  deactivateConsultant(@Param('id') id: string) {
+    return this.svc.deactivateConsultant(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Patch('admin/consultants/:id/reactivate')
+  @HttpCode(HttpStatus.OK)
+  reactivateConsultant(@Param('id') id: string) {
+    return this.svc.reactivateConsultant(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Delete('admin/consultants/:id')
+  @HttpCode(HttpStatus.OK)
+  deleteConsultant(@Param('id') id: string) {
+    return this.svc.deleteConsultant(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'CONSULTANT')
   @Get('admin/sessions')
   listSessions(@Query('consultantId') consultantId?: string, @Query('status') status?: string, @Req() req?: any) {

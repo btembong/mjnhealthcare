@@ -500,6 +500,32 @@ export class ConsultationService {
     return this.db.consultantProfile.update({ where: { id }, data: dto as any });
   }
 
+  async deactivateConsultant(id: string) {
+    return this.db.consultantProfile.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
+
+  async reactivateConsultant(id: string) {
+    return this.db.consultantProfile.update({
+      where: { id },
+      data: { isActive: true },
+    });
+  }
+
+  async deleteConsultant(id: string) {
+    // Cancel all future AVAILABLE slots first (booked slots are kept for history)
+    await this.db.consultationSlot.deleteMany({
+      where: { consultantId: id, status: 'AVAILABLE' },
+    });
+    // Soft-delete: deactivate and mark status INACTIVE so history is preserved
+    return this.db.consultantProfile.update({
+      where: { id },
+      data: { isActive: false, status: 'INACTIVE' as any },
+    });
+  }
+
   async createSlot(dto: CreateSlotDto) {
     return this.db.consultationSlot.create({
       data: {

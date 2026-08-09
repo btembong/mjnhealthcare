@@ -255,6 +255,15 @@ export const api = {
   }) =>
     request<any>(`/consultations/admin/consultants/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
+  deactivateConsultant: (id: string) =>
+    request<any>(`/consultations/admin/consultants/${id}/deactivate`, { method: 'PATCH' }),
+
+  reactivateConsultant: (id: string) =>
+    request<any>(`/consultations/admin/consultants/${id}/reactivate`, { method: 'PATCH' }),
+
+  deleteConsultant: (id: string) =>
+    request<any>(`/consultations/admin/consultants/${id}`, { method: 'DELETE' }),
+
   getConsultantSlots: (consultantId: string) =>
     request<any[]>(`/consultations/admin/consultants/${consultantId}/slots`),
 
