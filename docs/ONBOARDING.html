@@ -202,7 +202,7 @@
     </div>
     <div class="cover-footer">
       <span>MJN Health Academy and Professional Services LTD</span>
-      <span>August 2026 · v1.1 · Internal Use</span>
+      <span>August 2026 · v1.2 · Internal Use</span>
     </div>
   </div>
 </div>
@@ -277,6 +277,50 @@
   </div>
 </div>
 
+<!-- ══ WHAT'S NEW v1.2 ════════════════════════════════════════════════ -->
+<div class="container" style="padding-top:32px;padding-bottom:32px;">
+  <div style="border:2px solid var(--teal);border-radius:12px;overflow:hidden;">
+    <div style="background:var(--teal);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:12px;">
+      <div style="background:rgba(255,255,255,0.2);border-radius:999px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">v1.2 · August 2026</div>
+      <span style="font-size:16px;font-weight:800;">What's New in This Release</span>
+    </div>
+    <div style="padding:20px 24px;background:#f0fdfb;">
+      <p style="font-size:13px;margin-bottom:14px;color:var(--muted);">This version adds enterprise-grade officer management features across the admin console, client portal, and officer workspace. All features are live on the production server.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Officer Workspace</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Sensitive update toggle</strong> — officers can flag a client update as sensitive; it is queued for consultant approval instead of sending immediately (see F8)</li>
+            <li><strong>Tracking entry editing</strong> — existing application tracking entries can now be edited (not just added)</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Admin &amp; Consultant Console</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Pending Approvals queue</strong> — consultants see sensitive officer updates and approve or reject before they reach the client (see F8)</li>
+            <li><strong>Officer availability &amp; bulk reassignment</strong> — admin can mark an officer unavailable and bulk-reassign their entire caseload in one action (see F9)</li>
+            <li><strong>Recent Officer Activity on dashboard</strong> — admin dashboard now shows the latest notes posted by all processing officers across all cases</li>
+            <li><strong>Officer Activity tab on case detail</strong> — consultants can view a full timeline of officer notes, tracking updates, and escalations on each case</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#065f46;margin-bottom:8px;">Client Portal</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Case Updates feed</strong> — clients now see a full history of updates sent to them by their officer/consultant directly on the Case page (see B3)</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Infrastructure</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li>Database migration applied: <code>requiresApproval</code>, <code>approvedAt</code>, <code>approvedById</code> on case notes; <code>isAvailable</code> on staff profiles</li>
+            <li>Admin console route guard updated: admin and consultant roles can now access officer workspace pages for oversight</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ PART A ═════════════════════════════════════════════════════════ -->
 <div class="part-break">
   <div class="part-header">
@@ -316,6 +360,7 @@
 
   <h2 id="a2"><span class="sec-num">A2</span> Dashboard Overview</h2>
   <p>The admin dashboard loads at <code>/</code> after login. It shows a live snapshot of platform activity.</p>
+  <div class="callout"><strong>New in v1.2:</strong> The admin dashboard now includes a <strong>Recent Officer Activity</strong> panel at the bottom of the page. It shows the latest notes posted by processing officers across all cases — with client name, note type (internal / awaiting approval / sent to client), content preview, and timestamp. Click any row to navigate directly to that officer's case view.</div>
 
   <table>
     <thead><tr><th>Card / Section</th><th>What it shows</th><th>Action</th></tr></thead>
@@ -523,6 +568,22 @@
   <h4>Consultant Escalation Inbox</h4>
   <p>When a processing officer escalates a case, the assigned consultant receives a notification and the escalation appears in their <strong>Escalations</strong> sidebar entry. Consultants can see all open escalations, the reason given by the officer, and can resolve each escalation with a response. Resolved escalations are archived but remain visible for audit purposes.</p>
 
+  <h4 style="color:var(--teal);">&#9733; New — Consultant Approvals Queue</h4>
+  <p>Consultants now have a dedicated <strong>Approvals</strong> page in their sidebar. When a processing officer marks a client update as <em>sensitive</em>, it is held here rather than sent directly. The consultant reviews the draft, then either <strong>Approves</strong> (delivers it to the client immediately) or <strong>Rejects</strong> (keeps it as an internal note only). An email notification is sent to the consultant as soon as a sensitive update is queued.</p>
+  <div class="callout warning"><strong>Important:</strong> Sensitive updates are not sent to the client until a consultant approves them. Officers should use the sensitive flag for any update involving bad news, delays, application rejections, or anything requiring careful wording.</div>
+
+  <h4 style="color:var(--teal);">&#9733; New — Officer Availability &amp; Bulk Reassignment</h4>
+  <p>On the <strong>Officers</strong> page, each officer card now has an availability toggle. When an officer goes on leave or is otherwise unavailable:</p>
+  <ol>
+    <li>Click the <strong>power icon</strong> on their card → <em>Mark Unavailable</em></li>
+    <li>Optionally select another officer to reassign all their active cases to</li>
+    <li>Confirm — all affected cases are updated instantly and the replacement officer is notified</li>
+  </ol>
+  <p>To restore availability, click the toggle again → <em>Mark Available</em>. New case assignments can then resume normally.</p>
+
+  <h4 style="color:var(--teal);">&#9733; New — Officer Activity Tab on Case Detail</h4>
+  <p>On any case in the <strong>Caseload</strong> view (<code>/caseload/:id</code>), consultants and admins can now expand an <strong>Officer Activity</strong> panel. This shows a unified timeline of all officer notes (internal and client-facing), application tracking updates, and escalations for that case — with SLA alerts where applicable.</p>
+
 </div>
 
 <!-- ══ PART B ═════════════════════════════════════════════════════════ -->
@@ -607,8 +668,10 @@
       <tr><td><strong>Payments Summary</strong></td><td>What you have paid and what is outstanding across all orders.</td></tr>
       <tr><td><strong>Milestones</strong></td><td>The ordered stages of your specific licensing pathway — e.g. DataFlow Submitted → DataFlow Approved → Exam Booked → Exam Passed → Licence Issued. Each stage shows its status and date completed.</td></tr>
       <tr><td><strong>Activity Feed</strong></td><td>A chronological record of everything that has happened on your case — useful for seeing what your consultant has done and when.</td></tr>
+      <tr><td><strong>Case Updates <span class="chip chip-green">New</span></strong></td><td>A feed of all updates your processing officer or consultant has sent to you — with their name, timestamp, and message. Only updates marked for client delivery appear here; internal officer notes are not visible to you.</td></tr>
     </tbody>
   </table>
+  <div class="callout"><strong>New in v1.2:</strong> The <strong>Case Updates</strong> section gives you a permanent record of every communication your team has sent about your case. You no longer need to rely only on email or WhatsApp to track what was communicated — the full history is visible on this page.</div>
 
   <h2 id="b4"><span class="sec-num">B4</span> Documents — Upload & Track</h2>
   <p>Navigate to <strong>Documents</strong> in the sidebar. Your consultant will tell you exactly which documents are needed — but the general list for licensing includes:</p>
@@ -1452,14 +1515,28 @@
 
   <div class="callout danger"><strong>Rejection or deficiency notice:</strong> Always escalate to the assigned consultant before taking any action. Do not respond to a regulatory body directly on a rejection without consultant sign-off.</div>
 
-  <h2 id="f5"><span class="sec-num">F5</span> Case Notes</h2>
+  <h2 id="f5"><span class="sec-num">F5</span> Case Notes &amp; Client Updates</h2>
 
-  <p>Case notes are internal — they are <strong>never visible to the client</strong>. They are a record for MJN staff of what has happened on a case.</p>
+  <p>From the case detail page, officers can post two types of messages: <strong>internal notes</strong> (visible to staff only) and <strong>client updates</strong> (delivered to the client).</p>
 
-  <h4>Adding a note from the Case Detail page</h4>
+  <h4>Internal notes</h4>
+  <p>Internal notes are <strong>never visible to the client</strong>. They are a record for MJN staff of what has happened on a case.</p>
+
+  <h4>Sending a client update</h4>
+  <p>To send an update that the client will see:</p>
+  <ol>
+    <li>Open the case → scroll to the Case Notes / Updates section</li>
+    <li>Type your message in the text box</li>
+    <li>Toggle <strong>Send to client</strong> to ON (teal)</li>
+    <li>Click <strong>Send Update</strong></li>
+  </ol>
+  <p>The update is delivered immediately to the client via email and WhatsApp, and also appears in the client's <strong>Case Updates</strong> feed on the portal.</p>
+
+  <h4>Adding an internal note from the Case Detail page</h4>
   <ol>
     <li>Open the case → scroll to the Case Notes section on the right</li>
     <li>Type your note in the text box</li>
+    <li>Keep <strong>Send to client</strong> OFF</li>
     <li>Click <strong>Add Note</strong></li>
   </ol>
 
@@ -1577,10 +1654,115 @@
   <p>All escalations are logged permanently with: who raised it, when, the reason text, who resolved it, when, and the resolution notes. This is part of the compliance audit trail and can be reviewed by the Super Admin at any time.</p>
 
 </div>
+  <h2 id="f8"><span class="sec-num">F8</span> Sensitive Updates &amp; Consultant Approval Queue <span class="chip chip-amber">New in v1.2</span></h2>
+
+  <p>Not every client update should be sent immediately. If your update contains bad news, a delay, an application rejection, or anything that may need careful wording, mark it as <strong>Sensitive</strong> so it is reviewed by the consultant first.</p>
+
+  <h4>How to send a sensitive update</h4>
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Toggle Send to client ON</div>
+        <div><span class="step-who admin">Processing Officer</span></div>
+        <div class="step-desc">In the Case Notes section, switch the <strong>Send to client</strong> toggle to ON (teal). A second toggle appears below it.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Toggle Sensitive ON</div>
+        <div><span class="step-who admin">Processing Officer</span></div>
+        <div class="step-desc">Switch the <strong>Sensitive — requires consultant approval</strong> toggle to ON (amber). The submit button changes to amber: <em>Queue for Approval</em>.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Submit — consultant is notified</div>
+        <div><span class="step-who admin">Processing Officer</span></div>
+        <div class="step-desc">Click <strong>Queue for Approval</strong>. The note is saved as pending. The assigned consultant receives an email with a link to the Approvals queue. The client does <em>not</em> receive anything yet.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Consultant approves or rejects</div>
+        <div><span class="step-who admin">Consultant</span></div>
+        <div class="step-desc">The consultant opens <strong>Approvals</strong> in the sidebar. They read the draft, then either <strong>Approve &amp; Send to Client</strong> (delivers immediately) or <strong>Reject</strong> (keeps it internal — the officer is expected to revise and resubmit, or the consultant handles the communication directly).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warning"><strong>When to use Sensitive:</strong> Application rejections, stage delays, document deficiencies that will cause timeline impact, any update that requires a careful explanation. When in doubt, mark it sensitive — it is always better to have the consultant review it than to deliver unclear news directly.</div>
+
+  <table>
+    <thead><tr><th>Update type</th><th>Routine or Sensitive?</th></tr></thead>
+    <tbody>
+      <tr><td>DataFlow submitted — reference number received</td><td><span class="chip chip-green">Routine</span></td></tr>
+      <tr><td>DHA exam date confirmed</td><td><span class="chip chip-green">Routine</span></td></tr>
+      <tr><td>DataFlow rejected — missing document</td><td><span class="chip chip-amber">Sensitive</span></td></tr>
+      <tr><td>Application processing delayed — body not responding</td><td><span class="chip chip-amber">Sensitive</span></td></tr>
+      <tr><td>Client needs to re-upload document (expiry issue)</td><td><span class="chip chip-green">Routine</span></td></tr>
+      <tr><td>Licence not granted — re-application required</td><td><span class="chip chip-amber">Sensitive</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="f9"><span class="sec-num">F9</span> Officer Availability &amp; Bulk Reassignment <span class="chip chip-amber">New in v1.2</span></h2>
+
+  <p>This feature is used by <strong>admin only</strong>. Processing officers do not manage their own availability — admins do this on their behalf.</p>
+
+  <h4>Marking an officer unavailable</h4>
+  <div class="step-flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Go to Officers in the admin sidebar</div>
+        <div><span class="step-who admin">Admin</span></div>
+        <div class="step-desc">Navigate to <code>admin.mjnhealthcare.com/officers</code>. Each officer card shows their current caseload count and availability status.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Click the power icon on the officer card</div>
+        <div><span class="step-who admin">Admin</span></div>
+        <div class="step-desc">Click the <strong>power icon</strong> on the right of the officer's card. A modal opens showing their current status.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Optionally select a replacement officer</div>
+        <div><span class="step-who admin">Admin</span></div>
+        <div class="step-desc">From the <em>Reassign all cases to</em> dropdown, select the officer who will take over. Leave blank if you want cases unassigned (you can assign them individually later).</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-connector"></div>
+      <div class="step-body">
+        <div class="step-title">Confirm — cases are transferred instantly</div>
+        <div><span class="step-who admin">Admin</span></div>
+        <div class="step-desc">Click <strong>Mark Unavailable</strong>. All active cases are reassigned to the selected officer, who is notified for each one. The unavailable officer's caseload count drops to 0.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout info"><strong>Restoring availability:</strong> When the officer returns, go back to their card, click the power icon, and click <strong>Mark Available</strong>. Their profile becomes active again and they can receive new case assignments. Previously reassigned cases are not automatically returned — reassign manually as needed.</div>
+
+
 
 <!-- ══ DOC FOOTER ════════════════════════════════════════════════════ -->
 <div class="doc-footer">
-  <span>MJN Health Academy and Professional Services LTD — Internal Operations Manual v1.1</span>
+  <span>MJN Health Academy and Professional Services LTD — Internal Operations Manual v1.2</span>
   <span>August 2026 · Prepared by Digos Technologies</span>
 </div>
 
