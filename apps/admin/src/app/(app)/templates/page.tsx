@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import {
-  Plus, Pencil, Trash, Check, X, ChatText, MagnifyingGlass,
+  Plus, Pencil, Trash, Check, X, ChatText, MagnifyingGlass, CircleNotch,
 } from '@phosphor-icons/react';
+import { api } from '../../../lib/api';
 
-const STORAGE_KEY = 'mjn_msg_templates';
+const CONFIG_KEY = 'message_templates';
 
 type Template = {
   id: string;
@@ -16,15 +18,6 @@ type Template = {
 };
 
 const CATEGORIES = ['General', 'Documents', 'Payment', 'Licensing', 'Follow-up', 'Welcome'];
-
-function loadTemplates(): Template[] {
-  if (typeof window === 'undefined') return [];
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]'); } catch { return []; }
-}
-
-function saveTemplates(ts: Template[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(ts));
-}
 
 const DEFAULT_TEMPLATES: Template[] = [
   { id: 'tpl-1', name: 'Documents verified', category: 'Documents', body: 'Your documents have been verified and approved. We will proceed to the next stage shortly.', createdAt: new Date().toISOString() },
@@ -37,21 +30,44 @@ const DEFAULT_TEMPLATES: Template[] = [
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [search, setSearch] = useState('');
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
+  const [search, setSearch]       = useState('');
   const [catFilter, setCatFilter] = useState('All');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ name: '', body: '', category: 'General' });
-  const [copied, setCopied] = useState<string | null>(null);
+  const [showNew, setShowNew]     = useState(false);
+  const [form, setForm]           = useState({ name: '', body: '', category: 'General' });
+  const [copied, setCopied]       = useState<string | null>(null);
+  const saveTimer                 = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Load from DB on mount
   useEffect(() => {
-    const stored = loadTemplates();
-    setTemplates(stored.length ? stored : DEFAULT_TEMPLATES);
+    api.getSystemConfig()
+      .then((config) => {
+        const raw = config[CONFIG_KEY];
+        if (raw) {
+          try { setTemplates(JSON.parse(raw)); return; } catch { /* fall through */ }
+        }
+        setTemplates(DEFAULT_TEMPLATES);
+      })
+      .catch(() => setTemplates(DEFAULT_TEMPLATES))
+      .finally(() => setLoading(false));
   }, []);
 
-  function persist(ts: Template[]) {
+  // Debounced save to DB
+  function persistToDb(ts: Template[]) {
     setTemplates(ts);
-    saveTemplates(ts);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      setSaving(true);
+      try {
+        await api.updateSystemConfig({ [CONFIG_KEY]: JSON.stringify(ts) });
+      } catch {
+        toast.error('Failed to save templates.');
+      } finally {
+        setSaving(false);
+      }
+    }, 800);
   }
 
   function handleCreate() {
@@ -63,9 +79,10 @@ export default function TemplatesPage() {
       category: form.category,
       createdAt: new Date().toISOString(),
     };
-    persist([newT, ...templates]);
+    persistToDb([newT, ...templates]);
     setForm({ name: '', body: '', category: 'General' });
     setShowNew(false);
+    toast.success('Template created.');
   }
 
   function handleEdit(t: Template) {
@@ -76,13 +93,16 @@ export default function TemplatesPage() {
 
   function handleSaveEdit() {
     if (!form.name.trim() || !form.body.trim()) return;
-    persist(templates.map((t) => t.id === editingId ? { ...t, ...form } : t));
+    persistToDb(templates.map((t) => t.id === editingId ? { ...t, ...form } : t));
     setEditingId(null);
     setForm({ name: '', body: '', category: 'General' });
+    toast.success('Template updated.');
   }
 
   function handleDelete(id: string) {
-    persist(templates.filter((t) => t.id !== id));
+    if (!confirm('Delete this template?')) return;
+    persistToDb(templates.filter((t) => t.id !== id));
+    toast.success('Template deleted.');
   }
 
   function handleCopy(body: string, id: string) {
@@ -105,7 +125,8 @@ export default function TemplatesPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Message Templates</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Saved templates for client communications. Copy into any message compose box.
+            Shared templates for client communications — visible to all staff.
+            {saving && <span className="ml-2 text-primary text-xs">Saving…</span>}
           </p>
         </div>
         <button
@@ -186,7 +207,11 @@ export default function TemplatesPage() {
       </div>
 
       {/* Grid */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <CircleNotch className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-border bg-white p-10 text-center shadow-sm">
           <ChatText className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">No templates match your search.</p>

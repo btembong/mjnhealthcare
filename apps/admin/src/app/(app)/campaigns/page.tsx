@@ -17,8 +17,16 @@ type TabKey = 'ALL' | 'DRAFT' | 'SCHEDULED' | 'SENT' | 'CANCELLED';
 
 interface CampaignForm {
   name: string; subject: string; body: string; scheduledAt: string;
-  audienceType: 'brevo' | 'custom'; audienceListId: string;
+  audienceType: 'segment' | 'custom'; audienceSegment: string; audienceListId: string;
 }
+
+const SEGMENTS = [
+  { value: 'leads',          label: 'Leads',            desc: 'All unqualified leads in the CRM' },
+  { value: 'active',         label: 'Active Clients',   desc: 'People with an active engagement' },
+  { value: 'on_hold',        label: 'On Hold',          desc: 'Engagements currently paused' },
+  { value: 'completed',      label: 'Completed',        desc: 'Finished engagements' },
+  { value: 'all_candidates', label: 'All Candidates',   desc: 'Every person in the system' },
+];
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'ALL', label: 'All' },
@@ -36,7 +44,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const EMPTY_FORM: CampaignForm = {
-  name: '', subject: '', body: '', scheduledAt: '', audienceType: 'brevo', audienceListId: '',
+  name: '', subject: '', body: '', scheduledAt: '', audienceType: 'segment', audienceSegment: 'leads', audienceListId: '',
 };
 
 function formatLabel(s: string) {
@@ -303,7 +311,8 @@ export default function CampaignsPage() {
     setForm({
       name: c.name, subject: c.subject, body: c.body,
       scheduledAt: c.scheduledAt ? c.scheduledAt.slice(0, 16) : '',
-      audienceType: af?.type === 'custom_list' ? 'custom' : 'brevo',
+      audienceType: af?.type === 'custom_list' ? 'custom' : 'segment',
+      audienceSegment: af?.type === 'segment' ? (af.segment ?? 'leads') : 'leads',
       audienceListId: '',
     });
     setShowForm(true);
@@ -313,11 +322,13 @@ export default function CampaignsPage() {
     e.preventDefault();
     if (!form.name.trim() || !form.subject.trim() || !form.body.trim()) return;
 
-    let audienceFilter: Record<string, any> | undefined;
+    let audienceFilter: Record<string, any>;
     if (form.audienceType === 'custom') {
       const list = savedLists.find((l) => l.id === form.audienceListId);
       if (!list) { toast.error('Select an imported list first.'); return; }
       audienceFilter = { type: 'custom_list', listName: list.name, contacts: list.contacts };
+    } else {
+      audienceFilter = { type: 'segment', segment: form.audienceSegment };
     }
 
     setSubmitting(true);
@@ -347,10 +358,14 @@ export default function CampaignsPage() {
     const c = campaigns.find((x) => x.id === id);
     const af = c?.audienceFilter as any;
     const isCustom = af?.type === 'custom_list';
+    const isSegment = af?.type === 'segment';
+    const segLabel = SEGMENTS.find((s) => s.value === af?.segment)?.label ?? af?.segment ?? 'selected segment';
     const confirmed = confirm(
       isCustom
         ? `Send to ${af.contacts?.length ?? 0} contacts in "${af.listName}"?`
-        : 'Send this campaign to all Brevo subscribers now?'
+        : isSegment
+          ? `Send to all contacts in the "${segLabel}" segment?`
+          : 'Send this campaign now?'
     );
     if (!confirmed) return;
     setSending(id);
@@ -481,23 +496,23 @@ export default function CampaignsPage() {
           <div>
             <p className="mb-3 text-xs font-semibold text-foreground uppercase tracking-wide">Audience</p>
             <div className="grid sm:grid-cols-2 gap-3">
-              {/* Brevo option */}
-              <button type="button" onClick={() => setForm((f) => ({ ...f, audienceType: 'brevo' }))}
+              {/* Built-in segment option */}
+              <button type="button" onClick={() => setForm((f) => ({ ...f, audienceType: 'segment' }))}
                 className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
-                  form.audienceType === 'brevo' ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/20'
+                  form.audienceType === 'segment' ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/20'
                 }`}>
                 <div className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                  form.audienceType === 'brevo' ? 'border-primary' : 'border-muted-foreground/40'
+                  form.audienceType === 'segment' ? 'border-primary' : 'border-muted-foreground/40'
                 }`}>
-                  {form.audienceType === 'brevo' && <div className="h-2 w-2 rounded-full bg-primary" />}
+                  {form.audienceType === 'segment' && <div className="h-2 w-2 rounded-full bg-primary" />}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Brevo Subscriber List</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">All contacts in your Brevo list (managed externally)</p>
+                  <p className="text-sm font-semibold text-foreground">Built-in Segment</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Leads, active clients, on hold, completed, or everyone</p>
                 </div>
               </button>
 
-              {/* Custom list option */}
+              {/* Custom imported list option */}
               <button type="button"
                 onClick={() => savedLists.length ? setForm((f) => ({ ...f, audienceType: 'custom' })) : setShowImport(true)}
                 className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
@@ -516,6 +531,15 @@ export default function CampaignsPage() {
                 </div>
               </button>
             </div>
+
+            {form.audienceType === 'segment' && (
+              <div className="mt-3">
+                <select value={form.audienceSegment} onChange={(e) => setForm((f) => ({ ...f, audienceSegment: e.target.value }))}
+                  className="h-10 w-full rounded-xl border border-border bg-muted/30 px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+                  {SEGMENTS.map((s) => <option key={s.value} value={s.value}>{s.label} — {s.desc}</option>)}
+                </select>
+              </div>
+            )}
 
             {form.audienceType === 'custom' && savedLists.length > 0 && (
               <div className="mt-3 space-y-2">
@@ -586,6 +610,8 @@ export default function CampaignsPage() {
                 {tabCampaigns.map((c) => {
                   const af = c.audienceFilter as any;
                   const isCustom = af?.type === 'custom_list';
+                  const isSegment = af?.type === 'segment';
+                  const segLabel = SEGMENTS.find((s) => s.value === af?.segment)?.label ?? af?.segment ?? 'Segment';
                   return (
                     <tr key={c.id} className="hover:bg-muted/10 transition-colors">
                       <td className="px-5 py-3.5 font-semibold text-foreground">{c.name}</td>
@@ -598,8 +624,10 @@ export default function CampaignsPage() {
                               {af.listName ?? 'Custom list'} · {(af.contacts as any[])?.length ?? 0}
                             </span>
                           </div>
+                        ) : isSegment ? (
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{segLabel}</span>
                         ) : (
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Brevo list</span>
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">All</span>
                         )}
                       </td>
                       <td className="px-5 py-3.5">

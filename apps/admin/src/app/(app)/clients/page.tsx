@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { PageHeader } from '@mjn/ui';
 import {
   CircleNotch, MagnifyingGlass, UsersFour,
@@ -15,6 +16,7 @@ const ROLE_STYLES: Record<string, string> = {
 };
 
 export default function ClientsPage() {
+  const router = useRouter();
   const [persons, setPersons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -72,7 +74,7 @@ export default function ClientsPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.map((person: any) => (
-                <tr key={person.id} className="hover:bg-muted/20 transition-colors">
+                <tr key={person.id} className="hover:bg-muted/20 transition-colors cursor-pointer" onClick={() => router.push(`/clients/${person.id}`)}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">

@@ -83,6 +83,8 @@ export const api = {
   getPersons: (role?: string) =>
     request<any[]>(`/persons${role ? `?role=${role}` : ''}`),
 
+  getPerson: (id: string) => request<any>(`/persons/${id}`),
+
   getStaff: () => request<any[]>('/persons/staff/list'),
 
   updateStaffCredentials: (id: string, data: { name?: string; email?: string; password?: string }) =>
@@ -160,8 +162,20 @@ export const api = {
   // ── Catalog (admin) ───────────────────────────────────────────────────────
   getCatalogCategories: () => request<any[]>('/catalog/categories'),
 
+  createCatalogCategory: (data: { name: string; isMandatory?: boolean; sortOrder?: number }) =>
+    request<any>('/catalog/categories', { method: 'POST', body: JSON.stringify(data) }),
+
+  deleteCatalogCategory: (id: string) =>
+    request<any>(`/catalog/categories/${id}`, { method: 'DELETE' }),
+
+  createCatalogItem: (data: { categoryId: string; name: string; priceUsd: number; description?: string; sortOrder?: number }) =>
+    request<any>('/catalog/items', { method: 'POST', body: JSON.stringify(data) }),
+
   updateCatalogItem: (id: string, data: { priceUsd?: number; name?: string; description?: string }) =>
     request<any>(`/catalog/items/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  deleteCatalogItem: (id: string) =>
+    request<any>(`/catalog/items/${id}`, { method: 'DELETE' }),
 
   // ── Orders (admin) ────────────────────────────────────────────────────────
   getAllOrders: () => request<any[]>('/orders/admin'),
@@ -576,6 +590,9 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ isAvailable, reassignToOfficerId }),
     }),
+
+  // ── Reports ──────────────────────────────────────────────────────────────
+  getReports: () => request<any>('/reports/admin'),
 
   // ── AI ───────────────────────────────────────────────────────────────────
   draftClientUpdate: (engagementId: string) =>

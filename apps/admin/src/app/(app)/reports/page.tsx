@@ -151,12 +151,13 @@ function KpiCard({ icon: Icon, label, value, delta, sub, color = 'text-primary',
 export default function ReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isLive, setIsLive] = useState(false);
   const [period, setPeriod] = useState<'6m' | '12m' | 'all'>('6m');
 
   useEffect(() => {
-    ((api as any).getReports ? (api as any).getReports() : Promise.resolve(null))
-      .then((d: any) => setData(d ?? MOCK))
-      .catch(() => setData(MOCK))
+    api.getReports()
+      .then((d: any) => { setData(d); setIsLive(true); })
+      .catch(() => { setData(MOCK); setIsLive(false); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -180,10 +181,16 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <PageHeader
-          title="Reports & Analytics"
-          subtitle="Revenue, placements, exam pass rates, and pipeline metrics"
-        />
+        <div>
+          <PageHeader
+            title="Reports & Analytics"
+            subtitle="Revenue, placements, exam pass rates, and pipeline metrics"
+          />
+          <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${isLive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            {isLive ? 'Live data' : 'Preview data — API unavailable'}
+          </span>
+        </div>
         <div className="flex rounded-xl border border-border bg-white overflow-hidden shadow-sm shrink-0">
           {(['6m', '12m', 'all'] as const).map((p) => (
             <button

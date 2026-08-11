@@ -94,7 +94,26 @@ export class CampaignService {
       name: process.env.BREVO_FROM_NAME ?? 'MJN Healthcare',
     };
 
-    if (af?.type === 'custom_list' && Array.isArray(af.contacts) && af.contacts.length > 0) {
+    if (af?.type === 'segment') {
+      // Resolve recipients from DB based on segment name
+      const contacts = await this.resolveSegment(af.segment as string);
+      let sent = 0;
+      for (const contact of contacts) {
+        if (!contact.email) continue;
+        try {
+          await this.transactionalApi.sendTransacEmail({
+            to: [{ email: contact.email, name: contact.name ?? contact.email }],
+            subject: campaign.subject,
+            htmlContent: campaign.body,
+            sender,
+          } as any);
+          sent++;
+        } catch (err) {
+          this.logger.warn(`Failed to send to ${contact.email}: ${err}`);
+        }
+      }
+      this.logger.log(`Segment campaign "${campaign.name}" (${af.segment}) sent to ${sent}/${contacts.length} contacts`);
+    } else if (af?.type === 'custom_list' && Array.isArray(af.contacts) && af.contacts.length > 0) {
       // Send transactional email to each imported contact
       let sent = 0;
       for (const contact of af.contacts as Array<{ name?: string; email: string }>) {
@@ -138,5 +157,44 @@ export class CampaignService {
     const campaign = await this.db.campaign.findUnique({ where: { id } });
     if (!campaign) throw new NotFoundException('Campaign not found');
     return this.db.campaign.update({ where: { id }, data: { status: CampaignStatus.CANCELLED } });
+  }
+
+  private async resolveSegment(segment: string): Promise<Array<{ email: string | null; name: string | null }>> {
+    switch (segment) {
+      case 'leads': {
+        const leads = await this.db.lead.findMany({ select: { email: true, name: true } });
+        return leads.map(l => ({ email: l.email, name: l.name }));
+      }
+      case 'active': {
+        const persons = await this.db.person.findMany({
+          where: { engagements: { some: { status: 'ACTIVE' } } },
+          select: { email: true, name: true },
+        });
+        return persons;
+      }
+      case 'on_hold': {
+        const persons = await this.db.person.findMany({
+          where: { engagements: { some: { status: 'ON_HOLD' } } },
+          select: { email: true, name: true },
+        });
+        return persons;
+      }
+      case 'completed': {
+        const persons = await this.db.person.findMany({
+          where: { engagements: { some: { status: 'COMPLETED' } } },
+          select: { email: true, name: true },
+        });
+        return persons;
+      }
+      case 'all_candidates': {
+        const persons = await this.db.person.findMany({
+          select: { email: true, name: true },
+        });
+        return persons;
+      }
+      default:
+        this.logger.warn(`Unknown segment: ${segment}`);
+        return [];
+    }
   }
 }
