@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { MarketingNav } from '../../../components/marketing-nav';
 import { SiteFooter } from '../../../components/site-footer';
 import { Button, Badge } from '@mjn/ui';
-import { ArrowRight, CheckCircle, Clock, Users, GraduationCap, Passport, FileText, Shield } from '@phosphor-icons/react';
+import { ArrowRight, CheckCircle, Clock, Users, GraduationCap, IdentificationCard, FileText, Shield } from '@phosphor-icons/react';
 
 // ── Express Entry steps ──────────────────────────────────────────────────────
 
@@ -198,7 +198,7 @@ export default function CanadaPage() {
           <div className="grid gap-5 md:grid-cols-3">
             {[
               {
-                icon: <Passport className="h-7 w-7 text-primary" />,
+                icon: <IdentificationCard className="h-7 w-7 text-primary" />,
                 title: 'Express Entry PR',
                 desc: 'Permanent residency via the federal points-based system — Federal Skilled Worker, CEC, or Provincial Nominee. Fastest route to Canadian PR for qualified professionals.',
                 time: '6–18 months',
