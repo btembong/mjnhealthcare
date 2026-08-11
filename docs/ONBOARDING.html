@@ -202,7 +202,7 @@
     </div>
     <div class="cover-footer">
       <span>MJN Health Academy and Professional Services LTD</span>
-      <span>August 2026 · v1.3 · Internal Use</span>
+      <span>August 2026 · v1.4 · Internal Use</span>
     </div>
   </div>
 </div>
@@ -256,6 +256,7 @@
     <div class="toc-item"><a href="#d3">D3. Student Support Only</a><span class="toc-num">D-2</span></div>
     <div class="toc-item"><a href="#d4">D4. Academy / Exam Prep Only</a><span class="toc-num">D-2</span></div>
     <div class="toc-item"><a href="#d5">D5. Health Consultation Only</a><span class="toc-num">D-2</span></div>
+    <div class="toc-item"><a href="#d6">D6. Canada — Express Entry / Study Permit / Licensing</a><span class="toc-num">D-3</span></div>
   </div>
 
   <div class="toc-part">
@@ -274,6 +275,98 @@
     <div class="toc-item"><a href="#f5">F5. Case Notes</a><span class="toc-num">F-3</span></div>
     <div class="toc-item"><a href="#f6">F6. Escalating to a Consultant</a><span class="toc-num">F-3</span></div>
     <div class="toc-item"><a href="#f7">F7. Consultant — Escalation Inbox</a><span class="toc-num">F-4</span></div>
+  </div>
+</div>
+
+<!-- ══ WHAT'S NEW v1.4 ════════════════════════════════════════════════ -->
+<div class="container" style="padding-top:32px;padding-bottom:0;">
+  <div style="border:2px solid var(--accent);border-radius:12px;overflow:hidden;">
+    <div style="background:var(--accent);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:12px;">
+      <div style="background:rgba(255,255,255,0.25);border-radius:999px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">v1.4 · August 2026</div>
+      <span style="font-size:16px;font-weight:800;">What's New in This Release</span>
+    </div>
+    <div style="padding:20px 24px;background:#fff8f0;">
+      <p style="font-size:13px;margin-bottom:14px;color:var(--muted);">This version adds Canada as a fully supported destination — three distinct routes (Express Entry PR, Study Permit, and Healthcare Licensing) are now live across the marketing site, admin pathways panel, and client portal. A minor marketing-site fix is also included.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;">Canada Routes — Marketing Site</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Canada service page rebuilt</strong> — <code>/services/canada</code> is now a three-route hub covering Express Entry PR, Study Permit / Student Support, and Healthcare Licensing (NNAS/NCLEX). Each route has its own step-by-step breakdown, timing, and call to action.</li>
+            <li><strong>Navigation dropdown</strong> — "Canada — Express Entry &amp; Licensing" added to the Services megamenu between Ireland and Healthcare Staffing.</li>
+            <li><strong>Site footer</strong> — "Canada (Express Entry / Licensing)" now appears in the Services column of the footer.</li>
+            <li><strong>Regulatory bodies reference table</strong> — the Canada page includes a table covering NNAS, CNO/BCCNM/CARNA (provincial colleges), and MCCQE/CEHPEA (physicians), plus 5 FAQs across all three routes.</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Canada Routes — Admin &amp; Portal</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Admin Pathways panel</strong> — Canada now has Express Entry stages pre-loaded in the "New Pathway" modal: Eligibility Assessment, CRS Score Review, Express Entry Pool Monitoring, ITA Received, Full PR Application, Medical &amp; Biometrics, COPR &amp; Landing. Regulatory bodies include IRCC — Express Entry, IRCC — Study Permit, NNAS, NCLEX-RN (Canada), and RCSFD.</li>
+            <li><strong>Database seeded</strong> — two Canada pathway templates with full required-document checklists: IRCC — Express Entry (8 stages) and IRCC — Study Permit (6 stages, including the post-2024 Provincial Attestation Letter step).</li>
+            <li><strong>Client portal — no changes needed</strong> — the journey tracker is pathway-agnostic. Canada clients automatically see the 🇨🇦 flag and their correct stage pipeline once a consultant assigns them a Canada pathway.</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Marketing Site — Team Page</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Team member detail hero</strong> — country/location line removed from the hero section. The flag and location string are no longer shown under a consultant's name on their profile page (<code>/team/[slug]</code>).</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">How to Onboard a Canada Client</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li>Admin → Pathways → New Pathway → select Canada and the relevant IRCC body → stages auto-fill from the template.</li>
+            <li>Assign the pathway to the client's engagement as normal. The portal immediately reflects the correct stages with the 🇨🇦 flag.</li>
+            <li>For the three routes, see the new <strong>D6</strong> section in this document.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ── second row: admin portal gap closures ── -->
+      <p style="font-size:13px;margin-top:20px;margin-bottom:14px;color:var(--muted);">A second batch in this release closes five admin console gaps — campaign audiences, client profiles, shared templates, catalog management, and live reports.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;">Campaigns — Built-in Audience Segments</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Five built-in segments</strong> replace the old Brevo list-ID field: <em>Leads</em>, <em>Active Clients</em>, <em>On Hold</em>, <em>Completed</em>, and <em>All Candidates</em>. Staff select a segment from a dropdown — no external list management needed.</li>
+            <li><strong>CSV import kept as a second option</strong> — for ad-hoc lists outside the CRM, the Excel/CSV import path still works alongside the new segments.</li>
+            <li><strong>Backend</strong> — the API resolves each segment directly from the database (leads table, engagement status) and sends a transactional email to every matched contact via Brevo.</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Clients — Clickable Rows &amp; Profile Page</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Clickable rows</strong> — every row in the Clients table now navigates to <code>/clients/[id]</code> on click.</li>
+            <li><strong>Client profile page</strong> — shows identity card (name, email, phone, profession, locale), a full list of the client's engagements with status badges, and their uploaded documents with verification status and expiry dates.</li>
+            <li>All data is fetched in a single parallel load — no extra navigation required.</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Templates — Shared Across All Staff</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Database-backed</strong> — templates are now stored in the <code>systemConfig</code> table (key <code>message_templates</code>) instead of the browser's localStorage. Any staff member on any device sees the same library.</li>
+            <li><strong>Auto-save</strong> — every create, edit, or delete debounce-saves to the DB within 800 ms; a "Saving…" indicator appears in the subtitle while syncing.</li>
+            <li>The six default templates are seeded on first load if the DB key is empty.</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Catalog — Create &amp; Delete</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>New Category button</strong> — inline form at the top; enter a name, tick Mandatory if applicable, and submit. The category appears immediately.</li>
+            <li><strong>Add Item per category</strong> — each category header has an "Add Item" button that expands an inline form (name, price, optional description).</li>
+            <li><strong>Delete</strong> — trash icon on both categories (with items) and individual items; both require confirmation before removal.</li>
+            <li>Price editing (existing behaviour) is unchanged.</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;grid-column:span 2;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Reports — Connected to Live Database Data</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>New <code>GET /reports/admin</code> endpoint</strong> — queries Prisma for receipts (revenue by month), engagement pipeline counts, client totals by profession, practice-result pass rates, and licensing progress by destination country.</li>
+            <li><strong>Reports page now shows real data</strong> — when the API is reachable, all KPI cards and charts reflect actual DB values. An <em>emerald "Live data"</em> badge confirms the source; an <em>amber "Preview data — API unavailable"</em> badge is shown as a fallback if the API is down.</li>
+            <li>No schema migration required — the new module queries existing tables only.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1273,6 +1366,71 @@
     </tbody>
   </table>
 
+  <h2 id="d6"><span class="sec-num">D6</span> Canada — Express Entry / Study Permit / Healthcare Licensing <span class="chip chip-amber">New in v1.4</span></h2>
+  <p>Canada is now a fully supported destination. MJN handles three distinct routes — candidates typically pursue one primary route, though they can be combined (e.g. Study Permit first, then Express Entry after gaining Canadian work experience).</p>
+
+  <div class="callout info"><strong>Which route applies?</strong> The consultant determines this at the free consultation based on the candidate's CRS score, profession, current country of residence, and timeline. Do not assign a Canada pathway until the route is confirmed.</div>
+
+  <h4>Route 1 — Express Entry PR (Permanent Residence)</h4>
+  <p>For qualified healthcare professionals targeting Canadian Permanent Residence via the federal points-based system. Best for those with post-secondary degrees, language test scores, and ideally some prior work experience.</p>
+
+  <table>
+    <thead><tr><th>Step</th><th>Who</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>1. Eligibility Assessment &amp; Profile Creation</td><td>Consultant</td><td>Review CRS score inputs: age, education (ECA required), language test (IELTS/CELPIP/TEF), work experience, adaptability factors. Create or review the Express Entry profile on IRCC's portal.</td></tr>
+      <tr><td>2. CRS Score Review &amp; Enhancement Strategy</td><td>Consultant + Candidate</td><td>If score is below competitive threshold (~490+), identify improvable factors: retake language test, obtain provincial nomination, add work experience. A strategy plan is documented.</td></tr>
+      <tr><td>3. Express Entry Pool — Active Monitoring</td><td>Consultant</td><td>Profile sits in the pool. MJN monitors draw results bi-weekly and alerts the candidate when their occupation or score is drawn. Typical pool wait is 3–18 months depending on the stream (FSW, CEC, FST).</td></tr>
+      <tr><td>4. Invitation to Apply (ITA) Received</td><td>System → Candidate</td><td>IRCC issues an ITA. Candidate has <strong>60 days</strong> to submit a complete PR application — no extensions. MJN immediately begins document collection for the full application package.</td></tr>
+      <tr><td>5. Full PR Application Submitted</td><td>Consultant + Officer</td><td>Submits to IRCC via online portal with all supporting documents: ECA, language results, police certificates, employment letters, reference letters. Reference number logged by the processing officer.</td></tr>
+      <tr><td>6. Medical Examination &amp; Biometrics</td><td>Candidate</td><td>Candidate attends a designated medical officer and a biometrics collection centre. Consultant advises on timing — medicals expire after 12 months, so timing relative to expected COPR issuance matters.</td></tr>
+      <tr><td>7. COPR Issued &amp; Landing in Canada</td><td>IRCC → Candidate</td><td>Confirmation of Permanent Residence issued. Candidate must land in Canada before the COPR expiry date. MJN provides pre-departure checklist and 90-day post-arrival support contacts.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warning"><strong>60-day ITA window is strict.</strong> When an ITA is received, the full application — including police certificates, ECA, language results, employment letters — must be submitted within 60 days. MJN begins document prep immediately on ITA notification. Delays caused by missing documents are the candidate's responsibility once ITA is issued.</div>
+
+  <h4>Route 2 — Study Permit / Student Support</h4>
+  <p>For healthcare students and early-career professionals targeting a Canadian academic programme, clinical attachment, or bridging programme as a step toward Canadian registration or PR.</p>
+
+  <table>
+    <thead><tr><th>Step</th><th>Who</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>1. Programme Identification &amp; University Application</td><td>Consultant</td><td>Identify a PGWP-eligible (Post-Graduate Work Permit eligible) Canadian institution and programme. MJN assists with application package: transcripts, personal statement, reference letters, English test scores.</td></tr>
+      <tr><td>2. Acceptance Letter Received</td><td>Candidate → Consultant</td><td>Letter of Acceptance (LOA) from a Designated Learning Institution (DLI) is a mandatory permit requirement. MJN advises on DLI verification and LOA authenticity requirements.</td></tr>
+      <tr><td>3. Provincial Attestation Letter (PAL) — Post-2024 Requirement</td><td>Consultant + Candidate</td><td>Since January 2024, most new study permit applicants need a PAL from the provincial government confirming the study permit falls within that province's allocation. The institution typically facilitates this — MJN coordinates with the admissions office to confirm the PAL process.</td></tr>
+      <tr><td>4. Study Permit Application (IRCC IMM 1294)</td><td>Consultant</td><td>Submitted online with: LOA, PAL, passport, IELTS/CELPIP scores, proof of financial support, Statement of Purpose. Typical processing: 4–12 weeks (varies by country of application).</td></tr>
+      <tr><td>5. Biometrics Collection</td><td>Candidate</td><td>Biometrics required for most applicants. Candidate attends a VAC or IRCC-designated centre. Valid 10 years — may already be on file if previously collected for Express Entry.</td></tr>
+      <tr><td>6. Port of Entry (PoE) — Study Permit Stamped</td><td>Candidate</td><td>Candidate arrives in Canada and receives the stamped study permit at the border. Pre-departure checklist provided by MJN: acceptance letter printout, PAL copy, proof of funds, passport photos.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout"><strong>PGWP note:</strong> After completing a programme at a DLI, graduates are eligible for a Post-Graduate Work Permit (open work permit) for up to 3 years. Canadian work experience through PGWP can later be used to boost an Express Entry CRS score via the Canadian Experience Class (CEC). This is the most common combined route: Study Permit → PGWP → CEC Express Entry → PR.</div>
+
+  <h4>Route 3 — Healthcare Licensing (NNAS / Provincial College)</h4>
+  <p>For internationally trained nurses and physicians who are already in Canada (on a work permit or PR) and need to obtain Canadian provincial registration to practice.</p>
+
+  <table>
+    <thead><tr><th>Step</th><th>Who</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td>1. NNAS Application (Nurses)</td><td>Consultant + Candidate</td><td>National Nursing Assessment Service — mandatory first step for internationally educated nurses. Submit to NNAS: nursing diploma/degree, transcripts, licence from home country, language test results, nursing practice history. NNAS issues an Advisory Report to the provincial college.</td></tr>
+      <tr><td>2. Provincial College Application</td><td>Consultant</td><td>Apply to the relevant provincial nursing college using the NNAS Advisory Report: CNO (Ontario), BCCNM (BC), CARNA (Alberta), CRNNS (Nova Scotia), etc. Each province has its own requirements — MJN guides the candidate to the correct college based on where they intend to practice.</td></tr>
+      <tr><td>3. Language Requirements Confirmed</td><td>Candidate</td><td>Most provinces require IELTS Academic 7.0 in each band, or CELPIP-General 10 in each component. MJN advises on test selection and, where needed, arranges Academy language prep.</td></tr>
+      <tr><td>4. NCLEX-RN (Canada) Registration &amp; Prep</td><td>Consultant + Candidate</td><td>Nurses must pass the NCLEX-RN, now the common Canadian licensure exam (replaced CRNE in 2015). MJN's Academy NCLEX course covers the Canadian blueprint. Consultant assists with Pearson VUE registration after ATT is issued.</td></tr>
+      <tr><td>5. Registration Granted — Practice Begins</td><td>Regulatory body</td><td>Certificate of registration issued by the provincial college. Candidate is now legally authorised to practice as a Registered Nurse in that province. MJN closes the licensing stage and marks the engagement complete (or advances to job placement if included).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout"><strong>Physician licensing:</strong> IMGs (International Medical Graduates) in Canada go through MCCQE (Medical Council of Canada Qualifying Examination Parts 1 and 2) and CEHPEA for credential evaluation, then apply for residency through CaRMS. This pathway is significantly longer (3–7 years including residency) and is managed on a case-by-case basis — contact the lead consultant for physician cases before creating a pathway.</div>
+
+  <table>
+    <thead><tr><th>Canada Route</th><th>Target Candidate</th><th>Typical Timeline</th><th>Key Body</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Express Entry PR</strong></td><td>Professionals with strong CRS scores, prior work exp, language test done</td><td>6 months – 2 years (pool + application)</td><td>IRCC</td></tr>
+      <tr><td><strong>Study Permit</strong></td><td>Students and early-career professionals targeting a Canadian degree/diploma</td><td>3–6 months permit + programme duration</td><td>IRCC + DLI</td></tr>
+      <tr><td><strong>NNAS / Provincial Licensing</strong></td><td>IENs already in Canada on a work permit or PR</td><td>6–18 months depending on province</td><td>NNAS + Provincial College</td></tr>
+    </tbody>
+  </table>
+
 </div>
 
 <!-- ══ PART E ═════════════════════════════════════════════════════════ -->
@@ -1522,7 +1680,7 @@
       <div class="step-body">
         <div class="step-title">Select the portal or body</div>
         <div><span class="step-who admin">Processing Officer</span></div>
-        <div class="step-desc">Choose from: DataFlow, DHA, MOH, DOH, NMC, NCLEX/CGFNS, NMBI, or Other. This identifies which regulatory body the submission was made to.</div>
+        <div class="step-desc">Choose from: DataFlow, DHA, MOH, DOH, NMC, NCLEX/CGFNS, NMBI, IRCC (Express Entry / Study Permit), NNAS, or Other. This identifies which regulatory body or portal the submission was made to.</div>
       </div>
     </div>
     <div class="step">
@@ -1821,11 +1979,11 @@
 
   <div class="callout info"><strong>Restoring availability:</strong> When the officer returns, go back to their card, click the power icon, and click <strong>Mark Available</strong>. Their profile becomes active again and they can receive new case assignments. Previously reassigned cases are not automatically returned — reassign manually as needed.</div>
 
-
+</div>
 
 <!-- ══ DOC FOOTER ════════════════════════════════════════════════════ -->
 <div class="doc-footer">
-  <span>MJN Health Academy and Professional Services LTD — Internal Operations Manual v1.2</span>
+  <span>MJN Health Academy and Professional Services LTD — Internal Operations Manual v1.4</span>
   <span>August 2026 · Prepared by Digos Technologies</span>
 </div>
 
