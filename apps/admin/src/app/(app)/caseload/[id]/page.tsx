@@ -535,7 +535,7 @@ export default function CaseDetailPage() {
               </button>
               <button
                 onClick={async () => {
-                  try { await api.approveDraft(aiDraft.draftId); } catch {}
+                  try { await api.approveDraft(aiDraft.draftId, me?.name ?? me?.email ?? 'admin'); } catch {}
                   setAiDraft(null);
                 }}
                 className="flex-1 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition-colors"
