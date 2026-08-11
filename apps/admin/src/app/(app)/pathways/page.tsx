@@ -39,6 +39,7 @@ const DEFAULT_STAGES: Record<string, string[]> = {
   'UK':  ['English Test', 'NMC Application', 'Credential Verification', 'CBT Preparation', 'CBT Sitting', 'OSCE Preparation', 'OSCE Sitting', 'NMC PIN Issued', 'Job Offer & Visa'],
   'US':  ['CGFNS / ERES Evaluation', 'State Board Application', 'ATT Issued', 'NCLEX Sitting', 'State License Issued', 'Visa Processing'],
   'Ireland': ['English Test', 'NMBI Application', 'Credential Verification', 'Competence Assessment', 'Registration Decision', 'Critical Skills Permit', 'Employment Start'],
+  'Canada': ['Eligibility Assessment & Profile Creation', 'CRS Score Review & Enhancement Strategy', 'Express Entry Pool — Active Monitoring', 'Invitation to Apply (ITA) Received', 'Full PR Application Submitted', 'Medical Examination & Biometrics', 'COPR Issued & Landing in Canada'],
 };
 
 // ─── Modal ─────────────────────────────────────────────────────────────────────
@@ -49,7 +50,7 @@ const BODIES: Record<string, string[]> = {
   UK:  ['NMC', 'GMC', 'HCPC', 'GDC'],
   US:  ['NCLEX / CGFNS', 'ECFMG', 'NNAS'],
   Ireland: ['NMBI', 'IMC', 'CORU'],
-  Canada: ['NNAS', 'NCLEX-RN (Canada)', 'RCSFD'],
+  Canada: ['IRCC — Express Entry', 'IRCC — Study Permit', 'NNAS', 'NCLEX-RN (Canada)', 'RCSFD'],
   Australia: ['AHPRA', 'AMC', 'ADC'],
 };
 

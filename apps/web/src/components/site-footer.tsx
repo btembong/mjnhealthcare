@@ -10,6 +10,7 @@ const footerServices = [
   { label: 'UK Placement (NMC)', href: '/services/uk' },
   { label: 'US (NCLEX / CGFNS)', href: '/services/us' },
   { label: 'Ireland (NMBI)', href: '/services/ireland' },
+  { label: 'Canada (Express Entry / Licensing)', href: '/services/canada' },
   { label: 'Healthcare Staffing', href: '/services/staffing' },
   { label: 'Career Planning', href: '/services/career-planning' },
   { label: 'Onboarding & Relocation', href: '/services/relocation' },

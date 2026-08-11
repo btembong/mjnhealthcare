@@ -289,6 +289,32 @@ async function main() {
     });
   }
 
+  // ── Canada PR & Student Support ───────────────────────────────────────────
+  const canadaCat = await prisma.serviceCategory.upsert({
+    where: { id: 'cat-canada' },
+    update: {},
+    create: {
+      id: 'cat-canada',
+      name: 'Canada PR & Student Support',
+      isMandatory: false,
+      sortOrder: 5,
+    },
+  });
+  await prisma.serviceItem.upsert({
+    where: { id: 'canada-consultation' },
+    update: {},
+    create: {
+      id: 'canada-consultation',
+      categoryId: canadaCat.id,
+      name: 'Canada Pathway — Pricing on Consultation',
+      priceUsd: 0,
+      description: 'Canada Express Entry PR and Student Support (Study Permit) fees are assessed on a case-by-case basis depending on CRS profile, chosen province, and institution. Book a consultation to receive your personalised quote.',
+      sortOrder: 1,
+      isDefaultSelected: false,
+      isAvailableStandalone: false,
+    },
+  });
+
   // ── UK / Ireland / Staffing (TBD — placeholder) ────────────────────────────
   const ukCat = await prisma.serviceCategory.upsert({
     where: { id: 'cat-uk' },
@@ -396,6 +422,36 @@ async function main() {
         { id: 'stage-ie-5', label: 'Registration Decision', order: 5, requiredDocs: ['Competence Assessment Result or Waiver'] },
         { id: 'stage-ie-6', label: 'Critical Skills Employment Permit', order: 6, requiredDocs: ['NMBI Registration Certificate', 'Offer Letter', 'Employer EORI Number'] },
         { id: 'stage-ie-7', label: 'Employment Start', order: 7, requiredDocs: ['Employment Permit', 'IRP Registration'] },
+      ],
+    },
+    {
+      id: 'pathway-canada-express-entry',
+      country: 'Canada',
+      regulatoryBody: 'IRCC — Express Entry',
+      profession: null,
+      stages: [
+        { id: 'stage-ca-ee-1', label: 'Eligibility Assessment & Profile Creation', order: 1, requiredDocs: ['Passport', 'Educational Credential Assessment (ECA)', 'Language Test Result (IELTS / CELPIP)', 'Employment Reference Letters'] },
+        { id: 'stage-ca-ee-2', label: 'CRS Score Review & Enhancement Strategy', order: 2, requiredDocs: [] },
+        { id: 'stage-ca-ee-3', label: 'Express Entry Pool — Active Monitoring', order: 3, requiredDocs: [] },
+        { id: 'stage-ca-ee-4', label: 'Invitation to Apply (ITA) Received', order: 4, requiredDocs: ['ITA Confirmation Letter'] },
+        { id: 'stage-ca-ee-5', label: 'Full PR Application Submitted to IRCC', order: 5, requiredDocs: ['Police Clearance Certificates (all countries)', 'Medical Exam Results', 'Proof of Funds', 'Passport Photos', 'Biometrics Confirmation'] },
+        { id: 'stage-ca-ee-6', label: 'Medical Examination & Biometrics', order: 6, requiredDocs: ['IRCC Medical Exam Letter', 'Biometrics Appointment Confirmation'] },
+        { id: 'stage-ca-ee-7', label: 'Additional Documents / IRCC Request', order: 7, requiredDocs: [] },
+        { id: 'stage-ca-ee-8', label: 'COPR Issued & Landing in Canada', order: 8, requiredDocs: ['Confirmation of Permanent Residence (COPR)', 'Passport', 'PR Visa'] },
+      ],
+    },
+    {
+      id: 'pathway-canada-student',
+      country: 'Canada',
+      regulatoryBody: 'IRCC — Study Permit',
+      profession: null,
+      stages: [
+        { id: 'stage-ca-sp-1', label: 'School / College Selection & Application', order: 1, requiredDocs: ['Academic Transcripts', 'Proof of English Proficiency (IELTS / TOEFL)', 'Statement of Purpose', 'Passport'] },
+        { id: 'stage-ca-sp-2', label: 'Letter of Acceptance (LOA) Secured', order: 2, requiredDocs: ['Offer Letter / LOA from Institution'] },
+        { id: 'stage-ca-sp-3', label: 'Provincial Attestation Letter (PAL)', order: 3, requiredDocs: ['LOA', 'Proof of Province Selection'] },
+        { id: 'stage-ca-sp-4', label: 'Study Permit Application (IMM 1294)', order: 4, requiredDocs: ['PAL', 'Proof of Funds', 'Police Clearance Certificate', 'Passport Photos', 'Medical Exam (if required)'] },
+        { id: 'stage-ca-sp-5', label: 'Biometrics', order: 5, requiredDocs: ['Biometrics Appointment Confirmation'] },
+        { id: 'stage-ca-sp-6', label: 'Study Permit Issued & Pre-departure Orientation', order: 6, requiredDocs: ['Study Permit', 'Signed Accommodation Confirmation'] },
       ],
     },
   ];

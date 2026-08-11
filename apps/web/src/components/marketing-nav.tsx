@@ -77,6 +77,12 @@ const navItems = [
         icon: <Compass className={ICON} />,
       },
       {
+        label: 'Canada — Express Entry & Licensing',
+        href: '/services/canada',
+        desc: 'Express Entry PR · NNAS/NCLEX · Study Permit',
+        icon: <AirplaneTakeoff className={ICON} />,
+      },
+      {
         label: 'Healthcare Staffing',
         href: '/services/staffing',
         desc: 'Employer matching for licensed professionals',
