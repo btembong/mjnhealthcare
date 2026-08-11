@@ -67,6 +67,7 @@ export default function SessionsPage() {
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [view, setView] = useState<'table' | 'calendar'>('table');
   const [calMonth, setCalMonth] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
   useEffect(() => { loadSessions(); }, [me]);
 
@@ -221,91 +222,308 @@ export default function SessionsPage() {
         const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
         const days = eachDayOfInterval({ start: calStart, end: calEnd });
         const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const today = new Date();
+
+        const dayPillStyle = (status: string) => {
+          if (status === 'CONFIRMED') return { bar: 'bg-primary', pill: 'bg-primary/8 border-primary/20 text-primary', dot: 'bg-primary' };
+          if (status === 'COMPLETED') return { bar: 'bg-slate-400', pill: 'bg-slate-50 border-slate-200 text-slate-600', dot: 'bg-slate-400' };
+          if (status === 'CANCELLED') return { bar: 'bg-rose-400', pill: 'bg-rose-50 border-rose-200 text-rose-600', dot: 'bg-rose-400' };
+          return { bar: 'bg-amber-400', pill: 'bg-amber-50 border-amber-200 text-amber-700', dot: 'bg-amber-400' };
+        };
+
+        const selectedDaySessions = selectedDay
+          ? sessions.filter((s) => s.slot?.startAt && isSameDay(new Date(s.slot.startAt), selectedDay))
+          : [];
 
         return (
-          <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-            {/* Month nav */}
-            <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-              <button
-                onClick={() => setCalMonth((m) => subMonths(m, 1))}
-                className="flex h-8 w-8 items-center justify-center rounded-xl border border-border hover:bg-muted/50 transition-colors"
-              >
-                <CaretLeft className="h-4 w-4" />
-              </button>
-              <h2 className="text-sm font-bold text-foreground">
-                {format(calMonth, 'MMMM yyyy')}
-              </h2>
-              <button
-                onClick={() => setCalMonth((m) => addMonths(m, 1))}
-                className="flex h-8 w-8 items-center justify-center rounded-xl border border-border hover:bg-muted/50 transition-colors"
-              >
-                <CaretRight className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Day headers */}
-            <div className="grid grid-cols-7 border-b border-border">
-              {DAYS.map((d) => (
-                <div key={d} className="py-2 text-center text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  {d}
-                </div>
-              ))}
-            </div>
-
-            {/* Day cells */}
-            <div className="grid grid-cols-7">
-              {days.map((day, i) => {
-                const daySessions = sessions.filter(
-                  (s) => s.slot?.startAt && isSameDay(new Date(s.slot.startAt), day),
-                );
-                const isCurrentMonth = isSameMonth(day, calMonth);
-                const isToday = isSameDay(day, new Date());
-
-                return (
-                  <div
-                    key={i}
-                    className={`min-h-[90px] border-b border-r border-border p-1.5 ${!isCurrentMonth ? 'bg-muted/20' : 'bg-white'} ${i % 7 === 6 ? 'border-r-0' : ''}`}
+          <div className="flex gap-4 items-start">
+            {/* Main calendar */}
+            <div className="flex-1 rounded-2xl border border-border bg-white shadow-sm overflow-hidden min-w-0">
+              {/* Month nav */}
+              <div className="flex items-center justify-between border-b border-border px-5 py-3.5 bg-white">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCalMonth((m) => subMonths(m, 1))}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-white hover:bg-muted/50 transition-colors shadow-sm"
                   >
-                    <div className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                      isToday ? 'bg-primary text-white' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground/40'
-                    }`}>
-                      {format(day, 'd')}
-                    </div>
-                    <div className="space-y-0.5">
-                      {daySessions.slice(0, 3).map((s) => (
-                        <div
-                          key={s.id}
-                          className={`truncate rounded px-1.5 py-0.5 text-[10px] font-medium cursor-pointer hover:opacity-80 ${
-                            s.status === 'CONFIRMED' ? 'bg-primary/10 text-primary' :
-                            s.status === 'COMPLETED' ? 'bg-muted text-muted-foreground' :
-                            s.status === 'CANCELLED' ? 'bg-rose-100 text-rose-600' :
-                            'bg-amber-100 text-amber-700'
-                          }`}
-                          title={`${s.clientName} · ${s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm a') : ''}`}
-                        >
-                          {s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm') : ''} {s.clientName}
-                        </div>
-                      ))}
-                      {daySessions.length > 3 && (
-                        <div className="text-[10px] text-muted-foreground px-1">+{daySessions.length - 3} more</div>
-                      )}
-                    </div>
+                    <CaretLeft className="h-4 w-4 text-foreground" />
+                  </button>
+                  <h2 className="text-base font-bold text-foreground w-36 text-center">
+                    {format(calMonth, 'MMMM yyyy')}
+                  </h2>
+                  <button
+                    onClick={() => setCalMonth((m) => addMonths(m, 1))}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-white hover:bg-muted/50 transition-colors shadow-sm"
+                  >
+                    <CaretRight className="h-4 w-4 text-foreground" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Legend inline */}
+                  <div className="hidden sm:flex items-center gap-3 mr-3">
+                    {[
+                      { label: 'Confirmed', dot: 'bg-primary' },
+                      { label: 'Completed', dot: 'bg-slate-400' },
+                      { label: 'Cancelled', dot: 'bg-rose-400' },
+                      { label: 'Pending', dot: 'bg-amber-400' },
+                    ].map(({ label, dot }) => (
+                      <div key={label} className="flex items-center gap-1.5">
+                        <span className={`h-2 w-2 rounded-full ${dot}`} />
+                        <span className="text-xs text-muted-foreground">{label}</span>
+                      </div>
+                    ))}
                   </div>
-                );
-              })}
+                  <button
+                    onClick={() => { setCalMonth(new Date()); setSelectedDay(new Date()); }}
+                    className="rounded-xl border border-border bg-white px-3 h-8 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors shadow-sm"
+                  >
+                    Today
+                  </button>
+                </div>
+              </div>
+
+              {/* Day headers */}
+              <div className="grid grid-cols-7 border-b border-border bg-muted/30">
+                {DAYS.map((d, idx) => (
+                  <div
+                    key={d}
+                    className={`py-2.5 text-center text-[11px] font-semibold uppercase tracking-widest ${
+                      idx >= 5 ? 'text-rose-400/70' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              {/* Day cells */}
+              {loading ? (
+                <div className="grid grid-cols-7">
+                  {[...Array(35)].map((_, i) => (
+                    <div key={i} className="min-h-[120px] border-b border-r border-border p-2 last:border-r-0">
+                      <Skeleton className="h-6 w-6 rounded-full mb-2" />
+                      <Skeleton className="h-4 w-full rounded mb-1" />
+                      <Skeleton className="h-4 w-3/4 rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-7">
+                  {days.map((day, i) => {
+                    const colIdx = i % 7; // 0=Mon…4=Fri, 5=Sat, 6=Sun
+                    const isWeekend = colIdx >= 5;
+                    const daySessions = sessions.filter(
+                      (s) => s.slot?.startAt && isSameDay(new Date(s.slot.startAt), day),
+                    );
+                    const isCurrentMonth = isSameMonth(day, calMonth);
+                    const isToday = isSameDay(day, today);
+                    const isSelected = selectedDay && isSameDay(day, selectedDay);
+                    const isLastCol = colIdx === 6;
+                    const hasConfirmed = daySessions.some((s) => s.status === 'CONFIRMED');
+
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => setSelectedDay(isSelected ? null : day)}
+                        className={[
+                          'min-h-[120px] border-b border-r border-border p-2 cursor-pointer transition-all group',
+                          isLastCol ? 'border-r-0' : '',
+                          isSelected ? 'bg-primary/5 ring-1 ring-inset ring-primary/30' : '',
+                          !isSelected && isWeekend && isCurrentMonth ? 'bg-slate-50/60 hover:bg-slate-100/60' : '',
+                          !isSelected && !isWeekend && isCurrentMonth ? 'bg-white hover:bg-primary/[0.03]' : '',
+                          !isCurrentMonth ? 'bg-muted/20 hover:bg-muted/30' : '',
+                        ].join(' ')}
+                      >
+                        {/* Date number row */}
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className={[
+                            'flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors',
+                            isToday ? 'bg-primary text-white shadow-sm' :
+                            isSelected ? 'bg-primary/20 text-primary' :
+                            isCurrentMonth ? 'text-foreground group-hover:bg-muted/60' :
+                            'text-muted-foreground/30',
+                          ].join(' ')}>
+                            {format(day, 'd')}
+                          </div>
+                          {daySessions.length > 0 && isCurrentMonth && (
+                            <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${
+                              hasConfirmed ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                            }`}>
+                              {daySessions.length}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Session pills */}
+                        <div className="space-y-1">
+                          {daySessions.slice(0, 3).map((s) => {
+                            const st = dayPillStyle(s.status);
+                            return (
+                              <div
+                                key={s.id}
+                                className={`flex items-center gap-1.5 rounded-lg border px-1.5 py-1 text-[11px] font-medium leading-none ${st.pill} overflow-hidden`}
+                                title={`${s.clientName} · ${s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm a') : ''}`}
+                              >
+                                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${st.dot}`} />
+                                <span className="shrink-0 font-semibold opacity-70">
+                                  {s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm') : '—'}
+                                </span>
+                                <span className="truncate">{s.clientName}</span>
+                              </div>
+                            );
+                          })}
+                          {daySessions.length > 3 && (
+                            <div className="text-[11px] font-semibold text-muted-foreground px-1 pt-0.5">
+                              +{daySessions.length - 3} more
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* Legend */}
-            <div className="flex items-center gap-4 border-t border-border px-5 py-3">
-              {[
-                { label: 'Confirmed', color: 'bg-primary/10 text-primary' },
-                { label: 'Completed', color: 'bg-muted text-muted-foreground' },
-                { label: 'Cancelled', color: 'bg-rose-100 text-rose-600' },
-                { label: 'Pending', color: 'bg-amber-100 text-amber-700' },
-              ].map(({ label, color }) => (
-                <div key={label} className={`rounded px-2 py-0.5 text-[10px] font-medium ${color}`}>{label}</div>
-              ))}
-            </div>
+            {/* Day detail panel */}
+            {selectedDay && (
+              <div className="w-80 shrink-0 rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+                {/* Panel header */}
+                <div className="flex items-center justify-between border-b border-border px-4 py-3.5 bg-muted/30">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      {format(selectedDay, 'EEEE')}
+                    </p>
+                    <p className="text-lg font-bold text-foreground leading-tight">
+                      {format(selectedDay, 'MMMM d, yyyy')}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedDay(null)}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-muted/70 transition-colors text-muted-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Sessions for selected day */}
+                <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
+                  {selectedDaySessions.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                      <CalendarBlank className="h-9 w-9 text-muted-foreground/25 mb-3" />
+                      <p className="text-sm font-semibold text-foreground">No sessions</p>
+                      <p className="text-xs text-muted-foreground mt-1">Nothing scheduled for this day.</p>
+                    </div>
+                  ) : (
+                    selectedDaySessions
+                      .sort((a, b) => {
+                        if (!a.slot?.startAt) return 1;
+                        if (!b.slot?.startAt) return -1;
+                        return new Date(a.slot.startAt).getTime() - new Date(b.slot.startAt).getTime();
+                      })
+                      .map((s) => {
+                        const st = dayPillStyle(s.status);
+                        const isUpcoming = s.status === 'CONFIRMED' && s.slot?.startAt && !isPast(new Date(s.slot.startAt));
+                        return (
+                          <div key={s.id} className="p-4 hover:bg-muted/20 transition-colors">
+                            {/* Time + status */}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-xs font-bold text-foreground">
+                                  {s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm a') : '—'}
+                                </span>
+                                {s.slot?.endAt && (
+                                  <span className="text-xs text-muted-foreground">
+                                    – {format(new Date(s.slot.endAt), 'h:mm a')}
+                                  </span>
+                                )}
+                              </div>
+                              <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                STATUS_STYLES[s.status] ?? 'bg-muted text-muted-foreground border-border'
+                              }`}>
+                                {isUpcoming && <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />}
+                                {statusLabel(s.status)}
+                              </span>
+                            </div>
+
+                            {/* Client */}
+                            <div className="flex items-center gap-2.5 mb-2">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                                {s.clientName.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-foreground truncate">{s.clientName}</p>
+                                <p className="text-xs text-muted-foreground truncate">{s.clientEmail}</p>
+                              </div>
+                            </div>
+
+                            {/* Meta row */}
+                            <div className="flex items-center gap-2 flex-wrap mb-3">
+                              <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground capitalize">
+                                {s.category?.toLowerCase().replace(/_/g, ' ')}
+                              </span>
+                              {s.slot?.consultant?.name && role === 'ADMIN' && (
+                                <span className="flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  <User className="h-3 w-3" />
+                                  {s.slot.consultant.name}
+                                </span>
+                              )}
+                              <span className="text-[10px] font-semibold text-foreground ml-auto">
+                                ${s.paidAmount.toLocaleString()}
+                              </span>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-2">
+                              {s.roomUrl && s.status === 'CONFIRMED' && (
+                                <button
+                                  onClick={() => handleJoin(s.id)}
+                                  disabled={joiningId === s.id}
+                                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60 transition-colors"
+                                >
+                                  {joiningId === s.id
+                                    ? <CircleNotch className="h-3.5 w-3.5 animate-spin" />
+                                    : <VideoCamera className="h-3.5 w-3.5" />}
+                                  Join as host
+                                </button>
+                              )}
+                              {s.status === 'CONFIRMED' && (
+                                <button
+                                  onClick={() => handleMarkCompleted(s.id)}
+                                  disabled={completing === s.id}
+                                  className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
+                                >
+                                  {completing === s.id
+                                    ? <CircleNotch className="h-3.5 w-3.5 animate-spin" />
+                                    : <CheckCircle className="h-3.5 w-3.5" />}
+                                  Done
+                                </button>
+                              )}
+                              {s.status === 'COMPLETED' && (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <CheckCircle className="h-3.5 w-3.5 text-teal-500" />
+                                  Completed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+
+                {/* Panel footer */}
+                {selectedDaySessions.length > 0 && (
+                  <div className="border-t border-border px-4 py-2.5 bg-muted/20">
+                    <p className="text-xs text-muted-foreground">
+                      {selectedDaySessions.length} session{selectedDaySessions.length !== 1 ? 's' : ''} ·{' '}
+                      ${selectedDaySessions.reduce((sum, s) => sum + s.paidAmount, 0).toLocaleString()} total
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })()}
