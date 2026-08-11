@@ -143,36 +143,11 @@ function SortIcon({ state }: { state: false | 'asc' | 'desc' }) {
 }
 
 const KANBAN_COLUMNS = [
-  {
-    key: 'PENDING_SIGNATURE', label: 'Pending Signature',
-    topBar: 'bg-amber-400', dot: 'bg-amber-400',
-    countBg: 'bg-amber-100 text-amber-700',
-    emptyText: 'text-amber-400', emptyBorder: 'border-amber-200',
-  },
-  {
-    key: 'ACTIVE', label: 'Active',
-    topBar: 'bg-emerald-500', dot: 'bg-emerald-500',
-    countBg: 'bg-emerald-100 text-emerald-700',
-    emptyText: 'text-emerald-400', emptyBorder: 'border-emerald-200',
-  },
-  {
-    key: 'ON_HOLD', label: 'On Hold',
-    topBar: 'bg-orange-400', dot: 'bg-orange-400',
-    countBg: 'bg-orange-100 text-orange-700',
-    emptyText: 'text-orange-400', emptyBorder: 'border-orange-200',
-  },
-  {
-    key: 'COMPLETED', label: 'Completed',
-    topBar: 'bg-blue-500', dot: 'bg-blue-500',
-    countBg: 'bg-blue-100 text-blue-700',
-    emptyText: 'text-blue-400', emptyBorder: 'border-blue-200',
-  },
-  {
-    key: 'TERMINATED', label: 'Terminated',
-    topBar: 'bg-rose-500', dot: 'bg-rose-500',
-    countBg: 'bg-rose-100 text-rose-700',
-    emptyText: 'text-rose-400', emptyBorder: 'border-rose-200',
-  },
+  { key: 'PENDING_SIGNATURE', label: 'Pending Signature', dot: 'bg-amber-400' },
+  { key: 'ACTIVE',            label: 'Active',            dot: 'bg-emerald-500' },
+  { key: 'ON_HOLD',           label: 'On Hold',           dot: 'bg-slate-400' },
+  { key: 'COMPLETED',         label: 'Completed',         dot: 'bg-slate-500' },
+  { key: 'TERMINATED',        label: 'Terminated',        dot: 'bg-slate-400' },
 ];
 
 function KanbanCard({ eng, onClick }: { eng: Engagement; onClick: () => void }) {
@@ -185,8 +160,8 @@ function KanbanCard({ eng, onClick }: { eng: Engagement; onClick: () => void }) 
     : null;
 
   const urgencyBorder =
-    sla?.label.includes('Overdue') ? 'border-l-rose-500 bg-rose-50/40' :
-    sla?.label.includes('risk') ? 'border-l-amber-400 bg-amber-50/30' :
+    sla?.label.includes('Overdue') ? 'border-l-rose-400' :
+    sla?.label.includes('risk') ? 'border-l-amber-300' :
     'border-l-transparent';
 
   return (
@@ -317,14 +292,13 @@ function KanbanView({ engagements, onCardClick }: { engagements: Engagement[]; o
           return (
             <div key={col.key} className="flex w-[280px] shrink-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm">
               {/* Column header */}
-              <div className={`h-1 w-full ${col.topBar}`} />
-              <div className="px-4 pt-3 pb-3 bg-white border-b border-slate-100">
+              <div className="px-4 pt-3.5 pb-3 bg-white border-b border-slate-100">
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full ${col.dot}`} />
-                    <span className="text-sm font-bold text-slate-700">{col.label}</span>
+                    <span className={`h-2 w-2 rounded-full ${col.dot}`} />
+                    <span className="text-sm font-semibold text-slate-700">{col.label}</span>
                   </div>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${col.countBg}`}>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-500">
                     {cards.length}
                   </span>
                 </div>
@@ -350,9 +324,9 @@ function KanbanView({ engagements, onCardClick }: { engagements: Engagement[]; o
               {/* Cards */}
               <div className="flex flex-col gap-2 p-3 overflow-y-auto" style={{ maxHeight: 580 }}>
                 {cards.length === 0 ? (
-                  <div className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed ${col.emptyBorder} py-10 gap-2`}>
-                    <span className={`text-2xl font-black ${col.emptyText} opacity-30`}>—</span>
-                    <p className={`text-xs font-medium ${col.emptyText} opacity-60`}>No cases</p>
+                  <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 py-10 gap-2">
+                    <span className="text-2xl font-black text-slate-300">—</span>
+                    <p className="text-xs font-medium text-slate-400">No cases</p>
                   </div>
                 ) : (
                   // Overdue first, then at-risk, then on-track
