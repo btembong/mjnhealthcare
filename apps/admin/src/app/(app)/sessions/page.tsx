@@ -241,42 +241,42 @@ export default function SessionsPage() {
             {/* Main calendar */}
             <div className="flex-1 rounded-2xl border border-border bg-white shadow-sm overflow-hidden min-w-0">
               {/* Month nav */}
-              <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#0F4C81] to-[#1a5f9a]">
+              <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-slate-200">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setCalMonth((m) => subMonths(m, 1))}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition-colors border border-white/20"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-sm"
                   >
-                    <CaretLeft className="h-4 w-4 text-white" />
+                    <CaretLeft className="h-4 w-4 text-slate-600" />
                   </button>
-                  <h2 className="text-base font-bold text-white w-40 text-center tracking-tight">
+                  <h2 className="text-base font-bold text-slate-800 w-40 text-center tracking-tight">
                     {format(calMonth, 'MMMM yyyy')}
                   </h2>
                   <button
                     onClick={() => setCalMonth((m) => addMonths(m, 1))}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition-colors border border-white/20"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-sm"
                   >
-                    <CaretRight className="h-4 w-4 text-white" />
+                    <CaretRight className="h-4 w-4 text-slate-600" />
                   </button>
                 </div>
                 <div className="flex items-center gap-4">
                   {/* Legend */}
                   <div className="hidden sm:flex items-center gap-3">
                     {[
-                      { label: 'Confirmed', dot: 'bg-blue-300' },
-                      { label: 'Completed', dot: 'bg-slate-300' },
-                      { label: 'Cancelled', dot: 'bg-rose-300' },
-                      { label: 'Pending', dot: 'bg-amber-300' },
+                      { label: 'Confirmed', dot: 'bg-primary' },
+                      { label: 'Completed', dot: 'bg-slate-400' },
+                      { label: 'Cancelled', dot: 'bg-rose-400' },
+                      { label: 'Pending', dot: 'bg-amber-400' },
                     ].map(({ label, dot }) => (
                       <div key={label} className="flex items-center gap-1.5">
                         <span className={`h-2 w-2 rounded-full ${dot}`} />
-                        <span className="text-xs text-white/70 font-medium">{label}</span>
+                        <span className="text-xs text-slate-500 font-medium">{label}</span>
                       </div>
                     ))}
                   </div>
                   <button
                     onClick={() => { setCalMonth(new Date()); setSelectedDay(new Date()); }}
-                    className="rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 px-4 h-8 text-xs font-semibold text-white transition-colors"
+                    className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 h-8 text-xs font-semibold text-slate-700 transition-colors shadow-sm"
                   >
                     Today
                   </button>
@@ -392,20 +392,20 @@ export default function SessionsPage() {
             {selectedDay && (
               <div className="w-80 shrink-0 rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
                 {/* Panel header */}
-                <div className="flex items-center justify-between px-4 py-4 bg-gradient-to-r from-[#0F4C81] to-[#1a5f9a]">
+                <div className="flex items-center justify-between px-4 py-4 bg-white border-b border-slate-200">
                   <div>
-                    <p className="text-[11px] font-semibold text-white/60 uppercase tracking-widest mb-0.5">
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">
                       {format(selectedDay, 'EEEE')}
                     </p>
-                    <p className="text-xl font-bold text-white leading-tight">
+                    <p className="text-xl font-bold text-slate-800 leading-tight">
                       {format(selectedDay, 'MMMM d, yyyy')}
                     </p>
                   </div>
                   <button
                     onClick={() => setSelectedDay(null)}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 transition-colors border border-white/20"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
                   >
-                    <X className="h-4 w-4 text-white" />
+                    <X className="h-4 w-4 text-slate-500" />
                   </button>
                 </div>
 
