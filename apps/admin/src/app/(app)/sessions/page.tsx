@@ -224,11 +224,12 @@ export default function SessionsPage() {
         const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         const today = new Date();
 
+        // Solid left-border event style — visible on any cell background
         const dayPillStyle = (status: string) => {
-          if (status === 'CONFIRMED') return { bar: 'bg-primary', pill: 'bg-primary/8 border-primary/20 text-primary', dot: 'bg-primary' };
-          if (status === 'COMPLETED') return { bar: 'bg-slate-400', pill: 'bg-slate-50 border-slate-200 text-slate-600', dot: 'bg-slate-400' };
-          if (status === 'CANCELLED') return { bar: 'bg-rose-400', pill: 'bg-rose-50 border-rose-200 text-rose-600', dot: 'bg-rose-400' };
-          return { bar: 'bg-amber-400', pill: 'bg-amber-50 border-amber-200 text-amber-700', dot: 'bg-amber-400' };
+          if (status === 'CONFIRMED') return 'border-l-[3px] border-l-primary bg-primary/[0.12] text-primary font-semibold';
+          if (status === 'COMPLETED') return 'border-l-[3px] border-l-slate-500 bg-slate-100 text-slate-700 font-medium';
+          if (status === 'CANCELLED') return 'border-l-[3px] border-l-rose-500 bg-rose-100 text-rose-700 font-medium';
+          return 'border-l-[3px] border-l-amber-500 bg-amber-100 text-amber-800 font-medium';
         };
 
         const selectedDaySessions = selectedDay
@@ -240,42 +241,42 @@ export default function SessionsPage() {
             {/* Main calendar */}
             <div className="flex-1 rounded-2xl border border-border bg-white shadow-sm overflow-hidden min-w-0">
               {/* Month nav */}
-              <div className="flex items-center justify-between border-b border-border px-5 py-3.5 bg-white">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#0F4C81] to-[#1a5f9a]">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={() => setCalMonth((m) => subMonths(m, 1))}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-white hover:bg-muted/50 transition-colors shadow-sm"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition-colors border border-white/20"
                   >
-                    <CaretLeft className="h-4 w-4 text-foreground" />
+                    <CaretLeft className="h-4 w-4 text-white" />
                   </button>
-                  <h2 className="text-base font-bold text-foreground w-36 text-center">
+                  <h2 className="text-base font-bold text-white w-40 text-center tracking-tight">
                     {format(calMonth, 'MMMM yyyy')}
                   </h2>
                   <button
                     onClick={() => setCalMonth((m) => addMonths(m, 1))}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-white hover:bg-muted/50 transition-colors shadow-sm"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition-colors border border-white/20"
                   >
-                    <CaretRight className="h-4 w-4 text-foreground" />
+                    <CaretRight className="h-4 w-4 text-white" />
                   </button>
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Legend inline */}
-                  <div className="hidden sm:flex items-center gap-3 mr-3">
+                <div className="flex items-center gap-4">
+                  {/* Legend */}
+                  <div className="hidden sm:flex items-center gap-3">
                     {[
-                      { label: 'Confirmed', dot: 'bg-primary' },
-                      { label: 'Completed', dot: 'bg-slate-400' },
-                      { label: 'Cancelled', dot: 'bg-rose-400' },
-                      { label: 'Pending', dot: 'bg-amber-400' },
+                      { label: 'Confirmed', dot: 'bg-blue-300' },
+                      { label: 'Completed', dot: 'bg-slate-300' },
+                      { label: 'Cancelled', dot: 'bg-rose-300' },
+                      { label: 'Pending', dot: 'bg-amber-300' },
                     ].map(({ label, dot }) => (
                       <div key={label} className="flex items-center gap-1.5">
                         <span className={`h-2 w-2 rounded-full ${dot}`} />
-                        <span className="text-xs text-muted-foreground">{label}</span>
+                        <span className="text-xs text-white/70 font-medium">{label}</span>
                       </div>
                     ))}
                   </div>
                   <button
                     onClick={() => { setCalMonth(new Date()); setSelectedDay(new Date()); }}
-                    className="rounded-xl border border-border bg-white px-3 h-8 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors shadow-sm"
+                    className="rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 px-4 h-8 text-xs font-semibold text-white transition-colors"
                   >
                     Today
                   </button>
@@ -283,12 +284,12 @@ export default function SessionsPage() {
               </div>
 
               {/* Day headers */}
-              <div className="grid grid-cols-7 border-b border-border bg-muted/30">
+              <div className="grid grid-cols-7 border-b border-border bg-slate-50">
                 {DAYS.map((d, idx) => (
                   <div
                     key={d}
-                    className={`py-2.5 text-center text-[11px] font-semibold uppercase tracking-widest ${
-                      idx >= 5 ? 'text-rose-400/70' : 'text-muted-foreground'
+                    className={`py-3 text-center text-xs font-bold uppercase tracking-wider ${
+                      idx >= 5 ? 'text-rose-400' : 'text-slate-500'
                     }`}
                   >
                     {d}
@@ -300,24 +301,24 @@ export default function SessionsPage() {
               {loading ? (
                 <div className="grid grid-cols-7">
                   {[...Array(35)].map((_, i) => (
-                    <div key={i} className="min-h-[120px] border-b border-r border-border p-2 last:border-r-0">
-                      <Skeleton className="h-6 w-6 rounded-full mb-2" />
-                      <Skeleton className="h-4 w-full rounded mb-1" />
-                      <Skeleton className="h-4 w-3/4 rounded" />
+                    <div key={i} className="min-h-[140px] border-b border-r border-slate-200 p-3 last:border-r-0">
+                      <Skeleton className="h-8 w-8 rounded-full mb-3" />
+                      <Skeleton className="h-5 w-full rounded-md mb-1.5" />
+                      <Skeleton className="h-5 w-4/5 rounded-md" />
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="grid grid-cols-7">
                   {days.map((day, i) => {
-                    const colIdx = i % 7; // 0=Mon…4=Fri, 5=Sat, 6=Sun
+                    const colIdx = i % 7;
                     const isWeekend = colIdx >= 5;
                     const daySessions = sessions.filter(
                       (s) => s.slot?.startAt && isSameDay(new Date(s.slot.startAt), day),
                     );
                     const isCurrentMonth = isSameMonth(day, calMonth);
                     const isToday = isSameDay(day, today);
-                    const isSelected = selectedDay && isSameDay(day, selectedDay);
+                    const isSelected = !!(selectedDay && isSameDay(day, selectedDay));
                     const isLastCol = colIdx === 6;
                     const hasConfirmed = daySessions.some((s) => s.status === 'CONFIRMED');
 
@@ -326,54 +327,56 @@ export default function SessionsPage() {
                         key={i}
                         onClick={() => setSelectedDay(isSelected ? null : day)}
                         className={[
-                          'min-h-[120px] border-b border-r border-border p-2 cursor-pointer transition-all group',
+                          'min-h-[140px] border-b border-r border-slate-200 p-2.5 cursor-pointer transition-all duration-150 group',
                           isLastCol ? 'border-r-0' : '',
-                          isSelected ? 'bg-primary/5 ring-1 ring-inset ring-primary/30' : '',
-                          !isSelected && isWeekend && isCurrentMonth ? 'bg-slate-50/60 hover:bg-slate-100/60' : '',
-                          !isSelected && !isWeekend && isCurrentMonth ? 'bg-white hover:bg-primary/[0.03]' : '',
-                          !isCurrentMonth ? 'bg-muted/20 hover:bg-muted/30' : '',
+                          isSelected ? 'bg-primary/[0.07] shadow-[inset_0_0_0_2px_rgba(15,76,129,0.35)]' : '',
+                          isToday && !isSelected ? 'bg-blue-50/70' : '',
+                          !isSelected && !isToday && isWeekend && isCurrentMonth ? 'bg-slate-50 hover:bg-slate-100/80' : '',
+                          !isSelected && !isToday && !isWeekend && isCurrentMonth ? 'bg-white hover:bg-slate-50' : '',
+                          !isCurrentMonth ? 'bg-slate-50/40 hover:bg-slate-100/40' : '',
                         ].join(' ')}
                       >
-                        {/* Date number row */}
-                        <div className="flex items-center justify-between mb-1.5">
+                        {/* Date number + count badge */}
+                        <div className="flex items-start justify-between mb-2">
                           <div className={[
-                            'flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors',
-                            isToday ? 'bg-primary text-white shadow-sm' :
-                            isSelected ? 'bg-primary/20 text-primary' :
-                            isCurrentMonth ? 'text-foreground group-hover:bg-muted/60' :
-                            'text-muted-foreground/30',
+                            'flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors leading-none',
+                            isToday
+                              ? 'bg-primary text-white shadow-md'
+                              : isSelected
+                              ? 'bg-primary/20 text-primary'
+                              : isCurrentMonth
+                              ? 'text-slate-800 group-hover:bg-slate-200'
+                              : 'text-slate-300',
                           ].join(' ')}>
                             {format(day, 'd')}
                           </div>
                           {daySessions.length > 0 && isCurrentMonth && (
-                            <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${
-                              hasConfirmed ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                            <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 leading-none ${
+                              hasConfirmed
+                                ? 'bg-primary text-white'
+                                : 'bg-slate-200 text-slate-600'
                             }`}>
                               {daySessions.length}
                             </span>
                           )}
                         </div>
 
-                        {/* Session pills */}
+                        {/* Session event bars */}
                         <div className="space-y-1">
-                          {daySessions.slice(0, 3).map((s) => {
-                            const st = dayPillStyle(s.status);
-                            return (
-                              <div
-                                key={s.id}
-                                className={`flex items-center gap-1.5 rounded-lg border px-1.5 py-1 text-[11px] font-medium leading-none ${st.pill} overflow-hidden`}
-                                title={`${s.clientName} · ${s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm a') : ''}`}
-                              >
-                                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${st.dot}`} />
-                                <span className="shrink-0 font-semibold opacity-70">
-                                  {s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm') : '—'}
-                                </span>
-                                <span className="truncate">{s.clientName}</span>
-                              </div>
-                            );
-                          })}
+                          {daySessions.slice(0, 3).map((s) => (
+                            <div
+                              key={s.id}
+                              className={`flex items-center gap-1.5 rounded-r-md px-2 py-[5px] text-xs leading-none overflow-hidden shadow-sm hover:shadow transition-shadow ${dayPillStyle(s.status)}`}
+                              title={`${s.clientName} · ${s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm a') : ''}`}
+                            >
+                              <span className="shrink-0 opacity-70 text-[11px] tabular-nums">
+                                {s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm') : '—'}
+                              </span>
+                              <span className="truncate font-semibold">{s.clientName}</span>
+                            </div>
+                          ))}
                           {daySessions.length > 3 && (
-                            <div className="text-[11px] font-semibold text-muted-foreground px-1 pt-0.5">
+                            <div className="text-xs font-semibold text-slate-500 px-1 pt-0.5">
                               +{daySessions.length - 3} more
                             </div>
                           )}
@@ -389,20 +392,20 @@ export default function SessionsPage() {
             {selectedDay && (
               <div className="w-80 shrink-0 rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
                 {/* Panel header */}
-                <div className="flex items-center justify-between border-b border-border px-4 py-3.5 bg-muted/30">
+                <div className="flex items-center justify-between px-4 py-4 bg-gradient-to-r from-[#0F4C81] to-[#1a5f9a]">
                   <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    <p className="text-[11px] font-semibold text-white/60 uppercase tracking-widest mb-0.5">
                       {format(selectedDay, 'EEEE')}
                     </p>
-                    <p className="text-lg font-bold text-foreground leading-tight">
+                    <p className="text-xl font-bold text-white leading-tight">
                       {format(selectedDay, 'MMMM d, yyyy')}
                     </p>
                   </div>
                   <button
                     onClick={() => setSelectedDay(null)}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-muted/70 transition-colors text-muted-foreground"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 transition-colors border border-white/20"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4 text-white" />
                   </button>
                 </div>
 
@@ -515,10 +518,12 @@ export default function SessionsPage() {
 
                 {/* Panel footer */}
                 {selectedDaySessions.length > 0 && (
-                  <div className="border-t border-border px-4 py-2.5 bg-muted/20">
-                    <p className="text-xs text-muted-foreground">
-                      {selectedDaySessions.length} session{selectedDaySessions.length !== 1 ? 's' : ''} ·{' '}
-                      ${selectedDaySessions.reduce((sum, s) => sum + s.paidAmount, 0).toLocaleString()} total
+                  <div className="border-t border-border px-4 py-3 bg-slate-50 flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {selectedDaySessions.length} session{selectedDaySessions.length !== 1 ? 's' : ''}
+                    </p>
+                    <p className="text-xs font-bold text-foreground">
+                      ${selectedDaySessions.reduce((sum, s) => sum + s.paidAmount, 0).toLocaleString()}
                     </p>
                   </div>
                 )}
