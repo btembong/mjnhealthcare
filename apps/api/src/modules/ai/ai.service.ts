@@ -57,7 +57,7 @@ export class AIService {
     // Find active study plan
     const studyPlan = await this.db.studyPlan.findFirst({
       where: { personId },
-      include: { items: { where: { completedAt: null }, orderBy: { dueDate: 'asc' }, take: 3 } },
+      include: { items: { where: { completed: false }, orderBy: { dueDate: 'asc' }, take: 3 } },
     });
 
     // Find weak areas from recent practice results
@@ -124,8 +124,7 @@ Proactively reference weak areas when relevant.`;
         person: { select: { name: true, profession: true } },
         milestones: { orderBy: { createdAt: 'desc' } },
         orders: { include: { lineItems: true } },
-        documents: true,
-        licensingProgress: { include: { pathway: true } },
+        licensingProgress: { include: { currentStage: true } },
         caseNotes: {
           where: { isInternal: false },
           orderBy: { createdAt: 'desc' },
@@ -137,7 +136,7 @@ Proactively reference weak areas when relevant.`;
 
     if (!engagement) throw new Error('Engagement not found');
 
-    const docs = engagement.documents ?? [];
+    const docs = await this.db.document.findMany({ where: { personId: engagement.personId } });
     const pendingDocs = docs.filter((d) => d.status === 'PENDING');
     const rejectedDocs = docs.filter((d) => d.status === 'REJECTED');
     const verifiedDocs = docs.filter((d) => d.status === 'VERIFIED');
@@ -203,15 +202,15 @@ RULES:
         include: {
           person: { select: { name: true, profession: true } },
           milestones: { orderBy: { createdAt: 'desc' }, take: 5 },
-          documents: { orderBy: { uploadedAt: 'desc' }, take: 10 },
           applicationTracking: { orderBy: { createdAt: 'desc' }, take: 3 },
           caseNotes: { where: { isInternal: true }, orderBy: { createdAt: 'desc' }, take: 3 },
         },
       });
 
       if (engagement) {
-        const pendingDocs = (engagement.documents ?? []).filter((d) => d.status === 'PENDING');
-        const rejectedDocs = (engagement.documents ?? []).filter((d) => d.status === 'REJECTED');
+        const engDocs = await this.db.document.findMany({ where: { personId: engagement.personId }, orderBy: { uploadedAt: 'desc' }, take: 10 });
+        const pendingDocs = engDocs.filter((d) => d.status === 'PENDING');
+        const rejectedDocs = engDocs.filter((d) => d.status === 'REJECTED');
         const latestTracking = engagement.applicationTracking?.[0];
         const completedMilestones = (engagement.milestones ?? []).filter((m: any) => m.completedAt);
         const recentNotes = (engagement.caseNotes ?? []).map((n) => n.content).join(' | ');
@@ -250,19 +249,18 @@ Draft a concise, warm, professional client status update based on this. Do not i
       include: {
         person: { select: { name: true, profession: true, email: true } },
         milestones: { orderBy: { createdAt: 'asc' } },
-        documents: true,
         orders: true,
         applicationTracking: { orderBy: { createdAt: 'desc' }, take: 5 },
-        caseNotes: { orderBy: { createdAt: 'desc' }, take: 10, include: { author: { select: { name: true, role: true } } } },
+        caseNotes: { orderBy: { createdAt: 'desc' }, take: 10 },
         escalations: { where: { resolvedAt: null } },
       },
     });
 
     if (!engagement) throw new Error('Engagement not found');
 
-    const docs = engagement.documents ?? [];
+    const docs = await this.db.document.findMany({ where: { personId: engagement.personId } });
     const notes = (engagement.caseNotes ?? [])
-      .map((n: any) => `[${n.author?.name ?? '?'} / ${n.author?.role ?? '?'}] ${n.content}`)
+      .map((n: any) => n.content)
       .join('\n');
     const tracking = (engagement.applicationTracking ?? [])
       .map((t: any) => `${t.status}${t.notes ? ': ' + t.notes : ''}`)
