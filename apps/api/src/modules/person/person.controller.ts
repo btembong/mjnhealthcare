@@ -1,4 +1,5 @@
-import { Controller, Get, Patch, Param, Body, UseGuards, Query, Request } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, UseGuards, Query, Request, BadRequestException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -56,6 +57,26 @@ export class PersonController {
   @Patch(':id/active')
   setActive(@Param('id') id: string, @Body() body: { isActive: boolean }) {
     return this.personService.setActive(id, body.isActive);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @Patch(':id/credentials')
+  async updateCredentials(
+    @Param('id') id: string,
+    @Body() body: { name?: string; email?: string; password?: string },
+  ) {
+    if (!body.name && !body.email && !body.password) {
+      throw new BadRequestException('Provide at least one field to update.');
+    }
+    const data: { name?: string; email?: string; passwordHash?: string } = {};
+    if (body.name) data.name = body.name;
+    if (body.email) data.email = body.email;
+    if (body.password) {
+      if (body.password.length < 8) throw new BadRequestException('Password must be at least 8 characters.');
+      data.passwordHash = await bcrypt.hash(body.password, 10);
+    }
+    return this.personService.updateCredentials(id, data);
   }
 
   // System config (ADMIN only)

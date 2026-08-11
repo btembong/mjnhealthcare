@@ -177,9 +177,13 @@ function StaffTab() {
   const [staff, setStaff] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
-  const [resetTarget, setResetTarget] = useState<any | null>(null);
-  const [newPassword, setNewPassword] = useState('');
-  const [resetting, setResetting] = useState(false);
+
+  // edit credentials modal
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -188,6 +192,31 @@ function StaffTab() {
     try { setStaff(await api.getStaff()); }
     catch (err: any) { toast.error(err.message); }
     finally { setLoading(false); }
+  }
+
+  function openEdit(person: any) {
+    setEditTarget(person);
+    setEditName(person.name ?? '');
+    setEditEmail(person.email ?? '');
+    setEditPassword('');
+  }
+
+  async function handleSaveCredentials(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    const data: { name?: string; email?: string; password?: string } = {};
+    if (editName.trim() && editName.trim() !== editTarget.name) data.name = editName.trim();
+    if (editEmail.trim() && editEmail.trim() !== editTarget.email) data.email = editEmail.trim();
+    if (editPassword) data.password = editPassword;
+    if (Object.keys(data).length === 0) { toast.info('No changes to save.'); return; }
+    setSaving(true);
+    try {
+      const updated = await api.updateStaffCredentials(editTarget.id, data);
+      setStaff((s) => s.map((p) => p.id === editTarget.id ? { ...p, ...updated } : p));
+      toast.success('Staff credentials updated.');
+      setEditTarget(null);
+    } catch (err: any) { toast.error(err.message ?? 'Failed to update.'); }
+    finally { setSaving(false); }
   }
 
   async function handleRoleChange(id: string, role: string) {
@@ -208,21 +237,6 @@ function StaffTab() {
       toast.success(!current ? 'Staff member reactivated.' : 'Staff member deactivated.');
     } catch (err: any) { toast.error(err.message); }
     finally { setActionId(null); }
-  }
-
-  async function handleResetPassword(e: React.FormEvent) {
-    e.preventDefault();
-    if (!resetTarget || newPassword.length < 8) return;
-    setResetting(true);
-    try {
-      // Admin resets via register (creates new hash). Use the existing change-password pattern.
-      // We call updateStaffRole as placeholder — actual impl needs an admin reset endpoint.
-      // For now we show a note that the staff member must change their own password.
-      toast.info('Password reset: ask the staff member to use "Change Password" on their Settings page.');
-      setResetTarget(null);
-      setNewPassword('');
-    } catch (err: any) { toast.error(err.message); }
-    finally { setResetting(false); }
   }
 
   if (loading) return (
@@ -271,6 +285,14 @@ function StaffTab() {
                   )}
                 </div>
 
+                {/* Edit credentials */}
+                <button
+                  onClick={() => openEdit(person)}
+                  className="shrink-0 flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors"
+                >
+                  <Lock className="h-3 w-3" /> Edit
+                </button>
+
                 {/* Active/deactivate toggle */}
                 <button
                   onClick={() => handleToggleActive(person.id, person.isActive !== false)}
@@ -298,36 +320,62 @@ function StaffTab() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3.5 text-sm text-amber-800">
-        <strong>Password resets:</strong> Ask the staff member to log in and use Settings → Change Password. Only the account holder can change their own password for security.
-      </div>
-
-      {/* Reset password modal (placeholder) */}
-      {resetTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-border bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-semibold text-foreground">Reset Password</h3>
-              <button onClick={() => setResetTarget(null)} className="rounded-lg p-1.5 hover:bg-muted/60">
+      {/* Edit credentials modal */}
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !saving && setEditTarget(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-base font-semibold text-foreground">Edit Staff Credentials</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{editTarget.name} · {editTarget.role}</p>
+              </div>
+              <button onClick={() => setEditTarget(null)} disabled={saving} className="rounded-lg p-1 hover:bg-muted/60 transition-colors">
                 <X className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              <p className="text-sm text-muted-foreground">Set a new password for <strong>{resetTarget.name}</strong>.</p>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="New password (min 8 chars)"
-                minLength={8}
-                required
-                className="h-10 w-full rounded-xl border border-border px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-              />
-              <button type="submit" disabled={resetting}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50">
-                {resetting ? <CircleNotch className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-                Set password
-              </button>
+            <form onSubmit={handleSaveCredentials} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">Full name</label>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Full name"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">Email address</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="email@mjnhealthcare.com"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">
+                  New password <span className="font-normal text-muted-foreground">(leave blank to keep current)</span>
+                </label>
+                <input
+                  type="password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  minLength={8}
+                  className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Min 8 characters"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setEditTarget(null)} disabled={saving}
+                  className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={saving}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                  {saving ? <><CircleNotch className="h-4 w-4 animate-spin" /> Saving…</> : 'Save changes'}
+                </button>
+              </div>
             </form>
           </div>
         </div>

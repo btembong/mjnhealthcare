@@ -85,6 +85,9 @@ export const api = {
 
   getStaff: () => request<any[]>('/persons/staff/list'),
 
+  updateStaffCredentials: (id: string, data: { name?: string; email?: string; password?: string }) =>
+    request<any>(`/persons/${id}/credentials`, { method: 'PATCH', body: JSON.stringify(data) }),
+
   updateStaffRole: (id: string, role: string) =>
     request<any>(`/persons/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }),
 

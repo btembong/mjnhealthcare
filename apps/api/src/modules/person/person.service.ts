@@ -67,6 +67,14 @@ export class PersonService {
     return this.db.person.update({ where: { id }, data: { passwordHash } });
   }
 
+  async updateCredentials(id: string, data: { name?: string; email?: string; passwordHash?: string }) {
+    return this.db.person.update({
+      where: { id },
+      data: data as any,
+      select: { id: true, name: true, email: true, role: true, isActive: true },
+    });
+  }
+
   async findStaff() {
     return this.db.person.findMany({
       where: { role: { in: ['CONSULTANT', 'ADMIN', 'COMPLIANCE'] as any[] } },
