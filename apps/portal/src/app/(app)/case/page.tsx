@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge, Skeleton } from '@mjn/ui';
 import {
@@ -566,11 +566,168 @@ function CaseSidebar({
   );
 }
 
+// ── Case Status Bot ───────────────────────────────────────────────────────────
+
+type BotMsg = { role: 'user' | 'assistant'; content: string };
+
+const BOT_WELCOME = (name?: string): BotMsg => ({
+  role: 'assistant',
+  content: `Hi${name ? ` ${name.split(' ')[0]}` : ''}! I can answer questions about your case — documents needed, milestones, payments, or what happens next. What would you like to know?`,
+});
+
+function CaseStatusBot({ personId, engagementId, name }: { personId: string; engagementId: string; name?: string }) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<BotMsg[]>([BOT_WELCOME(name)]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [unread, setUnread] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Load persisted conversation
+  useEffect(() => {
+    api.getCaseConversation(personId)
+      .then((h) => { if (h && h.length > 0) setMessages(h); })
+      .catch(() => {});
+  }, [personId]);
+
+  useEffect(() => {
+    if (open) { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); setUnread(false); }
+  }, [messages, open]);
+
+  const QUICK = [
+    'What documents do I still need?',
+    'What is my current case status?',
+    'Do I have any outstanding payments?',
+    'What happens next?',
+  ];
+
+  async function send(text?: string) {
+    const msg = (text ?? input).trim();
+    if (!msg || sending) return;
+    const next: BotMsg[] = [...messages, { role: 'user', content: msg }];
+    setMessages(next);
+    setInput('');
+    setSending(true);
+    try {
+      const res = await api.caseChat(engagementId, personId, next);
+      const reply: BotMsg = { role: 'assistant', content: res.content ?? 'Sorry, I could not respond.' };
+      setMessages((prev) => [...prev, reply]);
+      if (!open) setUnread(true);
+    } catch {
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I ran into an issue. Please try again.' }]);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <>
+      {/* Floating trigger */}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="fixed bottom-6 right-6 z-50 flex h-13 w-13 items-center justify-center rounded-full shadow-xl transition-all hover:scale-105 active:scale-95"
+        style={{ height: 52, width: 52, background: 'linear-gradient(135deg, #0F4C81 0%, #00A896 100%)', boxShadow: '0 8px 24px rgba(15,76,129,0.35)' }}
+        aria-label="Open case assistant"
+      >
+        {!open && unread && (
+          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-white">1</span>
+        )}
+        {open
+          ? <ArrowRight weight="bold" className="h-5 w-5 text-white rotate-90" />
+          : <Headset weight="fill" className="h-5 w-5 text-white" />}
+      </button>
+
+      {/* Chat panel */}
+      {open && (
+        <div
+          className="fixed bottom-24 right-6 z-50 flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden"
+          style={{ width: 400, maxWidth: 'calc(100vw - 2rem)', maxHeight: 540, border: '1px solid rgba(15,76,129,0.12)' }}
+        >
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 py-3 shrink-0" style={{ background: 'linear-gradient(135deg, #0F4C81 0%, #00A896 100%)' }}>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30">
+              <Headset weight="fill" className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-white leading-tight">Case Assistant</p>
+              <p className="text-[11px] text-white/70">{sending ? 'Thinking…' : 'Answers based on your real case data'}</p>
+            </div>
+            <button onClick={() => setOpen(false)} className="flex h-7 w-7 items-center justify-center rounded-full text-white/60 hover:bg-white/10 hover:text-white transition">
+              <ArrowRight weight="bold" className="h-3.5 w-3.5 rotate-[-45deg]" />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0" style={{ background: '#f7f9fc' }}>
+            {messages.map((m, i) => (
+              <div key={i} className={`flex items-end gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {m.role === 'assistant' && (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary shadow-sm">
+                    <Headset weight="fill" className="h-3 w-3 text-white" />
+                  </div>
+                )}
+                <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === 'user' ? 'bg-primary text-white rounded-br-sm' : 'bg-white text-foreground rounded-bl-sm shadow-sm border border-border/50'}`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {sending && (
+              <div className="flex items-end gap-2 justify-start">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary shadow-sm">
+                  <Headset weight="fill" className="h-3 w-3 text-white" />
+                </div>
+                <div className="rounded-2xl rounded-bl-sm bg-white shadow-sm border border-border/50 px-4 py-3">
+                  <div className="flex gap-1.5">
+                    {[0, 150, 300].map((d) => <span key={d} className="h-2 w-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: `${d}ms` }} />)}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Quick chips — first message only */}
+          {messages.length === 1 && (
+            <div className="flex flex-wrap gap-1.5 border-t border-border bg-white px-3 py-2.5">
+              {QUICK.map((q) => (
+                <button key={q} onClick={() => send(q)} className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors">
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="border-t border-border bg-white px-3 py-3 flex gap-2 shrink-0">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
+              placeholder="Ask about your case…"
+              disabled={sending}
+              className="flex-1 h-10 rounded-full border border-border bg-muted/30 px-4 text-sm outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10 transition disabled:opacity-60"
+            />
+            <button
+              onClick={() => send()}
+              disabled={!input.trim() || sending}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-40 transition hover:scale-105"
+              style={{ background: 'linear-gradient(135deg, #0F4C81 0%, #00A896 100%)' }}
+            >
+              <ArrowRight weight="bold" className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CasePage() {
   const router = useRouter();
   const { engagement, progress, loading, me } = useUser();
+  const [botOpen, setBotOpen] = useState(false);
   const [docs, setDocs] = useState<any[]>([]);
   const [tracking, setTracking] = useState<any[]>([]);
   const [caseUpdates, setCaseUpdates] = useState<any[]>([]);
@@ -599,6 +756,10 @@ export default function CasePage() {
 
   return (
     <div className="space-y-5">
+      {/* Case status bot — only when engagement exists */}
+      {engagement && me?.id && (
+        <CaseStatusBot personId={me.id} engagementId={engagement.id} name={me.name} />
+      )}
 
       {/* Page title */}
       <div className="flex items-start justify-between gap-4">

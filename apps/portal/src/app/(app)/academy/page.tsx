@@ -28,6 +28,13 @@ type ChatMessage = { role: 'user' | 'assistant'; content: string };
 // ── AI Study Assistant Panel ──────────────────────────────────────────────────
 // inline=true → sticky side panel; inline=false → slide-over drawer
 
+const WELCOME_MSG = (locale: 'en' | 'fr'): ChatMessage => ({
+  role: 'assistant',
+  content: locale === 'fr'
+    ? "Bonjour ! Je suis votre assistant d'etude IA. Posez-moi des questions sur le NCLEX, HAAD, DHA, CBT ou DA."
+    : "Hi! I'm your AI Study Assistant. Ask me anything about NCLEX, HAAD, DHA, CBT, or DA exam prep.",
+});
+
 function StudyAssistantPanel({
   personId,
   locale,
@@ -41,18 +48,24 @@ function StudyAssistantPanel({
   onClose: () => void;
   inline: boolean;
 }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      content:
-        locale === 'fr'
-          ? "Bonjour ! Je suis votre assistant d'etude IA. Posez-moi des questions sur le NCLEX, HAAD, DHA, CBT ou DA."
-          : "Hi! I'm your AI Study Assistant. Ask me anything about NCLEX, HAAD, DHA, CBT, or DA exam prep.",
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MSG(locale)]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Load persisted conversation on mount
+  useEffect(() => {
+    api.getStudyConversation(personId)
+      .then((history) => {
+        if (history && history.length > 0) {
+          setMessages(history);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setHistoryLoaded(true));
+  }, [personId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -77,6 +90,15 @@ function StudyAssistantPanel({
     } finally {
       setSending(false);
     }
+  }
+
+  async function clearHistory() {
+    setClearing(true);
+    try {
+      await api.clearStudyConversation(personId);
+      setMessages([WELCOME_MSG(locale)]);
+    } catch { /* ignore */ }
+    finally { setClearing(false); }
   }
 
   const quickChips = [
@@ -104,11 +126,23 @@ function StudyAssistantPanel({
             </div>
           </div>
         </div>
-        {!inline && (
-          <button onClick={onClose} className="rounded-lg p-1.5 text-white/70 hover:bg-white/10 hover:text-white transition">
-            <X className="h-4 w-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {messages.length > 1 && (
+            <button
+              onClick={clearHistory}
+              disabled={clearing}
+              title="Clear conversation history"
+              className="rounded-lg px-2 py-1 text-[10px] font-semibold text-white/60 hover:bg-white/10 hover:text-white transition"
+            >
+              {clearing ? '…' : 'Clear'}
+            </button>
+          )}
+          {!inline && (
+            <button onClick={onClose} className="rounded-lg p-1.5 text-white/70 hover:bg-white/10 hover:text-white transition">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Guardrail */}

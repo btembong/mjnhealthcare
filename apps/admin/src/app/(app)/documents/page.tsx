@@ -6,7 +6,7 @@ import { PageHeader, Skeleton } from '@mjn/ui';
 import {
   CheckCircle, XCircle, Eye, X, CircleNotch, ArrowClockwise,
   MagnifyingGlass, WarningCircle, Clock, ShieldCheck, ArrowSquareOut,
-  FileText, User, CalendarBlank, Funnel,
+  FileText, User, CalendarBlank, Funnel, Sparkle,
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';
@@ -306,6 +306,10 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
+  // AI pre-screen
+  const [prescreening, setPrescreening] = useState<Set<string>>(new Set());
+  const [prescreenResult, setPrescreenResult] = useState<{ docId: string; docType: string; flags: string[]; summary: string; confidence: number } | null>(null);
+
   // If consultant, build their client personId set once
   useEffect(() => {
     if (!isConsultant || !me?.email) { setMyPersonIds(null); return; }
@@ -336,6 +340,19 @@ export default function DocumentsPage() {
   }
   function handleRejected(id: string) {
     setDocs((prev) => prev.map((d) => d.id === id ? { ...d, status: 'REJECTED' } : d));
+  }
+
+  async function handlePrescreen(doc: any, e: React.MouseEvent) {
+    e.stopPropagation();
+    setPrescreening((prev) => new Set(prev).add(doc.id));
+    try {
+      const result = await api.prescreenDocument(doc.id);
+      setPrescreenResult({ docId: doc.id, docType: doc.type, flags: result.flags ?? [], summary: result.summary ?? '', confidence: Number(result.confidence ?? 0) });
+    } catch (err: any) {
+      toast.error(err.message ?? 'Pre-screen failed');
+    } finally {
+      setPrescreening((prev) => { const s = new Set(prev); s.delete(doc.id); return s; });
+    }
   }
 
   // Filtered view — consultants see only their clients' docs
@@ -525,6 +542,16 @@ export default function DocumentsPage() {
                           className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted transition-colors">
                           <Eye className="h-4 w-4" />
                         </button>
+                        <button
+                          title="AI pre-screen"
+                          onClick={(e) => handlePrescreen(doc, e)}
+                          disabled={prescreening.has(doc.id)}
+                          className="rounded-lg p-1.5 text-violet-500 hover:bg-violet-50 disabled:opacity-40 transition-colors"
+                        >
+                          {prescreening.has(doc.id)
+                            ? <CircleNotch className="h-4 w-4 animate-spin" />
+                            : <Sparkle className="h-4 w-4" />}
+                        </button>
                         {doc.status === 'PENDING' && (
                           <>
                             <button title="Verify" onClick={() => setSelected(doc)}
@@ -556,6 +583,73 @@ export default function DocumentsPage() {
           onVerified={handleVerified}
           onRejected={handleRejected}
         />
+      )}
+
+      {/* AI Pre-screen result modal */}
+      {prescreenResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-white shadow-xl p-6 space-y-5 mx-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <Sparkle className="h-4 w-4 text-violet-500" />
+                  <h2 className="text-base font-bold text-foreground">AI Pre-screen Result</h2>
+                </div>
+                <p className="text-xs text-muted-foreground">{fmt(prescreenResult.docType)}</p>
+              </div>
+              <button onClick={() => setPrescreenResult(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Confidence */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-2 rounded-full ${prescreenResult.confidence >= 80 ? 'bg-emerald-500' : prescreenResult.confidence >= 50 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                  style={{ width: `${prescreenResult.confidence}%` }}
+                />
+              </div>
+              <span className={`text-xs font-bold ${prescreenResult.confidence >= 80 ? 'text-emerald-700' : prescreenResult.confidence >= 50 ? 'text-amber-700' : 'text-rose-700'}`}>
+                {prescreenResult.confidence}% confidence
+              </span>
+            </div>
+
+            {/* Summary */}
+            <div className="rounded-xl border border-violet-100 bg-violet-50 p-4 text-sm text-foreground leading-relaxed">
+              {prescreenResult.summary}
+            </div>
+
+            {/* Flags */}
+            {prescreenResult.flags.length > 0 ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Issues flagged</p>
+                <ul className="space-y-1.5">
+                  {prescreenResult.flags.map((flag, i) => (
+                    <li key={i} className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      <WarningCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600" />
+                      {flag}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                <CheckCircle className="h-4 w-4 shrink-0" />
+                No issues detected — document looks complete.
+              </div>
+            )}
+
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => setPrescreenResult(null)}
+                className="rounded-xl border border-border px-5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -132,6 +132,7 @@ model Person {
   escalations         CaseEscalation[]   @relation("EscalationOfficer")
   escalationsReceived CaseEscalation[]   @relation("EscalationConsultant")
   approvedNotes       CaseNote[]         @relation("NoteApprover")
+  aiConversations     AiConversation[]
 
   @@map("persons")
 }
@@ -1086,4 +1087,18 @@ model Campaign {
   updatedAt      DateTime       @updatedAt
 
   @@map("campaigns")
+}
+
+// ─── AI Conversation History ──────────────────────────────────────────────────
+
+model AiConversation {
+  id           String   @id @default(cuid())
+  personId     String
+  person       Person   @relation(fields: [personId], references: [id])
+  surface      String   // "study_assistant" | "case_bot"
+  messages     Json     // { role, content }[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("ai_conversations")
 }

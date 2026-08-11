@@ -576,4 +576,20 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ isAvailable, reassignToOfficerId }),
     }),
+
+  // ── AI ───────────────────────────────────────────────────────────────────
+  draftClientUpdate: (engagementId: string) =>
+    request<{ draftId: string; draft: string }>(`/ai/draft-update/${engagementId}`, { method: 'POST', body: JSON.stringify({}) }),
+
+  approveDraft: (draftId: string, reviewedBy: string) =>
+    request<any>(`/ai/drafts/${draftId}/approve`, { method: 'PATCH', body: JSON.stringify({ reviewedBy }) }),
+
+  getPendingDrafts: () =>
+    request<any[]>('/ai/drafts/pending'),
+
+  summariseCase: (engagementId: string) =>
+    request<{ summary: string }>(`/ai/case-summary/${engagementId}`, { method: 'POST', body: JSON.stringify({}) }),
+
+  prescreenDocument: (documentId: string) =>
+    request<{ flags: string[]; summary: string; confidence: string }>(`/ai/prescreen-document/${documentId}`, { method: 'POST', body: JSON.stringify({}) }),
 };

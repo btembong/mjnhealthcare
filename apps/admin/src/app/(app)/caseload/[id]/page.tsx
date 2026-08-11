@@ -123,6 +123,13 @@ export default function CaseDetailPage() {
   const [activityLoaded, setActivityLoaded] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
 
+  // AI tools
+  const [aiDraft, setAiDraft] = useState<{ draftId: string; draft: string } | null>(null);
+  const [draftingUpdate, setDraftingUpdate] = useState(false);
+  const [summaryText, setSummaryText] = useState('');
+  const [summarising, setSummarising] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+
   // Messages
   const [messages, setMessages] = useState<any[]>([]);
   const [msgLoading, setMsgLoading] = useState(false);
@@ -364,6 +371,23 @@ export default function CaseDetailPage() {
     }
   }
 
+  async function handleDraftUpdate() {
+    setDraftingUpdate(true);
+    try {
+      const result = await api.draftClientUpdate(id);
+      setAiDraft(result);
+    } catch (e: any) { setError(e.message); } finally { setDraftingUpdate(false); }
+  }
+
+  async function handleSummariseCase() {
+    setSummarising(true);
+    setShowSummary(true);
+    try {
+      const result = await api.summariseCase(id);
+      setSummaryText(result.summary);
+    } catch (e: any) { setSummaryText('Failed to generate summary.'); } finally { setSummarising(false); }
+  }
+
   async function handleSendChecklist() {
     setSendingChecklist(true);
     try {
@@ -402,7 +426,21 @@ export default function CaseDetailPage() {
           <h1 className="text-xl font-bold text-foreground">{person.name ?? 'Case Detail'}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Engagement · {id.slice(0, 8)}…</p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleDraftUpdate}
+            disabled={draftingUpdate}
+            className="flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-colors"
+          >
+            <Note className="h-3.5 w-3.5" /> {draftingUpdate ? 'Drafting…' : 'AI Draft'}
+          </button>
+          <button
+            onClick={handleSummariseCase}
+            disabled={summarising}
+            className="flex items-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-100 disabled:opacity-50 transition-colors"
+          >
+            <ArrowSquareUpRight className="h-3.5 w-3.5" /> {summarising ? 'Summarising…' : 'AI Summary'}
+          </button>
           <button
             onClick={() => setChecklistOpen(true)}
             className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors"
@@ -466,6 +504,78 @@ export default function CaseDetailPage() {
               >
                 {sendingChecklist ? <CircleNotch className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                 {sendingChecklist ? 'Sending…' : 'Send checklist'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Draft modal */}
+      {aiDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-2xl border border-border bg-white shadow-xl p-6 space-y-5 mx-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-foreground">AI Draft — Client Update</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">AI-generated based on live case data. Review before sending.</p>
+              </div>
+              <button onClick={() => setAiDraft(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="rounded-xl border border-violet-100 bg-violet-50 p-4 text-sm text-foreground leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto">
+              {aiDraft.draft}
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => { setCompose(aiDraft.draft); setAiDraft(null); composeRef.current?.focus(); }}
+                className="flex-1 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
+              >
+                Copy to compose
+              </button>
+              <button
+                onClick={async () => {
+                  try { await api.approveDraft(aiDraft.draftId); } catch {}
+                  setAiDraft(null);
+                }}
+                className="flex-1 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition-colors"
+              >
+                Approve draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Summary modal */}
+      {showSummary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-2xl border border-border bg-white shadow-xl p-6 space-y-5 mx-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-foreground">AI Case Summary</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Quick-read brief generated from case history.</p>
+              </div>
+              <button onClick={() => setShowSummary(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {summarising ? (
+              <div className="flex items-center gap-3 py-8 justify-center">
+                <CircleNotch className="h-5 w-5 animate-spin text-teal-600" />
+                <span className="text-sm text-muted-foreground">Generating summary…</span>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-teal-100 bg-teal-50 p-4 text-sm text-foreground leading-relaxed whitespace-pre-wrap max-h-80 overflow-y-auto">
+                {summaryText || 'No summary available.'}
+              </div>
+            )}
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => setShowSummary(false)}
+                className="rounded-xl border border-border px-5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

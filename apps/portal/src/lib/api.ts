@@ -267,4 +267,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ personId, messages, locale }),
     }),
+
+  getStudyConversation: (personId: string) =>
+    request<{ role: 'user' | 'assistant'; content: string }[]>(`/ai/study-conversation/${personId}`),
+
+  clearStudyConversation: (personId: string) =>
+    request<{ ok: boolean }>(`/ai/study-conversation/${personId}`, { method: 'DELETE' }),
+
+  caseChat: (engagementId: string, personId: string, messages: { role: 'user' | 'assistant'; content: string }[]) =>
+    request<{ content: string }>(`/ai/case-chat/${engagementId}`, {
+      method: 'POST',
+      body: JSON.stringify({ personId, messages }),
+    }),
+
+  getCaseConversation: (personId: string) =>
+    request<{ role: 'user' | 'assistant'; content: string }[]>(`/ai/case-conversation/${personId}`),
+
+  clearCaseConversation: (personId: string) =>
+    request<{ ok: boolean }>(`/ai/case-conversation/${personId}`, { method: 'DELETE' }),
 };

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AIService } from './ai.service';
@@ -9,6 +9,8 @@ import { AIService } from './ai.service';
 @Controller('ai')
 export class AIController {
   constructor(private readonly aiService: AIService) {}
+
+  // ── Study Assistant ───────────────────────────────────────────────────────
 
   @Post('study-chat')
   studyChat(
@@ -21,8 +23,46 @@ export class AIController {
     return this.aiService.studyAssistantChat(body.personId, body.messages, body.locale);
   }
 
+  @Get('study-conversation/:personId')
+  getStudyConversation(@Param('personId') personId: string) {
+    return this.aiService.getConversation(personId, 'study_assistant');
+  }
+
+  @Delete('study-conversation/:personId')
+  clearStudyConversation(@Param('personId') personId: string) {
+    return this.aiService.clearConversation(personId, 'study_assistant');
+  }
+
+  // ── Case Status Bot (portal) ──────────────────────────────────────────────
+
+  @Post('case-chat/:engagementId')
+  caseChat(
+    @Param('engagementId') engagementId: string,
+    @Body() body: {
+      personId: string;
+      messages: { role: 'user' | 'assistant'; content: string }[];
+    },
+  ) {
+    return this.aiService.caseChatMessage(body.personId, engagementId, body.messages);
+  }
+
+  @Get('case-conversation/:personId')
+  getCaseConversation(@Param('personId') personId: string) {
+    return this.aiService.getConversation(personId, 'case_bot');
+  }
+
+  @Delete('case-conversation/:personId')
+  clearCaseConversation(@Param('personId') personId: string) {
+    return this.aiService.clearConversation(personId, 'case_bot');
+  }
+
+  // ── AI Drafts ─────────────────────────────────────────────────────────────
+
   @Post('draft-update/:engagementId')
-  draftUpdate(@Param('engagementId') engagementId: string, @Body() body: { context: string }) {
+  draftUpdate(
+    @Param('engagementId') engagementId: string,
+    @Body() body: { context?: string },
+  ) {
     return this.aiService.draftClientUpdate(engagementId, body.context);
   }
 
@@ -34,6 +74,20 @@ export class AIController {
   @Get('drafts/pending')
   getPendingDrafts() {
     return this.aiService.getPendingDrafts();
+  }
+
+  // ── Case Summary ──────────────────────────────────────────────────────────
+
+  @Post('case-summary/:engagementId')
+  summariseCase(@Param('engagementId') engagementId: string) {
+    return this.aiService.summariseCase(engagementId);
+  }
+
+  // ── Document Pre-screening ────────────────────────────────────────────────
+
+  @Post('prescreen-document/:documentId')
+  prescreenDocument(@Param('documentId') documentId: string) {
+    return this.aiService.prescreenDocument(documentId);
   }
 }
 
