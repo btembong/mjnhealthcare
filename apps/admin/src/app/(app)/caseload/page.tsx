@@ -143,66 +143,118 @@ function SortIcon({ state }: { state: false | 'asc' | 'desc' }) {
 }
 
 const KANBAN_COLUMNS = [
-  { key: 'PENDING_SIGNATURE', label: 'Pending Signature', dot: 'bg-amber-400', bg: 'bg-amber-50', header: 'border-b-2 border-amber-300' },
-  { key: 'ACTIVE',            label: 'Active',            dot: 'bg-emerald-500', bg: 'bg-emerald-50', header: 'border-b-2 border-emerald-400' },
-  { key: 'ON_HOLD',           label: 'On Hold',           dot: 'bg-orange-400', bg: 'bg-orange-50', header: 'border-b-2 border-orange-300' },
-  { key: 'COMPLETED',         label: 'Completed',         dot: 'bg-blue-500', bg: 'bg-blue-50', header: 'border-b-2 border-blue-400' },
-  { key: 'TERMINATED',        label: 'Terminated',        dot: 'bg-rose-500', bg: 'bg-rose-50', header: 'border-b-2 border-rose-400' },
+  {
+    key: 'PENDING_SIGNATURE', label: 'Pending Signature',
+    topBar: 'bg-amber-400', dot: 'bg-amber-400',
+    countBg: 'bg-amber-100 text-amber-700',
+    emptyText: 'text-amber-400', emptyBorder: 'border-amber-200',
+  },
+  {
+    key: 'ACTIVE', label: 'Active',
+    topBar: 'bg-emerald-500', dot: 'bg-emerald-500',
+    countBg: 'bg-emerald-100 text-emerald-700',
+    emptyText: 'text-emerald-400', emptyBorder: 'border-emerald-200',
+  },
+  {
+    key: 'ON_HOLD', label: 'On Hold',
+    topBar: 'bg-orange-400', dot: 'bg-orange-400',
+    countBg: 'bg-orange-100 text-orange-700',
+    emptyText: 'text-orange-400', emptyBorder: 'border-orange-200',
+  },
+  {
+    key: 'COMPLETED', label: 'Completed',
+    topBar: 'bg-blue-500', dot: 'bg-blue-500',
+    countBg: 'bg-blue-100 text-blue-700',
+    emptyText: 'text-blue-400', emptyBorder: 'border-blue-200',
+  },
+  {
+    key: 'TERMINATED', label: 'Terminated',
+    topBar: 'bg-rose-500', dot: 'bg-rose-500',
+    countBg: 'bg-rose-100 text-rose-700',
+    emptyText: 'text-rose-400', emptyBorder: 'border-rose-200',
+  },
 ];
 
 function KanbanCard({ eng, onClick }: { eng: Engagement; onClick: () => void }) {
+  const sla = getSLA(eng);
   const initials = (eng.person?.name ?? '??').slice(0, 2).toUpperCase();
+  const consultantInitials = eng.consultantName ? eng.consultantName.slice(0, 2).toUpperCase() : null;
   const shortId = eng.id.slice(0, 8).toUpperCase();
   const created = eng.createdAt
-    ? new Date(eng.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    ? new Date(eng.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : null;
+
+  const urgencyBorder =
+    sla?.label.includes('Overdue') ? 'border-l-rose-500 bg-rose-50/40' :
+    sla?.label.includes('risk') ? 'border-l-amber-400 bg-amber-50/30' :
+    'border-l-transparent';
 
   return (
     <div
       onClick={onClick}
-      className="group cursor-pointer rounded-xl border border-border bg-white p-3.5 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
+      className={`group cursor-pointer rounded-xl border border-slate-200 border-l-4 bg-white p-3.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-150 ${urgencyBorder}`}
     >
-      <div className="flex items-start gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+      {/* Client row */}
+      <div className="flex items-start gap-2.5 mb-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary ring-2 ring-primary/10">
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground leading-tight">
+          <p className="truncate text-sm font-bold text-slate-800 leading-tight">
             {eng.person?.name ?? '—'}
           </p>
-          <p className="truncate text-[11px] text-muted-foreground mt-0.5">
-            {eng.person?.email ?? shortId}
+          <p className="truncate text-[11px] text-slate-500 mt-0.5">
+            {eng.person?.email ?? `#${shortId}`}
           </p>
         </div>
       </div>
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+      {/* Tags row */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-3">
         {eng.person?.profession && (
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground capitalize">
+          <span className="rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-semibold text-primary capitalize">
             {eng.person.profession}
           </span>
         )}
-        <span className="rounded-full bg-muted/60 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 font-mono text-[10px] text-slate-500">
           #{shortId}
         </span>
+        {eng.paymentMode && (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 capitalize">
+            {eng.paymentMode.toLowerCase()}
+          </span>
+        )}
       </div>
 
-      {created && (
-        <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
-          <CalendarBlank className="h-3 w-3" />
-          {created}
+      {/* Consultant row */}
+      <div className="flex items-center justify-between mb-2.5">
+        {consultantInitials ? (
+          <div className="flex items-center gap-1.5">
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[9px] font-bold text-slate-600">
+              {consultantInitials}
+            </div>
+            <span className="text-[11px] text-slate-500 font-medium truncate max-w-[120px]">
+              {eng.consultantName}
+            </span>
+          </div>
+        ) : (
+          <span className="text-[11px] text-slate-400 italic">Unassigned</span>
+        )}
+        {created && (
+          <div className="flex items-center gap-1 text-[10px] text-slate-400">
+            <CalendarBlank className="h-3 w-3" />
+            {created}
+          </div>
+        )}
+      </div>
+
+      {/* SLA badge */}
+      {sla && (
+        <div className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sla.color}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${sla.dot}`} />
+          {sla.label}
         </div>
       )}
-      {(() => {
-        const sla = getSLA(eng);
-        if (!sla) return null;
-        return (
-          <div className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sla.color}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${sla.dot}`} />
-            {sla.label}
-          </div>
-        );
-      })()}
     </div>
   );
 }
@@ -217,38 +269,109 @@ function KanbanView({ engagements, onCardClick }: { engagements: Engagement[]; o
     return map;
   }, [engagements]);
 
-  return (
-    <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
-      {KANBAN_COLUMNS.map((col) => {
-        const cards = byStatus[col.key] ?? [];
-        return (
-          <div key={col.key} className="flex w-72 shrink-0 flex-col rounded-2xl border border-border bg-muted/30 overflow-hidden">
-            {/* Column header */}
-            <div className={`flex items-center justify-between px-4 py-3 bg-white ${col.header}`}>
-              <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${col.dot}`} />
-                <span className="text-sm font-semibold text-foreground">{col.label}</span>
-              </div>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
-                {cards.length}
-              </span>
-            </div>
+  const totalOverdue = useMemo(() =>
+    engagements.filter((e) => getSLA(e)?.label.includes('Overdue')).length,
+    [engagements],
+  );
+  const totalAtRisk = useMemo(() =>
+    engagements.filter((e) => getSLA(e)?.label.includes('risk')).length,
+    [engagements],
+  );
 
-            {/* Cards */}
-            <div className="flex flex-1 flex-col gap-2 p-3">
-              {cards.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center rounded-xl border-2 border-dashed border-border py-8">
-                  <p className="text-xs text-muted-foreground">No cases</p>
-                </div>
-              ) : (
-                cards.map((eng) => (
-                  <KanbanCard key={eng.id} eng={eng} onClick={() => onCardClick(eng.id)} />
-                ))
-              )}
-            </div>
+  return (
+    <div className="space-y-4">
+      {/* Board summary strip */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 shadow-sm">
+          <span className="text-xs text-slate-500 font-medium">Total</span>
+          <span className="text-sm font-bold text-slate-800">{engagements.length}</span>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 shadow-sm">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="text-xs text-emerald-700 font-medium">Active</span>
+          <span className="text-sm font-bold text-emerald-800">{(byStatus['ACTIVE'] ?? []).length}</span>
+        </div>
+        {totalOverdue > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 shadow-sm">
+            <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+            <span className="text-xs text-rose-700 font-medium">Overdue SLA</span>
+            <span className="text-sm font-bold text-rose-800">{totalOverdue}</span>
           </div>
-        );
-      })}
+        )}
+        {totalAtRisk > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 shadow-sm">
+            <span className="h-2 w-2 rounded-full bg-amber-400" />
+            <span className="text-xs text-amber-700 font-medium">At Risk</span>
+            <span className="text-sm font-bold text-amber-800">{totalAtRisk}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Board */}
+      <div className="flex gap-3 overflow-x-auto pb-4">
+        {KANBAN_COLUMNS.map((col) => {
+          const cards = byStatus[col.key] ?? [];
+          const colOverdue = cards.filter((e) => getSLA(e)?.label.includes('Overdue')).length;
+          const colAtRisk = cards.filter((e) => getSLA(e)?.label.includes('risk')).length;
+
+          return (
+            <div key={col.key} className="flex w-[280px] shrink-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm">
+              {/* Column header */}
+              <div className={`h-1 w-full ${col.topBar}`} />
+              <div className="px-4 pt-3 pb-3 bg-white border-b border-slate-100">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full ${col.dot}`} />
+                    <span className="text-sm font-bold text-slate-700">{col.label}</span>
+                  </div>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${col.countBg}`}>
+                    {cards.length}
+                  </span>
+                </div>
+                {/* SLA summary */}
+                {(colOverdue > 0 || colAtRisk > 0) && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {colOverdue > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-200 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                        {colOverdue} overdue
+                      </span>
+                    )}
+                    {colAtRisk > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                        {colAtRisk} at risk
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Cards */}
+              <div className="flex flex-col gap-2 p-3 overflow-y-auto" style={{ maxHeight: 580 }}>
+                {cards.length === 0 ? (
+                  <div className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed ${col.emptyBorder} py-10 gap-2`}>
+                    <span className={`text-2xl font-black ${col.emptyText} opacity-30`}>—</span>
+                    <p className={`text-xs font-medium ${col.emptyText} opacity-60`}>No cases</p>
+                  </div>
+                ) : (
+                  // Overdue first, then at-risk, then on-track
+                  [...cards]
+                    .sort((a, b) => {
+                      const order = (e: Engagement) =>
+                        getSLA(e)?.label.includes('Overdue') ? 0 :
+                        getSLA(e)?.label.includes('risk') ? 1 : 2;
+                      return order(a) - order(b);
+                    })
+                    .map((eng) => (
+                      <KanbanCard key={eng.id} eng={eng} onClick={() => onCardClick(eng.id)} />
+                    ))
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
