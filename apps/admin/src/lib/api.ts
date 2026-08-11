@@ -581,12 +581,6 @@ export const api = {
   draftClientUpdate: (engagementId: string) =>
     request<{ draftId: string; draft: string }>(`/ai/draft-update/${engagementId}`, { method: 'POST', body: JSON.stringify({}) }),
 
-  approveDraft: (draftId: string, reviewedBy: string) =>
-    request<any>(`/ai/drafts/${draftId}/approve`, { method: 'PATCH', body: JSON.stringify({ reviewedBy }) }),
-
-  getPendingDrafts: () =>
-    request<any[]>('/ai/drafts/pending'),
-
   summariseCase: (engagementId: string) =>
     request<{ summary: string }>(`/ai/case-summary/${engagementId}`, { method: 'POST', body: JSON.stringify({}) }),
 
