@@ -42,7 +42,7 @@ export default async function TeamMemberPage({ params }: { params: Promise<{ slu
   const member = members.find((m) => m.slug === slug);
   if (!member) notFound();
 
-  const { name, role, initials, location, flag, background, bio, expertise, credibility, credentials, languages, photo } = member;
+  const { name, role, initials, background, bio, expertise, credibility, credentials, languages, photo } = member;
 
   const currentIndex = members.indexOf(member);
   const prev = members[currentIndex - 1] ?? null;
@@ -55,7 +55,7 @@ export default async function TeamMemberPage({ params }: { params: Promise<{ slu
     name,
     jobTitle: role,
     worksFor: { '@type': 'Organization', name: 'MJN Health Academy and Professional Services', url: 'https://mjnhealthcare.com' },
-    address: { '@type': 'PostalAddress', addressLocality: location },
+
     knowsAbout: expertise,
     url: `https://mjnhealthcare.com/team/${slug}`,
     ...(photo ? { image: `https://mjnhealthcare.com${photo}` } : {}),
@@ -111,13 +111,6 @@ export default async function TeamMemberPage({ params }: { params: Promise<{ slu
             <div className="pb-2 text-white">
               <p className="mb-2 text-xs font-bold uppercase tracking-widest text-white/50">{role}</p>
               <h1 className="text-4xl font-extrabold leading-tight tracking-tight md:text-5xl">{name}</h1>
-              <p className="mt-3 flex items-center gap-1.5 text-sm text-white/70">
-                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                </svg>
-                {flag} {location}
-              </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 {expertise.map((e) => (
                   <span key={e} className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm ring-1 ring-white/10">
