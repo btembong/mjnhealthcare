@@ -991,6 +991,119 @@ export default function CaseDetailPage() {
         ) : null}
       </div>
 
+      {/* ── Activity Timeline ─────────────────────────────────────────────────── */}
+      {(() => {
+        type TimelineItem = {
+          id: string;
+          type: 'milestone' | 'order' | 'message' | 'status' | 'note';
+          label: string;
+          sub?: string;
+          at: Date;
+          icon: React.ElementType;
+          color: string;
+          dot: string;
+        };
+        const items: TimelineItem[] = [];
+
+        // Milestones
+        for (const m of milestones) {
+          items.push({
+            id: `ms-${m.id}`,
+            type: 'milestone',
+            label: m.completedAt ? `Milestone completed: ${m.label}` : `Milestone added: ${m.label}`,
+            at: new Date(m.completedAt ?? m.createdAt ?? Date.now()),
+            icon: Flag,
+            color: m.completedAt ? 'text-emerald-600' : 'text-primary',
+            dot: m.completedAt ? 'bg-emerald-500' : 'bg-primary',
+          });
+        }
+
+        // Orders
+        for (const o of orders) {
+          items.push({
+            id: `ord-${o.id}`,
+            type: 'order',
+            label: `Order ${o.status === 'PAID' ? 'paid' : 'created'} — $${Number(o.total ?? 0).toLocaleString()}`,
+            at: new Date(o.createdAt ?? Date.now()),
+            icon: CurrencyDollar,
+            color: o.status === 'PAID' ? 'text-emerald-600' : 'text-amber-600',
+            dot: o.status === 'PAID' ? 'bg-emerald-500' : 'bg-amber-400',
+          });
+        }
+
+        // Messages (last 10 only)
+        for (const msg of messages.slice(-10)) {
+          const isStaff = isStaffSender(msg);
+          items.push({
+            id: `msg-${msg.id}`,
+            type: 'message',
+            label: isStaff ? 'Message sent to client' : 'Message received from client',
+            sub: (msg.content ?? '').slice(0, 80) + ((msg.content ?? '').length > 80 ? '…' : ''),
+            at: new Date(msg.createdAt),
+            icon: Chat,
+            color: isStaff ? 'text-primary' : 'text-muted-foreground',
+            dot: isStaff ? 'bg-primary' : 'bg-muted-foreground/60',
+          });
+        }
+
+        // Case notes (if any)
+        for (const n of (engagement.caseNotes ?? [])) {
+          items.push({
+            id: `note-${n.id}`,
+            type: 'note',
+            label: n.isInternal ? 'Internal note added' : 'Case note sent to client',
+            sub: (n.content ?? '').slice(0, 80),
+            at: new Date(n.createdAt ?? Date.now()),
+            icon: Note,
+            color: 'text-violet-600',
+            dot: 'bg-violet-500',
+          });
+        }
+
+        const sorted = items.sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 30);
+
+        return (
+          <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-border bg-muted/20 px-5 py-3.5">
+              <p className="font-semibold text-foreground text-sm">Activity Timeline</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Unified feed — milestones, orders, messages, notes</p>
+            </div>
+            {sorted.length === 0 ? (
+              <div className="py-10 text-center">
+                <Clock className="mx-auto mb-2 h-8 w-8 text-muted-foreground/20" />
+                <p className="text-sm text-muted-foreground">No activity yet on this case.</p>
+              </div>
+            ) : (
+              <div className="relative px-5 py-4">
+                {/* Vertical line */}
+                <div className="absolute left-[2.35rem] top-0 bottom-0 w-px bg-border" />
+                <div className="space-y-4">
+                  {sorted.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div key={item.id} className="flex items-start gap-3 relative">
+                        <div className={`relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-2 ring-white ${item.dot}`}>
+                          <Icon className="h-3 w-3 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <p className={`text-xs font-semibold ${item.color}`}>{item.label}</p>
+                          {item.sub && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{item.sub}</p>
+                          )}
+                          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                            {format(item.at, 'MMM d, yyyy · h:mm a')}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* ── Officer Activity ───────────────────────────────────────────────────── */}
       <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
         <button

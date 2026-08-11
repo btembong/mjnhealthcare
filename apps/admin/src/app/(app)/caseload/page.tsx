@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { PageHeader, Skeleton } from '@mjn/ui';
 import {
   MagnifyingGlass, CaretUp, CaretDown, CaretUpDown, Plus,
-  Rows, Kanban, CalendarBlank,
+  Rows, Kanban, CalendarBlank, CheckSquare, Export, UserPlus,
+  X as XIcon,
 } from '@phosphor-icons/react';
 import {
   useReactTable,
@@ -22,6 +23,34 @@ import { useAdmin } from '../../../contexts/admin-context';
 
 function statusLabel(s: string) {
   return s?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) ?? '—';
+}
+
+// SLA thresholds (days stuck in status before escalating)
+const SLA_THRESHOLDS: Record<string, { red: number; amber: number }> = {
+  PENDING_SIGNATURE: { red: 7,  amber: 3  },
+  ACTIVE:            { red: 90, amber: 60 },
+  ON_HOLD:           { red: 30, amber: 14 },
+};
+
+function getSLA(eng: Engagement): { label: string; color: string; dot: string } | null {
+  if (!eng.createdAt || !SLA_THRESHOLDS[eng.status]) return null;
+  const days = Math.floor((Date.now() - new Date(eng.createdAt).getTime()) / 86_400_000);
+  const t = SLA_THRESHOLDS[eng.status];
+  if (days >= t.red) return {
+    label: `${days}d — Overdue`,
+    color: 'bg-rose-100 text-rose-700 border-rose-200',
+    dot: 'bg-rose-500 animate-pulse',
+  };
+  if (days >= t.amber) return {
+    label: `${days}d — At risk`,
+    color: 'bg-amber-100 text-amber-700 border-amber-200',
+    dot: 'bg-amber-400',
+  };
+  return {
+    label: `${days}d — On track`,
+    color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    dot: 'bg-emerald-500',
+  };
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -91,6 +120,20 @@ const columns = [
     ),
     sortingFn: 'datetime',
   }),
+  col.display({
+    id: 'sla',
+    header: 'SLA',
+    cell: (info) => {
+      const sla = getSLA(info.row.original);
+      if (!sla) return <span className="text-xs text-muted-foreground/40">—</span>;
+      return (
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sla.color}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${sla.dot}`} />
+          {sla.label}
+        </span>
+      );
+    },
+  }),
 ];
 
 function SortIcon({ state }: { state: false | 'asc' | 'desc' }) {
@@ -150,6 +193,16 @@ function KanbanCard({ eng, onClick }: { eng: Engagement; onClick: () => void }) 
           {created}
         </div>
       )}
+      {(() => {
+        const sla = getSLA(eng);
+        if (!sla) return null;
+        return (
+          <div className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sla.color}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${sla.dot}`} />
+            {sla.label}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -212,12 +265,18 @@ export default function CaseloadPage() {
   const [consultantFilter, setConsultantFilter] = useState('ALL');
   const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
   const [view, setView] = useState<'table' | 'kanban'>('table');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkAssignId, setBulkAssignId] = useState('');
+  const [bulkWorking, setBulkWorking] = useState(false);
+
+  const [consultants, setConsultants] = useState<any[]>([]);
 
   useEffect(() => {
     api.getAllEngagements()
       .then(setEngagements)
       .catch(console.error)
       .finally(() => setLoading(false));
+    api.getConsultants().then(setConsultants).catch(() => {});
   }, []);
 
   const consultantOptions = useMemo(() => {
@@ -270,6 +329,56 @@ export default function CaseloadPage() {
       );
     },
   });
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    const visibleIds = table.getRowModel().rows.map((r) => r.original.id);
+    setSelected((prev) => {
+      if (visibleIds.every((id) => prev.has(id))) {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.delete(id));
+        return next;
+      }
+      return new Set([...prev, ...visibleIds]);
+    });
+  }
+
+  async function handleBulkAssign() {
+    if (!bulkAssignId || selected.size === 0) return;
+    setBulkWorking(true);
+    try {
+      await Promise.all([...selected].map((id) => api.assignConsultant(id, bulkAssignId)));
+      const updated = await api.getAllEngagements();
+      setEngagements(updated);
+      setSelected(new Set());
+      setBulkAssignId('');
+    } catch (e: any) { alert(e.message); } finally { setBulkWorking(false); }
+  }
+
+  function handleBulkExport() {
+    const rows = filtered.filter((e) => selected.has(e.id));
+    const csv = [
+      'ID,Client,Email,Profession,Status,Consultant,Created',
+      ...rows.map((e) => [
+        e.id, e.person?.name ?? '', e.person?.email ?? '',
+        e.person?.profession ?? '', e.status,
+        e.consultantName ?? '', e.createdAt ?? '',
+      ].join(',')),
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `caseload-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    setSelected(new Set());
+  }
 
   return (
     <div className="space-y-5">
@@ -355,11 +464,65 @@ export default function CaseloadPage() {
           </div>
         ) : (
           <div className="rounded-2xl border border-border bg-white overflow-hidden shadow-sm">
+            {/* Bulk action bar */}
+            {selected.size > 0 && (
+              <div className="flex items-center gap-3 border-b border-border bg-primary/5 px-4 py-2.5 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold text-primary">{selected.size} selected</span>
+                </div>
+                <div className="flex items-center gap-2 flex-1 flex-wrap">
+                  {!isConsultant && (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={bulkAssignId}
+                        onChange={(e) => setBulkAssignId(e.target.value)}
+                        className="h-8 rounded-lg border border-border bg-white px-2 text-xs outline-none focus:border-primary"
+                      >
+                        <option value="">Assign consultant…</option>
+                        {consultants.map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleBulkAssign}
+                        disabled={!bulkAssignId || bulkWorking}
+                        className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                      >
+                        <UserPlus className="h-3.5 w-3.5" />
+                        {bulkWorking ? 'Assigning…' : 'Assign'}
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleBulkExport}
+                    className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors"
+                  >
+                    <Export className="h-3.5 w-3.5" />
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => setSelected(new Set())}
+                    className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <XIcon className="h-3.5 w-3.5" /> Clear
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 border-b border-border">
                   {table.getHeaderGroups().map((hg) => (
                     <tr key={hg.id} className="text-left text-xs text-muted-foreground">
+                      <th className="w-10 px-4 py-3">
+                        <input
+                          type="checkbox"
+                          className="rounded border-border accent-primary"
+                          checked={table.getRowModel().rows.length > 0 && table.getRowModel().rows.every((r) => selected.has(r.original.id))}
+                          onChange={toggleSelectAll}
+                        />
+                      </th>
                       {hg.headers.map((header) => (
                         <th
                           key={header.id}
@@ -384,9 +547,20 @@ export default function CaseloadPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {table.getRowModel().rows.map((row) => (
-                    <tr key={row.id} onClick={() => router.push('/caseload/' + row.original.id)} className="hover:bg-muted/20 transition-colors cursor-pointer">
+                    <tr
+                      key={row.id}
+                      className={`hover:bg-muted/20 transition-colors cursor-pointer ${selected.has(row.original.id) ? 'bg-primary/5' : ''}`}
+                    >
+                      <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); toggleSelect(row.original.id); }}>
+                        <input
+                          type="checkbox"
+                          className="rounded border-border accent-primary"
+                          checked={selected.has(row.original.id)}
+                          onChange={() => toggleSelect(row.original.id)}
+                        />
+                      </td>
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="px-4 py-3">
+                        <td key={cell.id} className="px-4 py-3" onClick={() => router.push('/caseload/' + row.original.id)}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}

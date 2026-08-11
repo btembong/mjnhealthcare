@@ -6,11 +6,12 @@ import {
   ChartLineUp, SignOut, User, Tag, CalendarBlank, CurrencyDollar,
   MagnifyingGlass, VideoCamera, Gavel, GearSix, ClipboardText, Buildings,
   Headset, MegaphoneSimple, MapTrifold, ChartBar, ChatCircle,
-  Clipboard, ListChecks, Warning, CheckCircle,
+  Clipboard, ListChecks, Warning, CheckCircle, BookmarkSimple,
 } from '@phosphor-icons/react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { AdminProvider, useAdmin } from '../../contexts/admin-context';
+import { NotificationBell } from '../../components/notification-bell';
 
 // ── Role-gated sidebar sections ───────────────────────────────────────────────
 
@@ -67,6 +68,8 @@ function useSidebarSections(
           { label: 'AI Drafts', href: '/drafts', icon: Robot, badge: counts.pendingDrafts > 0 ? String(counts.pendingDrafts) : undefined },
           { label: 'Approvals', href: '/approvals', icon: CheckCircle },
           { label: 'Escalations', href: '/escalations', icon: Warning },
+          { label: 'My Earnings', href: '/earnings', icon: CurrencyDollar },
+          { label: 'Templates', href: '/templates', icon: BookmarkSimple },
         ],
       },
       {
@@ -218,6 +221,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-3 ml-auto">
+            <NotificationBell />
             {/* Role badge */}
             <span className={`hidden sm:inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
               role === 'ADMIN' ? 'bg-primary/10 text-primary' :

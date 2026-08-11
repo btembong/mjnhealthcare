@@ -1,16 +1,20 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@mjn/ui';
 import {
   VideoCamera, MagnifyingGlass, CheckCircle, Clock, X,
   ArrowSquareOut, CircleNotch, Warning, CalendarBlank,
-  CurrencyDollar, CaretDown, User,
+  CurrencyDollar, CaretDown, User, CaretLeft, CaretRight, Rows,
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';
-import { format, formatDistanceToNow, isPast } from 'date-fns';
+import {
+  format, formatDistanceToNow, isPast, startOfMonth, endOfMonth,
+  eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths,
+  getDay, startOfWeek, endOfWeek,
+} from 'date-fns';
 
 type Session = {
   id: string;
@@ -61,6 +65,8 @@ export default function SessionsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeRoom, setActiveRoom] = useState<{ url: string; token: string | null; clientName: string } | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [view, setView] = useState<'table' | 'calendar'>('table');
+  const [calMonth, setCalMonth] = useState(new Date());
 
   useEffect(() => { loadSessions(); }, [me]);
 
@@ -188,176 +194,262 @@ export default function SessionsPage() {
           </select>
           <CaretDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         </div>
+        {/* View toggle */}
+        <div className="flex items-center rounded-xl border border-border bg-white overflow-hidden">
+          <button
+            onClick={() => setView('table')}
+            className={`flex items-center gap-1.5 px-3 h-10 text-sm font-medium transition-colors ${view === 'table' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+          >
+            <Rows className="h-4 w-4" />
+            <span className="hidden sm:inline">List</span>
+          </button>
+          <button
+            onClick={() => setView('calendar')}
+            className={`flex items-center gap-1.5 px-3 h-10 text-sm font-medium transition-colors ${view === 'calendar' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+          >
+            <CalendarBlank className="h-4 w-4" />
+            <span className="hidden sm:inline">Calendar</span>
+          </button>
+        </div>
       </div>
 
+      {/* Calendar View */}
+      {view === 'calendar' && (() => {
+        const monthStart = startOfMonth(calMonth);
+        const monthEnd = endOfMonth(calMonth);
+        const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+        const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+        const days = eachDayOfInterval({ start: calStart, end: calEnd });
+        const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+        return (
+          <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+            {/* Month nav */}
+            <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+              <button
+                onClick={() => setCalMonth((m) => subMonths(m, 1))}
+                className="flex h-8 w-8 items-center justify-center rounded-xl border border-border hover:bg-muted/50 transition-colors"
+              >
+                <CaretLeft className="h-4 w-4" />
+              </button>
+              <h2 className="text-sm font-bold text-foreground">
+                {format(calMonth, 'MMMM yyyy')}
+              </h2>
+              <button
+                onClick={() => setCalMonth((m) => addMonths(m, 1))}
+                className="flex h-8 w-8 items-center justify-center rounded-xl border border-border hover:bg-muted/50 transition-colors"
+              >
+                <CaretRight className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Day headers */}
+            <div className="grid grid-cols-7 border-b border-border">
+              {DAYS.map((d) => (
+                <div key={d} className="py-2 text-center text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            {/* Day cells */}
+            <div className="grid grid-cols-7">
+              {days.map((day, i) => {
+                const daySessions = sessions.filter(
+                  (s) => s.slot?.startAt && isSameDay(new Date(s.slot.startAt), day),
+                );
+                const isCurrentMonth = isSameMonth(day, calMonth);
+                const isToday = isSameDay(day, new Date());
+
+                return (
+                  <div
+                    key={i}
+                    className={`min-h-[90px] border-b border-r border-border p-1.5 ${!isCurrentMonth ? 'bg-muted/20' : 'bg-white'} ${i % 7 === 6 ? 'border-r-0' : ''}`}
+                  >
+                    <div className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                      isToday ? 'bg-primary text-white' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground/40'
+                    }`}>
+                      {format(day, 'd')}
+                    </div>
+                    <div className="space-y-0.5">
+                      {daySessions.slice(0, 3).map((s) => (
+                        <div
+                          key={s.id}
+                          className={`truncate rounded px-1.5 py-0.5 text-[10px] font-medium cursor-pointer hover:opacity-80 ${
+                            s.status === 'CONFIRMED' ? 'bg-primary/10 text-primary' :
+                            s.status === 'COMPLETED' ? 'bg-muted text-muted-foreground' :
+                            s.status === 'CANCELLED' ? 'bg-rose-100 text-rose-600' :
+                            'bg-amber-100 text-amber-700'
+                          }`}
+                          title={`${s.clientName} · ${s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm a') : ''}`}
+                        >
+                          {s.slot?.startAt ? format(new Date(s.slot.startAt), 'h:mm') : ''} {s.clientName}
+                        </div>
+                      ))}
+                      {daySessions.length > 3 && (
+                        <div className="text-[10px] text-muted-foreground px-1">+{daySessions.length - 3} more</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 border-t border-border px-5 py-3">
+              {[
+                { label: 'Confirmed', color: 'bg-primary/10 text-primary' },
+                { label: 'Completed', color: 'bg-muted text-muted-foreground' },
+                { label: 'Cancelled', color: 'bg-rose-100 text-rose-600' },
+                { label: 'Pending', color: 'bg-amber-100 text-amber-700' },
+              ].map(({ label, color }) => (
+                <div key={label} className={`rounded px-2 py-0.5 text-[10px] font-medium ${color}`}>{label}</div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Table */}
-      {loading ? (
-        <SessionsSkeleton />
-      ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-sm">
-          <VideoCamera className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-          <p className="text-sm font-semibold text-foreground">No sessions found</p>
-          <p className="mt-1 text-xs text-muted-foreground">Sessions booked via the public consultation page will appear here.</p>
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 border-b border-border">
-                <tr className="text-left text-xs text-muted-foreground">
-                  <th className="px-5 py-3 font-semibold">Client</th>
-                  {role === 'ADMIN' && <th className="px-5 py-3 font-semibold">Consultant</th>}
-                  <th className="px-5 py-3 font-semibold">Scheduled</th>
-                  <th className="px-5 py-3 font-semibold">Type</th>
-                  <th className="px-5 py-3 font-semibold">Status</th>
-                  <th className="px-5 py-3 font-semibold">Paid</th>
-                  <th className="px-5 py-3 font-semibold"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filtered.map((s) => {
-                  const isUpcoming = s.status === 'CONFIRMED' && s.slot?.startAt && !isPast(new Date(s.slot.startAt));
-                  const isExpanded = expandedId === s.id;
-
-                  return (
-                    <React.Fragment key={s.id}>
-                      <tr
-                        onClick={() => setExpandedId(isExpanded ? null : s.id)}
-                        className={`hover:bg-muted/20 transition-colors cursor-pointer ${isUpcoming ? 'bg-primary/[0.02]' : ''}`}
-                      >
-                        {/* Client */}
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2.5">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
-                              {(s.clientName).slice(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-medium text-foreground">{s.clientName}</p>
-                              <p className="text-xs text-muted-foreground">{s.clientEmail}</p>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Consultant (admin only) */}
-                        {role === 'ADMIN' && (
+      {view === 'table' && (() => {
+        if (loading) return <SessionsSkeleton />;
+        if (filtered.length === 0) return (
+          <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-sm">
+            <VideoCamera className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+            <p className="text-sm font-semibold text-foreground">No sessions found</p>
+            <p className="mt-1 text-xs text-muted-foreground">Sessions booked via the public consultation page will appear here.</p>
+          </div>
+        );
+        return (
+          <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 border-b border-border">
+                  <tr className="text-left text-xs text-muted-foreground">
+                    <th className="px-5 py-3 font-semibold">Client</th>
+                    {role === 'ADMIN' && <th className="px-5 py-3 font-semibold">Consultant</th>}
+                    <th className="px-5 py-3 font-semibold">Scheduled</th>
+                    <th className="px-5 py-3 font-semibold">Type</th>
+                    <th className="px-5 py-3 font-semibold">Status</th>
+                    <th className="px-5 py-3 font-semibold">Paid</th>
+                    <th className="px-5 py-3 font-semibold"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filtered.map((s) => {
+                    const isUpcoming = s.status === 'CONFIRMED' && s.slot?.startAt && !isPast(new Date(s.slot.startAt));
+                    const isExpanded = expandedId === s.id;
+                    return (
+                      <React.Fragment key={s.id}>
+                        <tr
+                          onClick={() => setExpandedId(isExpanded ? null : s.id)}
+                          className={`hover:bg-muted/20 transition-colors cursor-pointer ${isUpcoming ? 'bg-primary/[0.02]' : ''}`}
+                        >
                           <td className="px-5 py-4">
-                            <div className="flex items-center gap-1.5">
-                              <User className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">{s.slot?.consultant?.name ?? '—'}</span>
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+                                {s.clientName.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-medium text-foreground">{s.clientName}</p>
+                                <p className="text-xs text-muted-foreground">{s.clientEmail}</p>
+                              </div>
                             </div>
                           </td>
-                        )}
-
-                        {/* Scheduled */}
-                        <td className="px-5 py-4">
-                          {s.slot?.startAt ? (
-                            <div>
-                              <p className="text-sm font-medium text-foreground">{format(new Date(s.slot.startAt), 'MMM d, yyyy')}</p>
-                              <p className="text-xs text-muted-foreground">{format(new Date(s.slot.startAt), 'h:mm a')}{isUpcoming && <span className="ml-1 text-primary">· {formatDistanceToNow(new Date(s.slot.startAt), { addSuffix: true })}</span>}</p>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                          {role === 'ADMIN' && (
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-1.5">
+                                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">{s.slot?.consultant?.name ?? '—'}</span>
+                              </div>
+                            </td>
                           )}
-                        </td>
-
-                        {/* Type */}
-                        <td className="px-5 py-4">
-                          <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-xs font-medium text-muted-foreground capitalize">
-                            {s.category?.toLowerCase().replace(/_/g, ' ')}
-                          </span>
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-5 py-4">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[s.status] ?? 'bg-muted text-muted-foreground border-border'}`}>
-                            {s.status === 'CONFIRMED' && isUpcoming && <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />}
-                            {statusLabel(s.status)}
-                          </span>
-                        </td>
-
-                        {/* Paid */}
-                        <td className="px-5 py-4 font-semibold text-foreground">
-                          ${s.paidAmount.toLocaleString()}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                            {s.roomUrl && s.status === 'CONFIRMED' && (
-                              <button
-                                onClick={() => handleJoin(s.id)}
-                                disabled={joiningId === s.id}
-                                className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60 transition-colors"
-                              >
-                                {joiningId === s.id
-                                  ? <CircleNotch className="h-3.5 w-3.5 animate-spin" />
-                                  : <VideoCamera className="h-3.5 w-3.5" />}
-                                Join as host
-                              </button>
-                            )}
-                            {s.status === 'CONFIRMED' && (
-                              <button
-                                onClick={() => handleMarkCompleted(s.id)}
-                                disabled={completing === s.id}
-                                className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
-                              >
-                                {completing === s.id
-                                  ? <CircleNotch className="h-3.5 w-3.5 animate-spin" />
-                                  : <CheckCircle className="h-3.5 w-3.5" />}
-                                Done
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-
-                      {/* Expanded detail row */}
-                      {isExpanded && (
-                        <tr key={`${s.id}-expanded`} className="bg-muted/20">
-                          <td colSpan={role === 'ADMIN' ? 7 : 6} className="px-5 py-4">
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                          <td className="px-5 py-4">
+                            {s.slot?.startAt ? (
                               <div>
-                                <p className="font-semibold text-muted-foreground uppercase tracking-wide mb-1">Session ID</p>
-                                <p className="font-mono text-foreground break-all">{s.id}</p>
+                                <p className="text-sm font-medium text-foreground">{format(new Date(s.slot.startAt), 'MMM d, yyyy')}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(s.slot.startAt), 'h:mm a')}
+                                  {isUpcoming && <span className="ml-1 text-primary">· {formatDistanceToNow(new Date(s.slot.startAt), { addSuffix: true })}</span>}
+                                </p>
                               </div>
-                              <div>
-                                <p className="font-semibold text-muted-foreground uppercase tracking-wide mb-1">Booked</p>
-                                <p className="text-foreground">{format(new Date(s.createdAt), 'MMM d, yyyy h:mm a')}</p>
-                              </div>
-                              {s.slot?.endAt && (
-                                <div>
-                                  <p className="font-semibold text-muted-foreground uppercase tracking-wide mb-1">Duration</p>
-                                  <p className="text-foreground">
-                                    {Math.round((new Date(s.slot.endAt).getTime() - new Date(s.slot.startAt!).getTime()) / 60000)} min
-                                  </p>
-                                </div>
+                            ) : <span className="text-xs text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-xs font-medium text-muted-foreground capitalize">
+                              {s.category?.toLowerCase().replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[s.status] ?? 'bg-muted text-muted-foreground border-border'}`}>
+                              {s.status === 'CONFIRMED' && isUpcoming && <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />}
+                              {statusLabel(s.status)}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 font-semibold text-foreground">${s.paidAmount.toLocaleString()}</td>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              {s.roomUrl && s.status === 'CONFIRMED' && (
+                                <button onClick={() => handleJoin(s.id)} disabled={joiningId === s.id}
+                                  className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60 transition-colors"
+                                >
+                                  {joiningId === s.id ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <VideoCamera className="h-3.5 w-3.5" />}
+                                  Join as host
+                                </button>
                               )}
-                              {s.roomUrl && (
-                                <div>
-                                  <p className="font-semibold text-muted-foreground uppercase tracking-wide mb-1">Room</p>
-                                  <a href={s.roomUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 truncate block">
-                                    Open Daily.co room
-                                  </a>
-                                </div>
+                              {s.status === 'CONFIRMED' && (
+                                <button onClick={() => handleMarkCompleted(s.id)} disabled={completing === s.id}
+                                  className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
+                                >
+                                  {completing === s.id ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                                  Done
+                                </button>
                               )}
                             </div>
                           </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                        {isExpanded && (
+                          <tr key={`${s.id}-exp`} className="bg-muted/20">
+                            <td colSpan={role === 'ADMIN' ? 7 : 6} className="px-5 py-4">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                                <div>
+                                  <p className="font-semibold text-muted-foreground uppercase tracking-wide mb-1">Session ID</p>
+                                  <p className="font-mono text-foreground break-all">{s.id}</p>
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-muted-foreground uppercase tracking-wide mb-1">Booked</p>
+                                  <p className="text-foreground">{format(new Date(s.createdAt), 'MMM d, yyyy h:mm a')}</p>
+                                </div>
+                                {s.slot?.endAt && (
+                                  <div>
+                                    <p className="font-semibold text-muted-foreground uppercase tracking-wide mb-1">Duration</p>
+                                    <p className="text-foreground">{Math.round((new Date(s.slot.endAt).getTime() - new Date(s.slot.startAt!).getTime()) / 60000)} min</p>
+                                  </div>
+                                )}
+                                {s.roomUrl && (
+                                  <div>
+                                    <p className="font-semibold text-muted-foreground uppercase tracking-wide mb-1">Room</p>
+                                    <a href={s.roomUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 truncate block">Open Daily.co room</a>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between border-t border-border px-5 py-3">
+              <p className="text-xs text-muted-foreground">
+                {filtered.length} session{filtered.length !== 1 ? 's' : ''} shown
+              </p>
+            </div>
           </div>
-
-          <div className="flex items-center justify-between border-t border-border px-5 py-3">
-            <p className="text-xs text-muted-foreground">
-              {filtered.length} session{filtered.length !== 1 ? 's' : ''} shown
-            </p>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Host video modal ───────────────────────────────────────────────── */}
       {activeRoom && (
