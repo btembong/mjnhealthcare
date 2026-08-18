@@ -366,11 +366,7 @@ export default function OfficerCaseDetailPage() {
             <button
               onClick={submitNote}
               disabled={addingNote || !noteText.trim()}
-              className={`mt-2 w-full rounded-xl px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 transition-colors ${
-                !sendToClient ? 'bg-primary hover:bg-primary/90' :
-                sensitiveUpdate ? 'bg-amber-600 hover:bg-amber-700' :
-                'bg-teal-600 hover:bg-teal-700'
-              }`}
+              className={`mt-2 w-full rounded-xl px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 transition-colors ${!sendToClient ? 'bg-primary hover:bg-primary/90' : sensitiveUpdate ? 'bg-amber-600 hover:bg-amber-700' : 'bg-teal-600 hover:bg-teal-700'}`}
             >
               {addingNote ? 'Saving…' :
                !sendToClient ? 'Add Internal Note' :
