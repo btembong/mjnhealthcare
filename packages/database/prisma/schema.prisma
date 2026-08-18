@@ -34,8 +34,15 @@ enum EngagementStatus {
 
 enum DocumentStatus {
   PENDING
+  PENDING_CLIENT
   VERIFIED
   REJECTED
+}
+
+enum DocumentOrigin {
+  CLIENT_UPLOADED
+  OFFICER_SENT
+  CLIENT_RETURN
 }
 
 enum OrderStatus {
@@ -378,17 +385,26 @@ model PaymentAttempt {
 // ─── Documents ────────────────────────────────────────────────────────────────
 
 model Document {
-  id              String         @id @default(cuid())
+  id              String          @id @default(cuid())
   personId        String
-  person          Person         @relation(fields: [personId], references: [id])
+  person          Person          @relation(fields: [personId], references: [id])
   type            String
   fileUrl         String
-  status          DocumentStatus @default(PENDING)
+  status          DocumentStatus  @default(PENDING)
+  origin          DocumentOrigin  @default(CLIENT_UPLOADED)
   expiryDate      DateTime?
-  uploadedAt      DateTime       @default(now())
+  uploadedAt      DateTime        @default(now())
   verifiedBy      String?
   verifiedAt      DateTime?
   rejectionReason String?
+
+  // Officer-sent blank form linkage
+  officerId         String?
+  engagementId      String?
+  linkedDocumentId  String?       // client return links back to officer's sent doc
+  linkedDocument    Document?     @relation("DocLink", fields: [linkedDocumentId], references: [id])
+  linkedReturns     Document[]    @relation("DocLink")
+  officerNote       String?       // instructions the officer attaches to the blank form
 
   @@map("documents")
 }
@@ -812,6 +828,7 @@ model ConsultantProfile {
   licenseVerifiedAt    DateTime?
   priceUsd             Decimal              @db.Decimal(10, 2)
   sessionDurationMins  Int                  @default(45)
+  timezone             String               @default("UTC")
   commissionRate       Decimal              @default(0.25) @db.Decimal(4, 3)
   rating               Float                @default(0)
   sessionCount         Int                  @default(0)

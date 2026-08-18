@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@mjn/ui';
 import {
   User, FileText, Note, ArrowSquareUpRight, Warning,
-  CheckCircle, ClockCounterClockwise, Plus, PaperPlaneRight, Lock,
+  CheckCircle, Plus, PaperPlaneRight, UploadSimple,
+  ClockCountdown, CheckFat,
 } from '@phosphor-icons/react';
 import { api } from '../../../../../lib/api';
 import { toast } from 'sonner';
@@ -20,12 +21,72 @@ export default function OfficerCaseDetailPage() {
   const [sendToClient, setSendToClient] = useState(false);
   const [sensitiveUpdate, setSensitiveUpdate] = useState(false);
 
+  // ── Send Form state ────────────────────────────────────────────────────────
+  const [sentDocs, setSentDocs] = useState<any[]>([]);
+  const [showSendForm, setShowSendForm] = useState(false);
+  const [formType, setFormType] = useState('');
+  const [formNote, setFormNote] = useState('');
+  const [formFile, setFormFile] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function loadCase() {
+    const [eng, sent] = await Promise.allSettled([
+      api.getOfficerCase(id),
+      api.getOfficerSentDocuments(id),
+    ]);
+    if (eng.status === 'fulfilled') setEngagement(eng.value);
+    if (sent.status === 'fulfilled') setSentDocs(sent.value ?? []);
+  }
+
   useEffect(() => {
-    api.getOfficerCase(id)
-      .then(setEngagement)
+    loadCase()
       .catch(() => toast.error('Failed to load case'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function handleSendForm(e: React.FormEvent) {
+    e.preventDefault();
+    if (!formFile || !formType.trim()) return;
+    setSending(true);
+    try {
+      const personId = engagement?.person?.id;
+      const { url, key } = await api.getUploadUrl(personId, 'officer-form', formFile.name);
+      await fetch(url, { method: 'PUT', body: formFile, headers: { 'Content-Type': formFile.type } });
+      await api.officerSendDocument(id, key, formType.trim(), formNote.trim() || undefined);
+      toast.success('Form sent to client — they will be notified');
+      setShowSendForm(false);
+      setFormType(''); setFormNote(''); setFormFile(null);
+      const updated = await api.getOfficerSentDocuments(id);
+      setSentDocs(updated ?? []);
+    } catch {
+      toast.error('Failed to send form');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function submitNote() {
+    if (!noteText.trim()) return;
+    setAddingNote(true);
+    try {
+      await api.addCaseNote(id, noteText, !sendToClient, sensitiveUpdate && sendToClient);
+      toast.success(
+        !sendToClient ? 'Note added' :
+        sensitiveUpdate ? 'Update queued for consultant approval' :
+        'Note sent to client',
+      );
+      setNoteText('');
+      setSendToClient(false);
+      setSensitiveUpdate(false);
+      const updated = await api.getOfficerCase(id);
+      setEngagement(updated);
+    } catch {
+      toast.error('Failed to add note');
+    } finally {
+      setAddingNote(false);
+    }
+  }
 
   async function submitNote() {
     if (!noteText.trim()) return;
@@ -137,6 +198,96 @@ export default function OfficerCaseDetailPage() {
                     {t.notes && <p className="text-muted-foreground mt-0.5">{t.notes}</p>}
                   </div>
                 ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+          {/* Send Form to Client */}
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <PaperPlaneRight className="h-4 w-4 text-primary" /> Forms Sent to Client
+              </h2>
+              <button
+                onClick={() => setShowSendForm(p => !p)}
+                className="flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <Plus className="h-3 w-3" /> Send Form
+              </button>
+            </div>
+
+            {showSendForm && (
+              <form onSubmit={handleSendForm} className="mb-4 space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div>
+                  <label className="block text-xs font-medium mb-1">Form / Document Type</label>
+                  <input
+                    value={formType}
+                    onChange={e => setFormType(e.target.value)}
+                    required
+                    placeholder="e.g. DataFlow Employment History, NMC Good Standing Request…"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">
+                    Instructions for Client <span className="text-muted-foreground font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    value={formNote}
+                    onChange={e => setFormNote(e.target.value)}
+                    rows={2}
+                    placeholder="What the client needs to do with this form…"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Blank Form File</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={e => setFormFile(e.target.files?.[0] ?? null)}
+                      className="hidden"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs hover:bg-muted transition-colors"
+                    >
+                      <UploadSimple className="h-3.5 w-3.5" /> {formFile ? formFile.name : 'Choose file…'}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={() => setShowSendForm(false)} className="flex-1 rounded-xl border border-border px-3 py-1.5 text-xs hover:bg-muted transition-colors">Cancel</button>
+                  <button type="submit" disabled={sending || !formFile || !formType.trim()} className="flex-1 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                    {sending ? 'Sending…' : 'Send to Client'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {sentDocs.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No forms sent yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {sentDocs.map((doc: any) => {
+                  const returned = doc.linkedReturns?.length > 0;
+                  return (
+                    <div key={doc.id} className="rounded-xl border border-border px-3 py-2 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium truncate">{doc.type}</span>
+                        <span className={`flex items-center gap-1 shrink-0 rounded-full px-2 py-0.5 font-semibold ${returned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {returned ? <><CheckFat className="h-3 w-3" /> Returned</> : <><ClockCountdown className="h-3 w-3" /> Awaiting client</>}
+                        </span>
+                      </div>
+                      {doc.officerNote && <p className="text-muted-foreground mt-0.5 truncate">{doc.officerNote}</p>}
+                      <p className="text-muted-foreground mt-0.5">{new Date(doc.uploadedAt).toLocaleDateString()}</p>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </Card>

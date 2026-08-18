@@ -95,6 +95,15 @@ export const api = {
   getDocumentViewUrl: (id: string) =>
     request<{ url: string }>(`/documents/${id}/view-url`),
 
+  getPendingForMeDocuments: () =>
+    request<any[]>('/documents/pending-for-me'),
+
+  clientReturnDocument: (linkedDocumentId: string, key: string, documentType: string) =>
+    request<any>('/documents/client-return', {
+      method: 'POST',
+      body: JSON.stringify({ linkedDocumentId, key, documentType }),
+    }),
+
   // ── Orders ──────────────────────────────────────────────────────────────
   getOrder: (orderId: string) =>
     request<any>(`/orders/${orderId}`),

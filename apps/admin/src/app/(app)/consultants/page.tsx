@@ -100,6 +100,19 @@ export default function ConsultantsPage() {
     try {
       const slots: { consultantId: string; startAt: string; durationMinutes: number }[] = [];
       const now = new Date();
+      // Determine UTC offset for the consultant's timezone
+      const tz = (slotConsultant as any).timezone ?? 'UTC';
+      const tzOffsetHours = (() => {
+        try {
+          const testDate = new Date();
+          const utcStr = testDate.toLocaleString('en-US', { timeZone: 'UTC', hour12: false, hour: '2-digit', minute: '2-digit' });
+          const localStr = testDate.toLocaleString('en-US', { timeZone: tz, hour12: false, hour: '2-digit', minute: '2-digit' });
+          const utcH = parseInt(utcStr.split(':')[0]);
+          const localH = parseInt(localStr.split(':')[0]);
+          return localH - utcH;
+        } catch { return 0; }
+      })();
+
       for (let day = 1; day <= genDays; day++) {
         const date = new Date(now);
         date.setDate(now.getDate() + day);
@@ -107,7 +120,7 @@ export default function ConsultantsPage() {
         if (genSkipWeekends && (dow === 0 || dow === 6)) continue;
         for (const h of genHours) {
           const startAt = new Date(date);
-          startAt.setUTCHours(h - 1, 0, 0, 0); // WAT UTC+1 → UTC
+          startAt.setUTCHours(h - tzOffsetHours, 0, 0, 0); // convert consultant's local hour → UTC
           // skip if already exists
           const exists = existingSlots.some(
             (s) => new Date(s.startAt).getTime() === startAt.getTime()
@@ -168,7 +181,7 @@ export default function ConsultantsPage() {
 
   // edit modal
   const [editingConsultant, setEditingConsultant] = useState<Consultant | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', email: '', specialty: '', bio: '', consultationCategory: '', languages: '', priceUsd: '', sessionDurationMins: '' });
+  const [editForm, setEditForm] = useState({ name: '', email: '', specialty: '', bio: '', consultationCategory: '', languages: '', priceUsd: '', sessionDurationMins: '', timezone: '' });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
@@ -182,6 +195,7 @@ export default function ConsultantsPage() {
       languages: ((c as any).languages ?? []).join(', '),
       priceUsd: String(c.priceUsd ?? ''),
       sessionDurationMins: String((c as any).sessionDurationMins ?? '45'),
+      timezone: (c as any).timezone ?? 'UTC',
     });
     setSaveError('');
     setEditingConsultant(c);
@@ -201,6 +215,7 @@ export default function ConsultantsPage() {
         languages: editForm.languages ? editForm.languages.split(',').map((l) => l.trim()).filter(Boolean) : undefined,
         priceUsd: editForm.priceUsd ? parseFloat(editForm.priceUsd) : undefined,
         sessionDurationMins: editForm.sessionDurationMins ? parseInt(editForm.sessionDurationMins) : undefined,
+        timezone: editForm.timezone || undefined,
       });
       setConsultants((prev) => prev.map((c) => c.id === editingConsultant.id
         ? { ...c, name: editForm.name, specialty: editForm.specialty as any, consultationCategory: editForm.consultationCategory, priceUsd: parseFloat(editForm.priceUsd) }
@@ -420,9 +435,11 @@ export default function ConsultantsPage() {
                             </div>
                             <div>
                               <p className={`font-semibold ${(c as any).isActive === false ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{c.name ?? '—'}</p>
-                              {(c as any).isActive === false && (
+                              {(c as any).isActive === false ? (
                                 <span className="text-xs font-medium text-amber-600">Deactivated</span>
-                              )}
+                              ) : (c as any).timezone && (c as any).timezone !== 'UTC' ? (
+                                <span className="text-xs text-muted-foreground">{(c as any).timezone}</span>
+                              ) : null}
                             </div>
                           </div>
                         </td>
@@ -598,7 +615,10 @@ export default function ConsultantsPage() {
                     </div>
                     <div>
                       <p className="font-bold text-foreground">{slotConsultant.name}</p>
-                      <p className="text-xs text-muted-foreground">{slotConsultant.specialty} · {existingSlots.length} upcoming slots</p>
+                      <p className="text-xs text-muted-foreground">
+                        {slotConsultant.specialty} · {existingSlots.length} upcoming slots
+                        {(slotConsultant as any).timezone ? ` · ${(slotConsultant as any).timezone}` : ''}
+                      </p>
                     </div>
                   </div>
                   <button onClick={() => { setSlotConsultant(null); setExistingSlots([]); setTab('consultants'); }}
@@ -1074,6 +1094,25 @@ export default function ConsultantsPage() {
                     <CaretDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">Timezone</label>
+                <div className="relative">
+                  <select value={editForm.timezone} onChange={(e) => setEditForm((f) => ({ ...f, timezone: e.target.value }))}
+                    className="h-11 w-full appearance-none rounded-xl border border-border bg-white pl-4 pr-9 text-sm outline-none focus:ring-2 focus:ring-primary/20">
+                    {[
+                      'UTC', 'Africa/Lagos', 'Africa/Nairobi', 'Africa/Johannesburg',
+                      'Africa/Douala', 'Africa/Abidjan', 'Africa/Accra', 'Africa/Cairo',
+                      'Europe/London', 'Europe/Paris', 'Europe/Berlin',
+                      'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+                      'Asia/Dubai', 'Asia/Riyadh', 'Asia/Kolkata', 'Asia/Singapore',
+                      'Australia/Sydney',
+                    ].map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+                  </select>
+                  <CaretDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Slots will be labelled in this timezone on the booking page</p>
               </div>
 
               {saveError && (

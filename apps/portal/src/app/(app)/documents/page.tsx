@@ -7,6 +7,7 @@ import {
   FileText, UploadSimple, CheckCircle, Clock, WarningCircle,
   X, Eye, FilePlus, CaretDown,
   Lock, ShieldCheck, TrendUp, CreditCard, Image, Trash, DownloadSimple,
+  PaperPlaneRight,
 } from '@phosphor-icons/react';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
@@ -504,6 +505,11 @@ export default function DocumentsPage() {
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
 
+  // Officer-sent pending forms
+  const [pendingForms, setPendingForms] = useState<any[]>([]);
+  const [returningId, setReturningId] = useState<string | null>(null);
+  const returnFileRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (me && engagement) {
       api.getProgress(me.id, engagement.id).then((progress: any) => {
@@ -513,7 +519,27 @@ export default function DocumentsPage() {
         }
       }).catch(() => {});
     }
+    if (me) {
+      api.getPendingForMeDocuments().then(setPendingForms).catch(() => {});
+    }
   }, [me, engagement]);
+
+  async function handleReturnForm(formId: string, file: File, docType: string) {
+    if (!me) return;
+    setReturningId(formId);
+    try {
+      const { url, key } = await api.getUploadUrl(me.id, `${docType}-return`, file.name);
+      await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+      await api.clientReturnDocument(formId, key, `${docType}-return`);
+      toast.success('Form returned to your officer — they will be notified');
+      setPendingForms(f => f.filter(d => d.id !== formId));
+      refresh();
+    } catch {
+      toast.error('Failed to return form. Please try again.');
+    } finally {
+      setReturningId(null);
+    }
+  }
 
   function openDrawer(type?: string) {
     setDrawerDefaultType(type ?? DOCUMENT_TYPES[0]);
@@ -599,6 +625,63 @@ export default function DocumentsPage() {
           </Button>
         }
       />
+
+      {/* Officer-sent forms — action required */}
+      {pendingForms.length > 0 && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <PaperPlaneRight className="h-4 w-4 text-primary" />
+            <p className="text-sm font-bold text-foreground">
+              {pendingForms.length} form{pendingForms.length > 1 ? 's' : ''} to complete &amp; return
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground -mt-2">Your processing officer has sent blank forms that need to be completed and returned.</p>
+          <input ref={returnFileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              const formId = returnFileRef.current?.dataset.formId;
+              const docType = returnFileRef.current?.dataset.docType;
+              if (file && formId && docType) {
+                await handleReturnForm(formId, file, docType);
+              }
+              e.target.value = '';
+            }}
+          />
+          <div className="space-y-2">
+            {pendingForms.map((form: any) => (
+              <div key={form.id} className="flex items-start gap-3 rounded-xl border border-primary/20 bg-white px-4 py-3">
+                <FileText className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">{form.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</p>
+                  {form.officerNote && <p className="text-xs text-muted-foreground mt-0.5">{form.officerNote}</p>}
+                  <p className="text-xs text-muted-foreground mt-0.5">Received {new Date(form.uploadedAt).toLocaleDateString()}</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => openPreview(form)}
+                    className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-muted transition-colors"
+                  >
+                    <DownloadSimple className="h-3.5 w-3.5" /> Download
+                  </button>
+                  <button
+                    disabled={returningId === form.id}
+                    onClick={() => {
+                      if (returnFileRef.current) {
+                        returnFileRef.current.dataset.formId = form.id;
+                        returnFileRef.current.dataset.docType = form.type;
+                        returnFileRef.current.click();
+                      }
+                    }}
+                    className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    <UploadSimple className="h-3.5 w-3.5" /> {returningId === form.id ? 'Uploading…' : 'Return Completed'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Expiry alert banner */}
       {expiringDocs.length > 0 && (

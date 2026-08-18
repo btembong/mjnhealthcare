@@ -164,7 +164,7 @@ export default function CaseDetailPage() {
     try {
       const [engRes, cons] = await Promise.allSettled([
         api.getEngagementById(id),
-        api.getConsultants(),
+        api.getConsultants(true),
       ]);
 
       let engValue: any = null;

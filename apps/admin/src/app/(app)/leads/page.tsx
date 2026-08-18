@@ -28,7 +28,7 @@ export default function LeadsPage() {
   useEffect(() => {
     Promise.allSettled([
       api.getLeads(),
-      api.getConsultants(),
+      api.getConsultants(true),
     ]).then(([leadsRes, consultantsRes]) => {
       if (leadsRes.status === 'fulfilled') setLeads(leadsRes.value);
       if (consultantsRes.status === 'fulfilled') setConsultants(consultantsRes.value ?? []);

@@ -373,7 +373,7 @@ export default function CaseloadPage() {
       .then(setEngagements)
       .catch(console.error)
       .finally(() => setLoading(false));
-    api.getConsultants().then(setConsultants).catch(() => {});
+    api.getConsultants(true).then(setConsultants).catch(() => {});
   }, []);
 
   const consultantOptions = useMemo(() => {

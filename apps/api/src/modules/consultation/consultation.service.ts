@@ -489,6 +489,7 @@ export class ConsultationService {
         licenseBody: dto.licenseBody,
         priceUsd: dto.priceUsd,
         sessionDurationMins: dto.sessionDurationMins ?? 45,
+        timezone: dto.timezone ?? 'UTC',
         commissionRate: dto.commissionRate ?? 0.25,
         status: 'ACTIVE',
         isActive: true,
@@ -548,8 +549,9 @@ export class ConsultationService {
     });
   }
 
-  async listAllConsultants() {
+  async listAllConsultants(activeOnly = false) {
     return this.db.consultantProfile.findMany({
+      where: activeOnly ? { isActive: true } : undefined,
       orderBy: { createdAt: 'desc' },
     });
   }

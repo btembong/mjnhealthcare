@@ -84,8 +84,8 @@ export class ConsultationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER')
   @Get('admin/consultants')
-  listAll() {
-    return this.svc.listAllConsultants();
+  listAll(@Query('activeOnly') activeOnly?: string) {
+    return this.svc.listAllConsultants(activeOnly === 'true');
   }
 
   @ApiBearerAuth()

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Req,
@@ -26,6 +27,16 @@ class CreateOfficerDto {
   @IsString()
   @MinLength(8)
   password!: string;
+}
+
+class UpdateOfficerDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 }
 
 class AssignOfficerDto {
@@ -134,6 +145,18 @@ export class OfficerController {
   @Post('admin/officers')
   createOfficer(@Body() dto: CreateOfficerDto) {
     return this.svc.createOfficer(dto);
+  }
+
+  @ApiOperation({ summary: 'Update officer profile' })
+  @Patch('admin/officers/:id')
+  updateOfficer(@Param('id') id: string, @Body() dto: UpdateOfficerDto) {
+    return this.svc.updateOfficer(id, dto);
+  }
+
+  @ApiOperation({ summary: 'Deactivate officer and unassign all cases' })
+  @Delete('admin/officers/:id')
+  deactivateOfficer(@Param('id') id: string) {
+    return this.svc.deactivateOfficer(id);
   }
 
   @ApiOperation({ summary: 'Set officer availability + optionally bulk reassign' })

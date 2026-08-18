@@ -49,6 +49,7 @@ export class CreateConsultantDto {
   @IsOptional() @IsString() licenseBody?: string;
   @IsNumber() @Type(() => Number) priceUsd!: number;
   @IsOptional() @IsInt() @Min(15) @Max(120) sessionDurationMins?: number;
+  @IsOptional() @IsString() timezone?: string;
   @IsOptional() @IsNumber() @Min(0) @Max(1) @Type(() => Number) commissionRate?: number;
 }
 
@@ -65,6 +66,7 @@ export class UpdateConsultantDto {
   @IsOptional() @IsNumber() @Min(0) @Max(1) @Type(() => Number) commissionRate?: number;
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsEnum(['ACTIVE', 'SUSPENDED']) status?: string;
+  @IsOptional() @IsString() timezone?: string;
 }
 
 export class SubmitApplicationDto {

@@ -198,6 +198,42 @@ export class NotificationListener {
     }
   }
 
+  @OnEvent('document.officer_sent')
+  async onOfficerSentDocument(payload: { personId: string; documentId: string; documentType: string; officerNote?: string }) {
+    const person = await this.db.person.findUnique({ where: { id: payload.personId } });
+    if (!person) return;
+    const portalUrl = process.env.PORTAL_URL ?? 'http://localhost:3002';
+    const note = payload.officerNote ? ` Note from officer: "${payload.officerNote}"` : '';
+    if (person.email) {
+      await this.notificationService.sendEmail(
+        person.email,
+        `Action Required: Form to Complete — MJN Healthcare`,
+        `<p>Dear ${person.name ?? 'Client'},</p><p>Your processing officer has sent you a blank form that needs to be completed and returned. The form type is: <strong>${payload.documentType}</strong>.${note ? `</p><p>${note}` : ''}</p><p>Please log in to your portal to download, complete, and return the form.</p><p><a href="${portalUrl}/documents">View & Return Form →</a></p>`,
+        person.name,
+      );
+    }
+    if (person.phone) {
+      await this.notificationService.sendWhatsApp(
+        person.phone,
+        `MJN Healthcare: Action required — your officer has sent a form (${payload.documentType}) for you to complete and return.${note} Log in: ${portalUrl}/documents`,
+      );
+    }
+  }
+
+  @OnEvent('document.client_returned')
+  async onClientReturnedDocument(payload: { personId: string; documentId: string; documentType: string; officerId?: string; engagementId?: string }) {
+    if (!payload.officerId) return;
+    const officer = await this.db.person.findUnique({ where: { id: payload.officerId } });
+    if (!officer?.email) return;
+    const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
+    await this.notificationService.sendEmail(
+      officer.email,
+      `Form Returned by Client — MJN Healthcare`,
+      `<p>Dear ${officer.name ?? 'Officer'},</p><p>A client has returned the completed form for: <strong>${payload.documentType}</strong>. Please review it in your case queue.</p><p><a href="${adminUrl}/officer/caseload">Review Now →</a></p>`,
+      officer.name,
+    );
+  }
+
   // ── Licensing ─────────────────────────────────────────────────────────────
 
   @OnEvent('licensing_stage.changed')

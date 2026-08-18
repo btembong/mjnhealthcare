@@ -38,7 +38,7 @@ export default function NewEngagementPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.allSettled([api.getPersons(), api.getConsultants()])
+    Promise.allSettled([api.getPersons(), api.getConsultants(true)])
       .then(([rPersons, rConsultants]) => {
         if (rPersons.status === 'fulfilled') setPersons(rPersons.value ?? []);
         if (rConsultants.status === 'fulfilled') setConsultants(rConsultants.value ?? []);

@@ -2,9 +2,32 @@
 
 import { useEffect, useState } from 'react';
 import { Card } from '@mjn/ui';
-import { User, UsersThree, CheckCircle, Warning, Power, X, CaretDown } from '@phosphor-icons/react';
+import {
+  User, UsersThree, CheckCircle, Warning, Power, X, CaretDown,
+  Plus, PencilSimple, Trash, LockKey,
+} from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 import { toast } from 'sonner';
+
+// ── tiny reusable field ───────────────────────────────────────────────────────
+function Field({ label, value, onChange, type = 'text', required = false, placeholder = '' }: {
+  label: string; value: string; onChange: (v: string) => void;
+  type?: string; required?: boolean; placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium mb-1">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        required={required}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+      />
+    </div>
+  );
+}
 
 export default function OfficersPage() {
   const [officers, setOfficers] = useState<any[]>([]);
@@ -12,25 +35,89 @@ export default function OfficersPage() {
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<string | null>(null);
 
-  // Assign modal state
+  // ── Create officer modal ──────────────────────────────────────────────────
+  const [showCreate, setShowCreate] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createEmail, setCreateEmail] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [createSaving, setCreateSaving] = useState(false);
+
+  // ── Edit officer modal ────────────────────────────────────────────────────
+  const [editModal, setEditModal] = useState<{ officer: any } | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
+  // ── Assign modal ──────────────────────────────────────────────────────────
   const [showAssign, setShowAssign] = useState(false);
   const [assignEngagementId, setAssignEngagementId] = useState('');
   const [assignOfficerId, setAssignOfficerId] = useState('');
   const [handoverNotes, setHandoverNotes] = useState('');
   const [assignSaving, setAssignSaving] = useState(false);
 
-  // Availability modal state
+  // ── Availability modal ────────────────────────────────────────────────────
   const [availModal, setAvailModal] = useState<{ officer: any } | null>(null);
   const [reassignTo, setReassignTo] = useState('');
   const [availSaving, setAvailSaving] = useState(false);
 
   const load = () =>
     Promise.all([api.listOfficers(), api.getAllEngagements()])
-      .then(([o, e]) => { setOfficers(o); setEngagements(e); })
+      .then(([o, e]) => { setOfficers(o ?? []); setEngagements(e ?? []); })
       .catch(() => toast.error('Failed to load'))
       .finally(() => setLoading(false));
 
   useEffect(() => { load(); }, []);
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateSaving(true);
+    try {
+      await api.createOfficer({ name: createName.trim(), email: createEmail.trim(), password: createPassword });
+      toast.success('Officer account created');
+      setShowCreate(false);
+      setCreateName(''); setCreateEmail(''); setCreatePassword('');
+      load();
+    } catch {
+      toast.error('Failed to create officer');
+    } finally {
+      setCreateSaving(false);
+    }
+  }
+
+  function openEdit(officer: any) {
+    setEditModal({ officer });
+    setEditName(officer.name ?? '');
+    setEditEmail(officer.email ?? '');
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editModal) return;
+    setEditSaving(true);
+    try {
+      await api.updateOfficer(editModal.officer.id, { name: editName.trim(), email: editEmail.trim() });
+      toast.success('Profile updated');
+      setEditModal(null);
+      load();
+    } catch {
+      toast.error('Failed to update');
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function handleDeactivate(officer: any) {
+    if (!confirm(`Deactivate ${officer.name}? Their ${officer.officerEngagements?.filter((e: any) => ['ACTIVE','PENDING_SIGNATURE'].includes(e.status)).length ?? 0} active case(s) will be unassigned.`)) return;
+    try {
+      await api.deactivateOfficer(officer.id);
+      toast.success('Officer deactivated');
+      load();
+    } catch {
+      toast.error('Failed to deactivate');
+    }
+  }
 
   async function handleAssign(e: React.FormEvent) {
     e.preventDefault();
@@ -40,9 +127,7 @@ export default function OfficersPage() {
       await api.assignOfficer(assignEngagementId, assignOfficerId, handoverNotes.trim() || undefined);
       toast.success('Officer assigned');
       setShowAssign(false);
-      setAssignEngagementId('');
-      setAssignOfficerId('');
-      setHandoverNotes('');
+      setAssignEngagementId(''); setAssignOfficerId(''); setHandoverNotes('');
       load();
     } catch {
       toast.error('Failed to assign');
@@ -51,17 +136,15 @@ export default function OfficersPage() {
     }
   }
 
-  async function handleSetAvailability(officerId: string, isAvailable: boolean, reassignToOfficerId?: string | null) {
+  async function handleSetAvailability(officerId: string, isAvailable: boolean, reassignToId?: string | null) {
     setAvailSaving(true);
     try {
-      const result = await api.setOfficerAvailability(officerId, isAvailable, reassignToOfficerId || null);
-      if (!isAvailable) {
-        toast.success(`Officer marked unavailable. ${result.casesReassigned ?? 0} case(s) ${reassignToOfficerId ? 'reassigned' : 'unassigned'}.`);
-      } else {
-        toast.success('Officer marked available');
-      }
-      setAvailModal(null);
-      setReassignTo('');
+      const result = await api.setOfficerAvailability(officerId, isAvailable, reassignToId || null);
+      toast.success(isAvailable
+        ? 'Officer marked available'
+        : `Officer marked unavailable. ${result.casesReassigned ?? 0} case(s) ${reassignToId ? 'reassigned' : 'unassigned'}.`
+      );
+      setAvailModal(null); setReassignTo('');
       load();
     } catch {
       toast.error('Failed to update availability');
@@ -83,12 +166,91 @@ export default function OfficersPage() {
     }
   }
 
+  const activeOfficers = officers.filter(o => o.isActive !== false);
+  const inactiveOfficers = officers.filter(o => o.isActive === false);
   const assignedEngagements = engagements.filter(e => e.officerId);
   const unassignedEngagements = engagements.filter(e => !e.officerId && e.status === 'ACTIVE');
 
+  // ── Officer card ──────────────────────────────────────────────────────────
+
+  function OfficerCard({ o }: { o: any }) {
+    const activeCases = o.officerEngagements?.filter((e: any) => e.status === 'ACTIVE').length ?? 0;
+    const totalCases = o.officerEngagements?.length ?? 0;
+    const isDeactivated = o.isActive === false;
+    return (
+      <Card className={`p-4 ${isDeactivated ? 'opacity-60' : ''}`}>
+        <div className="flex items-start gap-3 mb-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold text-primary text-sm">
+            {o.name?.slice(0, 2).toUpperCase() ?? 'OF'}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground truncate">{o.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{o.email}</p>
+          </div>
+          {!isDeactivated && (
+            <div className="flex gap-1 shrink-0">
+              <button
+                onClick={() => openEdit(o)}
+                title="Edit profile"
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <PencilSimple className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => handleDeactivate(o)}
+                title="Deactivate officer"
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-rose-50 hover:text-rose-600 transition-colors"
+              >
+                <Trash className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between text-xs mb-3">
+          <span className="flex items-center gap-1 text-muted-foreground">
+            <UsersThree className="h-3.5 w-3.5" />
+            {activeCases} active · {totalCases} total
+          </span>
+          <div className="flex gap-1.5 items-center">
+            {isDeactivated ? (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">Deactivated</span>
+            ) : (
+              <span className={`rounded-full px-2 py-0.5 font-semibold ${o.isAvailable !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                {o.isAvailable !== false ? 'Available' : 'Unavailable'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {!isDeactivated && (
+          <button
+            onClick={() => { setAvailModal({ officer: o }); setReassignTo(''); }}
+            className={`w-full flex items-center justify-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              o.isAvailable !== false
+                ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
+                : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+            }`}
+          >
+            <Power className="h-3.5 w-3.5" />
+            {o.isAvailable !== false ? 'Mark Unavailable' : 'Mark Available'}
+          </button>
+        )}
+      </Card>
+    );
+  }
+
+  // ── Shared modal styles ───────────────────────────────────────────────────
+
+  const inputCls = 'w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30';
+  const btnPrimary = 'flex-1 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors';
+  const btnCancel = 'flex-1 rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted transition-colors';
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <UsersThree className="h-6 w-6 text-primary" />
           <div>
@@ -96,65 +258,51 @@ export default function OfficersPage() {
             <p className="text-xs text-muted-foreground">Manage back-office document processing staff</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowAssign(true)}
-          className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
-        >
-          <User className="h-3.5 w-3.5" /> Assign Officer
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Officer
+          </button>
+          <button
+            onClick={() => setShowAssign(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+          >
+            <UsersThree className="h-3.5 w-3.5" /> Assign to Case
+          </button>
+        </div>
       </div>
 
-      {/* Officers list */}
+      {/* Active officers */}
       <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">Officers ({officers.length})</h2>
+        <h2 className="text-sm font-semibold text-foreground mb-3">Active Officers ({activeOfficers.length})</h2>
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => <Card key={i} className="h-24 animate-pulse bg-muted" />)}
+            {[1, 2, 3].map(i => <Card key={i} className="h-28 animate-pulse bg-muted" />)}
           </div>
-        ) : officers.length === 0 ? (
+        ) : activeOfficers.length === 0 ? (
           <Card className="p-8 text-center text-muted-foreground">
             <User className="h-8 w-8 mx-auto mb-2 opacity-30" />
             <p className="text-sm font-medium">No processing officers yet</p>
-            <p className="text-xs mt-1">Create one via Staff page with role PROCESSING_OFFICER</p>
+            <p className="text-xs mt-1">Click "Add Officer" to create the first account</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {officers.map(o => (
-              <Card key={o.id} className="p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 font-bold text-primary text-sm">
-                    {o.name?.slice(0, 2).toUpperCase() ?? 'OF'}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{o.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{o.email}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <UsersThree className="h-3.5 w-3.5" />
-                    {o.officerEngagements?.length ?? 0} cases
-                  </span>
-                  <span className={`rounded-full px-2 py-0.5 font-semibold ${o.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground'}`}>
-                    {o.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <button
-                  onClick={() => { setAvailModal({ officer: o }); setReassignTo(''); }}
-                  className={`w-full flex items-center justify-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    o.isAvailable !== false
-                      ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
-                      : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
-                  }`}
-                >
-                  <Power className="h-3.5 w-3.5" />
-                  {o.isAvailable !== false ? 'Mark Unavailable' : 'Mark Available'}
-                </button>
-              </Card>
-            ))}
+            {activeOfficers.map(o => <OfficerCard key={o.id} o={o} />)}
           </div>
         )}
       </div>
+
+      {/* Deactivated officers (collapsed) */}
+      {inactiveOfficers.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground mb-3">Deactivated ({inactiveOfficers.length})</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {inactiveOfficers.map(o => <OfficerCard key={o.id} o={o} />)}
+          </div>
+        </div>
+      )}
 
       {/* Assigned cases */}
       {assignedEngagements.length > 0 && (
@@ -167,12 +315,8 @@ export default function OfficersPage() {
                 <Card key={e.id} className="p-3 flex items-center gap-3">
                   <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-foreground truncate">
-                      {e.person?.name ?? 'Unknown Client'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Officer: {officer?.name ?? e.officerId}
-                    </p>
+                    <p className="text-xs font-semibold text-foreground truncate">{e.person?.name ?? 'Unknown Client'}</p>
+                    <p className="text-xs text-muted-foreground">Officer: {officer?.name ?? e.officerId}</p>
                   </div>
                   <button
                     onClick={() => handleUnassign(e.id)}
@@ -199,16 +343,11 @@ export default function OfficersPage() {
             {unassignedEngagements.slice(0, 10).map(e => (
               <Card key={e.id} className="p-3 flex items-center gap-3 border-amber-200">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-foreground truncate">
-                    {e.person?.name ?? 'Unknown Client'}
-                  </p>
+                  <p className="text-xs font-semibold text-foreground truncate">{e.person?.name ?? 'Unknown Client'}</p>
                   <p className="text-xs text-muted-foreground">{e.person?.email}</p>
                 </div>
                 <button
-                  onClick={() => {
-                    setAssignEngagementId(e.id);
-                    setShowAssign(true);
-                  }}
+                  onClick={() => { setAssignEngagementId(e.id); setShowAssign(true); }}
                   className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-600 transition-colors"
                 >
                   Assign
@@ -219,7 +358,76 @@ export default function OfficersPage() {
         </div>
       )}
 
-      {/* Availability / bulk reassign modal */}
+      {/* ── Create Officer Modal ────────────────────────────────────────── */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <Card className="w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-base font-bold">Add Processing Officer</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Create a staff account with officer access</p>
+              </div>
+              <button onClick={() => setShowCreate(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <Field label="Full Name" value={createName} onChange={setCreateName} required placeholder="e.g. Grace Mensah" />
+              <Field label="Email Address" value={createEmail} onChange={setCreateEmail} type="email" required placeholder="grace@mjnhealthcare.com" />
+              <div>
+                <label className="block text-xs font-medium mb-1 flex items-center gap-1">
+                  <LockKey className="h-3.5 w-3.5" /> Temporary Password
+                </label>
+                <input
+                  type="password"
+                  value={createPassword}
+                  onChange={e => setCreatePassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="Min. 8 characters"
+                  className={inputCls}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Officer should change this on first login</p>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setShowCreate(false)} className={btnCancel}>Cancel</button>
+                <button type="submit" disabled={createSaving} className={btnPrimary}>
+                  {createSaving ? 'Creating…' : 'Create Officer'}
+                </button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Edit Officer Modal ──────────────────────────────────────────── */}
+      {editModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <Card className="w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-base font-bold">Edit Officer Profile</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{editModal.officer.name}</p>
+              </div>
+              <button onClick={() => setEditModal(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleEdit} className="space-y-4">
+              <Field label="Full Name" value={editName} onChange={setEditName} required />
+              <Field label="Email Address" value={editEmail} onChange={setEditEmail} type="email" required />
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setEditModal(null)} className={btnCancel}>Cancel</button>
+                <button type="submit" disabled={editSaving} className={btnPrimary}>
+                  {editSaving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Availability Modal ──────────────────────────────────────────── */}
       {availModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <Card className="w-full max-w-md p-6 space-y-4">
@@ -265,12 +473,7 @@ export default function OfficersPage() {
                   </div>
                 </div>
                 <div className="flex gap-3 pt-1">
-                  <button
-                    onClick={() => setAvailModal(null)}
-                    className="flex-1 rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted transition-colors"
-                  >
-                    Cancel
-                  </button>
+                  <button onClick={() => setAvailModal(null)} className={btnCancel}>Cancel</button>
                   <button
                     onClick={() => handleSetAvailability(availModal.officer.id, false, reassignTo || null)}
                     disabled={availSaving}
@@ -286,9 +489,7 @@ export default function OfficersPage() {
                   This will mark the officer as available again so they can be assigned new cases.
                 </p>
                 <div className="flex gap-3 pt-1">
-                  <button onClick={() => setAvailModal(null)} className="flex-1 rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted transition-colors">
-                    Cancel
-                  </button>
+                  <button onClick={() => setAvailModal(null)} className={btnCancel}>Cancel</button>
                   <button
                     onClick={() => handleSetAvailability(availModal.officer.id, true)}
                     disabled={availSaving}
@@ -303,11 +504,16 @@ export default function OfficersPage() {
         </div>
       )}
 
-      {/* Assign modal */}
+      {/* ── Assign Modal ────────────────────────────────────────────────── */}
       {showAssign && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <Card className="w-full max-w-md p-6">
-            <h2 className="text-base font-bold mb-4">Assign Officer to Case</h2>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-bold">Assign Officer to Case</h2>
+              <button onClick={() => setShowAssign(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
             <form onSubmit={handleAssign} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium mb-1">Case (Engagement)</label>
@@ -315,7 +521,7 @@ export default function OfficersPage() {
                   value={assignEngagementId}
                   onChange={e => setAssignEngagementId(e.target.value)}
                   required
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className={inputCls}
                 >
                   <option value="">Select a case…</option>
                   {engagements
@@ -333,12 +539,12 @@ export default function OfficersPage() {
                   value={assignOfficerId}
                   onChange={e => setAssignOfficerId(e.target.value)}
                   required
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className={inputCls}
                 >
                   <option value="">Select an officer…</option>
-                  {officers.filter(o => o.isActive).map(o => (
+                  {activeOfficers.filter(o => o.isAvailable !== false).map(o => (
                     <option key={o.id} value={o.id}>
-                      {o.name} ({o.officerEngagements?.length ?? 0} cases)
+                      {o.name} ({o.officerEngagements?.filter((e: any) => e.status === 'ACTIVE').length ?? 0} active cases)
                     </option>
                   ))}
                 </select>
@@ -350,24 +556,16 @@ export default function OfficersPage() {
                 <textarea
                   value={handoverNotes}
                   onChange={e => setHandoverNotes(e.target.value)}
-                  placeholder="Briefing notes for the officer — context, pending actions, any special instructions…"
+                  placeholder="Briefing notes for the officer…"
                   rows={3}
                   className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setShowAssign(false); setAssignEngagementId(''); setAssignOfficerId(''); setHandoverNotes(''); }}
-                  className="flex-1 rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted transition-colors"
-                >
+                <button type="button" onClick={() => { setShowAssign(false); setAssignEngagementId(''); setAssignOfficerId(''); setHandoverNotes(''); }} className={btnCancel}>
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={assignSaving || !assignEngagementId || !assignOfficerId}
-                  className="flex-1 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                >
+                <button type="submit" disabled={assignSaving || !assignEngagementId || !assignOfficerId} className={btnPrimary}>
                   {assignSaving ? 'Assigning…' : 'Assign'}
                 </button>
               </div>

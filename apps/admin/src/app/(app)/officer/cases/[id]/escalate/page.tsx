@@ -17,10 +17,9 @@ export default function EscalatePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api.getConsultants().then(data => {
-      const active = data.filter((c: any) => c.isActive !== false);
-      setConsultants(active);
-      if (active.length > 0) setConsultantId(active[0].id);
+    api.getConsultants(true).then(data => {
+      setConsultants(data ?? []);
+      if (data?.length > 0) setConsultantId(data[0].id);
     });
   }, []);
 

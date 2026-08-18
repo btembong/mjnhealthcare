@@ -138,6 +138,21 @@ export const api = {
   getDocumentViewUrl: (id: string) =>
     request<{ url: string }>(`/documents/${id}/view-url`),
 
+  getUploadUrl: (personId: string, documentType: string, fileName: string) =>
+    request<{ url: string; key: string }>('/documents/upload-url', {
+      method: 'POST',
+      body: JSON.stringify({ personId, documentType, fileName }),
+    }),
+
+  getOfficerSentDocuments: (engagementId: string) =>
+    request<any[]>(`/documents/officer-sent/${engagementId}`),
+
+  officerSendDocument: (engagementId: string, key: string, documentType: string, officerNote?: string) =>
+    request<any>('/documents/officer-send', {
+      method: 'POST',
+      body: JSON.stringify({ engagementId, key, documentType, officerNote }),
+    }),
+
   // ── AI Drafts ────────────────────────────────────────────────────────────
   getPendingDrafts: () => request<any[]>('/ai/drafts/pending'),
 
@@ -256,7 +271,7 @@ export const api = {
     }),
 
   // ── Consultations ─────────────────────────────────────────────────────────
-  getConsultants: () => request<any[]>('/consultations/admin/consultants'),
+  getConsultants: (activeOnly = false) => request<any[]>(`/consultations/admin/consultants${activeOnly ? '?activeOnly=true' : ''}`),
 
   createConsultant: (data: {
     name: string; email?: string; bio: string; specialty: string; languages: string[];
@@ -504,6 +519,12 @@ export const api = {
 
   createOfficer: (data: { name: string; email: string; password: string }) =>
     request<any>('/admin/officers', { method: 'POST', body: JSON.stringify(data) }),
+
+  updateOfficer: (id: string, data: { name?: string; email?: string }) =>
+    request<any>(`/admin/officers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  deactivateOfficer: (id: string) =>
+    request<any>(`/admin/officers/${id}`, { method: 'DELETE' }),
 
   assignOfficer: (engagementId: string, officerId: string | null, handoverNotes?: string) =>
     request<any>(`/engagements/${engagementId}/assign-officer`, {

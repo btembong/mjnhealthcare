@@ -84,7 +84,7 @@ const testimonials: Testimonial[] = [
     route: 'Ghana → Dubai, UAE',
     destination: 'DHA Staff Nurse · Dubai',
     quote:
-      'MJN Healthcare Consulting has been the best link to me — contributing to my successful documentation and the assurance of arriving at my desired destination.',
+      'MJN Healthcare has been the best link to me — contributing to my successful documentation and the assurance of arriving at my desired destination.',
     rating: 5,
     initials: 'SD',
     color: '#0F4C81',

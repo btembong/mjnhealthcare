@@ -58,6 +58,44 @@ export class DocumentController {
     );
   }
 
+  @ApiOperation({ summary: 'Officer: send blank form to client' })
+  @Post('officer-send')
+  officerSend(
+    @Body() body: { engagementId: string; officerNote?: string; key: string; documentType: string },
+    @Request() req: any,
+  ) {
+    return this.documentService.officerSendDocument(
+      body.engagementId,
+      req.user.id,
+      { type: body.documentType, key: body.key, officerNote: body.officerNote },
+    );
+  }
+
+  @ApiOperation({ summary: 'Client: return filled form' })
+  @Post('client-return')
+  clientReturn(
+    @Body() body: { linkedDocumentId: string; key: string; documentType: string },
+    @Request() req: any,
+  ) {
+    return this.documentService.clientReturnDocument(
+      req.user.id,
+      body.linkedDocumentId,
+      { key: body.key, type: body.documentType },
+    );
+  }
+
+  @ApiOperation({ summary: 'Get officer-sent documents for an engagement' })
+  @Get('officer-sent/:engagementId')
+  getOfficerSent(@Param('engagementId') engagementId: string) {
+    return this.documentService.getOfficerSentDocuments(engagementId);
+  }
+
+  @ApiOperation({ summary: 'Get pending-client documents for portal user' })
+  @Get('pending-for-me')
+  getPendingForMe(@Request() req: any) {
+    return this.documentService.getPendingClientDocuments(req.user.id);
+  }
+
   @ApiOperation({ summary: "List a person's documents" })
   @Get('person/:personId')
   async getByPerson(@Param('personId') personId: string, @Request() req: any) {

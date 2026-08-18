@@ -462,7 +462,7 @@ export function tplEngagementSignRequest(opts: { name: string; signUrl: string }
     greeting(opts.name) +
     label('Action required') +
     h1('Sign your engagement letter') +
-    p('Your MJN Healthcare consulting engagement is ready. Please sign your engagement letter to activate your case. The letter covers scope, fees, and key disclaimers — it takes about 2 minutes to review.') +
+    p('Your MJN Healthcare engagement is ready. Please sign your engagement letter to activate your case. The letter covers scope, fees, and key disclaimers — it takes about 2 minutes to review.') +
     btn('Read &amp; sign letter', opts.signUrl) +
     divider() +
     pSmall('This link is personal to you — do not share it. If you did not request this, contact us at hello@mjnhealthcare.com.')

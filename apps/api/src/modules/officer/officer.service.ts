@@ -104,6 +104,30 @@ export class OfficerService {
     return { markedUnavailable: false };
   }
 
+  async updateOfficer(id: string, data: { name?: string; email?: string; notes?: string }) {
+    return this.db.person.update({
+      where: { id },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.email && { email: data.email }),
+      },
+      select: { id: true, name: true, email: true, role: true, isActive: true },
+    });
+  }
+
+  async deactivateOfficer(id: string) {
+    // Unassign all active cases first
+    await this.db.engagement.updateMany({
+      where: { officerId: id, status: { in: ['ACTIVE', 'PENDING_SIGNATURE'] } },
+      data: { officerId: null },
+    });
+    return this.db.person.update({
+      where: { id },
+      data: { isActive: false, isAvailable: false },
+      select: { id: true, name: true, isActive: true },
+    });
+  }
+
   // ── Admin: assign officer to engagement ───────────────────────────────────
 
   async assignOfficer(engagementId: string, officerId: string | null, handoverNotes?: string) {

@@ -108,7 +108,7 @@ const posts = [
   {
     slug: 'nurses-week-2025-ceo-message',
     title: 'National Nurses Week: A Message from the CEO and Founder',
-    excerpt: 'A personal message from John Nyah Mbout, BSN, RN — CEO and Founder of MJN Healthcare Consulting — honouring nurses on National Nurses Week 2025. On dedication, compassion, resilience, and the Nursing Mentorship and Coaching Programme.',
+    excerpt: 'A personal message from John Nyah Mbout, BSN, RN — CEO and Founder of MJN Healthcare — honouring nurses on National Nurses Week 2025. On dedication, compassion, resilience, and the Nursing Mentorship and Coaching Programme.',
     category: 'Career',
     readTime: '3 min',
     date: 'May 12, 2025',

@@ -158,7 +158,7 @@ export const stories: Story[] = [
     duration: 'Full-service from Cameroon to Abu Dhabi placement',
     outcome: 'DOH Staff Nurse, Abu Dhabi — DataFlow managed from Cameroon, welcomed on arrival, CV prepared',
     quote:
-      'The benefits of MJN Healthcare Consulting cannot be overemphasised — her services are just the best. I was followed up through DataFlow, supported from my country, received on arrival, and helped to build a powerful CV for job search. The care and attention at every stage was something I had not experienced anywhere else.',
+      'The benefits of MJN Healthcare cannot be overemphasised — her services are just the best. I was followed up through DataFlow, supported from my country, received on arrival, and helped to build a powerful CV for job search. The care and attention at every stage was something I had not experienced anywhere else.',
     rating: 5,
     year: '2022',
     flag: '🇦🇪',
@@ -189,7 +189,7 @@ export const stories: Story[] = [
     duration: 'Full documentation support',
     outcome: 'DHA-Licensed Staff Nurse, Dubai — full documentation and placement support',
     quote:
-      'MJN Healthcare Consulting has been the best link to me — contributing to my successful documentation and the assurance of arriving at my desired destination. Their patience, teamwork skills, and good communication is the best.',
+      'MJN Healthcare has been the best link to me — contributing to my successful documentation and the assurance of arriving at my desired destination. Their patience, teamwork skills, and good communication is the best.',
     rating: 5,
     year: '2022',
     flag: '🇦🇪',
@@ -220,7 +220,7 @@ export const stories: Story[] = [
     duration: 'Under 2 months',
     outcome: 'DHA-Licensed Staff Nurse, Dubai — licence secured in under 2 months',
     quote:
-      'I thank MJN Healthcare Consulting so much for their immense contribution towards my DataFlow processing and licence application. Despite the difficulty, they stood by me from the beginning till I had my licence in less than two months.',
+      'I thank MJN Healthcare so much for their immense contribution towards my DataFlow processing and licence application. Despite the difficulty, they stood by me from the beginning till I had my licence in less than two months.',
     rating: 5,
     year: '2022',
     flag: '🇦🇪',

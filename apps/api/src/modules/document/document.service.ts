@@ -83,6 +83,100 @@ export class DocumentService {
     return { url };
   }
 
+  // ── Officer: send blank form to client ───────────────────────────────────
+
+  async officerSendDocument(
+    engagementId: string,
+    officerId: string,
+    data: { type: string; key: string; officerNote?: string },
+  ) {
+    const engagement = await this.db.engagement.findUnique({
+      where: { id: engagementId },
+      select: { personId: true },
+    });
+    if (!engagement) throw new NotFoundException('Engagement not found');
+
+    const doc = await this.db.document.create({
+      data: {
+        personId: engagement.personId,
+        type: data.type,
+        fileUrl: `${process.env.R2_PUBLIC_URL}/${data.key}`,
+        status: 'PENDING_CLIENT',
+        origin: 'OFFICER_SENT',
+        officerId,
+        engagementId,
+        officerNote: data.officerNote,
+      },
+    });
+
+    this.events.emit('document.officer_sent', {
+      personId: engagement.personId,
+      documentId: doc.id,
+      documentType: data.type,
+      officerNote: data.officerNote,
+    });
+
+    return doc;
+  }
+
+  // ── Client: return filled form ────────────────────────────────────────────
+
+  async clientReturnDocument(
+    personId: string,
+    linkedDocumentId: string,
+    data: { key: string; type: string },
+  ) {
+    const original = await this.db.document.findUnique({ where: { id: linkedDocumentId } });
+    if (!original) throw new NotFoundException('Original document not found');
+
+    const doc = await this.db.document.create({
+      data: {
+        personId,
+        type: data.type,
+        fileUrl: `${process.env.R2_PUBLIC_URL}/${data.key}`,
+        status: 'PENDING',
+        origin: 'CLIENT_RETURN',
+        linkedDocumentId,
+        engagementId: original.engagementId,
+      },
+    });
+
+    // Mark original as received
+    await this.db.document.update({
+      where: { id: linkedDocumentId },
+      data: { status: 'PENDING' },
+    });
+
+    this.events.emit('document.client_returned', {
+      personId,
+      documentId: doc.id,
+      documentType: data.type,
+      officerId: original.officerId,
+      engagementId: original.engagementId,
+    });
+
+    return doc;
+  }
+
+  // ── Get officer-sent documents for an engagement ─────────────────────────
+
+  async getOfficerSentDocuments(engagementId: string) {
+    return this.db.document.findMany({
+      where: { engagementId, origin: 'OFFICER_SENT' },
+      include: { linkedReturns: { select: { id: true, status: true, uploadedAt: true } } },
+      orderBy: { uploadedAt: 'desc' },
+    });
+  }
+
+  // ── Get pending-client documents for a person (portal) ───────────────────
+
+  async getPendingClientDocuments(personId: string) {
+    return this.db.document.findMany({
+      where: { personId, origin: 'OFFICER_SENT', status: 'PENDING_CLIENT' },
+      orderBy: { uploadedAt: 'desc' },
+    });
+  }
+
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
   async scanExpiringDocuments() {
     const thresholds = [30, 14, 3];
