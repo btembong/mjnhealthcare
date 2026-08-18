@@ -258,7 +258,8 @@ export default function OfficerCaseDetailPage() {
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-medium truncate">{doc.type}</span>
                         <span className={`flex items-center gap-1 shrink-0 rounded-full px-2 py-0.5 font-semibold ${returned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {returned ? <><CheckFat className="h-3 w-3" /> Returned</> : <><ClockCountdown className="h-3 w-3" /> Awaiting client</>}
+                          {returned ? <CheckFat className="h-3 w-3" /> : <ClockCountdown className="h-3 w-3" />}
+                          {returned ? 'Returned' : 'Awaiting client'}
                         </span>
                       </div>
                       {doc.officerNote && <p className="text-muted-foreground mt-0.5 truncate">{doc.officerNote}</p>}
