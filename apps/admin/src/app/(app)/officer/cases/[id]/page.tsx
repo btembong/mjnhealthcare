@@ -179,7 +179,6 @@ export default function OfficerCaseDetailPage() {
               </div>
             )}
           </Card>
-        </div>
 
           {/* Send Form to Client */}
           <Card className="p-5">
