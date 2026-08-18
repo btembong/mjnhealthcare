@@ -6,7 +6,7 @@ import {
   ChartLineUp, SignOut, User, Tag, CalendarBlank, CurrencyDollar,
   MagnifyingGlass, VideoCamera, Gavel, GearSix, ClipboardText, Buildings,
   Headset, MegaphoneSimple, MapTrifold, ChartBar, ChatCircle,
-  Clipboard, ListChecks, Warning, CheckCircle, BookmarkSimple,
+  Clipboard, ListChecks, Warning, CheckCircle, BookmarkSimple, Gift, Wallet,
 } from '@phosphor-icons/react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
@@ -143,6 +143,8 @@ function useSidebarSections(
       title: 'Analytics',
       items: [
         { label: 'Reports', href: '/reports', icon: ChartBar },
+        { label: 'Finance', href: '/finance', icon: Wallet },
+        { label: 'Referrals & Credits', href: '/referrals', icon: Gift },
         { label: 'Pathways', href: '/pathways', icon: MapTrifold },
       ],
     },

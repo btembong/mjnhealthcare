@@ -11,4 +11,9 @@ export class ReportsController {
   getAdminReports() {
     return this.reportsService.getAdminReports();
   }
+
+  @Get('finance')
+  getFinanceDashboard() {
+    return this.reportsService.getFinanceDashboard();
+  }
 }

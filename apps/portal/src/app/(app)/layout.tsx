@@ -6,6 +6,7 @@ import {
   GearSix, SignOut, Bell, MagnifyingGlass, UploadSimple,
   CheckCircle, X, ShoppingCart, Briefcase, GraduationCap,
   WarningCircle, Signature, ArrowRight, ChatCircle, Headset,
+  Gift,
 } from '@phosphor-icons/react';
 import { UserProvider, useUser } from '../../contexts/user-context';
 import { useState } from 'react';
@@ -21,6 +22,7 @@ const sidebarSections = [
       { label: 'Documents', href: '/documents', icon: UploadSimple },
       { label: 'Payments', href: '/payments', icon: CreditCard },
       { label: 'Checkout', href: '/checkout', icon: ShoppingCart },
+      { label: 'Credits & Referral', href: '/credits', icon: Gift },
     ],
   },
   {

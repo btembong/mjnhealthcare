@@ -285,4 +285,14 @@ export const api = {
 
   clearCaseConversation: (personId: string) =>
     request<{ ok: boolean }>(`/ai/case-conversation/${personId}`, { method: 'DELETE' }),
+
+  // ── Credits & Referral ────────────────────────────────────────────────────
+  getCreditWallet: () => request<any>('/credits/wallet'),
+  previewCreditSpend: (subtotalCents: number) => request<any>(`/credits/preview?subtotalCents=${subtotalCents}`),
+  transferCredits: (toPersonId: string, amountCents: number, note?: string) =>
+    request<any>('/credits/transfer', { method: 'POST', body: JSON.stringify({ toPersonId, amountCents, note }) }),
+  getMyReferralCode: () => request<any>('/referral/my-code'),
+  getMyReferrals: () => request<any[]>('/referral/my-referrals'),
+  trackReferral: (code: string) =>
+    request<any>('/referral/track', { method: 'POST', body: JSON.stringify({ code }) }),
 };

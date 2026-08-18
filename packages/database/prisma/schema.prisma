@@ -21,6 +21,7 @@ enum PersonRole {
   PROCESSING_OFFICER
   ADMIN
   PARTNER
+  FINANCE
 }
 
 enum EngagementStatus {
@@ -133,6 +134,10 @@ model Person {
   escalationsReceived CaseEscalation[]   @relation("EscalationConsultant")
   approvedNotes       CaseNote[]         @relation("NoteApprover")
   aiConversations     AiConversation[]
+  referralCodes       ReferralCode[]     @relation("OwnedReferralCodes")
+  referralUses        ReferralUse[]      @relation("ReferralUses")
+  creditWallet        CreditWallet?
+  referredByCode      String?
 
   @@map("persons")
 }
@@ -1087,6 +1092,99 @@ model Campaign {
   updatedAt      DateTime       @updatedAt
 
   @@map("campaigns")
+}
+
+// ─── Referral & Credit Wallet ────────────────────────────────────────────────
+
+enum ReferralUseStatus {
+  PENDING
+  REWARDED
+  VOIDED
+}
+
+enum CreditTransactionType {
+  EARNED
+  SPENT
+  TRANSFERRED_IN
+  TRANSFERRED_OUT
+  EXPIRED
+  ADJUSTED
+}
+
+model ReferralCode {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  ownerId       String
+  owner         Person       @relation("OwnedReferralCodes", fields: [ownerId], references: [id])
+  totalUses     Int          @default(0)
+  totalRewardedCents Int     @default(0)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+
+  uses          ReferralUse[]
+
+  @@map("referral_codes")
+}
+
+model ReferralUse {
+  id               String            @id @default(cuid())
+  referralCodeId   String
+  referralCode     ReferralCode      @relation(fields: [referralCodeId], references: [id])
+  referredPersonId String
+  referredPerson   Person            @relation("ReferralUses", fields: [referredPersonId], references: [id])
+  status           ReferralUseStatus @default(PENDING)
+  rewardAmountCents Int              @default(0)
+  rewardedAt       DateTime?
+  firstOrderId     String?
+  createdAt        DateTime          @default(now())
+
+  @@unique([referralCodeId, referredPersonId])
+  @@map("referral_uses")
+}
+
+model CreditWallet {
+  id                   String               @id @default(cuid())
+  personId             String               @unique
+  person               Person               @relation(fields: [personId], references: [id])
+  balanceCents         Int                  @default(0)
+  lifetimeEarnedCents  Int                  @default(0)
+  lifetimeSpentCents   Int                  @default(0)
+  updatedAt            DateTime             @updatedAt
+
+  transactions         CreditTransaction[]
+  transfersOut         CreditTransfer[]     @relation("TransferFrom")
+  transfersIn          CreditTransfer[]     @relation("TransferTo")
+
+  @@map("credit_wallets")
+}
+
+model CreditTransaction {
+  id               String                @id @default(cuid())
+  walletId         String
+  wallet           CreditWallet          @relation(fields: [walletId], references: [id])
+  type             CreditTransactionType
+  amountCents      Int
+  balanceAfterCents Int
+  reason           String
+  referenceId      String?
+  expiresAt        DateTime?
+  createdAt        DateTime              @default(now())
+
+  @@map("credit_transactions")
+}
+
+model CreditTransfer {
+  id             String       @id @default(cuid())
+  fromWalletId   String
+  fromWallet     CreditWallet @relation("TransferFrom", fields: [fromWalletId], references: [id])
+  toWalletId     String
+  toWallet       CreditWallet @relation("TransferTo", fields: [toWalletId], references: [id])
+  amountCents    Int
+  note           String?
+  initiatedById  String
+  createdAt      DateTime     @default(now())
+
+  @@map("credit_transfers")
 }
 
 // ─── AI Conversation History ──────────────────────────────────────────────────

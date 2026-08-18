@@ -593,6 +593,7 @@ export const api = {
 
   // ── Reports ──────────────────────────────────────────────────────────────
   getReports: () => request<any>('/reports/admin'),
+  getFinanceDashboard: () => request<any>('/reports/finance'),
 
   // ── AI ───────────────────────────────────────────────────────────────────
   draftClientUpdate: (engagementId: string) =>
@@ -603,4 +604,11 @@ export const api = {
 
   prescreenDocument: (documentId: string) =>
     request<{ flags: string[]; summary: string; confidence: string }>(`/ai/prescreen-document/${documentId}`, { method: 'POST', body: JSON.stringify({}) }),
+
+  // ── Referrals & Credits ───────────────────────────────────────────────────
+  getReferralCodes: (page = 1) => request<any>(`/referral/admin/codes?page=${page}&limit=50`),
+  voidReferralCode: (id: string) => request<any>(`/referral/admin/codes/${id}/void`, { method: 'PATCH', body: JSON.stringify({}) }),
+  getCreditWallets: (page = 1) => request<any>(`/credits/admin/wallets?page=${page}&limit=50`),
+  adminCreditAdjust: (personId: string, amountCents: number, reason: string) =>
+    request<any>('/credits/admin/adjust', { method: 'POST', body: JSON.stringify({ personId, amountCents, reason }) }),
 };

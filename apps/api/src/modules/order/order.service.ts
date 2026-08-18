@@ -1,8 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 import { CatalogService } from '../catalog/catalog.service';
+import { ReferralService } from '../referral/referral.service';
+import { CreditService } from '../referral/credit.service';
 
 const ENGAGEMENT_FEE_ITEM_ID = 'engagement-fee';
 const TAX_RATE = 0.0325; // 3.25%
@@ -22,6 +24,8 @@ export class OrderService {
     private readonly db: DatabaseService,
     private readonly catalogService: CatalogService,
     private readonly events: EventEmitter2,
+    @Optional() private readonly referralService?: ReferralService,
+    @Optional() private readonly creditService?: CreditService,
   ) {}
 
   // ── Pipeline order ────────────────────────────────────────────────────────
@@ -335,6 +339,11 @@ export class OrderService {
       person: { name: person.name, email: person.email, phone: person.phone },
       engagement: order.engagement,
     });
+
+    // Trigger referral reward on first payment by this person
+    if (this.referralService && person.id) {
+      this.referralService.rewardOnFirstPayment(person.id, orderId).catch(() => {});
+    }
 
     // For PAY_PER_STAGE — mark plan items as paid
     if (order.orderType === 'pipeline' && order.paymentMode === 'PAY_PER_STAGE' && order.stageId) {

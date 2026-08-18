@@ -4,9 +4,10 @@ import { OrderController } from './order.controller';
 import { PdfService } from './pdf.service';
 import { CatalogModule } from '../catalog/catalog.module';
 import { LicensingModule } from '../licensing/licensing.module';
+import { ReferralModule } from '../referral/referral.module';
 
 @Module({
-  imports: [CatalogModule, forwardRef(() => LicensingModule)],
+  imports: [CatalogModule, forwardRef(() => LicensingModule), ReferralModule],
   providers: [OrderService, PdfService],
   controllers: [OrderController],
   exports: [OrderService, PdfService],

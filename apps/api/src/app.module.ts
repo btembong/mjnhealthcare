@@ -29,6 +29,7 @@ import { CampaignModule } from './modules/campaign/campaign.module';
 import { PaymentAdminModule } from './modules/payment-admin/payment-admin.module';
 import { OfficerModule } from './modules/officer/officer.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { ReferralModule } from './modules/referral/referral.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     PaymentAdminModule,
     OfficerModule,
     ReportsModule,
+    ReferralModule,
     PartnerModule,
     NotificationModule,
     ComplianceModule,

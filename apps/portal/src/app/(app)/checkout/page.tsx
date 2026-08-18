@@ -286,6 +286,9 @@ export default function CheckoutPage() {
   const [paidItemIds, setPaidItemIds] = useState<Set<string>>(new Set());
   const [hasPendingOrder, setHasPendingOrder] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [creditBalance, setCreditBalance] = useState(0);
+  const [creditPreview, setCreditPreview] = useState<{ maxSpendableCents: number } | null>(null);
+  const [useCredits, setUseCredits] = useState(false);
 
   // ── Session persistence ────────────────────────────────────────────────────
   useEffect(() => {
@@ -426,7 +429,11 @@ export default function CheckoutPage() {
   const cartLines = buildLines();
   const subtotal = cartLines.reduce((s, l) => s + l.price, 0);
   const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
-  const dueToday = subtotal + taxAmount;
+  const subtotalCents = Math.round(subtotal * 100);
+  const creditDiscount = useCredits && creditPreview
+    ? Math.min(creditPreview.maxSpendableCents, Math.round(subtotalCents * 0.3)) / 100
+    : 0;
+  const dueToday = subtotal + taxAmount - creditDiscount;
   const letterSigned = !!engagement?.letterSignedAt;
   const canProceed = cartLines.length > 0 && letterSigned && !!engagement && !hasMissingVariants() && !hasPendingOrder;
 
@@ -461,6 +468,15 @@ export default function CheckoutPage() {
     }, 0);
   }
 
+  // Load credit preview when entering payment step
+  useEffect(() => {
+    if (step === 2 && subtotalCents > 0) {
+      api.previewCreditSpend(subtotalCents)
+        .then((p) => { setCreditBalance(p.balanceCents ?? 0); setCreditPreview(p); })
+        .catch(() => {});
+    }
+  }, [step, subtotalCents]);
+
   async function handlePay() {
     if (!engagement) { setSubmitError('No active engagement found. Please contact your consultant.'); return; }
     setSubmitting(true);
@@ -468,6 +484,11 @@ export default function CheckoutPage() {
     try {
       const lines = cartLines.map((l) => ({ serviceItemId: l.serviceItemId, variantKey: l.variantKey }));
       const order = await api.createOrder(engagement.id, lines, paymentMode);
+      // Apply credits if toggled
+      if (useCredits && creditPreview && creditPreview.maxSpendableCents > 0) {
+        await api.transferCredits('__spend__', creditPreview.maxSpendableCents, `Applied to order ${order.id}`)
+          .catch(() => {}); // best-effort; server spends via markPaid flow
+      }
       const payment = await api.initiatePayment(order.id, me?.phone, me?.email);
       // Clear session on successful redirect to payment
       try { sessionStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
@@ -876,6 +897,34 @@ export default function CheckoutPage() {
                     <span>Tax (3.25%)</span>
                     <span>${taxAmount.toFixed(2)}</span>
                   </div>
+                  {/* Credit toggle */}
+                  {creditPreview && creditPreview.maxSpendableCents > 0 && (
+                    <div className={`rounded-xl border px-3 py-2.5 transition-colors ${useCredits ? 'border-emerald-200 bg-emerald-50' : 'border-border bg-white'}`}>
+                      <label className="flex items-center justify-between cursor-pointer gap-3">
+                        <div className="flex items-center gap-2">
+                          <div
+                            onClick={() => setUseCredits((v) => !v)}
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all cursor-pointer ${useCredits ? 'border-emerald-500 bg-emerald-500' : 'border-border bg-white'}`}
+                          >
+                            {useCredits && (
+                              <svg viewBox="0 0 12 12" className="h-3 w-3 text-white" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-foreground">Apply credits</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              Balance: ${(creditBalance / 100).toFixed(2)} · Up to ${(creditPreview.maxSpendableCents / 100).toFixed(2)} applicable
+                            </p>
+                          </div>
+                        </div>
+                        {useCredits && (
+                          <span className="text-sm font-bold text-emerald-600">−${creditDiscount.toFixed(2)}</span>
+                        )}
+                      </label>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between border-t border-border pt-2">
                     <span className="font-semibold text-foreground">Total due today</span>
                     <span className="text-2xl font-bold text-primary">${dueToday.toFixed(2)}</span>
