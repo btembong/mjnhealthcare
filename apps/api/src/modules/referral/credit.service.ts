@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { DatabaseService } from '../../database.module';
+import { DatabaseService } from '@mjn/database';
 
 const MAX_SPEND_PCT = 30; // max % of subtotal payable by credits
 
@@ -125,7 +125,7 @@ export class CreditService {
     const fromNew = fromWallet.balanceCents - amountCents;
     const toNew = toWallet.balanceCents + amountCents;
 
-    const transfer = await this.db.$transaction(async (tx) => {
+    const transfer = await this.db.$transaction(async (tx: any) => {
       const t = await tx.creditTransfer.create({
         data: { fromWalletId: fromWallet.id, toWalletId: toWallet.id, amountCents, note, initiatedById },
       });

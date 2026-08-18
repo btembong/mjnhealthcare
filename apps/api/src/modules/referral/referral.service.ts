@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
-import { DatabaseService } from '../../database.module';
+import { DatabaseService } from '@mjn/database';
 import { CreditService } from './credit.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
