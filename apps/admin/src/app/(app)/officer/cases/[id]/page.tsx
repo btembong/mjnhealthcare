@@ -88,28 +88,6 @@ export default function OfficerCaseDetailPage() {
     }
   }
 
-  async function submitNote() {
-    if (!noteText.trim()) return;
-    setAddingNote(true);
-    try {
-      await api.addCaseNote(id, noteText, !sendToClient, sensitiveUpdate && sendToClient);
-      toast.success(
-        !sendToClient ? 'Note added' :
-        sensitiveUpdate ? 'Update queued for consultant approval' :
-        'Note sent to client',
-      );
-      setNoteText('');
-      setSendToClient(false);
-      setSensitiveUpdate(false);
-      const updated = await api.getOfficerCase(id);
-      setEngagement(updated);
-    } catch {
-      toast.error('Failed to add note');
-    } finally {
-      setAddingNote(false);
-    }
-  }
-
   if (loading) return <div className="h-64 animate-pulse rounded-2xl bg-muted" />;
   if (!engagement) return <p className="text-muted-foreground">Case not found.</p>;
 
