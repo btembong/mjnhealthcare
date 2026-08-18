@@ -9,12 +9,14 @@ import {
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 
-const ROLES = ['ADMIN', 'CONSULTANT', 'COMPLIANCE', 'PROCESSING_OFFICER'] as const;
+const ROLES = ['ADMIN', 'CONSULTANT', 'COMPLIANCE', 'PROCESSING_OFFICER', 'FINANCE'] as const;
 
 const ROLE_STYLES: Record<string, string> = {
   CONSULTANT: 'bg-violet-100 text-violet-700',
   ADMIN: 'bg-rose-100 text-rose-700',
   COMPLIANCE: 'bg-amber-100 text-amber-700',
+  FINANCE: 'bg-emerald-100 text-emerald-700',
+  PROCESSING_OFFICER: 'bg-sky-100 text-sky-700',
 };
 
 const CATEGORIES = ['HEALTH', 'CAREER', 'BOTH'] as const;
@@ -33,7 +35,7 @@ export default function StaffPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'CONSULTANT' | 'ADMIN' | 'COMPLIANCE' | 'PROCESSING_OFFICER'>('CONSULTANT');
+  const [role, setRole] = useState<'CONSULTANT' | 'ADMIN' | 'COMPLIANCE' | 'PROCESSING_OFFICER' | 'FINANCE'>('CONSULTANT');
 
   // Create consultant profile modal
   const [profileTarget, setProfileTarget] = useState<{ name: string; email: string } | null>(null);
@@ -57,7 +59,7 @@ export default function StaffPage() {
         api.getPersons(),
         api.getConsultants().catch(() => []),
       ]);
-      setStaff(all.filter((p: any) => ['ADMIN', 'CONSULTANT', 'COMPLIANCE'].includes(p.role?.toUpperCase())));
+      setStaff(all.filter((p: any) => ['ADMIN', 'CONSULTANT', 'COMPLIANCE', 'PROCESSING_OFFICER', 'FINANCE'].includes(p.role?.toUpperCase())));
       setConsultantProfiles(profiles);
     } catch (err: any) {
       setLoadError(err.message);

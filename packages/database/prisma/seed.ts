@@ -542,6 +542,36 @@ async function main() {
   }
 
   console.log('Consultant seed complete.');
+
+  // ── Staff accounts (idempotent) ────────────────────────────────────────────
+  console.log('\nSeeding staff accounts...');
+  // Password hashes pre-generated (bcrypt, cost 12). Change via admin UI after first login.
+  const staffAccounts = [
+    {
+      id: 'staff-richard-eyong',
+      name: 'Richard Eyong',
+      email: 'ern@mjnhealthcare.com',
+      role: 'FINANCE',
+      // temp password: MJN@Finance2026
+      passwordHash: '$2b$12$562L1ucnbxyR4w4rezLXQezMGbvXcuz.MwbLQnxJE89i8Jo4aJJBm',
+    },
+  ];
+  for (const s of staffAccounts) {
+    await prisma.person.upsert({
+      where: { id: s.id },
+      update: {},
+      create: {
+        id: s.id,
+        name: s.name,
+        email: s.email,
+        role: s.role as any,
+        passwordHash: s.passwordHash,
+        locale: 'en',
+      },
+    });
+    console.log(`  ✓ ${s.name} <${s.email}> [${s.role}]`);
+  }
+  console.log('Staff seed complete.');
 }
 
 main()

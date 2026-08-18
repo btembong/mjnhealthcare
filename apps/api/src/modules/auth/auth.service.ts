@@ -47,7 +47,7 @@ export class AuthService {
     name: string;
     email: string;
     password: string;
-    role: 'CONSULTANT' | 'ADMIN' | 'PARTNER' | 'PROCESSING_OFFICER';
+    role: 'CONSULTANT' | 'ADMIN' | 'PARTNER' | 'PROCESSING_OFFICER' | 'FINANCE';
   }) {
     const passwordHash = await bcrypt.hash(data.password, 12);
     return this.personService.create({
