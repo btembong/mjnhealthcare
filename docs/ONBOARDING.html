@@ -202,7 +202,7 @@
     </div>
     <div class="cover-footer">
       <span>MJN Health Academy and Professional Services LTD</span>
-      <span>August 2026 · v1.4 · Internal Use</span>
+      <span>August 2026 · v1.5 · Internal Use</span>
     </div>
   </div>
 </div>
@@ -275,6 +275,120 @@
     <div class="toc-item"><a href="#f5">F5. Case Notes</a><span class="toc-num">F-3</span></div>
     <div class="toc-item"><a href="#f6">F6. Escalating to a Consultant</a><span class="toc-num">F-3</span></div>
     <div class="toc-item"><a href="#f7">F7. Consultant — Escalation Inbox</a><span class="toc-num">F-4</span></div>
+  </div>
+</div>
+
+<!-- ══ WHAT'S NEW v1.5 ════════════════════════════════════════════════ -->
+<div class="container" style="padding-top:32px;padding-bottom:0;">
+  <div style="border:2px solid var(--teal);border-radius:12px;overflow:hidden;">
+    <div style="background:var(--teal);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:12px;">
+      <div style="background:rgba(255,255,255,0.25);border-radius:999px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">v1.5 · August 2026</div>
+      <span style="font-size:16px;font-weight:800;">What's New in This Release</span>
+    </div>
+    <div style="padding:20px 24px;background:#f0fdfb;">
+      <p style="font-size:13px;margin-bottom:14px;color:var(--muted);">This version delivers two major platform features — a Referral &amp; Credit system and a dedicated Finance Dashboard — plus a round of UI polish on the admin Sessions calendar and Caseload Kanban board.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+        <!-- Referral system -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;grid-column:span 2;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Referral &amp; Credit System — New</div>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">Every registered user now has a credit wallet. Credits are earned by referring new paying clients, and can be spent at checkout or transferred to other users.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Earning Credits</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li><strong>$10 per referred client</strong> — when a referred person completes their first paid order, the referrer's wallet is automatically credited.</li>
+                <li><strong>5% consultation cut</strong> — if a referred client books a consultation, the referrer earns 5% of that booking value as additional credits.</li>
+                <li>Credits expire after 12 months from earn date. All amounts are configurable in system settings.</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Spending &amp; Transferring</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li><strong>Apply at checkout</strong> — a credit toggle appears on the payment step. Up to 30% of the order subtotal can be paid with credits; the remainder goes through the normal payment provider.</li>
+                <li><strong>Transfer to others</strong> — credits can be sent to any other MJN Healthcare member (minimum $5 per transfer).</li>
+                <li>Self-referral is blocked at the server level.</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Client Portal — /credits</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>Wallet balance cards (available, lifetime earned, lifetime spent).</li>
+                <li>Unique referral link with one-click copy and share.</li>
+                <li>List of referred people with reward status (Pending / Rewarded).</li>
+                <li>Transfer form and full transaction history with type icons and expiry dates.</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Admin — /referrals</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li><strong>Referral Codes tab</strong> — all active codes, owner, total uses, total rewards paid, void button.</li>
+                <li><strong>Credit Wallets tab</strong> — all wallets sorted by balance; manual adjust modal to grant or deduct credits with a required reason (full audit trail).</li>
+                <li>Summary KPI strip: total codes, successful referrals, rewards paid out, outstanding credit liability.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Finance Dashboard -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;grid-column:span 2;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Finance Dashboard — New Role &amp; Module</div>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">A dedicated Finance view for accounting staff. A new <code>FINANCE</code> role is available in the system — Finance users log in with email and password and see only the financial modules below. No access to case notes, documents, or clinical data.</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Overview Tab</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>12-month revenue bar chart</li>
+                <li>Revenue by service category (progress bars)</li>
+                <li>Month-on-month delta badge</li>
+                <li>8 KPI summary cards across the top</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Outstanding &amp; Payouts</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>All pending/partially-paid orders with client + amount</li>
+                <li>Consultant payout queue: gross, platform fee, net — mark as paid</li>
+                <li>CSV export on both tabs</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Tax, Credits &amp; Ledger</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>Monthly tax table (revenue + 3.25% tax, exportable)</li>
+                <li>Outstanding credit wallet liability figure</li>
+                <li>Client Ledger: per-client billed, paid, outstanding — searchable, exportable</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Calendar UI -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Sessions Calendar — UI Redesign</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Clean white header</strong> — gradient removed; month navigation, legend, and Today button now sit on a plain white bar with subtle borders.</li>
+            <li><strong>Taller cells</strong> — each day cell is taller with a larger date number and a session count badge (coloured only if confirmed sessions exist).</li>
+            <li><strong>Left-bordered session pills</strong> — each session shows time + client name with a status-coloured left border, replacing the old solid filled blocks.</li>
+            <li><strong>Day detail panel</strong> — clicking any cell opens a right-side panel listing all sessions for that day with full actions (Join / Mark Done).</li>
+            <li><strong>Weekend tint</strong> — Saturday/Sunday columns carry a very light warm background; weekday columns stay white.</li>
+            <li><strong>Skeleton loading</strong> — calendar shows placeholder cells while data loads instead of an empty grid.</li>
+          </ul>
+        </div>
+
+        <!-- Kanban -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Caseload Kanban — Colour Polish</div>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Neutral chrome</strong> — column top bars, count badges, empty-state borders, and card profession tags are all neutral slate instead of vivid per-status colours.</li>
+            <li><strong>Signal-only colour</strong> — colour now appears only where it matters: the SLA badge (rose for overdue, amber for at-risk, emerald for on track). Everything structural fades into the background.</li>
+            <li>This follows the same principle as Linear and Notion — reduce visual noise so urgent items stand out immediately.</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1983,7 +2097,7 @@
 
 <!-- ══ DOC FOOTER ════════════════════════════════════════════════════ -->
 <div class="doc-footer">
-  <span>MJN Health Academy and Professional Services LTD — Internal Operations Manual v1.4</span>
+  <span>MJN Health Academy and Professional Services LTD — Internal Operations Manual v1.5</span>
   <span>August 2026 · Prepared by Digos Technologies</span>
 </div>
 
