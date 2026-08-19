@@ -286,7 +286,7 @@
       <span style="font-size:16px;font-weight:800;">What's New in This Release</span>
     </div>
     <div style="padding:20px 24px;background:#f0fdfb;">
-      <p style="font-size:13px;margin-bottom:14px;color:var(--muted);">This version delivers two major platform features — a Referral &amp; Credit system and a dedicated Finance Dashboard — plus a round of UI polish on the admin Sessions calendar and Caseload Kanban board.</p>
+      <p style="font-size:13px;margin-bottom:14px;color:var(--muted);">This version delivers two major platform features — a Referral &amp; Credit system and a dedicated Finance Dashboard — plus officer profile management, a document exchange flow between officers and clients, consultant timezone support, inactive-consultant filtering, a branding update, and UI polish on the admin Sessions calendar and Caseload Kanban board.</p>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
 
@@ -385,6 +385,61 @@
             <li><strong>Signal-only colour</strong> — colour now appears only where it matters: the SLA badge (rose for overdue, amber for at-risk, emerald for on track). Everything structural fades into the background.</li>
             <li>This follows the same principle as Linear and Notion — reduce visual noise so urgent items stand out immediately.</li>
           </ul>
+        </div>
+
+        <!-- Officer Profile Management -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Officer Profile Management — New</div>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">Admins can now fully manage Processing Officer profiles from <strong>Admin → Officers</strong>.</p>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Create officers</strong> — invite by name, email, and password directly from the Officers page. No separate staff-registration flow needed.</li>
+            <li><strong>Edit profiles</strong> — update name, email, and specialisation in a slide-over panel.</li>
+            <li><strong>Deactivate / Reactivate</strong> — toggle an officer's active status without deleting their case history. Inactive officers are hidden from case assignment pickers everywhere in the system.</li>
+            <li><strong>Delete</strong> — permanently remove an officer account with a confirmation dialog.</li>
+          </ul>
+        </div>
+
+        <!-- Document Exchange Flow -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Officer → Client Document Exchange — New</div>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">Officers can now send blank forms to clients for completion, and track when the client returns the signed/completed version.</p>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Send a form</strong> — from the Officer Case Detail page, click <em>Send Form</em>, upload the blank document, label it (e.g. "DataFlow Employment History"), and add optional instructions. The client receives a WhatsApp + email notification with a download link.</li>
+            <li><strong>Client uploads return</strong> — the client sees the pending form on their Documents page and uploads their completed version against that specific request.</li>
+            <li><strong>Status tracking</strong> — the officer's case view shows each sent form as <em>Awaiting client</em> (amber) or <em>Returned</em> (emerald) in real time.</li>
+          </ul>
+        </div>
+
+        <!-- Consultant Timezone -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Consultant Timezone Support — New</div>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">Consultation slots are now stored in UTC and displayed in each party's local time, preventing double-booking across time zones.</p>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Admin — Edit Consultant</strong> now includes an IANA timezone field (e.g. <code>Africa/Douala</code>, <code>Europe/London</code>, <code>Asia/Dubai</code>). Defaults to <code>Africa/Douala</code> if unset.</li>
+            <li><strong>Slot times are stored in UTC</strong> — the consultant's local time is converted on save and back on display.</li>
+            <li><strong>Client booking flow</strong> — available slots are shown in the client's browser timezone automatically; the confirmation email and WhatsApp message show the time in the client's own zone.</li>
+          </ul>
+        </div>
+
+        <!-- Inactive consultant filtering + branding -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;grid-column:span 2;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Inactive Consultant Filtering &amp; Branding Update</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Inactive Consultant Filtering</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>All consultant assignment pickers — in the Caseload, Case Detail, and booking flows — now only show <strong>active</strong> consultants.</li>
+                <li>Deactivated consultants no longer appear as selectable options anywhere in the system. Their historical case records are preserved.</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Branding Update</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>The display name across all four surfaces (marketing site, client portal, admin console, partner portal) is now uniformly <strong>MJN Healthcare</strong>.</li>
+                <li>The longer form <em>MJN Healthcare Consulting</em> has been removed from all page titles, headers, email footers, and meta tags.</li>
+              </ul>
+            </div>
+          </div>
         </div>
 
       </div>

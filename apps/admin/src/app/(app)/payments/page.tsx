@@ -122,7 +122,8 @@ function PaymentDrawer({
   }
 
   const canValidate = ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID'].includes(payment.status);
-  const canCancel = ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID', 'CONFIRMED'].includes(payment.status);
+  const canCancel = ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID', 'CONFIRMED', 'PAID'].includes(payment.status);
+  const isPaidVoid = payment.status === 'PAID';
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -251,7 +252,7 @@ function PaymentDrawer({
                 )}
                 {(payment.meta.lineItems ?? []).map((li: any, i: number) => (
                   <div key={i} className="flex justify-between border-t border-border pt-1.5">
-                    <span className="text-muted-foreground text-xs">{li.description ?? `Item ${i + 1}`}</span>
+                    <span className="text-muted-foreground text-xs">{li.name ?? li.serviceItem?.name ?? li.description ?? `Service ${i + 1}`}</span>
                     <span className="text-xs">${Number(li.priceCharged ?? 0).toFixed(2)}</span>
                   </div>
                 ))}
@@ -345,20 +346,26 @@ function PaymentDrawer({
           {/* Cancel */}
           {canCancel && (
             <section>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cancel Payment</h3>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {isPaidVoid ? 'Force Void' : 'Cancel Payment'}
+              </h3>
               {!cancelMode ? (
                 <button
                   onClick={() => setCancelMode(true)}
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100"
                 >
                   <XCircle className="h-4 w-4" />
-                  Cancel & Void
+                  {isPaidVoid ? 'Force Void Paid Order' : 'Cancel & Void'}
                 </button>
               ) : (
                 <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
                   <div className="flex items-center gap-2">
                     <Warning className="h-4 w-4 text-rose-600 shrink-0" />
-                    <p className="text-sm font-medium text-rose-800">This will cancel the payment and free the slot if applicable.</p>
+                    <p className="text-sm font-medium text-rose-800">
+                      {isPaidVoid
+                        ? 'This will void a PAID order. It will be removed from all revenue stats.'
+                        : 'This will cancel the payment and free the slot if applicable.'}
+                    </p>
                   </div>
                   <textarea
                     value={cancelReason}
@@ -615,7 +622,12 @@ export default function PaymentsPage() {
                     <td className="px-4 py-3 text-xs text-muted-foreground">
                       {p.type === 'CONSULTATION'
                         ? p.meta?.consultantName ?? '—'
-                        : `${p.meta?.lineItems?.length ?? 0} item${p.meta?.lineItems?.length !== 1 ? 's' : ''}`}
+                        : (() => {
+                            const items = p.meta?.lineItems ?? [];
+                            if (!items.length) return '—';
+                            const first = items[0]?.name ?? items[0]?.serviceItem?.name ?? items[0]?.description ?? 'Service';
+                            return items.length > 1 ? `${first} +${items.length - 1}` : first;
+                          })()}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-foreground">
                       ${Number(p.amount).toFixed(2)}

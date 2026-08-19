@@ -166,77 +166,89 @@ export default function OfficersPage() {
     }
   }
 
+  const [search, setSearch] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
+
   const activeOfficers = officers.filter(o => o.isActive !== false);
   const inactiveOfficers = officers.filter(o => o.isActive === false);
   const assignedEngagements = engagements.filter(e => e.officerId);
   const unassignedEngagements = engagements.filter(e => !e.officerId && e.status === 'ACTIVE');
+
+  const filteredActive = activeOfficers.filter(o => {
+    const q = search.toLowerCase();
+    return !q || o.name?.toLowerCase().includes(q) || o.email?.toLowerCase().includes(q);
+  });
+
+  const totalActiveCases = activeOfficers.reduce((s, o) => s + (o.officerEngagements?.filter((e: any) => e.status === 'ACTIVE').length ?? 0), 0);
+  const availableOfficers = activeOfficers.filter(o => o.isAvailable !== false).length;
 
   // ── Officer card ──────────────────────────────────────────────────────────
 
   function OfficerCard({ o }: { o: any }) {
     const activeCases = o.officerEngagements?.filter((e: any) => e.status === 'ACTIVE').length ?? 0;
     const totalCases = o.officerEngagements?.length ?? 0;
+    const completedCases = o.officerEngagements?.filter((e: any) => e.status === 'COMPLETED').length ?? 0;
     const isDeactivated = o.isActive === false;
+    const isAvailable = o.isAvailable !== false;
     return (
-      <Card className={`p-4 ${isDeactivated ? 'opacity-60' : ''}`}>
-        <div className="flex items-start gap-3 mb-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold text-primary text-sm">
-            {o.name?.slice(0, 2).toUpperCase() ?? 'OF'}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-foreground truncate">{o.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{o.email}</p>
-          </div>
-          {!isDeactivated && (
-            <div className="flex gap-1 shrink-0">
-              <button
-                onClick={() => openEdit(o)}
-                title="Edit profile"
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <PencilSimple className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => handleDeactivate(o)}
-                title="Deactivate officer"
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-rose-50 hover:text-rose-600 transition-colors"
-              >
-                <Trash className="h-3.5 w-3.5" />
-              </button>
+      <div className={`rounded-2xl border border-border bg-white shadow-sm overflow-hidden transition-opacity ${isDeactivated ? 'opacity-60' : ''}`}>
+        {/* Card header */}
+        <div className={`h-1.5 w-full ${isDeactivated ? 'bg-slate-200' : isAvailable ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+        <div className="p-4">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-bold text-primary text-base">
+              {o.name?.slice(0, 2).toUpperCase() ?? 'OF'}
             </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between text-xs mb-3">
-          <span className="flex items-center gap-1 text-muted-foreground">
-            <UsersThree className="h-3.5 w-3.5" />
-            {activeCases} active · {totalCases} total
-          </span>
-          <div className="flex gap-1.5 items-center">
-            {isDeactivated ? (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">Deactivated</span>
-            ) : (
-              <span className={`rounded-full px-2 py-0.5 font-semibold ${o.isAvailable !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                {o.isAvailable !== false ? 'Available' : 'Unavailable'}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-foreground truncate">{o.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{o.email}</p>
+              <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                isDeactivated ? 'bg-slate-100 text-slate-500' : isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+              }`}>
+                {isDeactivated ? 'Deactivated' : isAvailable ? 'Available' : 'Unavailable'}
               </span>
+            </div>
+            {!isDeactivated && (
+              <div className="flex gap-0.5 shrink-0">
+                <button onClick={() => openEdit(o)} title="Edit profile"
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                  <PencilSimple className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => handleDeactivate(o)} title="Deactivate"
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-rose-50 hover:text-rose-600 transition-colors">
+                  <Trash className="h-3.5 w-3.5" />
+                </button>
+              </div>
             )}
           </div>
-        </div>
 
-        {!isDeactivated && (
-          <button
-            onClick={() => { setAvailModal({ officer: o }); setReassignTo(''); }}
-            className={`w-full flex items-center justify-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${
-              o.isAvailable !== false
-                ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
-                : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
-            }`}
-          >
-            <Power className="h-3.5 w-3.5" />
-            {o.isAvailable !== false ? 'Mark Unavailable' : 'Mark Available'}
-          </button>
-        )}
-      </Card>
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {[
+              { label: 'Active', value: activeCases, color: 'text-primary' },
+              { label: 'Total', value: totalCases, color: 'text-foreground' },
+              { label: 'Done', value: completedCases, color: 'text-emerald-600' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="rounded-xl bg-muted/40 p-2 text-center">
+                <p className={`text-base font-bold tabular-nums ${color}`}>{value}</p>
+                <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {!isDeactivated && (
+            <button
+              onClick={() => { setAvailModal({ officer: o }); setReassignTo(''); }}
+              className={`w-full flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
+                isAvailable ? 'border-rose-200 text-rose-600 hover:bg-rose-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+              }`}
+            >
+              <Power className="h-3.5 w-3.5" />
+              {isAvailable ? 'Mark Unavailable' : 'Mark Available'}
+            </button>
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -251,12 +263,9 @@ export default function OfficersPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <UsersThree className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="text-xl font-bold">Processing Officers</h1>
-            <p className="text-xs text-muted-foreground">Manage back-office document processing staff</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Processing Officers</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage back-office document processing staff</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -274,33 +283,75 @@ export default function OfficersPage() {
         </div>
       </div>
 
-      {/* Active officers */}
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Active Officers', value: activeOfficers.length, icon: User, color: 'text-primary', bg: 'bg-primary/10' },
+          { label: 'Available Now', value: availableOfficers, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Active Cases', value: totalActiveCases, icon: UsersThree, color: 'text-slate-600', bg: 'bg-slate-100' },
+          { label: 'Unassigned', value: unassignedEngagements.length, icon: Warning, color: unassignedEngagements.length > 0 ? 'text-amber-600' : 'text-slate-400', bg: unassignedEngagements.length > 0 ? 'bg-amber-50' : 'bg-slate-50' },
+        ].map(({ label, value, icon: Icon, color, bg }) => (
+          <div key={label} className="rounded-2xl border border-border bg-white p-4 shadow-sm flex items-center gap-3">
+            <div className={`rounded-xl p-2.5 ${bg} shrink-0`}>
+              <Icon className={`h-5 w-5 ${color}`} />
+            </div>
+            <div>
+              <p className="text-xl font-bold text-foreground tabular-nums">{value}</p>
+              <p className="text-xs text-muted-foreground font-medium">{label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-xs">
+        <User className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          type="search"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search officers…"
+          className="w-full rounded-xl border border-border bg-white pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+      </div>
+
+      {/* Active officers grid */}
       <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">Active Officers ({activeOfficers.length})</h2>
+        <h2 className="text-sm font-semibold text-foreground mb-3">
+          Officers ({filteredActive.length}{search ? ` of ${activeOfficers.length}` : ''})
+        </h2>
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => <Card key={i} className="h-28 animate-pulse bg-muted" />)}
+            {[1, 2, 3].map(i => <div key={i} className="h-44 rounded-2xl animate-pulse bg-muted" />)}
           </div>
-        ) : activeOfficers.length === 0 ? (
-          <Card className="p-8 text-center text-muted-foreground">
-            <User className="h-8 w-8 mx-auto mb-2 opacity-30" />
-            <p className="text-sm font-medium">No processing officers yet</p>
-            <p className="text-xs mt-1">Click "Add Officer" to create the first account</p>
-          </Card>
+        ) : filteredActive.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-white p-10 text-center">
+            <User className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+            <p className="text-sm font-medium text-foreground">{search ? 'No officers match your search' : 'No processing officers yet'}</p>
+            {!search && <p className="text-xs text-muted-foreground mt-1">Click "Add Officer" to create the first account</p>}
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {activeOfficers.map(o => <OfficerCard key={o.id} o={o} />)}
+            {filteredActive.map(o => <OfficerCard key={o.id} o={o} />)}
           </div>
         )}
       </div>
 
-      {/* Deactivated officers (collapsed) */}
+      {/* Deactivated officers (collapsed toggle) */}
       {inactiveOfficers.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-muted-foreground mb-3">Deactivated ({inactiveOfficers.length})</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {inactiveOfficers.map(o => <OfficerCard key={o.id} o={o} />)}
-          </div>
+          <button
+            onClick={() => setShowInactive(v => !v)}
+            className="flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors mb-3"
+          >
+            <CaretDown className={`h-4 w-4 transition-transform ${showInactive ? '' : '-rotate-90'}`} />
+            Deactivated Officers ({inactiveOfficers.length})
+          </button>
+          {showInactive && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {inactiveOfficers.map(o => <OfficerCard key={o.id} o={o} />)}
+            </div>
+          )}
         </div>
       )}
 

@@ -87,6 +87,8 @@ type AppShellProps = {
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
 
+const COLLAPSE_KEY = 'mjn_sidebar_collapsed';
+
 export function AppShell({
   logo,
   sections,
@@ -101,6 +103,23 @@ export function AppShell({
   className,
 }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(false);
+
+  // Restore collapse state from localStorage
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COLLAPSE_KEY);
+      if (saved === 'true') setCollapsed(true);
+    } catch { /* ignore */ }
+  }, []);
+
+  const toggleCollapse = React.useCallback(() => {
+    setCollapsed((c) => {
+      const next = !c;
+      try { localStorage.setItem(COLLAPSE_KEY, String(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
 
   // Close drawer on route change
   const pathname = usePathname();
@@ -152,12 +171,14 @@ export function AppShell({
     <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
 
       {/* ── Desktop sidebar ────────────────────────────────────────────── */}
-      <div className="hidden md:flex">
+      <div className="relative hidden md:flex">
         <Sidebar
           logo={logo}
           sections={sections}
           accent={accent}
           footer={sidebarFooterFull}
+          collapsed={collapsed}
+          onToggleCollapse={toggleCollapse}
         />
       </div>
 

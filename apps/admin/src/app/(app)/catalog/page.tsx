@@ -8,7 +8,7 @@ import {
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 
-type EditState = { id: string; priceUsd: number };
+type EditState = { id: string; name: string; description: string; priceUsd: number };
 
 export default function CatalogPage() {
   const [categories, setCategories]   = useState<any[]>([]);
@@ -37,14 +37,20 @@ export default function CatalogPage() {
     if (!editing) return;
     setSaving(true);
     try {
-      await api.updateCatalogItem(editing.id, { priceUsd: editing.priceUsd });
+      await api.updateCatalogItem(editing.id, {
+        name: editing.name.trim() || undefined,
+        description: editing.description.trim() || undefined,
+        priceUsd: editing.priceUsd,
+      });
       setCategories((prev) => prev.map((cat) => ({
         ...cat,
         items: cat.items?.map((item: any) =>
-          item.id === editing.id ? { ...item, priceUsd: editing.priceUsd } : item,
+          item.id === editing.id
+            ? { ...item, name: editing.name || item.name, description: editing.description, priceUsd: editing.priceUsd }
+            : item,
         ),
       })));
-      toast.success('Price updated.');
+      toast.success('Item updated.');
       setEditing(null);
     } catch (err: any) {
       toast.error('Failed to update: ' + err.message);
@@ -254,8 +260,26 @@ export default function CatalogPage() {
                       </tr>
                     ) : (cat.items ?? []).map((item: any) => (
                       <tr key={item.id} className="hover:bg-muted/10 transition-colors">
-                        <td className="px-5 py-3 font-medium text-foreground">{item.name}</td>
-                        <td className="px-5 py-3 text-muted-foreground text-xs max-w-xs truncate">{item.description ?? '—'}</td>
+                        <td className="px-5 py-3 font-medium text-foreground">
+                          {editing?.id === item.id ? (
+                            <input
+                              value={editing.name}
+                              onChange={e => setEditing(prev => prev ? { ...prev, name: e.target.value } : prev)}
+                              placeholder="Item name"
+                              className="w-full rounded-lg border border-primary px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                          ) : item.name}
+                        </td>
+                        <td className="px-5 py-3 text-muted-foreground text-xs max-w-xs truncate">
+                          {editing?.id === item.id ? (
+                            <input
+                              value={editing.description}
+                              onChange={e => setEditing(prev => prev ? { ...prev, description: e.target.value } : prev)}
+                              placeholder="Description (optional)"
+                              className="w-full rounded-lg border border-primary px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                          ) : (item.description ?? '—')}
+                        </td>
                         <td className="px-5 py-3">
                           {item.variants?.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
@@ -272,7 +296,7 @@ export default function CatalogPage() {
                             <input
                               type="number" min={0} step={0.01}
                               value={editing!.priceUsd}
-                              onChange={(e) => setEditing({ id: item.id, priceUsd: parseFloat(e.target.value) || 0 })}
+                              onChange={(e) => setEditing(prev => prev ? { ...prev, priceUsd: parseFloat(e.target.value) || 0 } : prev)}
                               onKeyDown={(e) => e.key === 'Enter' && handleSavePrice()}
                               className="w-24 rounded-lg border border-primary px-2 py-1 text-right text-sm outline-none focus:ring-2 focus:ring-primary/20"
                             />
@@ -298,9 +322,9 @@ export default function CatalogPage() {
                           ) : (
                             <div className="flex items-center justify-end gap-1">
                               <button
-                                onClick={() => setEditing({ id: item.id, priceUsd: Number(item.priceUsd) })}
+                                onClick={() => setEditing({ id: item.id, name: item.name ?? '', description: item.description ?? '', priceUsd: Number(item.priceUsd) })}
                                 className="rounded-lg p-1.5 hover:bg-muted/60 transition-colors"
-                                title="Edit price"
+                                title="Edit item"
                               >
                                 <PencilSimple className="h-3.5 w-3.5 text-muted-foreground" />
                               </button>

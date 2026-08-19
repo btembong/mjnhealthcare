@@ -828,6 +828,7 @@ function AdminDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [officerNotes, setOfficerNotes] = useState<any[]>([]);
+  const [paymentStats, setPaymentStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { load(); }, []);
@@ -835,7 +836,7 @@ function AdminDashboard() {
   async function load() {
     setLoading(true);
     try {
-      const [rPersons, rEngs, rDocs, rDrafts, rLeads, rOrders, rBookings, rOfficerNotes] = await Promise.allSettled([
+      const [rPersons, rEngs, rDocs, rDrafts, rLeads, rOrders, rBookings, rOfficerNotes, rStats] = await Promise.allSettled([
         api.getPersons(),
         api.getAllEngagements(),
         api.getPendingDocuments(),
@@ -844,6 +845,7 @@ function AdminDashboard() {
         api.getAllOrders(),
         api.getAllBookings(),
         api.getRecentOfficerNotes(15),
+        api.getPaymentStats(),
       ]);
       if (rPersons.status === 'fulfilled') setPersons(rPersons.value ?? []);
       if (rEngs.status === 'fulfilled') setEngagements(rEngs.value ?? []);
@@ -853,6 +855,7 @@ function AdminDashboard() {
       if (rOrders.status === 'fulfilled') setOrders(rOrders.value ?? []);
       if (rBookings.status === 'fulfilled') setBookings(rBookings.value ?? []);
       if (rOfficerNotes.status === 'fulfilled') setOfficerNotes(rOfficerNotes.value ?? []);
+      if (rStats.status === 'fulfilled') setPaymentStats(rStats.value ?? null);
     } finally {
       setLoading(false);
     }
@@ -1031,8 +1034,8 @@ function AdminDashboard() {
                   },
                   {
                     label: 'Revenue MTD',
-                    value: `$${revenueMtd.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 })}`,
-                    sub: `${orders.filter((o) => o.status === 'PAID').length} paid orders`,
+                    value: `$${(paymentStats?.revenueMtd ?? revenueMtd).toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 })}`,
+                    sub: `${orders.filter((o) => o.status === 'PAID').length} orders + consultations`,
                     accent: false,
                   },
                   {

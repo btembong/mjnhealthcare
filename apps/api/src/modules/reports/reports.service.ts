@@ -134,8 +134,8 @@ export class ReportsService {
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
-    // All orders
-    const [allOrders, pendingOrders, receipts, consultantPayouts, creditWallets] = await Promise.all([
+    // All orders + consultation bookings
+    const [allOrders, pendingOrders, receipts, consultantPayouts, creditWallets, consultationBookings] = await Promise.all([
       this.db.order.findMany({
         include: {
           lineItems: { include: { serviceItem: { include: { category: true } } } },
@@ -159,16 +159,32 @@ export class ReportsService {
         orderBy: { createdAt: 'desc' },
       }).catch(() => []),
       this.db.creditWallet.findMany({ select: { balanceCents: true } }),
+      this.db.consultationBooking.findMany({
+        where: { status: { in: ['CONFIRMED', 'COMPLETED'] } },
+        select: { amountPaid: true, createdAt: true },
+      }),
     ]);
 
     const paidOrders = allOrders.filter((o) => o.status === 'PAID' || o.status === 'PARTIALLY_PAID');
-    const totalRevenue = paidOrders.reduce((s, o) => s + Number(o.total), 0);
-    const thisMonthRevenue = paidOrders
+    const orderRevenue = paidOrders.reduce((s, o) => s + Number(o.total), 0);
+    const consultationRevenue = consultationBookings.reduce((s, b) => s + Number(b.amountPaid ?? 0), 0);
+    const totalRevenue = orderRevenue + consultationRevenue;
+
+    const orderRevenueThisMonth = paidOrders
       .filter((o) => new Date(o.createdAt) >= startOfMonth)
       .reduce((s, o) => s + Number(o.total), 0);
-    const lastMonthRevenue = paidOrders
+    const consultRevenueThisMonth = consultationBookings
+      .filter((b) => new Date(b.createdAt) >= startOfMonth)
+      .reduce((s, b) => s + Number(b.amountPaid ?? 0), 0);
+    const thisMonthRevenue = orderRevenueThisMonth + consultRevenueThisMonth;
+
+    const orderRevenueLastMonth = paidOrders
       .filter((o) => new Date(o.createdAt) >= startOfLastMonth && new Date(o.createdAt) <= endOfLastMonth)
       .reduce((s, o) => s + Number(o.total), 0);
+    const consultRevenueLastMonth = consultationBookings
+      .filter((b) => new Date(b.createdAt) >= startOfLastMonth && new Date(b.createdAt) <= endOfLastMonth)
+      .reduce((s, b) => s + Number(b.amountPaid ?? 0), 0);
+    const lastMonthRevenue = orderRevenueLastMonth + consultRevenueLastMonth;
 
     const totalOutstanding = pendingOrders.reduce((s, o) => s + Number(o.total), 0);
 
@@ -203,9 +219,10 @@ export class ReportsService {
       const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
       const label = d.toLocaleString('en-US', { month: 'short', year: '2-digit' });
       const monthOrders = paidOrders.filter((o) => new Date(o.createdAt) >= d && new Date(o.createdAt) <= end);
+      const monthConsults = consultationBookings.filter((b) => new Date(b.createdAt) >= d && new Date(b.createdAt) <= end);
       monthly.push({
         month: label,
-        revenue: monthOrders.reduce((s, o) => s + Number(o.total), 0),
+        revenue: monthOrders.reduce((s, o) => s + Number(o.total), 0) + monthConsults.reduce((s, b) => s + Number(b.amountPaid ?? 0), 0),
         tax: monthOrders.reduce((s, o) => s + Number((o as any).taxAmount ?? 0), 0),
       });
     }
@@ -243,6 +260,8 @@ export class ReportsService {
     return {
       summary: {
         totalRevenue,
+        orderRevenue,
+        consultationRevenue,
         thisMonthRevenue,
         lastMonthRevenue,
         totalOutstanding,

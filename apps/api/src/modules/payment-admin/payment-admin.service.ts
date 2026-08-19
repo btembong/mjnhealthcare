@@ -104,17 +104,25 @@ export class PaymentAdminService {
   // ── Stats ───────────────────────────────────────────────────────────────────
 
   async getStats() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
     const [bookings, orders] = await Promise.all([
-      this.db.consultationBooking.findMany({ select: { status: true, amountPaid: true } }),
-      this.db.order.findMany({ select: { status: true, total: true } }),
+      this.db.consultationBooking.findMany({ select: { status: true, amountPaid: true, createdAt: true } }),
+      this.db.order.findMany({ select: { status: true, total: true, createdAt: true } }),
     ]);
 
-    const consultRevenue = bookings
-      .filter((b) => ['CONFIRMED', 'COMPLETED'].includes(b.status))
-      .reduce((sum, b) => sum + Number(b.amountPaid ?? 0), 0);
+    const paidBookings = bookings.filter((b) => ['CONFIRMED', 'COMPLETED'].includes(b.status));
+    const paidOrders = orders.filter((o) => o.status === 'PAID');
 
-    const orderRevenue = orders
-      .filter((o) => o.status === 'PAID')
+    const consultRevenue = paidBookings.reduce((sum, b) => sum + Number(b.amountPaid ?? 0), 0);
+    const orderRevenue = paidOrders.reduce((sum, o) => sum + Number(o.total ?? 0), 0);
+
+    const consultRevenueMtd = paidBookings
+      .filter((b) => new Date(b.createdAt) >= startOfMonth)
+      .reduce((sum, b) => sum + Number(b.amountPaid ?? 0), 0);
+    const orderRevenueMtd = paidOrders
+      .filter((o) => new Date(o.createdAt) >= startOfMonth)
       .reduce((sum, o) => sum + Number(o.total ?? 0), 0);
 
     const pendingConsult = bookings.filter((b) => b.status === 'AWAITING_PAYMENT').length;
@@ -128,6 +136,9 @@ export class PaymentAdminService {
       totalRevenue: consultRevenue + orderRevenue,
       consultRevenue,
       orderRevenue,
+      consultRevenueMtd,
+      orderRevenueMtd,
+      revenueMtd: consultRevenueMtd + orderRevenueMtd,
       pendingCount: pendingConsult + pendingOrders,
       cancelledCount,
       totalTransactions: bookings.length + orders.length,
@@ -265,12 +276,12 @@ export class PaymentAdminService {
     }
 
     if (payment.type === 'ORDER') {
-      if (!['PENDING', 'PARTIALLY_PAID'].includes(payment.status)) {
+      if (!['PENDING', 'PARTIALLY_PAID', 'PAID'].includes(payment.status)) {
         throw new BadRequestException(`Cannot cancel an order with status ${payment.status}`);
       }
       await this.db.order.update({ where: { id: payment.id }, data: { status: 'CANCELLED' } });
-      this.logger.log(`Admin cancelled order ${payment.id} (by ${adminId}). Reason: ${reason}`);
-      return { success: true, message: 'Order cancelled.' };
+      this.logger.log(`Admin ${payment.status === 'PAID' ? 'force-voided' : 'cancelled'} order ${payment.id} (by ${adminId}). Reason: ${reason}`);
+      return { success: true, message: payment.status === 'PAID' ? 'Order voided. Revenue stats updated.' : 'Order cancelled.' };
     }
 
     throw new BadRequestException('Unknown payment type');

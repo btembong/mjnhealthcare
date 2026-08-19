@@ -5,13 +5,15 @@ import { Skeleton } from '@mjn/ui';
 import {
   CurrencyDollar, TrendUp, Warning, Receipt, Users,
   Clock, ChartBar, Export, MagnifyingGlass, Gift,
-  ArrowUp, ArrowDown, Minus,
+  ArrowUp, ArrowDown, Minus, Stethoscope,
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 
 type FinanceData = {
   summary: {
     totalRevenue: number;
+    orderRevenue: number;
+    consultationRevenue: number;
     thisMonthRevenue: number;
     lastMonthRevenue: number;
     totalOutstanding: number;
@@ -113,21 +115,24 @@ export default function FinancePage() {
       ) : (
         <>
           {/* KPI strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {[
-              { label: 'Total Revenue', value: fmt(data.summary.totalRevenue), icon: TrendUp, color: 'text-primary', bg: 'bg-primary/8' },
-              { label: 'This Month', value: fmt(data.summary.thisMonthRevenue), icon: CurrencyDollar, color: 'text-emerald-600', bg: 'bg-emerald-50',
+              { label: 'Total Revenue', value: fmt(data.summary.totalRevenue), icon: TrendUp,
                 delta: <DeltaBadge current={data.summary.thisMonthRevenue} previous={data.summary.lastMonthRevenue} /> },
-              { label: 'Outstanding', value: fmt(data.summary.totalOutstanding), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-              { label: 'Tax Collected', value: fmt(data.summary.taxCollected), icon: Receipt, color: 'text-slate-600', bg: 'bg-slate-100' },
-              { label: 'This Month Tax', value: fmt(data.summary.taxThisMonth), icon: Receipt, color: 'text-slate-500', bg: 'bg-slate-100' },
-              { label: 'Pending Payouts', value: fmt(data.summary.payoutQueueTotal), icon: Users, color: 'text-teal-600', bg: 'bg-teal-50' },
-              { label: 'Credit Liability', value: `$${(data.summary.totalCreditLiabilityCents / 100).toFixed(2)}`, icon: Gift, color: 'text-purple-600', bg: 'bg-purple-50' },
-              { label: 'Overdue Orders', value: data.pendingOrders.length, icon: Warning, color: 'text-rose-600', bg: 'bg-rose-50' },
-            ].map(({ label, value, icon: Icon, color, bg, delta }: any) => (
+              { label: 'This Month', value: fmt(data.summary.thisMonthRevenue), icon: CurrencyDollar,
+                delta: <DeltaBadge current={data.summary.thisMonthRevenue} previous={data.summary.lastMonthRevenue} /> },
+              { label: 'Order Revenue', value: fmt(data.summary.orderRevenue ?? 0), icon: Receipt },
+              { label: 'Consultation Revenue', value: fmt(data.summary.consultationRevenue ?? 0), icon: Stethoscope },
+              { label: 'Outstanding', value: fmt(data.summary.totalOutstanding), icon: Clock },
+              { label: 'Tax Collected', value: fmt(data.summary.taxCollected), icon: Receipt },
+              { label: 'This Month Tax', value: fmt(data.summary.taxThisMonth), icon: ChartBar },
+              { label: 'Pending Payouts', value: fmt(data.summary.payoutQueueTotal), icon: Users },
+              { label: 'Credit Liability', value: `$${(data.summary.totalCreditLiabilityCents / 100).toFixed(2)}`, icon: Gift },
+              { label: 'Overdue Orders', value: data.pendingOrders.length, icon: Warning },
+            ].map(({ label, value, icon: Icon, delta }: any) => (
               <div key={label} className="rounded-2xl border border-border bg-white p-4 shadow-sm">
-                <div className={`mb-2 inline-flex rounded-lg p-1.5 ${bg}`}>
-                  <Icon className={`h-4 w-4 ${color}`} />
+                <div className="mb-2 inline-flex rounded-lg p-2 bg-slate-100">
+                  <Icon className="h-5 w-5 text-slate-600" />
                 </div>
                 <p className="text-xs text-muted-foreground font-medium">{label}</p>
                 <div className="flex items-baseline gap-2 mt-0.5">

@@ -1,15 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader, Badge, Skeleton } from '@mjn/ui';
 import {
   CalendarBlank, CheckCircle, Clock, X, VideoCamera,
   BookOpen, FileText, Stethoscope, Users, ArrowRight,
   Bell, ChatCircle, Plus, User, Prohibit, CircleNotch,
+  CaretLeft, CaretRight,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useUser } from '../../../contexts/user-context';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  createColumnHelper,
+} from '@tanstack/react-table';
+
+const PAGE_SIZE = 8;
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
 
@@ -293,6 +302,24 @@ export default function BookingsPage() {
   const displayed = tab === 'upcoming' ? upcoming : past;
   const nextSession = upcoming[0];
 
+  // TanStack Table for pagination
+  const columnHelper = createColumnHelper<any>();
+  const columns = [columnHelper.display({ id: 'booking', cell: (info) => info.row.original })];
+  const table = useReactTable({
+    data: displayed,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: PAGE_SIZE } },
+  });
+
+  // Reset to first page when tab changes
+  useEffect(() => { table.setPageIndex(0); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const paginatedBookings = table.getRowModel().rows.map((r) => r.original);
+  const { pageIndex, pageSize } = table.getState().pagination;
+  const pageCount = table.getPageCount();
+
   if (loading) return <BookingsSkeleton />;
 
   return (
@@ -472,7 +499,7 @@ export default function BookingsPage() {
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {displayed.map((booking) => {
+                {paginatedBookings.map((booking) => {
                   const start = booking.slot?.startTime;
                   const end = booking.slot?.endTime;
                   const cfg = getConfig(booking.type);
@@ -621,6 +648,42 @@ export default function BookingsPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Pagination controls */}
+            {pageCount > 1 && (
+              <div className="flex items-center justify-between border-t border-border px-6 py-3">
+                <p className="text-xs text-muted-foreground">
+                  {pageIndex * pageSize + 1}–{Math.min((pageIndex + 1) * pageSize, displayed.length)} of {displayed.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                  >
+                    <CaretLeft className="h-3.5 w-3.5" />
+                  </button>
+                  {Array.from({ length: pageCount }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => table.setPageIndex(i)}
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
+                        i === pageIndex ? 'bg-primary text-white' : 'border border-border text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                  >
+                    <CaretRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             )}
           </div>

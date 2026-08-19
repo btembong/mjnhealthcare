@@ -8,10 +8,19 @@ import {
   Receipt, Clock, TrendUp, DownloadSimple,
   ArrowRight, ShoppingCart, Confetti,
   Coins, FilePdf, Printer, ChatText, Folder, CircleNotch,
+  CaretLeft, CaretRight,
 } from '@phosphor-icons/react';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
 import { toast } from 'sonner';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  createColumnHelper,
+} from '@tanstack/react-table';
+
+const ORDERS_PAGE_SIZE = 8;
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
 async function downloadReceiptPdf(orderId: string, createdAt: string): Promise<void> {
@@ -348,6 +357,20 @@ export default function PaymentsPage() {
   const grandTotal = servicePlan?.grandTotal ? Number(servicePlan.grandTotal) : totalPaid + totalOutstanding;
   const overallPct = grandTotal > 0 ? Math.round((totalPaid / grandTotal) * 100) : 0;
 
+  // TanStack Table for orders pagination
+  const orderColHelper = createColumnHelper<any>();
+  const orderCols = [orderColHelper.display({ id: 'order', cell: (info) => info.row.original })];
+  const orderTable = useReactTable({
+    data: orders,
+    columns: orderCols,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: ORDERS_PAGE_SIZE } },
+  });
+  const paginatedOrders = orderTable.getRowModel().rows.map((r) => r.original);
+  const { pageIndex: orderPageIndex, pageSize: orderPageSize } = orderTable.getState().pagination;
+  const orderPageCount = orderTable.getPageCount();
+
   if (loading) return <PaymentsSkeleton />;
 
   // Outstanding order (first pending/partial)
@@ -642,7 +665,7 @@ export default function PaymentsPage() {
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {orders.map((order) => {
+                {paginatedOrders.map((order) => {
                   const isExpanded = expandedOrder === order.id;
                   const isPending = order.status === 'PENDING' || order.status === 'PARTIALLY_PAID';
 
@@ -786,6 +809,42 @@ export default function PaymentsPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Pagination controls */}
+            {orderPageCount > 1 && (
+              <div className="flex items-center justify-between border-t border-border px-6 py-3">
+                <p className="text-xs text-muted-foreground">
+                  {orderPageIndex * orderPageSize + 1}–{Math.min((orderPageIndex + 1) * orderPageSize, orders.length)} of {orders.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => orderTable.previousPage()}
+                    disabled={!orderTable.getCanPreviousPage()}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                  >
+                    <CaretLeft className="h-3.5 w-3.5" />
+                  </button>
+                  {Array.from({ length: orderPageCount }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => orderTable.setPageIndex(i)}
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
+                        i === orderPageIndex ? 'bg-primary text-white' : 'border border-border text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => orderTable.nextPage()}
+                    disabled={!orderTable.getCanNextPage()}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                  >
+                    <CaretRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
