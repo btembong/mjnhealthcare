@@ -616,6 +616,45 @@ export const api = {
   getReports: () => request<any>('/reports/admin'),
   getFinanceDashboard: () => request<any>('/reports/finance'),
 
+  downloadBulkReceipts: (dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set('dateFrom', dateFrom);
+    if (dateTo) params.set('dateTo', dateTo);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('mjn_admin_token') : null;
+    const url = `${API_BASE}/reports/finance/receipts?${params.toString()}`;
+    return fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => r.blob())
+      .then((blob) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'receipts.csv';
+        a.click();
+      });
+  },
+
+  downloadTaxExport: (dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set('dateFrom', dateFrom);
+    if (dateTo) params.set('dateTo', dateTo);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('mjn_admin_token') : null;
+    const url = `${API_BASE}/reports/finance/tax-export?${params.toString()}`;
+    return fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => r.blob())
+      .then((blob) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'tax-export.csv';
+        a.click();
+      });
+  },
+
+  getPayrollSummary: (dateFrom?: string, dateTo?: string) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set('dateFrom', dateFrom);
+    if (dateTo) params.set('dateTo', dateTo);
+    return request<any>(`/reports/finance/payroll?${params.toString()}`);
+  },
+
   // ── AI ───────────────────────────────────────────────────────────────────
   draftClientUpdate: (engagementId: string) =>
     request<{ draftId: string; draft: string }>(`/ai/draft-update/${engagementId}`, { method: 'POST', body: JSON.stringify({}) }),

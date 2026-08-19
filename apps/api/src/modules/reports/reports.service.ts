@@ -285,4 +285,146 @@ export class ReportsService {
       clientLedger,
     };
   }
+
+  // ── Bulk receipts (for Finance download) ─────────────────────────────────────
+
+  async getBulkReceipts(params: { dateFrom?: string; dateTo?: string }) {
+    const { dateFrom, dateTo } = params;
+    const where: any = {};
+    if (dateFrom || dateTo) {
+      where.issuedAt = {
+        ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+        ...(dateTo ? { lte: new Date(new Date(dateTo).setHours(23, 59, 59, 999)) } : {}),
+      };
+    }
+    const receipts = await this.db.receipt.findMany({
+      where,
+      include: {
+        order: {
+          include: {
+            person: { select: { name: true, email: true } },
+            engagement: { include: { person: { select: { name: true, email: true } } } },
+          },
+        },
+      },
+      orderBy: { issuedAt: 'desc' },
+    });
+
+    const rows = receipts.map((r) => {
+      const person = (r.order as any)?.person ?? (r.order as any)?.engagement?.person;
+      return {
+        receiptId: r.id,
+        orderId: r.orderId,
+        clientName: person?.name ?? '—',
+        clientEmail: person?.email ?? '—',
+        amount: Number((r.order as any)?.total ?? 0).toFixed(2),
+        issuedAt: new Date(r.issuedAt).toISOString(),
+      };
+    });
+
+    const header = 'Receipt ID,Order ID,Client Name,Client Email,Amount USD,Issued At\n';
+    const csv = rows.map((r) =>
+      [r.receiptId, r.orderId, `"${r.clientName.replace(/"/g, '""')}"`, r.clientEmail, r.amount, r.issuedAt].join(',')
+    ).join('\n');
+    return header + csv;
+  }
+
+  // ── Tax period export ─────────────────────────────────────────────────────────
+
+  async getTaxExport(params: { dateFrom?: string; dateTo?: string }) {
+    const { dateFrom, dateTo } = params;
+    const where: any = { status: 'PAID' };
+    if (dateFrom || dateTo) {
+      where.createdAt = {
+        ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+        ...(dateTo ? { lte: new Date(new Date(dateTo).setHours(23, 59, 59, 999)) } : {}),
+      };
+    }
+    const orders = await this.db.order.findMany({
+      where,
+      select: { id: true, total: true, taxAmount: true, taxRate: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const totalRevenue = orders.reduce((s, o) => s + Number(o.total), 0);
+    const totalTax = orders.reduce((s, o) => s + Number((o as any).taxAmount ?? 0), 0);
+    const netRevenue = totalRevenue - totalTax;
+
+    const header = 'Order ID,Date,Gross Amount USD,Tax Rate,Tax Amount USD,Net Amount USD\n';
+    const rows = orders.map((o) =>
+      [
+        o.id,
+        new Date(o.createdAt).toISOString().slice(0, 10),
+        Number(o.total).toFixed(2),
+        Number((o as any).taxRate ?? 0).toFixed(4),
+        Number((o as any).taxAmount ?? 0).toFixed(2),
+        (Number(o.total) - Number((o as any).taxAmount ?? 0)).toFixed(2),
+      ].join(',')
+    ).join('\n');
+    const summary = `\n\nSUMMARY\nTotal Gross,${totalRevenue.toFixed(2)}\nTotal Tax,${totalTax.toFixed(2)}\nNet Revenue,${netRevenue.toFixed(2)}\n`;
+    return header + rows + summary;
+  }
+
+  // ── Payroll / payout history ─────────────────────────────────────────────────
+
+  async getPayrollSummary(params: { dateFrom?: string; dateTo?: string }) {
+    const { dateFrom, dateTo } = params;
+    const dateFilter: any = {};
+    if (dateFrom || dateTo) {
+      dateFilter.createdAt = {
+        ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+        ...(dateTo ? { lte: new Date(new Date(dateTo).setHours(23, 59, 59, 999)) } : {}),
+      };
+    }
+
+    const [consultationBookings, payouts] = await Promise.all([
+      this.db.consultationBooking.findMany({
+        where: { status: { in: ['CONFIRMED', 'COMPLETED'] }, ...dateFilter },
+        include: { slot: { include: { consultant: { select: { id: true, name: true, commissionRate: true, type: true } } } } },
+      }),
+      (this.db as any).consultantPayout?.findMany({
+        where: { ...dateFilter },
+        include: { consultant: { select: { id: true, name: true, type: true } } },
+        orderBy: { createdAt: 'desc' },
+      }).catch(() => []),
+    ]);
+
+    const totalConsultRevenue = consultationBookings.reduce((s, b) => s + Number(b.amountPaid ?? 0), 0);
+
+    // Per-consultant breakdown
+    const consultantMap: Record<string, { name: string; type: string; grossRevenue: number; platformFee: number; netPayout: number; sessions: number }> = {};
+    for (const b of consultationBookings) {
+      const c = b.slot?.consultant;
+      if (!c) continue;
+      const gross = Number(b.amountPaid ?? 0);
+      const commissionRate = Number(c.commissionRate ?? 0.75);
+      const platformFee = c.type === 'PARTNER' ? gross * (1 - commissionRate) : gross;
+      const netPayout = c.type === 'PARTNER' ? gross * commissionRate : 0;
+      if (!consultantMap[c.id]) {
+        consultantMap[c.id] = { name: c.name, type: c.type, grossRevenue: 0, platformFee: 0, netPayout: 0, sessions: 0 };
+      }
+      consultantMap[c.id].grossRevenue += gross;
+      consultantMap[c.id].platformFee += platformFee;
+      consultantMap[c.id].netPayout += netPayout;
+      consultantMap[c.id].sessions += 1;
+    }
+
+    const byConsultant = Object.values(consultantMap).sort((a, b) => b.grossRevenue - a.grossRevenue);
+    const totalPlatformFee = byConsultant.reduce((s, c) => s + c.platformFee, 0);
+    const totalNetPayout = byConsultant.reduce((s, c) => s + c.netPayout, 0);
+    const totalPaid = (payouts as any[]).filter((p: any) => p.paidAt).reduce((s: number, p: any) => s + Number(p.netAmount ?? 0), 0);
+    const totalPending = (payouts as any[]).filter((p: any) => !p.paidAt).reduce((s: number, p: any) => s + Number(p.netAmount ?? 0), 0);
+
+    return {
+      summary: {
+        totalConsultRevenue,
+        totalPlatformFee,
+        totalNetPayout,
+        totalPaid,
+        totalPending,
+      },
+      byConsultant,
+      payouts: (payouts as any[]).slice(0, 100),
+    };
+  }
 }

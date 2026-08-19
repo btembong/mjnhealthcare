@@ -59,10 +59,12 @@ function PaymentDrawer({
   payment,
   onClose,
   onRefresh,
+  readOnly = false,
 }: {
   payment: any;
   onClose: () => void;
   onRefresh: () => void;
+  readOnly?: boolean;
 }) {
   const [tranzakResult, setTranzakResult] = useState<any>(null);
   const [tranzakLoading, setTranzakLoading] = useState(false);
@@ -121,8 +123,8 @@ function PaymentDrawer({
     }
   }
 
-  const canValidate = ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID'].includes(payment.status);
-  const canCancel = ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID', 'CONFIRMED', 'PAID'].includes(payment.status);
+  const canValidate = !readOnly && ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID'].includes(payment.status);
+  const canCancel = !readOnly && ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID', 'CONFIRMED', 'PAID'].includes(payment.status);
   const isPaidVoid = payment.status === 'PAID';
 
   return (
@@ -396,12 +398,23 @@ function PaymentDrawer({
 
 // ── Main page ────────────────────────────────────────────────────────────────
 
+function getAdminRole(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const token = localStorage.getItem('mjn_admin_token');
+    if (!token) return '';
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return (payload.role as string)?.toUpperCase() ?? '';
+  } catch { return ''; }
+}
+
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
+  const isReadOnly = getAdminRole() === 'FINANCE';
 
   // Filters
   const [search, setSearch] = useState('');
@@ -645,7 +658,7 @@ export default function PaymentsPage() {
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
-                        {['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID'].includes(p.status) && (
+                        {!isReadOnly && ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID'].includes(p.status) && (
                           <button
                             title="Validate payment"
                             onClick={() => setSelected(p)}
@@ -654,7 +667,7 @@ export default function PaymentsPage() {
                             <CheckCircle className="h-4 w-4" />
                           </button>
                         )}
-                        {['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID', 'CONFIRMED'].includes(p.status) && (
+                        {!isReadOnly && ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID', 'CONFIRMED'].includes(p.status) && (
                           <button
                             title="Cancel payment"
                             onClick={() => setSelected(p)}
@@ -686,6 +699,7 @@ export default function PaymentsPage() {
           payment={selected}
           onClose={() => setSelected(null)}
           onRefresh={handleRefresh}
+          readOnly={isReadOnly}
         />
       )}
     </div>
