@@ -15,7 +15,7 @@ import { NotificationBell } from '../../components/notification-bell';
 
 // ── Role-gated sidebar sections ───────────────────────────────────────────────
 
-type Role = 'ADMIN' | 'CONSULTANT' | 'COMPLIANCE' | 'PROCESSING_OFFICER' | string;
+type Role = 'ADMIN' | 'CONSULTANT' | 'COMPLIANCE' | 'PROCESSING_OFFICER' | 'FINANCE' | string;
 
 function getRoleFromToken(): string {
   if (typeof window === 'undefined') return '';
@@ -94,6 +94,25 @@ function useSidebarSections(
         title: 'Compliance',
         items: [
           { label: 'Audit Log', href: '/audit', icon: Gavel },
+          { label: 'Settings', href: '/settings', icon: GearSix },
+        ],
+      },
+    ];
+  }
+
+  if (role === 'FINANCE') {
+    return [
+      {
+        items: [
+          { label: 'Finance', href: '/finance', icon: Wallet },
+          { label: 'Payments', href: '/payments', icon: CurrencyDollar },
+          { label: 'Reports', href: '/reports', icon: ChartBar },
+          { label: 'Referrals & Credits', href: '/referrals', icon: Gift },
+        ],
+      },
+      {
+        title: 'Account',
+        items: [
           { label: 'Settings', href: '/settings', icon: GearSix },
         ],
       },
@@ -182,15 +201,20 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Route protection: officers can only access /officer/* and /settings
+  // Route protection
   useEffect(() => {
     if (!role || loading) return;
-    const isOfficerPath = pathname.startsWith('/officer');
     const isOfficer = role === 'PROCESSING_OFFICER';
-    if (isOfficer && !isOfficerPath && pathname !== '/settings') {
+    const isFinance = role === 'FINANCE';
+    const financeAllowed = ['/finance', '/payments', '/reports', '/referrals', '/settings'];
+
+    if (isOfficer && !pathname.startsWith('/officer') && pathname !== '/settings') {
       router.replace('/officer/caseload');
+      return;
     }
-    // Admins/consultants can access /officer/* routes (e.g. to review officer case pages)
+    if (isFinance && !financeAllowed.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+      router.replace('/finance');
+    }
   }, [role, pathname, loading]);
 
   const staffName = me?.name ?? 'Admin';
