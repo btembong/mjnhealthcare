@@ -87,7 +87,7 @@ export class PaymentAdminService {
         where,
         include: {
           engagement: { include: { person: true } },
-          lineItems: true,
+          lineItems: { include: { serviceItem: true } },
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -156,7 +156,7 @@ export class PaymentAdminService {
 
     const order = await this.db.order.findFirst({
       where: { id: ref },
-      include: { engagement: { include: { person: true } }, lineItems: true },
+      include: { engagement: { include: { person: true } }, lineItems: { include: { serviceItem: true } } },
     });
     if (order) return { ...this.normalizeOrder(order), raw: order };
 

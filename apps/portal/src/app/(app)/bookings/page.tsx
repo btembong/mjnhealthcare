@@ -652,38 +652,40 @@ export default function BookingsPage() {
             )}
 
             {/* Pagination controls */}
-            {pageCount > 1 && (
+            {displayed.length > 0 && (
               <div className="flex items-center justify-between border-t border-border px-6 py-3">
                 <p className="text-xs text-muted-foreground">
                   {pageIndex * pageSize + 1}–{Math.min((pageIndex + 1) * pageSize, displayed.length)} of {displayed.length}
                 </p>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
-                  >
-                    <CaretLeft className="h-3.5 w-3.5" />
-                  </button>
-                  {Array.from({ length: pageCount }, (_, i) => (
+                {pageCount > 1 && (
+                  <div className="flex items-center gap-1">
                     <button
-                      key={i}
-                      onClick={() => table.setPageIndex(i)}
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
-                        i === pageIndex ? 'bg-primary text-white' : 'border border-border text-muted-foreground hover:bg-muted'
-                      }`}
+                      onClick={() => table.previousPage()}
+                      disabled={!table.getCanPreviousPage()}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
                     >
-                      {i + 1}
+                      <CaretLeft className="h-3.5 w-3.5" />
                     </button>
-                  ))}
-                  <button
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
-                  >
-                    <CaretRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                    {Array.from({ length: pageCount }, (_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => table.setPageIndex(i)}
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
+                          i === pageIndex ? 'bg-primary text-white' : 'border border-border text-muted-foreground hover:bg-muted'
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => table.nextPage()}
+                      disabled={!table.getCanNextPage()}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                    >
+                      <CaretRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

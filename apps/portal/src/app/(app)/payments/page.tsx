@@ -813,38 +813,40 @@ export default function PaymentsPage() {
             )}
 
             {/* Pagination controls */}
-            {orderPageCount > 1 && (
+            {orders.length > 0 && (
               <div className="flex items-center justify-between border-t border-border px-6 py-3">
                 <p className="text-xs text-muted-foreground">
                   {orderPageIndex * orderPageSize + 1}–{Math.min((orderPageIndex + 1) * orderPageSize, orders.length)} of {orders.length}
                 </p>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => orderTable.previousPage()}
-                    disabled={!orderTable.getCanPreviousPage()}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
-                  >
-                    <CaretLeft className="h-3.5 w-3.5" />
-                  </button>
-                  {Array.from({ length: orderPageCount }, (_, i) => (
+                {orderPageCount > 1 && (
+                  <div className="flex items-center gap-1">
                     <button
-                      key={i}
-                      onClick={() => orderTable.setPageIndex(i)}
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
-                        i === orderPageIndex ? 'bg-primary text-white' : 'border border-border text-muted-foreground hover:bg-muted'
-                      }`}
+                      onClick={() => orderTable.previousPage()}
+                      disabled={!orderTable.getCanPreviousPage()}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
                     >
-                      {i + 1}
+                      <CaretLeft className="h-3.5 w-3.5" />
                     </button>
-                  ))}
-                  <button
-                    onClick={() => orderTable.nextPage()}
-                    disabled={!orderTable.getCanNextPage()}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
-                  >
-                    <CaretRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                    {Array.from({ length: orderPageCount }, (_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => orderTable.setPageIndex(i)}
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
+                          i === orderPageIndex ? 'bg-primary text-white' : 'border border-border text-muted-foreground hover:bg-muted'
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => orderTable.nextPage()}
+                      disabled={!orderTable.getCanNextPage()}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                    >
+                      <CaretRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

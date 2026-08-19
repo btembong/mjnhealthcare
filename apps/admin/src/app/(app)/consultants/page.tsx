@@ -656,7 +656,7 @@ export default function ConsultantsPage() {
 
                       {/* Time slots */}
                       <div>
-                        <label className="mb-2 block text-xs font-semibold text-foreground">Available hours (WAT)</label>
+                        <label className="mb-2 block text-xs font-semibold text-foreground">Available hours ({(slotConsultant as any).timezone ?? 'UTC'})</label>
                         <div className="flex flex-wrap gap-2">
                           {HOUR_OPTIONS.map((h) => {
                             const selected = genHours.includes(h);
