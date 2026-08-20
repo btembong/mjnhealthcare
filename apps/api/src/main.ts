@@ -15,8 +15,17 @@ async function bootstrap() {
     process.env.ADMIN_URL   ?? 'http://localhost:3004',
   ].filter(Boolean) as string[];
 
+  // Also allow any subdomain of mjnhealthcare.com (covers prod + staging)
+  const mjnDomainPattern = /^https?:\/\/([\w-]+\.)*mjnhealthcare\.com$/;
+
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || mjnDomainPattern.test(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: origin '${origin}' not allowed`));
+      }
+    },
     credentials: true,
   });
 
