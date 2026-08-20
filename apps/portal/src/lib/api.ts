@@ -264,6 +264,21 @@ export const api = {
   signEngagementLetter: (engagementId: string) =>
     request<{ ok: boolean }>(`/engagements/${engagementId}/sign`, { method: 'POST' }),
 
+  downloadEngagementLetterPdf: async (engagementId: string): Promise<void> => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const res = await fetch(`${API_BASE}/engagements/${engagementId}/letter-pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error('Failed to download PDF');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `engagement-letter-${engagementId.slice(-6).toUpperCase()}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
   getEngagementTracking: (engagementId: string) =>
     request<any[]>(`/engagements/${engagementId}/tracking`),
 

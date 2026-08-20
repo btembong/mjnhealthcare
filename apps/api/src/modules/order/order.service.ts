@@ -43,6 +43,14 @@ export class OrderService {
     if (engagement.status === 'PENDING_SIGNATURE') {
       throw new BadRequestException('Engagement letter must be signed before checkout');
     }
+
+    // Auto-waive $50 engagement fee if client came via paid consultation route
+    if (!waiveEngagementFee) {
+      const hasPaidConsultation = await (this.db as any).consultationBooking.count({
+        where: { personId: engagement.personId, status: { in: ['CONFIRMED', 'COMPLETED'] } },
+      });
+      if (hasPaidConsultation > 0) waiveEngagementFee = true;
+    }
     if (paymentMode === 'PAY_PER_STAGE') {
       throw new BadRequestException(
         'Use createServicePlan() to set up PAY_PER_STAGE — stage orders are created automatically as stages advance',

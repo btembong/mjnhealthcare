@@ -8,7 +8,7 @@ import {
   TrendUp, UploadSimple, Signature, Seal,
   ChatText, CreditCard, BookOpen, Copy, MapPin,
   Buildings, Envelope, ArrowRight, Warning,
-  Headset, Receipt, Flag, ArrowSquareUpRight,
+  Headset, Receipt, Flag, ArrowSquareUpRight, DownloadSimple,
 } from '@phosphor-icons/react';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
@@ -861,9 +861,18 @@ export default function CasePage() {
                     </div>
                   </div>
                   {engagement.letterSignedAt ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
-                      <CheckCircle weight="fill" className="h-3.5 w-3.5" /> Signed
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
+                        <CheckCircle weight="fill" className="h-3.5 w-3.5" /> Signed
+                      </span>
+                      <button
+                        onClick={() => api.downloadEngagementLetterPdf(engagement.id).catch(() => toast.error('Download failed'))}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-sm"
+                        title="Download engagement letter PDF"
+                      >
+                        <DownloadSimple className="h-3.5 w-3.5" /> Download PDF
+                      </button>
+                    </div>
                   ) : engagement.letterUrl ? (
                     <a
                       href={`/sign/${engagement.id}`}

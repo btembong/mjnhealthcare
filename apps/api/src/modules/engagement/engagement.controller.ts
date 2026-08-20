@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, HttpCode, HttpStatus, Req, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsString, IsOptional } from 'class-validator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -110,6 +111,18 @@ export class EngagementController {
   @Patch('milestones/:milestoneId/complete')
   completeMilestone(@Param('milestoneId') milestoneId: string) {
     return this.engagementService.completeMilestone(milestoneId);
+  }
+
+  @ApiOperation({ summary: 'Download signed engagement letter as PDF' })
+  @Get(':id/letter-pdf')
+  async downloadLetterPdf(@Param('id') id: string, @Res() res: Response) {
+    const buffer = await this.engagementService.generateLetterPdf(id);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="engagement-letter-${id.slice(-6).toUpperCase()}.pdf"`,
+      'Content-Length': buffer.length,
+    });
+    res.send(buffer);
   }
 
   @ApiOperation({ summary: 'Client sends a message to their consultant' })

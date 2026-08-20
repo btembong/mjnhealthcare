@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { PageHeader, Button } from '@mjn/ui';
 import {
   CircleNotch, User, Plus, X, WarningCircle, CaretDown,
-  CheckCircle, XCircle, IdentificationBadge,
+  CheckCircle, XCircle, IdentificationBadge, Key,
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 
@@ -36,6 +36,12 @@ export default function StaffPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'CONSULTANT' | 'ADMIN' | 'COMPLIANCE' | 'PROCESSING_OFFICER' | 'FINANCE'>('CONSULTANT');
+
+  // Reset password modal
+  const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState('');
 
   // Create consultant profile modal
   const [profileTarget, setProfileTarget] = useState<{ name: string; email: string } | null>(null);
@@ -148,6 +154,23 @@ export default function StaffPage() {
     }
   }
 
+  async function handleResetPassword() {
+    if (!resetTarget) return;
+    if (newPassword.length < 8) { setResetError('Password must be at least 8 characters.'); return; }
+    setResetting(true);
+    setResetError('');
+    try {
+      await api.updateStaffCredentials(resetTarget.id, { password: newPassword });
+      toast.success(`Password reset for ${resetTarget.name}`);
+      setResetTarget(null);
+      setNewPassword('');
+    } catch (e: any) {
+      setResetError(e.message ?? 'Reset failed');
+    } finally {
+      setResetting(false);
+    }
+  }
+
   function toggleLang(lang: string) {
     setCpLangs((prev) =>
       prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
@@ -245,6 +268,16 @@ export default function StaffPage() {
                         </>
                       )}
                     </div>
+
+                    {/* Reset password */}
+                    <button
+                      onClick={() => { setResetTarget({ id: person.id, name: person.name ?? 'User' }); setNewPassword(''); setResetError(''); }}
+                      disabled={!!actionId}
+                      title="Reset password"
+                      className="shrink-0 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
+                    >
+                      <Key className="h-3 w-3" /> Reset Password
+                    </button>
 
                     {/* Active toggle */}
                     <button
@@ -410,6 +443,52 @@ export default function StaffPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {resetTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-white p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-foreground">Reset Password</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{resetTarget.name}</p>
+              </div>
+              <button onClick={() => setResetTarget(null)} className="rounded-lg p-1.5 hover:bg-muted/60 transition-colors">
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-foreground">New password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Min. 8 characters"
+                className="h-10 w-full rounded-xl border border-border px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            {resetError && (
+              <div className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-600">
+                <WarningCircle className="h-4 w-4 shrink-0" /> {resetError}
+              </div>
+            )}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={handleResetPassword}
+                disabled={resetting || newPassword.length < 8}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {resetting ? <CircleNotch className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
+                {resetting ? 'Resetting…' : 'Reset Password'}
+              </button>
+              <button onClick={() => setResetTarget(null)}
+                className="flex-1 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-semibold hover:bg-muted/50 transition-colors">
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
