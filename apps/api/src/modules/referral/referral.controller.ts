@@ -10,19 +10,19 @@ export class ReferralController {
   /** GET /referral/my-code — get or auto-create the caller's referral code */
   @Get('my-code')
   getMyCode(@Request() req: any) {
-    return this.svc.getMyCode(req.user.sub);
+    return this.svc.getMyCode(req.user.id);
   }
 
   /** GET /referral/my-referrals — list people I referred + reward status */
   @Get('my-referrals')
   getMyReferrals(@Request() req: any) {
-    return this.svc.getMyReferrals(req.user.sub);
+    return this.svc.getMyReferrals(req.user.id);
   }
 
   /** POST /referral/track — called at signup to record which code was used */
   @Post('track')
   track(@Request() req: any, @Body() body: { code: string }) {
-    return this.svc.trackReferral(body.code, req.user.sub);
+    return this.svc.trackReferral(body.code, req.user.id);
   }
 
   // ── Admin ──────────────────────────────────────────────────────────────────

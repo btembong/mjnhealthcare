@@ -10,13 +10,13 @@ export class CreditController {
   /** GET /credits/wallet — caller's wallet + last 50 transactions */
   @Get('wallet')
   getWallet(@Request() req: any) {
-    return this.svc.getWallet(req.user.sub);
+    return this.svc.getWallet(req.user.id);
   }
 
   /** GET /credits/preview?subtotalCents=X — how much can I apply at checkout */
   @Get('preview')
   preview(@Request() req: any, @Query('subtotalCents') subtotal: string) {
-    return this.svc.previewSpend(req.user.sub, Number(subtotal));
+    return this.svc.previewSpend(req.user.id, Number(subtotal));
   }
 
   /** POST /credits/transfer — send credits to another user */
@@ -25,7 +25,7 @@ export class CreditController {
     @Request() req: any,
     @Body() body: { toPersonId: string; amountCents: number; note?: string },
   ) {
-    return this.svc.transferCredits(req.user.sub, body.toPersonId, body.amountCents, body.note, req.user.sub);
+    return this.svc.transferCredits(req.user.id, body.toPersonId, body.amountCents, body.note, req.user.id);
   }
 
   // ── Admin ──────────────────────────────────────────────────────────────────
@@ -39,6 +39,6 @@ export class CreditController {
   /** POST /credits/admin/adjust — manually grant or deduct credits */
   @Post('admin/adjust')
   adminAdjust(@Request() req: any, @Body() body: { personId: string; amountCents: number; reason: string }) {
-    return this.svc.adminAdjust(body.personId, body.amountCents, body.reason, req.user.sub);
+    return this.svc.adminAdjust(body.personId, body.amountCents, body.reason, req.user.id);
   }
 }
