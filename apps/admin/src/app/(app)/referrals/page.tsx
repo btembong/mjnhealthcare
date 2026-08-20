@@ -5,7 +5,8 @@ import { Skeleton } from '@mjn/ui';
 import { toast } from 'sonner';
 import {
   Gift, Users, CurrencyDollar, TrendUp, Prohibit,
-  MagnifyingGlass, ArrowsLeftRight, Warning,
+  MagnifyingGlass, ArrowsLeftRight, Warning, LinkSimple,
+  CheckCircle, Clock, ArrowSquareOut,
 } from '@phosphor-icons/react';
 import { api } from '../../../lib/api';
 
@@ -33,9 +34,10 @@ function fmt(cents: number) {
 }
 
 export default function ReferralsPage() {
-  const [tab, setTab] = useState<'codes' | 'wallets'>('codes');
+  const [tab, setTab] = useState<'codes' | 'wallets' | 'affiliates'>('codes');
   const [codes, setCodes] = useState<ReferralCode[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [affiliates, setAffiliates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -48,12 +50,14 @@ export default function ReferralsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [codesRes, walletsRes] = await Promise.all([
+      const [codesRes, walletsRes, affiliatesRes] = await Promise.all([
         api.getReferralCodes(1).catch(() => ({ codes: [] })),
         api.getCreditWallets(1).catch(() => ({ wallets: [] })),
+        api.getPublicAffiliates().catch(() => []),
       ]);
       setCodes(codesRes.codes ?? []);
       setWallets(walletsRes.wallets ?? []);
+      setAffiliates(Array.isArray(affiliatesRes) ? affiliatesRes : []);
     } finally {
       setLoading(false);
     }
@@ -102,6 +106,33 @@ export default function ReferralsPage() {
   const totalUses = codes.reduce((s, c) => s + c.totalUses, 0);
   const totalOutstandingCents = wallets.reduce((s, w) => s + w.balanceCents, 0);
 
+  // Affiliate stats
+  const affiliatePendingPayout = affiliates.reduce((s, a) => s + a.amountDue, 0);
+  const affiliateTotal = affiliates.reduce((s, a) => s + a.total, 0);
+  const affiliateConverted = affiliates.reduce((s, a) => s + a.converted, 0);
+
+  async function handleAffiliatePaid(referralId: string) {
+    try {
+      await api.markAffiliatePaid(referralId);
+      toast.success('Payout marked as sent');
+      load();
+    } catch (e: any) { toast.error(e.message ?? 'Failed'); }
+  }
+
+  async function handleAffiliateVoid(referralId: string) {
+    if (!confirm('Void this referral? This cannot be undone.')) return;
+    try {
+      await api.voidAffiliateReferral(referralId);
+      toast.success('Referral voided');
+      load();
+    } catch (e: any) { toast.error(e.message ?? 'Failed'); }
+  }
+
+  const filteredAffiliates = affiliates.filter((a) => {
+    const q = search.toLowerCase();
+    return !q || a.name.toLowerCase().includes(q) || (a.email ?? '').toLowerCase().includes(q) || a.code.toLowerCase().includes(q);
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -114,8 +145,8 @@ export default function ReferralsPage() {
         {[
           { label: 'Total Codes', value: codes.length, icon: Gift, color: 'text-primary', bg: 'bg-primary/8' },
           { label: 'Successful Referrals', value: totalUses, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Rewards Paid Out', value: fmt(totalRewardedCents), icon: TrendUp, color: 'text-teal-600', bg: 'bg-teal-50' },
-          { label: 'Outstanding Liability', value: fmt(totalOutstandingCents), icon: CurrencyDollar, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Affiliate Conversions', value: affiliateConverted, icon: LinkSimple, color: 'text-violet-600', bg: 'bg-violet-50' },
+          { label: 'Affiliate Payout Due', value: `$${affiliatePendingPayout}`, icon: CurrencyDollar, color: 'text-amber-600', bg: 'bg-amber-50' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="rounded-2xl border border-border bg-white p-4 shadow-sm flex items-center gap-3">
             <div className={`rounded-xl p-2 ${bg}`}>
@@ -132,13 +163,13 @@ export default function ReferralsPage() {
       {/* Tabs + search */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex rounded-xl border border-border bg-white overflow-hidden shadow-sm">
-          {(['codes', 'wallets'] as const).map((t) => (
+          {(['codes', 'wallets', 'affiliates'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 h-9 text-sm font-medium transition-colors capitalize ${tab === t ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted/50'}`}
+              className={`px-4 h-9 text-sm font-medium transition-colors ${tab === t ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted/50'}`}
             >
-              {t === 'codes' ? 'Referral Codes' : 'Credit Wallets'}
+              {t === 'codes' ? 'Referral Codes' : t === 'wallets' ? 'Credit Wallets' : 'Public Affiliates'}
             </button>
           ))}
         </div>
@@ -246,6 +277,87 @@ export default function ReferralsPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Affiliates tab */}
+      {!loading && tab === 'affiliates' && (
+        <div className="space-y-4">
+          {filteredAffiliates.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-sm">
+              <LinkSimple className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+              <p className="font-semibold text-foreground">No public affiliates yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">Affiliates sign up at mjnhealthcare.com/refer</p>
+            </div>
+          ) : filteredAffiliates.map((a) => (
+            <div key={a.id} className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+              {/* Referrer header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+                <div>
+                  <p className="font-semibold text-foreground">{a.name}</p>
+                  <p className="text-xs text-muted-foreground">{a.email ?? a.phone ?? '—'} · Code: <span className="font-mono font-bold">{a.code}</span></p>
+                </div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-muted-foreground">{a.total} referred · {a.converted} converted</span>
+                  {a.amountDue > 0 && (
+                    <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">${a.amountDue} due</span>
+                  )}
+                  {a.amountPaid > 0 && (
+                    <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700">${a.amountPaid} paid</span>
+                  )}
+                  <a href={`https://mjnhealthcare.com/refer/status/${a.code}`} target="_blank" rel="noreferrer"
+                    className="flex items-center gap-1 text-xs text-primary hover:underline">
+                    Status page <ArrowSquareOut className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Referrals list */}
+              {a.referrals.length === 0 ? (
+                <p className="px-5 py-4 text-sm text-muted-foreground">No referrals yet.</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {a.referrals.map((r: any) => (
+                    <div key={r.id} className="flex items-center justify-between px-5 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{r.person?.name ?? 'Anonymous'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {r.convertedAt ? `Converted ${new Date(r.convertedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Registered — not yet paid'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm text-slate-700">${Number(r.amountDue)}</span>
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                          r.status === 'PAID' ? 'bg-sky-100 text-sky-700' :
+                          r.status === 'CONVERTED' ? 'bg-emerald-100 text-emerald-700' :
+                          r.status === 'VOID' ? 'bg-slate-100 text-slate-500' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>
+                          {r.status === 'CONVERTED' ? 'Payout Due' : r.status === 'PAID' ? 'Paid' : r.status === 'VOID' ? 'Voided' : 'Pending'}
+                        </span>
+                        {r.status === 'CONVERTED' && (
+                          <button
+                            onClick={() => handleAffiliatePaid(r.id)}
+                            className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
+                          >
+                            <CheckCircle className="h-3 w-3" /> Mark Paid
+                          </button>
+                        )}
+                        {(r.status === 'PENDING' || r.status === 'CONVERTED') && (
+                          <button
+                            onClick={() => handleAffiliateVoid(r.id)}
+                            className="flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
+                          >
+                            <Prohibit className="h-3 w-3" /> Void
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

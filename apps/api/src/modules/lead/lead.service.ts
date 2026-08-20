@@ -45,6 +45,7 @@ export class LeadService {
     selectedServices?: string;
     estimate?: string;
     lang?: string;
+    refCode?: string;
   }) {
     let slot = await this.db.bookingSlot.findUnique({ where: { id: data.slotId } });
 
@@ -69,7 +70,7 @@ export class LeadService {
 
     if (!slot || slot.isBooked) throw new NotFoundException('Slot not available');
 
-    const { slotId, selectedServices, estimate, lang, ...leadData } = data;
+    const { slotId, selectedServices, estimate, lang, refCode, ...leadData } = data;
 
     // Store selected services and estimate in the notes field for consultant visibility
     const noteParts: string[] = [];
@@ -82,6 +83,7 @@ export class LeadService {
       data: {
         ...leadData,
         ...(noteParts.length && { notes: noteParts.join(' | ') }),
+        ...(refCode && { refCode }),
       },
     });
 
@@ -178,6 +180,11 @@ export class LeadService {
       where: { id: leadId },
       data: { status: 'CONVERTED', convertedPersonId: person.id },
     });
+
+    // Track referral registration if lead came via a public affiliate link
+    if (lead.refCode) {
+      this.events.emit('referral.track_registration', { personId: person.id, refCode: lead.refCode });
+    }
 
     this.events.emit('lead.converted', { name: lead.name, email: lead.email });
 

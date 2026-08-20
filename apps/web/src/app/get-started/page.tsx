@@ -203,6 +203,7 @@ function GetStartedInner() {
   const searchParams = useSearchParams();
   const fromServices = searchParams.get('services') ?? '';
   const fromEstimate = searchParams.get('estimate') ?? '';
+  const refCode = searchParams.get('ref') ?? '';
 
   const [lang, setLang] = useState<Lang>('en');
   const t = T[lang];
@@ -313,6 +314,7 @@ function GetStartedInner() {
           estimate: fromEstimate || undefined,
           slotId: selectedSlot.id,
           lang,
+          refCode: refCode || undefined,
         }),
       });
       if (!res.ok) {

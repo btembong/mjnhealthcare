@@ -671,4 +671,11 @@ export const api = {
   getCreditWallets: (page = 1) => request<any>(`/credits/admin/wallets?page=${page}&limit=50`),
   adminCreditAdjust: (personId: string, amountCents: number, reason: string) =>
     request<any>('/credits/admin/adjust', { method: 'POST', body: JSON.stringify({ personId, amountCents, reason }) }),
+
+  // ── Public Affiliates ──────────────────────────────────────────────────────
+  getPublicAffiliates: () => request<any[]>('/public-referral/admin/list'),
+  markAffiliatePaid: (referralId: string) =>
+    request<any>(`/public-referral/admin/${referralId}/mark-paid`, { method: 'PATCH', body: JSON.stringify({}) }),
+  voidAffiliateReferral: (referralId: string) =>
+    request<any>(`/public-referral/admin/${referralId}/void`, { method: 'DELETE' }),
 };

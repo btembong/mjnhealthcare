@@ -144,6 +144,7 @@ model Person {
   referralCodes       ReferralCode[]     @relation("OwnedReferralCodes")
   referralUses        ReferralUse[]      @relation("ReferralUses")
   creditWallet        CreditWallet?
+  publicReferrals     PublicReferral[]   @relation("PublicReferrals")
   referredByCode      String?
 
   @@map("persons")
@@ -657,6 +658,7 @@ model Lead {
   destination         String?
   serviceInterest     String?
   notes               String?
+  refCode             String?
   status              LeadStatus @default(NEW)
   convertedPersonId   String?
   assignedConsultantId String?
@@ -1202,6 +1204,43 @@ model CreditTransfer {
   createdAt      DateTime     @default(now())
 
   @@map("credit_transfers")
+}
+
+// ─── Public Affiliate Referral (Refer & Earn) ────────────────────────────────
+
+enum PublicReferralStatus {
+  PENDING    // referred person registered but not paid yet
+  CONVERTED  // first payment received — $20 payout due
+  PAID       // admin marked payout as sent
+  VOID       // invalid / duplicate
+}
+
+model PublicReferrer {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  code      String   @unique
+  createdAt DateTime @default(now())
+
+  referrals PublicReferral[]
+
+  @@map("public_referrers")
+}
+
+model PublicReferral {
+  id           String               @id @default(cuid())
+  referrerId   String
+  referrer     PublicReferrer       @relation(fields: [referrerId], references: [id])
+  personId     String?              // set when referred person registers
+  person       Person?              @relation("PublicReferrals", fields: [personId], references: [id])
+  status       PublicReferralStatus @default(PENDING)
+  amountDue    Decimal              @default(20) @db.Decimal(10, 2)
+  convertedAt  DateTime?            // when first payment was made
+  paidAt       DateTime?            // when admin marked payout sent
+  createdAt    DateTime             @default(now())
+
+  @@map("public_referrals")
 }
 
 // ─── AI Conversation History ──────────────────────────────────────────────────
