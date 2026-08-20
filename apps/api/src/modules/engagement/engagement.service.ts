@@ -2,7 +2,8 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 import { DOCUMENT_CHECKLISTS } from './document-checklists';
-import * as PDFDocument from 'pdfkit';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const PDFDocument: any = require('pdfkit');
 @Injectable()
 export class EngagementService {
   private readonly logger = new Logger(EngagementService.name);
