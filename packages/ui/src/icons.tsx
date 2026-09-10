@@ -299,3 +299,4 @@ export const LinkIcon             = makeIcon('solar:link-bold');
 export const Export               = makeIcon('solar:export-bold');
 export const Rows                 = makeIcon('solar:layers-bold', 'solar:layers-bold-duotone');
 export const XIcon                = makeIcon('solar:close-bold');
+export const Student              = makeIcon('solar:notebook-bold', 'solar:notebook-bold-duotone');
