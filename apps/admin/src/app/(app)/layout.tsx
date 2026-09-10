@@ -222,6 +222,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AppShell
+      className="bg-slate-50"
       sections={sections}
       sidebarFooter={
         <button
@@ -249,12 +250,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3 ml-auto">
             <NotificationBell />
             {/* Role badge */}
-            <span className={`hidden sm:inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-              role === 'ADMIN' ? 'bg-primary/10 text-primary' :
-              role === 'CONSULTANT' ? 'bg-violet-100 text-violet-700' :
-              role === 'COMPLIANCE' ? 'bg-amber-100 text-amber-700' :
-              'bg-muted text-muted-foreground'
-            }`}>
+            <span className="hidden sm:inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600 ring-1 ring-slate-200">
               {roleLabel}
             </span>
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-xs font-bold text-white shadow-sm">
