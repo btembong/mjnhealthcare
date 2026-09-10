@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@mjn/ui';
 import {
   CircleNotch, MagnifyingGlass, UsersFour,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 const ROLE_STYLES: Record<string, string> = {

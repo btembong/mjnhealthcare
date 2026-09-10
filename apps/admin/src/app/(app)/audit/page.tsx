@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { PageHeader, Skeleton } from '@mjn/ui';
 import {
   CircleNotch, MagnifyingGlass, ClipboardText, FunnelSimple, X,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 const ACTION_STYLES: Record<string, string> = {

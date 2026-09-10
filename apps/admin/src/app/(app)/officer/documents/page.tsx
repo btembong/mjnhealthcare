@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card } from '@mjn/ui';
-import { FileText } from '@phosphor-icons/react';
+import { FileText } from '@mjn/ui';
 import { api } from '../../../../lib/api';
 import Link from 'next/link';
 

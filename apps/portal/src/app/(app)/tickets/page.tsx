@@ -8,7 +8,7 @@ import {
   FileText, CreditCard, BookOpen, Certificate,
   ChatCircle, Clock, CheckCircle, ArrowLeft,
   CaretDown,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 // ── Constants ─────────────────────────────────────────────────────────────────

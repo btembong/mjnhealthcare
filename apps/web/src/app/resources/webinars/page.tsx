@@ -16,7 +16,7 @@ import {
   Stethoscope,
   Briefcase,
   CheckCircle,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 // ─── DATA ──────────────────────────────────────────────────────────────────────
 

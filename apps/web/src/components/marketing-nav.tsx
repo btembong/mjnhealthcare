@@ -42,7 +42,7 @@ import {
   CheckCircle,
   Copy,
   X,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mjnhealthcare.com') + '/api/v1';
 

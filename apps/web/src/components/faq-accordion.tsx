@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { CaretDown } from '@phosphor-icons/react';
+import { CaretDown } from '@mjn/ui';
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');

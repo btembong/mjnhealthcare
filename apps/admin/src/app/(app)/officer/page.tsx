@@ -6,7 +6,7 @@ import {
   UsersThree, Warning, ArrowSquareUpRight, CheckCircle,
   Clock, Note, ArrowRight, Pulse, ListChecks, Plus,
   CalendarBlank, FileText, Clipboard, ChartBar,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';
 import { formatDistanceToNow, format, differenceInDays } from 'date-fns';

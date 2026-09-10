@@ -7,7 +7,7 @@ import {
   MagnifyingGlass, VideoCamera, Gavel, GearSix, ClipboardText, Buildings,
   Headset, MegaphoneSimple, MapTrifold, ChartBar, ChatCircle,
   Clipboard, ListChecks, Warning, CheckCircle, BookmarkSimple, Gift, Wallet,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { AdminProvider, useAdmin } from '../../contexts/admin-context';

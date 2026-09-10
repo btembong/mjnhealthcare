@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { PageHeader, Skeleton } from '@mjn/ui';
 import {
   Tag, CircleNotch, Check, PencilSimple, X, Plus, Trash,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 type EditState = { id: string; name: string; description: string; priceUsd: number };

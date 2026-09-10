@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@mjn/ui';
 import {
   CircleNotch, CheckCircle, Robot,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';
 

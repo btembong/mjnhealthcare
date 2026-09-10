@@ -9,7 +9,7 @@ import {
   CheckCircle, Clock, WarningCircle, TrendUp, ArrowRight,
   Sparkle, Buildings, Student, X, PaperPlaneTilt, ChatCircle,
   UploadSimple,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { useUser } from '../../contexts/user-context';
 import { api } from '../../lib/api';
 

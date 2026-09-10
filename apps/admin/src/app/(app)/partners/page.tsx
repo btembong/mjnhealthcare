@@ -6,7 +6,7 @@ import { PageHeader, Skeleton } from '@mjn/ui';
 import {
   Buildings, Plus, CircleNotch, CheckCircle, X, WarningCircle, ShieldCheck,
   Envelope, MagnifyingGlass,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 const PARTNER_TYPES = ['HOSPITAL', 'UNIVERSITY', 'AGENCY', 'CLINIC', 'GOVERNMENT'];

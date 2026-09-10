@@ -8,7 +8,7 @@ import {
   CalendarBlank, CurrencyDollar, Warning, Pulse, ClockCountdown,
   ArrowUpRight, UserCircle, Envelope, Signature, FolderOpen,
   Sparkle, TrendUp, Circle, UsersFour,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import {
   AreaChart, Area, XAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';

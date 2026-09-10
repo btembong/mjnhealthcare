@@ -6,7 +6,7 @@ import { Skeleton } from '@mjn/ui';
 import {
   ChatCircle, PaperPlaneRight, CircleNotch, MagnifyingGlass,
   ArrowLeft, User, ArrowSquareOut,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';

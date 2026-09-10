@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Button } from '@mjn/ui';
-import { X } from '@phosphor-icons/react';
+import { X } from '@mjn/ui';
 
 const STORAGE_KEY = 'mjn_cookie_consent';
 

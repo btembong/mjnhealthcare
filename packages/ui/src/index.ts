@@ -46,3 +46,6 @@ export type { Column } from './components/data-table';
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 export { cn } from './lib/utils';
+
+// ── Icons (Solar Bold + Bold-Duotone via @iconify/react) ──────────────────────
+export * from './icons';

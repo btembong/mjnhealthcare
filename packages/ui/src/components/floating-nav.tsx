@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { CaretDown, X, List, ArrowRight } from '@phosphor-icons/react';
+import { CaretDown, X, List, ArrowRight } from '@mjn/ui';
 import { cn } from '../lib/utils';
 
 export type NavSubItem = {

@@ -8,7 +8,7 @@ import type { ElementType } from 'react';
 import {
   ArrowRight, CheckCircle, GraduationCap, Users, BookOpen,
   PaperPlaneTilt, Stethoscope, ClipboardText, Coins, Handshake, Flask, Compass,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const services: { icon: ElementType; title: string; desc: string }[] = [
   {

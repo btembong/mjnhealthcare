@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api, setToken } from '../../lib/api';
-import { LockKey, Eye, EyeSlash, ArrowLeft, CircleNotch, CheckCircle, WarningCircle } from '@phosphor-icons/react';
+import { LockKey, Eye, EyeSlash, ArrowLeft, CircleNotch, CheckCircle, WarningCircle } from '@mjn/ui';
 
 function ResetPasswordForm() {
   const router = useRouter();

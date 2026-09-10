@@ -5,7 +5,7 @@ import { Card } from '@mjn/ui';
 import {
   User, UsersThree, CheckCircle, Warning, Power, X, CaretDown,
   Plus, PencilSimple, Trash, LockKey,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { toast } from 'sonner';
 

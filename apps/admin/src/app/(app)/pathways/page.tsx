@@ -6,7 +6,7 @@ import { PageHeader, Skeleton, Button, Badge } from '@mjn/ui';
 import {
   MapTrifold, Plus, CaretDown, CaretRight, PencilSimple,
   Trash, CheckCircle, CircleNotch, X, Globe,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────

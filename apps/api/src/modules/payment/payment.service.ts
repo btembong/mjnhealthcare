@@ -15,6 +15,25 @@ export class PaymentService {
     private readonly events: EventEmitter2,
   ) {}
 
+  /** Fetch live USD→XAF rate; falls back to the pegged rate (655) if the API is unreachable */
+  private async getUsdToXafRate(): Promise<number> {
+    const FALLBACK_RATE = 655; // CFA franc is semi-pegged; safe floor
+    try {
+      const res = await fetch(
+        'https://api.exchangerate-api.com/v4/latest/USD',
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (!res.ok) return FALLBACK_RATE;
+      const data: any = await res.json();
+      const rate = data?.rates?.XAF;
+      if (typeof rate === 'number' && rate > 400) return rate; // sanity check
+      return FALLBACK_RATE;
+    } catch {
+      this.logger.warn('Exchange rate fetch failed — using fallback rate 655 XAF/USD');
+      return FALLBACK_RATE;
+    }
+  }
+
   async initiatePayment(orderId: string, customerPhone?: string, customerEmail?: string) {
     const order = await this.orderService.getOrder(orderId);
     if (!order) throw new Error('Order not found');
@@ -43,12 +62,24 @@ export class PaymentService {
         : itemNames.length <= 3
         ? itemNames.join(', ')
         : `${itemNames.slice(0, 2).join(', ')} +${itemNames.length - 2} more`;
-    const description = `MJN Healthcare – ${descriptionDetail} · $${Number(order.total).toLocaleString()} USD`;
+
+    // ── USD → XAF conversion ─────────────────────────────────────────────────
+    // All prices in DB are stored in USD. Tranzak processes in XAF (CFA franc).
+    // We convert here; receipts and order totals remain in USD.
+    const amountUsd = Number(order.total);
+    const xafRate = await this.getUsdToXafRate();
+    const amountXaf = Math.round(amountUsd * xafRate); // XAF has no decimal places
+
+    this.logger.log(
+      `Payment conversion: $${amountUsd} USD × ${xafRate} = ${amountXaf} XAF (order ${orderId})`,
+    );
+
+    const description = `MJN Healthcare – ${descriptionDetail} · $${amountUsd.toLocaleString()} USD (${amountXaf.toLocaleString()} XAF)`;
 
     const result = await this.tranzak.initiatePayment({
       orderId,
-      amount: Number(order.total),
-      currency: 'USD',
+      amount: amountXaf,
+      currency: 'XAF',
       description,
       customerPhone,
       customerEmail,

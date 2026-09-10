@@ -5,7 +5,7 @@ import * as React from 'react';
 import { Button, Badge } from '@mjn/ui';
 import {
   ArrowRight, EnvelopeSimple, Lock, Eye, EyeSlash, Phone,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'http://localhost:3002';

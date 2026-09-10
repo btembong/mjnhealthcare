@@ -7,7 +7,7 @@ import { PageHeader, Skeleton, Badge } from '@mjn/ui';
 import {
   ArrowLeft, User, EnvelopeSimple, Phone, Globe, Briefcase,
   FileText, CalendarCheck, Clock, CheckCircle, XCircle, HourglassSimple,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../../lib/api';
 
 const STATUS_COLORS: Record<string, string> = {

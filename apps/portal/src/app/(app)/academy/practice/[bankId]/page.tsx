@@ -6,7 +6,7 @@ import {
   ArrowLeft, Brain, CheckCircle, X, ArrowRight,
   CircleNotch, Timer, ArrowCounterClockwise, Eye,
   WarningCircle,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../../../lib/api';
 import { useUser } from '../../../../../contexts/user-context';
 

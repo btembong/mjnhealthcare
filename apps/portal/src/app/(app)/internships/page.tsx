@@ -7,7 +7,7 @@ import {
   GraduationCap, MapPin, Buildings, ArrowRight, MagnifyingGlass,
   CheckCircle, X, Globe, BookOpen, Student, CalendarBlank,
   Certificate, FunnelSimple, PaperPlaneTilt,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
 import { toast } from 'sonner';

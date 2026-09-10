@@ -6,7 +6,7 @@ import { Command } from 'cmdk';
 import {
   SquaresFour, FileText, CreditCard, BookOpen, CalendarBlank,
   GearSix, MagnifyingGlass, UploadSimple,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const ITEMS = [
   { label: 'Dashboard', icon: SquaresFour, href: '/', keywords: 'home overview' },

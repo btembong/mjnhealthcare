@@ -16,7 +16,7 @@ import {
   Sliders,
   CaretRight,
   Warning,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 // ─── ELIGIBILITY CHECKER ──────────────────────────────────────────────────────
 

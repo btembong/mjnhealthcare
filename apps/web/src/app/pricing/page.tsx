@@ -10,7 +10,7 @@ import {
   ArrowRight,
   Info,
   Phone,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Profession = 'nurse' | 'physician';

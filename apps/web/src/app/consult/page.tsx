@@ -9,7 +9,7 @@ import {
   Star, Clock, CheckCircle, CalendarBlank, User, Warning,
   Lock, CircleNotch, Shield, CurrencyDollar, Phone, EnvelopeSimple,
   ChatText, SealCheck, CaretRight, Globe,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
 

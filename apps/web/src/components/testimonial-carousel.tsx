@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Play, Pause, Star, MapPin } from '@phosphor-icons/react';
+import { Play, Pause, Star, MapPin } from '@mjn/ui';
 
 type Testimonial = {
   name: string;

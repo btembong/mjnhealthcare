@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import {
   Gift, Copy, ArrowsLeftRight, CurrencyDollar, Clock,
   CheckCircle, ArrowDown, ArrowUp, TrendUp, Users, Info,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 type Wallet = {
   balanceCents: number;

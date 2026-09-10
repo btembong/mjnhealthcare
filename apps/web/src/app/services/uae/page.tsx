@@ -7,7 +7,7 @@ import { Button, Badge } from '@mjn/ui';
 import {
   ArrowRight, CheckCircle, Clock, FileText, Shield, Users,
   Star, CaretRight, Stethoscope, Warning, Question,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const steps = [
   {

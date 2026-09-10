@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { MarketingNav } from '../../../components/marketing-nav';
 import { SiteFooter } from '../../../components/site-footer';
 import { Button, Badge } from '@mjn/ui';
-import { ArrowRight, CheckCircle, Clock, Star, Users, Brain } from '@phosphor-icons/react';
+import { ArrowRight, CheckCircle, Clock, Star, Users, Brain } from '@mjn/ui';
 
 const whatsCovered = [
   'NGN item types: case studies, bow-tie, matrix, cloze, and highlight',

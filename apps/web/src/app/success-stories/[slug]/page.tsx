@@ -14,7 +14,7 @@ import {
   Clock,
   CheckCircle,
   Quotes,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { stories } from '../../../lib/stories';
 
 export default function StoryDetailPage({ params }: { params: Promise<{ slug: string }> }) {

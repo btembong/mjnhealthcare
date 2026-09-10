@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@mjn/ui';
 import {
   CircleNotch, Plus, CheckCircle, BookOpen, ArrowRight,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 const EXAM_TYPES = ['NCLEX', 'HAAD', 'DHA', 'CBT', 'DA', 'NMC', 'CGFNS'];

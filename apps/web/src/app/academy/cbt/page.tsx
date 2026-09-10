@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { MarketingNav } from '../../../components/marketing-nav';
 import { SiteFooter } from '../../../components/site-footer';
 import { Button, Badge } from '@mjn/ui';
-import { ArrowRight, CheckCircle, Clock, Users } from '@phosphor-icons/react';
+import { ArrowRight, CheckCircle, Clock, Users } from '@mjn/ui';
 
 const examDetails = [
   { label: 'Full name', value: 'NMC CBT — Nursing and Midwifery Council Computer-Based Test' },

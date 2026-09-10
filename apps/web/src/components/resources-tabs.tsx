@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { BookOpen, VideoCamera, FileText, Wrench, DownloadSimple, Clock, Users, ArrowRight } from '@phosphor-icons/react';
+import { BookOpen, VideoCamera, FileText, Wrench, DownloadSimple, Clock, Users, ArrowRight } from '@mjn/ui';
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');

@@ -9,7 +9,7 @@ import {
   ArrowRight, ShoppingCart, Confetti,
   Coins, FilePdf, Printer, ChatText, Folder, CircleNotch,
   CaretLeft, CaretRight,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
 import { toast } from 'sonner';

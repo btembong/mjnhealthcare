@@ -5,7 +5,7 @@ import { PageHeader, Button, Skeleton } from '@mjn/ui';
 import {
   WarningCircle, CircleNotch, FloppyDisk,
   User, Envelope, Phone, Globe, Bell, EnvelopeSimple, DeviceMobile,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
 

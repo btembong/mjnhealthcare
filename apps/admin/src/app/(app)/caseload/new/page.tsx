@@ -6,7 +6,7 @@ import { PageHeader } from '@mjn/ui';
 import {
   MagnifyingGlass, User, Briefcase, ArrowLeft,
   CircleNotch, Check, UserPlus,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../../lib/api';
 
 type Person = {

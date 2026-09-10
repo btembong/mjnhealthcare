@@ -7,7 +7,7 @@ import {
   Briefcase, Plus, CircleNotch, X, MapPin, Buildings, MagnifyingGlass,
   Trash, PencilSimple, Users, CheckCircle, CaretDown, ArrowRight,
   WarningCircle, Clock,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 type Tab = 'opportunities' | 'applications';

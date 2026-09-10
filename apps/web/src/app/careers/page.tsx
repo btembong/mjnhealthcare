@@ -5,7 +5,7 @@ import * as React from 'react';
 import { MarketingNav } from '../../components/marketing-nav';
 import { SiteFooter } from '../../components/site-footer';
 import { Button, Badge } from '@mjn/ui';
-import { ArrowRight, CheckCircle, MapPin, Clock } from '@phosphor-icons/react';
+import { ArrowRight, CheckCircle, MapPin, Clock } from '@mjn/ui';
 
 const openRoles = [
   {

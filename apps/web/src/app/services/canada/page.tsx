@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { MarketingNav } from '../../../components/marketing-nav';
 import { SiteFooter } from '../../../components/site-footer';
 import { Button, Badge } from '@mjn/ui';
-import { ArrowRight, CheckCircle, Clock, Users, GraduationCap, IdentificationCard, FileText, Shield } from '@phosphor-icons/react';
+import { ArrowRight, CheckCircle, Clock, Users, GraduationCap, IdentificationCard, FileText, Shield } from '@mjn/ui';
 
 // ── Express Entry steps ──────────────────────────────────────────────────────
 

@@ -8,7 +8,7 @@ import { Badge } from '@mjn/ui';
 import {
   ArrowRight, Clock, MagnifyingGlass, TrendUp,
   BookOpen, Users, CalendarBlank, X,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 

@@ -6,7 +6,7 @@ import { PageHeader, Skeleton } from '@mjn/ui';
 import {
   MegaphoneSimple, Plus, X, CircleNotch, PaperPlaneTilt, Pencil,
   UploadSimple, FileArrowUp, CheckCircle, Warning, Users,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

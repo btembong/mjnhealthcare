@@ -8,7 +8,7 @@ import {
   ArrowRight, ArrowLeft, CalendarBlank, CheckCircle, Clock,
   CircleNotch, ChatCircle, Warning,
   User, Envelope, Phone, Star,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
 const CONSULTATION_RESOURCE_ID = 'general-consultation';

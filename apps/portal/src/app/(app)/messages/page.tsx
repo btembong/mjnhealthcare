@@ -7,7 +7,7 @@ import {
   PaperPlaneTilt, ChatCircle, ArrowDown, CheckCircle,
   Check, Paperclip, X, ArrowSquareOut, Image as ImageIcon,
   FileText, FilePdf, CircleNotch, Camera,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { useUser } from '../../../contexts/user-context';
 

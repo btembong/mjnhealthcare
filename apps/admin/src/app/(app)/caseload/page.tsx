@@ -7,7 +7,7 @@ import {
   MagnifyingGlass, CaretUp, CaretDown, CaretUpDown, Plus,
   Rows, Kanban, CalendarBlank, CheckSquare, Export, UserPlus,
   X as XIcon,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import {
   useReactTable,
   getCoreRowModel,

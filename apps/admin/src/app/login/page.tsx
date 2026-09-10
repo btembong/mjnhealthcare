@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, setToken } from '../../lib/api';
 import Link from 'next/link';
-import { Envelope, LockKey, ArrowRight, CircleNotch, CheckCircle, ShieldCheck } from '@phosphor-icons/react';
+import { Envelope, LockKey, ArrowRight, CircleNotch, CheckCircle, ShieldCheck } from '@mjn/ui';
 
 export default function AdminLoginPage() {
   const router = useRouter();

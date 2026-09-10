@@ -7,7 +7,7 @@ import {
   Star, Clock, CalendarBlank, User, CheckCircle, VideoCamera,
   Globe, CaretLeft, CaretRight, CircleNotch, Translate,
   Info, VideoConference,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { Skeleton } from '@mjn/ui';
 import { toast } from 'sonner';
 import { useUser } from '../../../../contexts/user-context';

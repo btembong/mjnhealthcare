@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Bell, FileText, Robot, VideoCamera, UserCircle, CheckCircle,
   Warning, CircleNotch, X,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../lib/api';
 import { useAdmin } from '../contexts/admin-context';
 import { formatDistanceToNow } from 'date-fns';

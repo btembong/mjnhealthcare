@@ -10,7 +10,7 @@ import {
   GraduationCap, ClipboardText, Money, X, CheckCircle,
   CircleNotch, SortAscending, Funnel, Star,
   ArrowRight, Envelope, User,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
 

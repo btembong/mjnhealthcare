@@ -6,7 +6,7 @@ import { PageHeader } from '@mjn/ui';
 import {
   User, Lock, Bell, GearSix, CircleNotch, CheckCircle,
   XCircle, WarningCircle, X, CaretDown,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';
 

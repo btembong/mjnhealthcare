@@ -6,7 +6,7 @@ import {
   CheckCircle, CalendarBlank, Clock, VideoCamera, ArrowRight,
   User, Envelope, DeviceMobile, WarningCircle, ArrowSquareOut,
   BookOpen, ChatCircle, Confetti,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { Skeleton } from '@mjn/ui';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';

@@ -6,7 +6,7 @@ import { Command } from 'cmdk';
 import {
   ChartLineUp, UsersThree, UsersFour, FileText, Robot, BookOpen,
   Briefcase, User, Tag, CalendarBlank, CurrencyDollar, MagnifyingGlass,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const ITEMS = [
   { label: 'Dashboard', icon: ChartLineUp, href: '/', keywords: 'home overview metrics' },

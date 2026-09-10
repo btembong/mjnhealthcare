@@ -5,7 +5,7 @@ import { PageHeader, Skeleton } from '@mjn/ui';
 import {
   CurrencyDollar, Users, GraduationCap,
   TrendUp, ArrowUp, ArrowDown,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,

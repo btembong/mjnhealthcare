@@ -7,7 +7,7 @@ import {
   User, FileText, Note, ArrowSquareUpRight, Warning,
   CheckCircle, Plus, PaperPlaneRight, UploadSimple,
   ClockCountdown, CheckFat,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../../../lib/api';
 import { toast } from 'sonner';
 import Link from 'next/link';

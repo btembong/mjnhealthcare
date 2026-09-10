@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import React from 'react';
-import { Envelope, ChatCircle, Plus, Minus } from '@phosphor-icons/react';
+import { Envelope, ChatCircle, Plus, Minus } from '@mjn/ui';
 
 const footerServices = [
   { label: 'Global Placement', href: '/services/global-placement' },

@@ -10,7 +10,7 @@ import {
   ListChecks, ChartBar, CalendarBlank, BookOpen,
   Lightning, Flame, Star, ArrowUp, ArrowDown, Minus,
   Timer, ArrowCounterClockwise, Eye,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { useUser } from '../../../contexts/user-context';
 import { toast } from 'sonner';

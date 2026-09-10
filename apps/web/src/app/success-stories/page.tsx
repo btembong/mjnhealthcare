@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { MarketingNav } from '../../components/marketing-nav';
 import { SiteFooter } from '../../components/site-footer';
 import { Button, Badge } from '@mjn/ui';
-import { ArrowRight, Star, Clock, MapPin } from '@phosphor-icons/react';
+import { ArrowRight, Star, Clock, MapPin } from '@mjn/ui';
 import { stories } from '../../lib/stories';
 
 const stats = [

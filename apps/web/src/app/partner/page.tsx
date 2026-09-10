@@ -7,7 +7,7 @@ import { SiteFooter } from '../../components/site-footer';
 import { Button, Badge } from '@mjn/ui';
 import {
   ArrowRight, CheckCircle, Buildings, Users, Shield, Handshake,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const partnerTypes = [
   {

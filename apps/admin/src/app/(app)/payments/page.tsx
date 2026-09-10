@@ -16,7 +16,7 @@ import {
   Receipt,
   CalendarBlank,
   Funnel,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 // ── Status styles ────────────────────────────────────────────────────────────

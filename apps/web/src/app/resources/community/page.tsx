@@ -15,7 +15,7 @@ import {
   Heart,
   Handshake,
   Megaphone,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 // ─── DATA ──────────────────────────────────────────────────────────────────────
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card } from '@mjn/ui';
 import {
   CheckCircle, X, Warning, User, Note, Clock,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { toast } from 'sonner';
 

@@ -1,7 +1,7 @@
 'use client';
 import * as React from 'react';
 import * as C from '@radix-ui/react-checkbox';
-import { Check } from '@phosphor-icons/react';
+import { Check } from '@mjn/ui';
 import { cn } from '../../lib/utils';
 
 const Checkbox = React.forwardRef<React.ElementRef<typeof C.Root>, React.ComponentPropsWithoutRef<typeof C.Root>>(

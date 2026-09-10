@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader, Skeleton } from '@mjn/ui';
-import { CalendarBlank } from '@phosphor-icons/react';
+import { CalendarBlank } from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 const STATUS_STYLES: Record<string, string> = {

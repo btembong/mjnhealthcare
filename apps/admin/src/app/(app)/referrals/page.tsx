@@ -7,7 +7,7 @@ import {
   Gift, Users, CurrencyDollar, TrendUp, Prohibit,
   MagnifyingGlass, ArrowsLeftRight, Warning, LinkSimple,
   CheckCircle, Clock, ArrowSquareOut,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 type ReferralCode = {

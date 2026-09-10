@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { MarketingNav } from '../../../components/marketing-nav';
 import { SiteFooter } from '../../../components/site-footer';
 import { Button, Badge } from '@mjn/ui';
-import { ArrowRight, CheckCircle, Clock, FileText, Users, Star } from '@phosphor-icons/react';
+import { ArrowRight, CheckCircle, Clock, FileText, Users, Star } from '@mjn/ui';
 
 const steps = [
   {

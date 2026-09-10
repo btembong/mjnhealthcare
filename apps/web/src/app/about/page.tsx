@@ -7,7 +7,7 @@ import {
   Scales, Translate, MapPin, Users, GraduationCap,
   Medal, ClockCounterClockwise, ShieldCheck,
   ArrowUpRight, Quotes, Star, SealCheck,
-} from '@phosphor-icons/react/dist/ssr';
+} from '@mjn/ui';
 import { PhotoStrip } from './photo-strip';
 import { members } from '../team/data';
 

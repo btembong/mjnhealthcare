@@ -12,7 +12,7 @@ import {
   Paperclip, FileText, UploadSimple, Image as ImageIcon,
   FilePdf, FileDoc, Link as LinkIcon,
   Note, ArrowSquareUpRight, Warning, Lock,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../../lib/api';
 import { useAdmin } from '../../../../contexts/admin-context';
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';

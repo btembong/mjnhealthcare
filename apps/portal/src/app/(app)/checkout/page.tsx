@@ -10,7 +10,7 @@ import {
   CaretDown, CaretUp, ShieldCheck, Prohibit, Clock as ClockIcon,
   ChatCircle, X, Receipt, UserCircle, Envelope, Phone,
   CalendarCheck, Bell, ArrowSquareOut,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
 

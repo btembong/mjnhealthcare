@@ -6,7 +6,7 @@ import { SiteFooter } from '../../../components/site-footer';
 import { Button, Badge } from '@mjn/ui';
 import {
   ArrowRight, CheckCircle, Users, GraduationCap, Buildings, Heartbeat,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const programmes = [
   {

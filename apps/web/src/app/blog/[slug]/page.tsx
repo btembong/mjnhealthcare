@@ -10,7 +10,7 @@ import {
   ArrowRight, Clock, CaretLeft, ArrowUpRight,
   CalendarBlank, Link as LinkIcon, LinkedinLogo,
   WhatsappLogo, Check, List, ArrowUp,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

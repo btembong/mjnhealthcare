@@ -5,7 +5,7 @@ import { PageHeader } from '@mjn/ui';
 import Link from 'next/link';
 import {
   CircleNotch, ArrowsClockwise, UserPlus, UsersFour, ArrowSquareOut,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 const STATUS_STYLES: Record<string, string> = {

@@ -6,7 +6,7 @@ import { PageHeader, Button } from '@mjn/ui';
 import {
   CircleNotch, User, Plus, X, WarningCircle, CaretDown,
   CheckCircle, XCircle, IdentificationBadge, Key,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 const ROLES = ['ADMIN', 'CONSULTANT', 'COMPLIANCE', 'PROCESSING_OFFICER', 'FINANCE'] as const;

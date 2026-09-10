@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card } from '@mjn/ui';
-import { UsersThree, ArrowRight, ClockCounterClockwise } from '@phosphor-icons/react';
+import { UsersThree, ArrowRight, ClockCounterClockwise } from '@mjn/ui';
 import { api } from '../../../../lib/api';
 import Link from 'next/link';
 

@@ -5,7 +5,7 @@ import { Skeleton } from '@mjn/ui';
 import {
   CurrencyDollar, CheckCircle, Clock, Warning,
   TrendUp, Calendar,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';
 import { format } from 'date-fns';

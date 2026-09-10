@@ -1,7 +1,7 @@
 'use client';
 import * as React from 'react';
 import * as D from '@radix-ui/react-dialog';
-import { X } from '@phosphor-icons/react';
+import { X } from '@mjn/ui';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/utils';
 

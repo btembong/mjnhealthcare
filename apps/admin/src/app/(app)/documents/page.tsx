@@ -7,7 +7,7 @@ import {
   CheckCircle, XCircle, Eye, X, CircleNotch, ArrowClockwise,
   MagnifyingGlass, WarningCircle, Clock, ShieldCheck, ArrowSquareOut,
   FileText, User, CalendarBlank, Funnel, Sparkle,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';
 

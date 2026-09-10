@@ -7,7 +7,7 @@ import {
   Briefcase, MapPin, Buildings, ArrowRight, MagnifyingGlass,
   Stethoscope, Clock, CheckCircle, X, FunnelSimple,
   BookmarkSimple, ShareNetwork, Globe,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
 import { toast } from 'sonner';

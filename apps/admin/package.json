@@ -14,7 +14,6 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@mjn/types": "workspace:*",
     "@mjn/ui": "workspace:*",
-    "@phosphor-icons/react": "^2.1.7",
     "@tanstack/react-table": "^8.21.3",
     "cmdk": "^1.1.1",
     "date-fns": "^4.4.0",

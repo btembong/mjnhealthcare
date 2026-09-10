@@ -9,7 +9,7 @@ import {
   CheckCircle, CalendarBlank, Clock, VideoCamera, Envelope,
   WhatsappLogo, ArrowRight, User, Warning, CircleNotch,
   Confetti, ArrowSquareOut, BookOpen, Phone,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
 

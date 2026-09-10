@@ -1,7 +1,7 @@
 'use client';
 import * as React from 'react';
 import * as SP from '@radix-ui/react-select';
-import { Check, CaretDown, CaretUp } from '@phosphor-icons/react';
+import { Check, CaretDown, CaretUp } from '@mjn/ui';
 import { cn } from '../../lib/utils';
 
 const Select = SP.Root;

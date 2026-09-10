@@ -14,7 +14,7 @@ import {
   CaretRight, Brain, CalendarBlank, FileText, Target, ChatCircle,
   Shield, Heartbeat, Users, Lightning, BookOpen, Warning, Money,
   X as XIcon, MapPin, Clock, TrendUp, SealCheck,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 

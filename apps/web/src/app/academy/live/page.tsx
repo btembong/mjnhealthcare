@@ -14,7 +14,7 @@ import {
   CalendarBlank,
   ChatCircle,
   Play,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Session = {

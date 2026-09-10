@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Plus, Pencil, Trash, Check, X, ChatText, MagnifyingGlass, CircleNotch,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 const CONFIG_KEY = 'message_templates';

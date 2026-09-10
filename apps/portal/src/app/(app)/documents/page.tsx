@@ -8,7 +8,7 @@ import {
   X, Eye, FilePlus, CaretDown,
   Lock, ShieldCheck, TrendUp, CreditCard, Image, Trash, DownloadSimple,
   PaperPlaneRight,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
 import { toast } from 'sonner';

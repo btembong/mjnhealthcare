@@ -158,13 +158,26 @@ export class ConsultationService {
         throw new Error('Payment gateway authentication failed');
       }
 
+      // ── USD → XAF conversion ──────────────────────────────────────────────
+      const amountUsd = Number(consultant.priceUsd);
+      let xafRate = 655; // safe fallback (CFA semi-pegged rate)
+      try {
+        const rateRes = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { signal: AbortSignal.timeout(4000) });
+        if (rateRes.ok) {
+          const rateData = await rateRes.json() as { rates?: { XAF?: number } };
+          if (rateData.rates?.XAF && rateData.rates.XAF > 400) xafRate = rateData.rates.XAF;
+        }
+      } catch { /* use fallback */ }
+      const amountXaf = Math.round(amountUsd * xafRate);
+      this.logger.log(`Consultation payment: $${amountUsd} USD × ${xafRate} = ${amountXaf} XAF (booking ${booking.id})`);
+
       const payRes = await fetch(`${process.env.TRANZAK_BASE_URL ?? 'https://dsapi.tranzak.me'}/xp021/v1/request/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          amount: Number(consultant.priceUsd),
-          currencyCode: 'USD',
-          description: `MJN Healthcare — ${dto.consultationCategory} Consultation with ${consultant.name}`,
+          amount: amountXaf,
+          currencyCode: 'XAF',
+          description: `MJN Healthcare — ${dto.consultationCategory} Consultation with ${consultant.name} ($${amountUsd} USD)`,
           returnUrl,
           callbackUrl: notifyUrl,
           mchTransactionRef: booking.id,

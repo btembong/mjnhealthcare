@@ -7,7 +7,7 @@ import {
   WarningCircle, CurrencyDollar, User, X, CaretDown, ClipboardText,
   CheckSquare, XSquare, Briefcase, CalendarPlus, Trash, CircleNotch,
   CalendarBlank, Plus, Image, Check,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 
 type Consultant = {

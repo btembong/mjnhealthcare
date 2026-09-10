@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@mjn/ui';
-import { HouseSimple, ArrowLeft, MagnifyingGlass } from '@phosphor-icons/react';
+import { HouseSimple, ArrowLeft, MagnifyingGlass } from '@mjn/ui';
 
 export default function NotFound() {
   return (

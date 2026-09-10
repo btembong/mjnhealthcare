@@ -7,7 +7,7 @@ import {
   CheckCircle, X, ShoppingCart, Briefcase, GraduationCap,
   WarningCircle, Signature, ArrowRight, ChatCircle, Headset,
   Gift,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { UserProvider, useUser } from '../../contexts/user-context';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';

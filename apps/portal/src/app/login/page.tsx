@@ -6,7 +6,7 @@ import { api, setToken } from '../../lib/api';
 import {
   Envelope, ArrowRight, CircleNotch, CheckCircle, Key,
   ArrowCounterClockwise, User, Briefcase, Globe,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 
 type Step = 'email' | 'otp' | 'done';
 

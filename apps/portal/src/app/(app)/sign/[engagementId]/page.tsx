@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   CheckCircle, CircleNotch, Signature, Seal,
   ArrowLeft, WarningCircle, Scroll,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../../lib/api';
 import { useUser } from '../../../../contexts/user-context';
 import { toast } from 'sonner';

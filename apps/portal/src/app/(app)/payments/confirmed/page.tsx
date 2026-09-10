@@ -8,7 +8,7 @@ import {
   ShoppingCart,
   CheckCircle, CircleNotch, Clock, Warning, ArrowRight,
   Receipt, Envelope, WhatsappLogo,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../../lib/api';
 
 function ConfirmedContent() {

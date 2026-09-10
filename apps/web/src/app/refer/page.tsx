@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { MarketingNav } from '../../components/marketing-nav';
 import { SiteFooter } from '../../components/site-footer';
-import { ArrowRight, CheckCircle, CurrencyDollar, Link as LinkIcon, Users, Copy } from '@phosphor-icons/react';
+import { ArrowRight, CheckCircle, CurrencyDollar, Link as LinkIcon, Users, Copy } from '@mjn/ui';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.mjnhealthcare.com') + '/api/v1';
 

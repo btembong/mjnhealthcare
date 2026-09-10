@@ -7,7 +7,7 @@ import {
   ArrowLeft, FilePdf, Article, Video, CheckCircle,
   CircleNotch, CaretDown, CaretRight, Lock, Brain,
   WarningCircle, BookOpen,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../../lib/api';
 import { useUser } from '../../../../contexts/user-context';
 

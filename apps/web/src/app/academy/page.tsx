@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { MarketingNav } from '../../components/marketing-nav';
 import { SiteFooter } from '../../components/site-footer';
 import { Button, Badge } from '@mjn/ui';
-import { ArrowRight, CheckCircle, Brain, Users, Lightning, BookOpen, CaretRight, Star, Clock } from '@phosphor-icons/react';
+import { ArrowRight, CheckCircle, Brain, Users, Lightning, BookOpen, CaretRight, Star, Clock } from '@mjn/ui';
 
 const courses = [
   {

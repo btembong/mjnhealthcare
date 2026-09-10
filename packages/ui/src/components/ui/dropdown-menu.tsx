@@ -1,7 +1,7 @@
 'use client';
 import * as React from 'react';
 import * as DM from '@radix-ui/react-dropdown-menu';
-import { Check, CaretRight } from '@phosphor-icons/react';
+import { Check, CaretRight } from '@mjn/ui';
 import { cn } from '../../lib/utils';
 
 const DropdownMenu = DM.Root;

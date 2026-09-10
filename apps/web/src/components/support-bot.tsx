@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { X as XIcon, ChatCircle, ArrowRight, CalendarCheck, CaretLeft, CircleNotch } from '@phosphor-icons/react';
+import { X as XIcon, ChatCircle, ArrowRight, CalendarCheck, CaretLeft, CircleNotch } from '@mjn/ui';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
 

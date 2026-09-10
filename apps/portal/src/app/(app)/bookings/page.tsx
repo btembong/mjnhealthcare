@@ -8,7 +8,7 @@ import {
   BookOpen, FileText, Stethoscope, Users, ArrowRight,
   Bell, ChatCircle, Plus, User, Prohibit, CircleNotch,
   CaretLeft, CaretRight,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { toast } from 'sonner';
 import { useUser } from '../../../contexts/user-context';
 import {

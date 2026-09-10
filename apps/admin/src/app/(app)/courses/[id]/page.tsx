@@ -8,7 +8,7 @@ import {
   Video, FilePdf, Article, Books, Users, Gear, BookOpen,
   CaretDown, CaretRight, Warning, CalendarBlank, Play, Stop,
   LinkSimple, Clock, X,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../../lib/api';
 
 const EXAM_TYPES = ['NCLEX', 'HAAD', 'DHA', 'CBT', 'DA', 'NMC', 'CGFNS'];

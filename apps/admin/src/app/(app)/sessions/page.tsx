@@ -7,7 +7,7 @@ import {
   VideoCamera, MagnifyingGlass, CheckCircle, Clock, X,
   ArrowSquareOut, CircleNotch, Warning, CalendarBlank,
   CurrencyDollar, CaretDown, User, CaretLeft, CaretRight, Rows,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';
 import {

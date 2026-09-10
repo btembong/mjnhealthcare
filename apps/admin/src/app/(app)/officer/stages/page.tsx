@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card } from '@mjn/ui';
-import { ListChecks, ArrowRight } from '@phosphor-icons/react';
+import { ListChecks, ArrowRight } from '@mjn/ui';
 import { api } from '../../../../lib/api';
 import Link from 'next/link';
 

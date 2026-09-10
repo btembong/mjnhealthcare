@@ -9,7 +9,7 @@ import {
   ChatText, CreditCard, BookOpen, Copy, MapPin,
   Buildings, Envelope, ArrowRight, Warning,
   Headset, Receipt, Flag, ArrowSquareUpRight, DownloadSimple,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
 import { toast } from 'sonner';

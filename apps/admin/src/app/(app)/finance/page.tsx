@@ -7,7 +7,7 @@ import {
   Clock, ChartBar, Export, MagnifyingGlass, Gift,
   ArrowUp, ArrowDown, Minus, Stethoscope, FileText,
   ListChecks,
-} from '@phosphor-icons/react';
+} from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { toast } from 'sonner';
 
