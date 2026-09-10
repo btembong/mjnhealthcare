@@ -281,3 +281,6 @@ export const Flag                 = makeIcon('solar:flag-bold', 'solar:flag-bold
 export const Power                = makeIcon('solar:power-bold', 'solar:power-bold-duotone');
 export const Confetti             = makeIcon('solar:confetti-bold', 'solar:confetti-bold-duotone');
 export const Quotes               = makeIcon('solar:chat-square-bold', 'solar:chat-square-bold-duotone');
+export const Scales               = makeIcon('solar:scale-bold', 'solar:scale-bold-duotone');
+export const Translate            = makeIcon('solar:translation-bold', 'solar:translation-bold-duotone');
+export const Megaphone            = makeIcon('solar:megaphone-bold', 'solar:megaphone-bold-duotone');
