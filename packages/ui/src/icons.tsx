@@ -279,3 +279,5 @@ export const UsersFour            = makeIcon('solar:users-group-rounded-bold', '
 export const XSquare              = makeIcon('solar:close-square-bold', 'solar:close-square-bold-duotone');
 export const Flag                 = makeIcon('solar:flag-bold', 'solar:flag-bold-duotone');
 export const Power                = makeIcon('solar:power-bold', 'solar:power-bold-duotone');
+export const Confetti             = makeIcon('solar:confetti-bold', 'solar:confetti-bold-duotone');
+export const Quotes               = makeIcon('solar:chat-square-bold', 'solar:chat-square-bold-duotone');
