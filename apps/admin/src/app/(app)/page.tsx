@@ -311,11 +311,16 @@ function ConsultantDashboard() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">{greeting(staffName)}</h1>
           <p className="text-xs text-slate-400 mt-0.5">{format(new Date(), 'EEEE, MMMM d, yyyy')} · {myCases.length} cases assigned</p>
         </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 shrink-0 sm:w-28">Quick Actions</p>
         <div className="flex flex-wrap gap-2">
           <QA icon={UserCircle}    label="My Cases"  onClick={() => router.push('/caseload')}   primary />
           <QA icon={CalendarCheck} label="Sessions"  onClick={() => router.push('/sessions')}   badge={todaySessions.length > 0 ? todaySessions.length : undefined} />
@@ -612,15 +617,18 @@ function ComplianceDashboard() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">{greeting(staffName)}</h1>
-          <p className="text-xs text-slate-400 mt-0.5">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
-        </div>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl font-bold text-slate-900">{greeting(staffName)}</h1>
+        <p className="text-xs text-slate-400">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 shrink-0 sm:w-28">Quick Actions</p>
         <div className="flex flex-wrap gap-2">
-          <QA icon={FileText} label="Doc Queue" onClick={() => router.push('/documents')} badge={pendingDocs.length} primary />
-          <QA icon={Warning}  label="On Hold"   onClick={() => router.push('/caseload')} badge={onHold.length > 0 ? onHold.length : undefined} />
-          <QA icon={ChartBar} label="Audit Log" onClick={() => router.push('/audit')} />
+          <QA icon={FileText} label="Doc Queue"   onClick={() => router.push('/documents')} badge={pendingDocs.length} primary />
+          <QA icon={Warning}  label="On Hold"     onClick={() => router.push('/caseload')}  badge={onHold.length > 0 ? onHold.length : undefined} />
+          <QA icon={ChartBar} label="Audit Log"   onClick={() => router.push('/audit')} />
           <QA icon={Users}    label="All Clients" onClick={() => router.push('/clients')} />
         </div>
       </div>
@@ -801,19 +809,17 @@ function AdminDashboard() {
     <div className="space-y-6">
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">{greeting(staffName)}</h1>
-          <p className="text-xs text-slate-400 mt-0.5">{format(new Date(), 'EEEE, MMMM d, yyyy')} · {persons.length} clients in system</p>
+          <p className="text-xs text-slate-400 mt-0.5">Here's what's happening across your caseload</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <QA icon={Plus}            label="New Case"  onClick={() => router.push('/caseload/new')} primary />
-          <QA icon={FileText}        label="Doc Queue" onClick={() => router.push('/documents')}    badge={pendingDocs.length} />
-          <QA icon={Sparkle}         label="AI Drafts" onClick={() => router.push('/drafts')}       badge={pendingDrafts.length} />
-          <QA icon={UserPlus}        label="Add Lead"  onClick={() => router.push('/leads')} />
-          <QA icon={ChartBar}        label="Pipeline"  onClick={() => router.push('/caseload')} />
-          <QA icon={CurrencyDollar}  label="Finance"   onClick={() => router.push('/finance')} />
-          <QA icon={MagnifyingGlass} label="Search"    onClick={() => router.push('/clients')} />
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm self-start sm:self-auto">
+          {(['MTD', '7d', '30d', 'YTD'] as const).map((t) => (
+            <span key={t} className={`rounded-md px-3 py-1.5 text-xs font-semibold cursor-default transition-colors ${
+              t === '30d' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'
+            }`}>{t}</span>
+          ))}
         </div>
       </div>
 
@@ -845,6 +851,20 @@ function AdminDashboard() {
           sub={`${bookings.length} total bookings`}
           icon={CalendarBlank}
         />
+      </div>
+
+      {/* ── Quick Actions strip ──────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 shrink-0 sm:w-28">Quick Actions</p>
+        <div className="flex flex-wrap gap-2">
+          <QA icon={Plus}            label="New Case"  onClick={() => router.push('/caseload/new')} primary />
+          <QA icon={FileText}        label="Doc Queue" onClick={() => router.push('/documents')}    badge={pendingDocs.length} />
+          <QA icon={Sparkle}         label="AI Drafts" onClick={() => router.push('/drafts')}       badge={pendingDrafts.length} />
+          <QA icon={UserPlus}        label="Add Lead"  onClick={() => router.push('/leads')} />
+          <QA icon={ChartBar}        label="Pipeline"  onClick={() => router.push('/caseload')} />
+          <QA icon={CurrencyDollar}  label="Finance"   onClick={() => router.push('/finance')} />
+          <QA icon={MagnifyingGlass} label="Search"    onClick={() => router.push('/clients')} />
+        </div>
       </div>
 
       {/* ── Revenue Chart + Priority Inbox ──────────────────────────────────── */}
