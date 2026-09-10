@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader, Skeleton } from '@mjn/ui';
 import {
@@ -321,7 +321,8 @@ export default function DocumentsPage() {
   const isConsultant = (me?.role as string)?.toUpperCase() === 'CONSULTANT';
   const reviewerName = me?.name || me?.email || 'admin';
 
-  const [docs, setDocs]               = useState<any[]>([]);
+  // allDocs holds the full unfiltered list; tabs/search filter client-side
+  const [allDocs, setAllDocs]         = useState<any[]>([]);
   const [myPersonIds, setMyPersonIds] = useState<Set<string> | null>(null);
   const [loading, setLoading]         = useState(true);
   const [selected, setSelected]       = useState<any | null>(null);
@@ -347,22 +348,22 @@ export default function DocumentsPage() {
       .catch(() => setMyPersonIds(new Set()));
   }, [isConsultant, me?.email]);
 
-  const load = useCallback((t: TabKey) => {
+  // Always load ALL documents once — filter/tab is done client-side
+  const load = useCallback(() => {
     setLoading(true);
-    const status = t === 'ALL' ? undefined : t;
-    api.getAllDocuments(status)
-      .then((data) => setDocs(data ?? []))
+    api.getAllDocuments()
+      .then((data) => setAllDocs(data ?? []))
       .catch((e: any) => toast.error(e.message))
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(tab); }, [load, tab]);
+  useEffect(() => { load(); }, [load]);
 
   function handleVerified(id: string) {
-    setDocs((prev) => prev.map((d) => d.id === id ? { ...d, status: 'VERIFIED', verifiedAt: new Date().toISOString() } : d));
+    setAllDocs((prev) => prev.map((d) => d.id === id ? { ...d, status: 'VERIFIED', verifiedAt: new Date().toISOString() } : d));
   }
   function handleRejected(id: string) {
-    setDocs((prev) => prev.map((d) => d.id === id ? { ...d, status: 'REJECTED' } : d));
+    setAllDocs((prev) => prev.map((d) => d.id === id ? { ...d, status: 'REJECTED' } : d));
   }
 
   async function handlePrescreen(doc: any, e: React.MouseEvent) {
@@ -383,8 +384,19 @@ export default function DocumentsPage() {
     else { setSortKey(key); setSortDir('asc'); }
   }
 
-  // Filter
-  const filtered = docs.filter((d) => {
+  // Stats always from the full list (not affected by tab/search)
+  const pending      = allDocs.filter((d) => d.status === 'PENDING').length;
+  const verified     = allDocs.filter((d) => d.status === 'VERIFIED').length;
+  const rejected     = allDocs.filter((d) => d.status === 'REJECTED').length;
+  const expiringSoon = allDocs.filter((d) => {
+    if (!d.expiryDate) return false;
+    const days = daysUntil(d.expiryDate);
+    return days >= 0 && days <= 30;
+  }).length;
+
+  // Tab + search + type filter — all client-side
+  const filtered = allDocs.filter((d) => {
+    if (tab !== 'ALL' && d.status !== tab) return false;
     if (isConsultant && myPersonIds !== null && !myPersonIds.has(d.personId)) return false;
     const q = search.toLowerCase();
     const nameMatch = !q || d.person?.name?.toLowerCase().includes(q) || d.person?.email?.toLowerCase().includes(q) || d.type?.toLowerCase().includes(q);
@@ -394,16 +406,6 @@ export default function DocumentsPage() {
 
   // Sort
   const sorted = sortDocs(filtered, sortKey, sortDir);
-
-  // Stats (always from full list)
-  const pending     = docs.filter((d) => d.status === 'PENDING').length;
-  const verified    = docs.filter((d) => d.status === 'VERIFIED').length;
-  const rejected    = docs.filter((d) => d.status === 'REJECTED').length;
-  const expiringSoon = docs.filter((d) => {
-    if (!d.expiryDate) return false;
-    const days = daysUntil(d.expiryDate);
-    return days >= 0 && days <= 30;
-  }).length;
 
   const TABS: { key: TabKey; label: string; count?: number }[] = [
     { key: 'PENDING',  label: 'Pending',  count: pending  },
@@ -421,7 +423,7 @@ export default function DocumentsPage() {
           <h1 className="text-xl font-bold text-slate-900">Document Verification</h1>
           <p className="text-xs text-slate-400 mt-0.5">Review, verify, and manage all client-uploaded credentials</p>
         </div>
-        <button onClick={() => load(tab)}
+        <button onClick={() => load()}
           className="mt-1 flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-slate-50 transition-colors">
           <ArrowClockwise className="h-4 w-4" /> Refresh
         </button>
@@ -451,7 +453,7 @@ export default function DocumentsPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
           {TABS.map((t) => (
-            <button key={t.key} onClick={() => { setTab(t.key); setSearch(''); setTypeFilter(''); }}
+            <button key={t.key} onClick={() => { setTab(t.key); setSearch(''); setTypeFilter(''); setSortKey('uploaded'); setSortDir('desc'); }}
               className={`rounded-md px-4 py-1.5 text-sm font-semibold transition-colors ${tab === t.key ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-800'}`}>
               {t.label}
               {t.count !== undefined && (
