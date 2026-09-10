@@ -14,9 +14,9 @@ export class DocumentController {
     private readonly complianceService: ComplianceService,
   ) {}
 
-  @ApiOperation({ summary: 'List documents by status (admin)' })
+  @ApiOperation({ summary: 'List documents — omit status for all, or pass PENDING/VERIFIED/REJECTED' })
   @Get()
-  getByStatus(@Query('status') status: string = 'PENDING') {
+  getByStatus(@Query('status') status?: string) {
     return this.documentService.getByStatus(status);
   }
 

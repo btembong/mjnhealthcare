@@ -43,9 +43,9 @@ export class DocumentService {
     return doc;
   }
 
-  async getByStatus(status: string) {
+  async getByStatus(status?: string) {
     return this.db.document.findMany({
-      where: { status: status as any },
+      where: status ? { status: status as any } : undefined,
       include: { person: { select: { id: true, name: true, email: true } } },
       orderBy: { uploadedAt: 'desc' },
     });
