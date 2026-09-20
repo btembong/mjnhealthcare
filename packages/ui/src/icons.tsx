@@ -204,7 +204,7 @@ export const SquaresFour          = makeIcon('solar:widget-5-bold', 'solar:widge
 export const Star                 = makeIcon('solar:star-bold', 'solar:star-bold-duotone');
 export const Heart                = makeIcon('solar:heart-bold', 'solar:heart-bold-duotone');
 export const Lightning            = makeIcon('solar:bolt-bold', 'solar:bolt-bold-duotone');
-export const Sparkle              = makeIcon('solar:magic-stick-bold', 'solar:magic-stick-bold-duotone');
+export const Sparkle              = makeIcon('solar:magic-wand-bold', 'solar:magic-wand-bold-duotone');
 export const Robot                = makeIcon('solar:robot-bold', 'solar:robot-bold-duotone');
 export const Hash                 = makeIcon('solar:hashtag-bold');
 export const At                   = makeIcon('solar:at-bold');
@@ -216,11 +216,11 @@ export const Package              = makeIcon('solar:box-bold', 'solar:box-bold-d
 export const Swap                 = makeIcon('solar:transfer-horizontal-bold');
 
 // ── Social ───────────────────────────────────────────────────────────────────
-export const LinkedinLogo         = makeIcon('solar:linkedin-bold', 'solar:linkedin-bold-duotone');
-export const FacebookLogo         = makeIcon('solar:facebook-bold', 'solar:facebook-bold-duotone');
-export const TwitterLogo          = makeIcon('solar:twitter-bold');
-export const XLogo                = makeIcon('solar:twitter-bold');
-export const InstagramLogo        = makeIcon('solar:instagram-bold');
+export const LinkedinLogo         = makeIcon('solar:case-round-minimalistic-bold', 'solar:case-round-minimalistic-bold-duotone');
+export const FacebookLogo         = makeIcon('solar:people-nearby-bold', 'solar:people-nearby-bold-duotone');
+export const TwitterLogo          = makeIcon('solar:chat-square-bold', 'solar:chat-square-bold-duotone');
+export const XLogo                = makeIcon('solar:chat-square-bold', 'solar:chat-square-bold-duotone');
+export const InstagramLogo        = makeIcon('solar:gallery-bold', 'solar:gallery-bold-duotone');
 
 // ── Extended aliases (Phosphor compat) ───────────────────────────────────────
 export const SealCheck            = makeIcon('solar:verified-check-bold', 'solar:verified-check-bold-duotone');
@@ -234,10 +234,10 @@ export const Funnel               = makeIcon('solar:filter-bold', 'solar:filter-
 export const FunnelSimple         = makeIcon('solar:filter-bold', 'solar:filter-bold-duotone');
 export const Heartbeat            = makeIcon('solar:heart-pulse-bold', 'solar:heart-pulse-bold-duotone');
 export const Pulse                = makeIcon('solar:heart-pulse-bold', 'solar:heart-pulse-bold-duotone');
-export const Bank                 = makeIcon('solar:bank-bold', 'solar:bank-bold-duotone');
-export const AirplaneTakeoff      = makeIcon('solar:airplane-bold', 'solar:airplane-bold-duotone');
+export const Bank                 = makeIcon('solar:buildings-bold', 'solar:buildings-bold-duotone');
+export const AirplaneTakeoff      = makeIcon('solar:plane-2-bold', 'solar:plane-2-bold-duotone');
 export const Compass              = makeIcon('solar:compass-bold', 'solar:compass-bold-duotone');
-export const Chalkboard           = makeIcon('solar:presentation-board-bold', 'solar:presentation-board-bold-duotone');
+export const Chalkboard           = makeIcon('solar:presentation-graph-bold', 'solar:presentation-graph-bold-duotone');
 export const Books                = makeIcon('solar:library-bold', 'solar:library-bold-duotone');
 export const MonitorPlay          = makeIcon('solar:monitor-smartphone-bold', 'solar:monitor-smartphone-bold-duotone');
 export const Monitor              = makeIcon('solar:monitor-bold', 'solar:monitor-bold-duotone');
