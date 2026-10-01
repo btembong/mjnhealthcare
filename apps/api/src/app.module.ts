@@ -30,6 +30,7 @@ import { PaymentAdminModule } from './modules/payment-admin/payment-admin.module
 import { OfficerModule } from './modules/officer/officer.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { ReferralModule } from './modules/referral/referral.module';
+import { BlogModule } from './modules/blog/blog.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { ReferralModule } from './modules/referral/referral.module';
     OfficerModule,
     ReportsModule,
     ReferralModule,
+    BlogModule,
     PartnerModule,
     NotificationModule,
     ComplianceModule,

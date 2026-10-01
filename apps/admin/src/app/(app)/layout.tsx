@@ -7,6 +7,7 @@ import {
   MagnifyingGlass, VideoCamera, Gavel, GearSix, ClipboardText, Buildings,
   Headset, MegaphoneSimple, MapTrifold, ChartBar, ChatCircle,
   Clipboard, ListChecks, Warning, CheckCircle, BookmarkSimple, Gift, Wallet,
+  Newspaper,
 } from '@mjn/ui';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
@@ -152,10 +153,11 @@ function useSidebarSections(
       ],
     },
     {
-      title: 'Engagement',
+      title: 'Content',
       items: [
-        { label: 'Support Tickets', href: '/tickets', icon: Headset },
+        { label: 'Blog & Articles', href: '/blog', icon: Newspaper },
         { label: 'Campaigns', href: '/campaigns', icon: MegaphoneSimple },
+        { label: 'Support Tickets', href: '/tickets', icon: Headset },
       ],
     },
     {
