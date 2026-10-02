@@ -202,7 +202,7 @@
     </div>
     <div class="cover-footer">
       <span>MJN Health Academy and Professional Services LTD</span>
-      <span>August 2026 · v1.5 · Internal Use</span>
+      <span>October 2026 · v1.6 · Internal Use</span>
     </div>
   </div>
 </div>
@@ -223,6 +223,7 @@
     <div class="toc-item"><a href="#a8">A8. Consultant Management & Payouts</a><span class="toc-num">A-4</span></div>
     <div class="toc-item"><a href="#a9">A9. Financial Reports & Receipts</a><span class="toc-num">A-5</span></div>
     <div class="toc-item"><a href="#a10">A10. Processing Officers & Escalations</a><span class="toc-num">A-6</span></div>
+    <div class="toc-item"><a href="#a11">A11. Free Consultation Slots</a><span class="toc-num">A-7</span></div>
   </div>
 
   <div class="toc-part">
@@ -275,6 +276,164 @@
     <div class="toc-item"><a href="#f5">F5. Case Notes</a><span class="toc-num">F-3</span></div>
     <div class="toc-item"><a href="#f6">F6. Escalating to a Consultant</a><span class="toc-num">F-3</span></div>
     <div class="toc-item"><a href="#f7">F7. Consultant — Escalation Inbox</a><span class="toc-num">F-4</span></div>
+  </div>
+</div>
+
+<!-- ══ WHAT'S NEW v1.6 ════════════════════════════════════════════════ -->
+<div class="container" style="padding-top:32px;padding-bottom:0;">
+  <div style="border:2px solid var(--primary);border-radius:12px;overflow:hidden;">
+    <div style="background:var(--primary);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:12px;">
+      <div style="background:rgba(255,255,255,0.2);border-radius:999px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">v1.6 · October 2026</div>
+      <span style="font-size:16px;font-weight:800;">What's New in This Release</span>
+    </div>
+    <div style="padding:20px 24px;background:#eff6ff;">
+      <p style="font-size:13px;margin-bottom:14px;color:var(--muted);">This version separates the free and paid consultation flows, delivers a dual-view leads management page, adds admin scheduling for free consultation slots with consultant assignment, fixes the full notification and reminder chain, and documents the payment architecture for international clients.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+        <!-- Free vs Paid consultation -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;grid-column:span 2;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Free vs. Paid Consultation — Architecture Separation</div>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">Two completely independent booking flows now exist. Do not confuse them — they share no database tables, no payment steps, and no Daily.co rooms.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Free Consultation — <code>/get-started</code></p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>Entry point: <strong>mjnhealthcare.com/get-started</strong> — the public lead-capture form.</li>
+                <li>Handled by <strong>BookingModule</strong>. No login required, no payment.</li>
+                <li>Submits to <code>POST /leads/book-consultation</code> (public endpoint).</li>
+                <li>Stores a <code>BookingSlot</code> with <code>resourceId = 'general-consultation'</code> and an assigned <code>consultantId</code>.</li>
+                <li>Creates or updates a <strong>Lead</strong> record (status → <code>FREE_CONSULT_BOOKED</code>).</li>
+                <li>No Daily.co room — the call is handled externally (phone / WhatsApp / video link).</li>
+                <li>The confirmation screen shows the assigned consultant's name and photo.</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Paid Consultation — <code>/consult</code></p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>Entry point: <strong>mjnhealthcare.com/consult</strong> — the 5-step booking flow.</li>
+                <li>Handled by <strong>ConsultationModule</strong>. Login required (or guest) + Tranzak payment.</li>
+                <li>Submits to <code>POST /consultations/book</code>.</li>
+                <li>Stores a <code>ConsultationSlot</code> per consultant profile.</li>
+                <li>Creates a Daily.co private room on <code>payment.completed</code>.</li>
+                <li>Sends join links to both client and consultant via email + WhatsApp.</li>
+                <li>The <code>isFree</code> slot toggle has been <strong>removed</strong> — free consultations go through <code>/get-started</code> exclusively.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Leads page -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;grid-column:span 2;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Leads Page — Kanban + List View Toggle</div>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">The Admin → Leads page now offers both a Kanban board and a flat list view. Toggle between them at the top right using the grid / rows icon buttons.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Kanban View (default)</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>Columns for each lead stage: NEW · FREE_CONSULT_BOOKED · FREE_CONSULT_DONE · CONTACTED · QUALIFIED · PROPOSAL_SENT · CONVERTED · LOST.</li>
+                <li>Each card shows name, email, interest, and discount code if set.</li>
+                <li>Click any card to open the lead detail drawer (stage change, notes, assign consultant, discount code).</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">List View</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>Table with columns: Name, Contact (email + phone), Stage badge, Service Interest, Discount Code, Assigned Consultant, Created date, Open button.</li>
+                <li><strong>Search bar</strong> — filters by name or email in real time.</li>
+                <li><strong>Stage filter</strong> dropdown — select one stage to show only those leads.</li>
+                <li>Same lead detail drawer as Kanban on row click.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Free Consult Slots admin page -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Admin — Free Consult Slots Page (New)</div>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">A dedicated page at <strong>Admin → Free Consult Slots</strong> replaces the old <em>isFree</em> toggle on the Consultants page.</p>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li><strong>Add Availability form</strong> (left column) — pick a consultant from the dropdown, select a date (next 30 days), choose one or more time slots from the 08:00–19:00 grid (or enter a custom time), preview the slots, then Submit. All selected slots are created in bulk.</li>
+            <li><strong>Slot list</strong> (right column) — shows all upcoming general-consultation slots split into Available and Booked groups. Each slot shows the assigned consultant's name as a badge.</li>
+            <li>Available slots can be deleted (trash button). Booked slots show the client name and email and cannot be deleted.</li>
+            <li>Sidebar link: <em>Operations → Free Consult Slots</em>.</li>
+          </ul>
+        </div>
+
+        <!-- Consultant assignment -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Consultant Assignment on Free Slots</div>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">Every <code>BookingSlot</code> now carries an optional <code>consultantId</code> FK linking to a <code>ConsultantProfile</code>. Admins must select a consultant when creating free slots.</p>
+          <ul style="margin-left:16px;font-size:12.5px;">
+            <li>When a lead books a slot, the booking confirmation shows the assigned consultant's name and photo on the <code>/get-started</code> confirmation screen.</li>
+            <li>The assigned consultant receives an email notification immediately on booking (see Notification Chain below).</li>
+            <li>Three reminder jobs are scheduled for that consultant (and client) at 24h, 1h, and 15min before the slot.</li>
+            <li>Schema: <code>BookingSlot.consultantId</code> (nullable TEXT FK → <code>consultant_profiles.id</code>, <code>ON DELETE SET NULL</code>).</li>
+          </ul>
+        </div>
+
+        <!-- Notification chain -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;grid-column:span 2;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Free Consultation — Notification &amp; Reminder Chain (Fixed)</div>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">The full notification chain now fires correctly on every free-consultation booking and at three reminder intervals before the call.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">On Booking (immediate)</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>Event emitted: <code>lead.free_consult_booked</code> with full payload: <code>leadName</code>, <code>leadEmail</code>, <code>leadPhone</code>, <code>slotStart</code>, <code>serviceInterest</code>, <code>consultantId</code>, <code>consultantName</code>, <code>consultantEmail</code>.</li>
+                <li><strong>Client confirmation email</strong> — booking date/time, consultant name, next steps.</li>
+                <li><strong>Client WhatsApp</strong> — same confirmation in short form.</li>
+                <li><strong>Consultant email</strong> (new) — notifies the assigned consultant of the new booking: client name, phone, service interest, and slot time.</li>
+                <li><strong>Admin alert email</strong> — brief summary for the ops team.</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Reminders (BullMQ delayed jobs)</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>Three jobs scheduled per booking with computed delays: <strong>24 hours</strong>, <strong>1 hour</strong>, and <strong>15 minutes</strong> before <code>slotStart</code>. Jobs with a negative delay (past slots) are skipped.</li>
+                <li>Event emitted by the processor: <code>free.consult.reminder</code> with <code>timeLabel</code> ("24 hours" / "1 hour" / "15 minutes").</li>
+                <li><strong>Client reminder email</strong> — "Your free consultation is in 24 hours / 1 hour / 15 minutes."</li>
+                <li><strong>Client WhatsApp</strong> — same message via Twilio.</li>
+                <li><strong>Consultant reminder email</strong> — parallel notification so the consultant never misses the call.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment architecture -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;grid-column:span 2;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Payment Architecture — International Card Gap &amp; Stripe Plan</div>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">Current state and known gaps for team awareness. No code changes are live yet — this documents the plan.</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Current (Tranzak)</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>All payments route through Tranzak, which uses Flutterwave as the card-processing backbone. Seeing <code>checkout.flutterwave.com</code> at checkout is expected behaviour.</li>
+                <li>Tranzak charges in <strong>XAF</strong> (Central African Franc). African MoMo and local cards work well here.</li>
+                <li>"Carte restreinte" errors are a <strong>bank-level restriction</strong> on the client's card — not a code bug. Directing those clients to MTN MoMo resolves the issue immediately.</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Gap — International Cards</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li>Clients in the UAE, UK, and US cannot pay in XAF via an African processor. Their bank declines the transaction at the currency or merchant-country level.</li>
+                <li>Fix: add <strong>Stripe</strong> as a second provider, charging in <strong>USD</strong>.</li>
+                <li>A payment method selector will be added to the checkout flow — African clients default to Tranzak / MoMo; international clients route to Stripe.</li>
+              </ul>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Stripe Account Path</p>
+              <ul style="margin-left:16px;font-size:12.5px;">
+                <li><strong>Personal account</strong> — CEO registers with US SSN, personal address, sole-proprietor. Live in 24–48h. Suitable for launch volume.</li>
+                <li><strong>Upgrade path</strong> — within 6 months, form a Wyoming or Delaware LLC, get an EIN from the IRS, open a Mercury business bank account, then migrate to a Stripe business account.</li>
+                <li>Either path fully supports USD payouts and international card acceptance (Visa/Mastercard/Amex from any country).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
   </div>
 </div>
 

@@ -181,10 +181,10 @@ export const api = {
       body: JSON.stringify({ engagementId, lines, paymentMode: paymentMode ?? 'FULL' }),
     }),
 
-  initiatePayment: (orderId: string, phone?: string, email?: string) =>
+  initiatePayment: (orderId: string, phone?: string, email?: string, provider: 'tranzak' | 'stripe' = 'tranzak') =>
     request<{ redirectUrl?: string; providerRef: string; status: string }>(`/payments/initiate/${orderId}`, {
       method: 'POST',
-      body: JSON.stringify({ phone, email }),
+      body: JSON.stringify({ phone, email, provider }),
     }),
 
   // ── Staffing ─────────────────────────────────────────────────────────────

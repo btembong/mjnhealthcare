@@ -283,6 +283,7 @@ export default function CheckoutPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [paymentProvider, setPaymentProvider] = useState<'tranzak' | 'stripe'>('tranzak');
   const [paidItemIds, setPaidItemIds] = useState<Set<string>>(new Set());
   const [hasPendingOrder, setHasPendingOrder] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
@@ -489,7 +490,7 @@ export default function CheckoutPage() {
         await api.transferCredits('__spend__', creditPreview.maxSpendableCents, `Applied to order ${order.id}`)
           .catch(() => {}); // best-effort; server spends via markPaid flow
       }
-      const payment = await api.initiatePayment(order.id, me?.phone, me?.email);
+      const payment = await api.initiatePayment(order.id, me?.phone, me?.email, paymentProvider);
       // Clear session on successful redirect to payment
       try { sessionStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
       if (payment.redirectUrl) {
@@ -932,11 +933,70 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {/* Payment method selector */}
+              <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+                <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-primary" weight="fill" />
+                  <p className="font-semibold text-foreground text-sm">How would you like to pay?</p>
+                </div>
+                <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Tranzak — MoMo / African card */}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentProvider('tranzak')}
+                    className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                      paymentProvider === 'tranzak'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border bg-white hover:border-primary/30'
+                    }`}
+                  >
+                    <div className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                      paymentProvider === 'tranzak' ? 'border-primary' : 'border-border'
+                    }`}>
+                      {paymentProvider === 'tranzak' && (
+                        <div className="h-2 w-2 rounded-full bg-primary" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Mobile Money / African Card</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">MTN MoMo, Orange Money, African bank cards · Charged in XAF</p>
+                      <p className="text-xs text-primary font-medium mt-1.5">Recommended for clients in Cameroon &amp; West Africa</p>
+                    </div>
+                  </button>
+
+                  {/* Stripe — International card */}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentProvider('stripe')}
+                    className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                      paymentProvider === 'stripe'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border bg-white hover:border-primary/30'
+                    }`}
+                  >
+                    <div className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                      paymentProvider === 'stripe' ? 'border-primary' : 'border-border'
+                    }`}>
+                      {paymentProvider === 'stripe' && (
+                        <div className="h-2 w-2 rounded-full bg-primary" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">International Card</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Visa, Mastercard, Amex from any country · Charged in USD</p>
+                      <p className="text-xs text-primary font-medium mt-1.5">Recommended for clients in UAE, UK, USA &amp; Europe</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Security notice */}
               <div className="rounded-xl border border-border bg-muted/20 px-5 py-4 space-y-2.5">
                 {[
                   'SSL-encrypted connection — your card data is never stored on our servers.',
-                  'Powered by Tranzak, a PCI DSS–compliant payment processor.',
+                  paymentProvider === 'stripe'
+                    ? 'Powered by Stripe, a PCI DSS–compliant international payment processor.'
+                    : 'Powered by Tranzak, a PCI DSS–compliant payment processor.',
                   'Receipt sent to your email and WhatsApp immediately after payment.',
                 ].map((signal) => (
                   <div key={signal} className="flex items-start gap-2.5">
