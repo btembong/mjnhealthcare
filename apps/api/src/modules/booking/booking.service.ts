@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -85,5 +85,27 @@ export class BookingService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async getGeneralConsultationSlots() {
+    return this.db.bookingSlot.findMany({
+      where: {
+        resourceId: 'general-consultation',
+        startTime: { gte: new Date() },
+      },
+      include: {
+        bookings: {
+          include: { lead: { select: { id: true, name: true, email: true } } },
+        },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+  }
+
+  async deleteSlot(slotId: string) {
+    const slot = await this.db.bookingSlot.findUnique({ where: { id: slotId } });
+    if (!slot) throw new NotFoundException('Slot not found');
+    if (slot.isBooked) throw new BadRequestException('Cannot delete a slot that is already booked');
+    return this.db.bookingSlot.delete({ where: { id: slotId } });
   }
 }

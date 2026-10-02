@@ -232,16 +232,6 @@ export default function ConsultantsPage() {
     finally { setDeletingSlot(null); }
   }
 
-  const [togglingFree, setTogglingFree] = useState<string | null>(null);
-
-  async function handleToggleFree(slotId: string, currentIsFree: boolean) {
-    setTogglingFree(slotId);
-    try {
-      await api.markSlotFree(slotId, !currentIsFree);
-      setExistingSlots((prev) => prev.map((s) => s.id === slotId ? { ...s, isFree: !currentIsFree } : s));
-    } catch { alert('Could not update slot.'); }
-    finally { setTogglingFree(null); }
-  }
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [reviewingApp, setReviewingApp] = useState<string | null>(null);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
@@ -1023,29 +1013,16 @@ export default function ConsultantsPage() {
                               </p>
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <p className="text-[10px] text-muted-foreground">{slot.durationMinutes} min · {slot.status}</p>
-                                {slot.isFree && (
-                                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 leading-none">FREE</span>
-                                )}
                               </div>
                             </div>
                             {slot.status === 'AVAILABLE' && (
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  onClick={() => handleToggleFree(slot.id, !!slot.isFree)}
-                                  disabled={togglingFree === slot.id}
-                                  title={slot.isFree ? 'Mark as paid' : 'Mark as free'}
-                                  className={`rounded-lg px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-40 ${slot.isFree ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-                                >
-                                  {togglingFree === slot.id ? '…' : slot.isFree ? 'Free ✓' : 'Free?'}
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteSlot(slot.id)}
-                                  disabled={deletingSlot === slot.id}
-                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40"
-                                >
-                                  {deletingSlot === slot.id ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Trash className="h-3.5 w-3.5" />}
-                                </button>
-                              </div>
+                              <button
+                                onClick={() => handleDeleteSlot(slot.id)}
+                                disabled={deletingSlot === slot.id}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40"
+                              >
+                                {deletingSlot === slot.id ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Trash className="h-3.5 w-3.5" />}
+                              </button>
                             )}
                           </div>
                         ))}

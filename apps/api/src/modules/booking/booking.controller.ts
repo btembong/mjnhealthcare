@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { IsArray, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -72,5 +72,21 @@ export class BookingController {
   @Delete(':id')
   cancel(@Param('id') id: string) {
     return this.bookingService.cancelBooking(id);
+  }
+
+  @ApiOperation({ summary: 'Get all general-consultation slots (admin)' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('admin/general-consultation')
+  getGeneralConsultationSlots() {
+    return this.bookingService.getGeneralConsultationSlots();
+  }
+
+  @ApiOperation({ summary: 'Delete an availability slot (admin)' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Delete('slots/:slotId')
+  deleteSlot(@Param('slotId') slotId: string) {
+    return this.bookingService.deleteSlot(slotId);
   }
 }

@@ -141,6 +141,7 @@ function useSidebarSections(
       title: 'Operations',
       items: [
         { label: 'Leads', href: '/leads', icon: UsersFour, badge: counts.leads > 0 ? String(counts.leads) : undefined },
+        { label: 'Free Consult Slots', href: '/free-slots', icon: CalendarBlank },
         { label: 'Sessions', href: '/sessions', icon: VideoCamera },
         { label: 'Consultants', href: '/consultants', icon: Briefcase },
         { label: 'Jobs', href: '/jobs', icon: Briefcase },

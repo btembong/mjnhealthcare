@@ -1,6 +1,6 @@
 import {
   Controller, Get, Patch, Post, Param, Body, Query,
-  UseGuards, NotFoundException, BadRequestException,
+  UseGuards, NotFoundException, BadRequestException, HttpCode,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -10,9 +10,6 @@ import { DatabaseService } from '@mjn/database';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @ApiTags('leads')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER')
 @Controller('leads')
 export class LeadsController {
   constructor(
@@ -20,6 +17,81 @@ export class LeadsController {
     private readonly events: EventEmitter2,
   ) {}
 
+  // ── Public endpoint — no auth (called from /get-started) ─────────────────
+
+  @Post('book-consultation')
+  @HttpCode(200)
+  async bookFreeConsultation(@Body() body: {
+    name: string;
+    email: string;
+    phone?: string;
+    profession?: string;
+    destination?: string;
+    serviceInterest?: string;
+    slotId: string;
+    lang?: string;
+    refCode?: string;
+    selectedServices?: string;
+    estimate?: string;
+  }) {
+    const slot = await this.db.bookingSlot.findUnique({ where: { id: body.slotId } });
+    if (!slot) throw new NotFoundException('Slot not found');
+    if (slot.isBooked) throw new BadRequestException('This slot is no longer available — please choose another time.');
+
+    // Create or update lead
+    const existingLead = await this.db.lead.findFirst({ where: { email: body.email } });
+    let lead: any;
+    if (existingLead) {
+      lead = await this.db.lead.update({
+        where: { id: existingLead.id },
+        data: {
+          status: 'FREE_CONSULT_BOOKED' as any,
+          ...(body.profession ? { profession: body.profession } : {}),
+          ...(body.destination ? { destination: body.destination } : {}),
+          ...(body.serviceInterest ? { serviceInterest: body.serviceInterest } : {}),
+          ...(body.refCode ? { refCode: body.refCode } : {}),
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      lead = await this.db.lead.create({
+        data: {
+          name: body.name.trim(),
+          email: body.email.trim().toLowerCase(),
+          phone: body.phone?.trim() || null,
+          profession: body.profession || null,
+          destination: body.destination || null,
+          serviceInterest: body.serviceInterest || null,
+          refCode: body.refCode || null,
+          status: 'FREE_CONSULT_BOOKED' as any,
+        },
+      });
+    }
+
+    // Create booking record + mark slot as booked
+    const booking = await this.db.booking.create({
+      data: { leadId: lead.id, slotId: body.slotId, type: 'FREE_CONSULTATION', status: 'CONFIRMED' },
+    });
+    await this.db.bookingSlot.update({ where: { id: body.slotId }, data: { isBooked: true } });
+    await this.db.lead.update({ where: { id: lead.id }, data: { sourceBookingId: booking.id } });
+
+    this.events.emit('lead.free_consult_booked', {
+      leadId: lead.id,
+      leadName: body.name.trim(),
+      leadEmail: body.email.trim().toLowerCase(),
+      leadPhone: body.phone,
+      slotStart: slot.startTime.toISOString(),
+      serviceInterest: body.serviceInterest,
+    });
+
+    return { name: body.name.trim(), email: body.email.trim().toLowerCase(), slotStart: slot.startTime.toISOString() };
+  }
+
+  // ── Authenticated routes ──────────────────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER')
+  @ApiBearerAuth()
   @Get()
   findAll(@Query('status') status?: string, @Query('search') search?: string) {
     return this.db.lead.findMany({
@@ -36,6 +108,9 @@ export class LeadsController {
     });
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER')
+  @ApiBearerAuth()
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const lead = await this.db.lead.findUnique({ where: { id } });
@@ -43,6 +118,9 @@ export class LeadsController {
     return lead;
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER')
+  @ApiBearerAuth()
   @Patch(':id')
   async update(
     @Param('id') id: string,
@@ -62,6 +140,9 @@ export class LeadsController {
     });
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER')
+  @ApiBearerAuth()
   @Post(':id/stage')
   async advanceStage(@Param('id') id: string, @Body() body: { stage: string; notes?: string }) {
     const lead = await this.db.lead.findUnique({ where: { id } });
@@ -74,8 +155,10 @@ export class LeadsController {
     return updated;
   }
 
-  @Post(':id/convert')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'PROCESSING_OFFICER')
+  @ApiBearerAuth()
+  @Post(':id/convert')
   async convertToEngagement(@Param('id') id: string, @Body() body: { sendInviteEmail?: boolean }) {
     const lead = await this.db.lead.findUnique({ where: { id } });
     if (!lead) throw new NotFoundException('Lead not found');

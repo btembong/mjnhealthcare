@@ -180,8 +180,15 @@ export const api = {
   convertLead: (id: string) =>
     request<any>(`/leads/${id}/convert`, { method: 'POST', body: JSON.stringify({ sendInviteEmail: true }) }),
 
-  markSlotFree: (slotId: string, isFree: boolean) =>
-    request<any>(`/consultations/admin/slots/${slotId}/mark-free`, { method: 'PATCH', body: JSON.stringify({ isFree }) }),
+  // ── Free consultation slots (general-consultation BookingModule) ─────────
+  getGeneralConsultationSlots: () =>
+    request<any[]>('/bookings/admin/general-consultation'),
+
+  createFreeConsultationSlots: (slots: { date: string; startTime: string; endTime: string }[]) =>
+    request<any>('/bookings/slots', { method: 'POST', body: JSON.stringify({ resourceId: 'general-consultation', slots }) }),
+
+  deleteFreeConsultationSlot: (slotId: string) =>
+    request<any>(`/bookings/slots/${slotId}`, { method: 'DELETE' }),
 
   // ── Catalog (admin) ───────────────────────────────────────────────────────
   getCatalogCategories: () => request<any[]>('/catalog/categories'),
