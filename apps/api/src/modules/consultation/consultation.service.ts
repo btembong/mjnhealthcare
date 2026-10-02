@@ -138,6 +138,15 @@ export class ConsultationService {
     return { slotId, reservedUntil: result.reservedUntil, holdMinutes: HOLD_MINUTES };
   }
 
+  // ── Admin: mark a slot as free ──────────────────────────────────────────────
+
+  async markSlotFree(slotId: string, isFree: boolean) {
+    const slot = await this.db.consultationSlot.findUnique({ where: { id: slotId } });
+    if (!slot) throw new NotFoundException('Slot not found');
+    if (slot.status === 'BOOKED') throw new BadRequestException('Cannot change a booked slot');
+    return this.db.consultationSlot.update({ where: { id: slotId }, data: { isFree } });
+  }
+
   // ── Public: initiate booking ─────────────────────────────────────────────────
 
   async initiateBooking(dto: BookConsultationDto) {
@@ -159,6 +168,16 @@ export class ConsultationService {
     });
     if (!consultant || !consultant.isActive) {
       throw new BadRequestException('Consultant not available');
+    }
+
+    // ── Free session: check per-email limit (1 per category) ────────────────
+    if (slot.isFree) {
+      const existing = await this.db.freeSessionUsage.findUnique({
+        where: { email_category: { email: dto.clientEmail, category: dto.consultationCategory } },
+      });
+      if (existing && existing.count >= 1) {
+        throw new BadRequestException('You have already used your free consultation in this category. Book a paid session to continue.');
+      }
     }
 
     // Mark slot BOOKED atomically
@@ -196,9 +215,21 @@ export class ConsultationService {
         consultationCategory: dto.consultationCategory as any,
         recordingConsent: dto.recordingConsent,
         status: 'AWAITING_PAYMENT',
-        amountPaid: consultant.priceUsd,
+        amountPaid: slot.isFree ? 0 : consultant.priceUsd,
       },
     });
+
+    // ── Free slot: bypass payment, confirm immediately ───────────────────────
+    if (slot.isFree) {
+      await this.db.freeSessionUsage.upsert({
+        where: { email_category: { email: dto.clientEmail, category: dto.consultationCategory } },
+        update: { count: { increment: 1 }, updatedAt: new Date() },
+        create: { email: dto.clientEmail, category: dto.consultationCategory, count: 1, updatedAt: new Date() },
+      });
+      await this.handlePaymentConfirmed(booking.id);
+      const webUrl = process.env.WEB_URL ?? 'http://localhost:3001';
+      return { bookingId: booking.id, redirectUrl: `${webUrl}/consult/confirmed?bookingId=${booking.id}&free=1` };
+    }
 
     // ── DEV BYPASS ─────────────────────────────────────────────────────────────
     if (process.env.DEV_SKIP_PAYMENT === 'true') {
@@ -373,6 +404,39 @@ export class ConsultationService {
         preSessionNote: booking.preSessionNote,
       }, { delay: consultantDelay });
     }
+
+    // ── Auto-create Lead for free sessions ──────────────────────────────────
+    const slotWithFree = await this.db.consultationSlot.findUnique({ where: { id: booking.slotId } });
+    if (slotWithFree?.isFree) {
+      const existingLead = await this.db.lead.findFirst({ where: { email: booking.clientEmail } });
+      if (existingLead) {
+        await this.db.lead.update({
+          where: { id: existingLead.id },
+          data: { status: 'FREE_CONSULT_BOOKED' as any, sourceBookingId: bookingId, updatedAt: new Date() },
+        });
+      } else {
+        await this.db.lead.create({
+          data: {
+            name: booking.clientName,
+            email: booking.clientEmail,
+            phone: booking.clientPhone,
+            serviceInterest: booking.consultationCategory as string,
+            status: 'FREE_CONSULT_BOOKED' as any,
+            sourceBookingId: bookingId,
+          },
+        });
+      }
+      this.events.emit('lead.free_consult_booked', {
+        bookingId,
+        clientName: booking.clientName,
+        clientEmail: booking.clientEmail,
+        clientPhone: booking.clientPhone,
+        consultantName: booking.consultant.name,
+        sessionStart,
+        roomUrl: dailyRoomUrl,
+        category: booking.consultationCategory,
+      });
+    }
   }
 
   // ── Public: booking summary ──────────────────────────────────────────────────
@@ -382,7 +446,7 @@ export class ConsultationService {
       where: { id: bookingId },
       include: {
         consultant: { select: { name: true } },
-        slot: { select: { startAt: true, durationMinutes: true } },
+        slot: { select: { startAt: true, durationMinutes: true, isFree: true } },
       },
     });
     if (!booking) throw new NotFoundException('Booking not found');
@@ -394,6 +458,8 @@ export class ConsultationService {
       durationMins: booking.slot.durationMinutes,
       amountPaid: booking.amountPaid,
       category: booking.consultationCategory,
+      meetingUrl: booking.dailyRoomUrl ?? null,
+      isFree: booking.slot.isFree ?? false,
     };
   }
 
@@ -535,16 +601,16 @@ export class ConsultationService {
 
   // ── Admin: mark completed ───────────────────────────────────────────────────
 
-  async markCompleted(bookingId: string) {
+  async markCompleted(bookingId: string, caseNote?: string) {
     const booking = await this.db.consultationBooking.findUnique({
       where: { id: bookingId },
-      include: { consultant: true },
+      include: { consultant: true, slot: true },
     });
     if (!booking) throw new NotFoundException('Booking not found');
 
     await this.db.consultationBooking.update({
       where: { id: bookingId },
-      data: { status: 'COMPLETED', completedAt: new Date() },
+      data: { status: 'COMPLETED', completedAt: new Date(), ...(caseNote ? { caseNote } : {}) },
     });
 
     await this.db.consultantProfile.update({
@@ -559,6 +625,45 @@ export class ConsultationService {
       await this.db.consultantPayout.create({
         data: { consultantId: booking.consultantId, bookingId, grossAmount: gross, platformFee, netAmount: net, status: 'PENDING' },
       });
+    }
+
+    // If free session: update lead stage to FREE_CONSULT_DONE + schedule 48h follow-up
+    if (booking.slot?.isFree) {
+      await this.db.lead.updateMany({
+        where: { email: booking.clientEmail },
+        data: { status: 'FREE_CONSULT_DONE' as any, updatedAt: new Date() },
+      });
+
+      // Generate a discount code valid for 7 days
+      const discountCode = `MJN10-${booking.clientName.toUpperCase().replace(/\s+/g, '').slice(0, 6)}-${Date.now().toString(36).toUpperCase()}`;
+      const discountExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      await this.db.lead.updateMany({
+        where: { email: booking.clientEmail },
+        data: { discountCode, discountExpiry },
+      });
+
+      this.events.emit('lead.free_consult_done', {
+        bookingId,
+        clientName: booking.clientName,
+        clientEmail: booking.clientEmail,
+        clientPhone: booking.clientPhone,
+        consultantName: booking.consultant.name,
+        caseNote,
+        discountCode,
+        discountExpiry: discountExpiry.toISOString(),
+      });
+
+      // Schedule 48h follow-up email
+      await this.reminderQueue.add('consultation-free-followup', {
+        bookingId,
+        clientName: booking.clientName,
+        clientEmail: booking.clientEmail,
+        clientPhone: booking.clientPhone,
+        consultantName: booking.consultant.name,
+        discountCode,
+        discountExpiry: discountExpiry.toISOString(),
+      }, { delay: 48 * 60 * 60 * 1000 });
     }
 
     this.events.emit('consultation.completed', { bookingId });

@@ -196,8 +196,16 @@ export class ConsultationController {
   @Roles('ADMIN', 'CONSULTANT')
   @Post('admin/bookings/:id/complete')
   @HttpCode(HttpStatus.OK)
-  markCompleted(@Param('id') id: string) {
-    return this.svc.markCompleted(id);
+  markCompleted(@Param('id') id: string, @Body() body: { caseNote?: string }) {
+    return this.svc.markCompleted(id, body?.caseNote);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Patch('admin/slots/:slotId/mark-free')
+  markSlotFree(@Param('slotId') slotId: string, @Body() body: { isFree: boolean }) {
+    return this.svc.markSlotFree(slotId, body.isFree);
   }
 
   @ApiBearerAuth()

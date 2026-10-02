@@ -825,4 +825,93 @@ export class NotificationListener {
 
     this.logger.log(`Pending approval notification sent to consultant ${payload.consultantId} for note ${payload.noteId}`);
   }
+
+  // ── Free consultation lead events ─────────────────────────────────────────
+
+  @OnEvent('lead.free_consult_booked')
+  async onFreeConsultBooked(payload: {
+    bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
+    consultantName: string; sessionStart: string; roomUrl: string; category: string;
+  }) {
+    const time = new Date(payload.sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
+    const webUrl = process.env.WEB_URL ?? 'http://localhost:3001';
+
+    // Email the client with joining instructions
+    if (payload.clientEmail) {
+      await this.notificationService.sendEmail(
+        payload.clientEmail,
+        'Your Free MJN Healthcare Consultation is Confirmed!',
+        `<p>Hi <strong>${payload.clientName}</strong>,</p>
+        <p>Great news! Your <strong>free ${payload.category.toLowerCase()} consultation</strong> with <strong>${payload.consultantName}</strong> is confirmed.</p>
+        <p><strong>When:</strong> ${time} WAT</p>
+        <p>Your video room will be ready 30 minutes before the session. You'll receive reminder emails at 48h, 2h, and 15 minutes before.</p>
+        <p><a href="${payload.roomUrl}" style="background:#00A896;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px;">Open My Session Room</a></p>
+        <p style="color:#888;font-size:13px;">This is a one-time complimentary session. After your consultation, we'll share a special offer for full-service bookings.</p>`,
+        payload.clientName,
+      );
+    }
+    // WhatsApp confirmation
+    if (payload.clientPhone) {
+      await this.notificationService.sendWhatsApp(
+        payload.clientPhone,
+        `Hi ${payload.clientName}! 🎉 Your free MJN Healthcare consultation with ${payload.consultantName} is confirmed for ${time} WAT. Join link: ${payload.roomUrl}`,
+      );
+    }
+    // Notify admin of new free consult lead
+    await this.notificationService.sendEmail(
+      process.env.ADMIN_ALERT_EMAIL ?? 'admin@mjnhealth.com',
+      `[Lead] New Free Consult Booked — ${payload.clientName}`,
+      `<p>A new free consultation has been booked and a lead created.</p>
+      <ul>
+        <li><strong>Client:</strong> ${payload.clientName} (${payload.clientEmail})</li>
+        <li><strong>Category:</strong> ${payload.category}</li>
+        <li><strong>Consultant:</strong> ${payload.consultantName}</li>
+        <li><strong>Session:</strong> ${time} WAT</li>
+      </ul>
+      <p><a href="${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads">View Lead →</a></p>`,
+    );
+    this.logger.log(`Free consult booked notifications sent for booking ${payload.bookingId}`);
+  }
+
+  @OnEvent('lead.free_consult_done')
+  async onFreeConsultDone(payload: {
+    bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
+    consultantName: string; caseNote?: string; discountCode: string; discountExpiry: string;
+  }) {
+    const expiry = new Date(payload.discountExpiry).toLocaleDateString('en-GB');
+    // Notify admin to follow up
+    await this.notificationService.sendEmail(
+      process.env.ADMIN_ALERT_EMAIL ?? 'admin@mjnhealth.com',
+      `[Lead] Free Consult Completed — ${payload.clientName} — Follow Up`,
+      `<p>A free consultation has been marked complete. The 48-hour follow-up (with 10% discount code) has been queued.</p>
+      <ul>
+        <li><strong>Client:</strong> ${payload.clientName} (${payload.clientEmail})</li>
+        <li><strong>Consultant:</strong> ${payload.consultantName}</li>
+        <li><strong>Discount Code:</strong> ${payload.discountCode} (expires ${expiry})</li>
+        ${payload.caseNote ? `<li><strong>Case Note:</strong> ${payload.caseNote}</li>` : ''}
+      </ul>
+      <p><a href="${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads">View Lead →</a></p>`,
+    );
+    this.logger.log(`Free consult done notifications sent for booking ${payload.bookingId}`);
+  }
+
+  @OnEvent('lead.conversion_complete')
+  async onLeadConvertedNew(payload: {
+    leadId: string; personId: string; engagementId: string;
+    leadName: string; leadEmail: string; leadPhone?: string;
+  }) {
+    const portalUrl = process.env.PORTAL_URL ?? 'http://localhost:3002';
+    if (payload.leadEmail) {
+      await this.notificationService.sendEmail(
+        payload.leadEmail,
+        'Welcome to MJN Healthcare — Your Portal Is Ready',
+        `<p>Hi <strong>${payload.leadName}</strong>,</p>
+        <p>Congratulations! Your MJN Healthcare account has been created and your engagement is now active.</p>
+        <p>You can now log in to the client portal to track your case, upload documents, and book sessions.</p>
+        <p><a href="${portalUrl}/login" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Access Your Portal</a></p>`,
+        payload.leadName,
+      );
+    }
+    this.logger.log(`Lead converted notification sent for lead ${payload.leadId}`);
+  }
 }

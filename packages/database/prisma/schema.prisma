@@ -89,8 +89,11 @@ enum BookingStatus {
 
 enum LeadStatus {
   NEW
+  FREE_CONSULT_BOOKED
+  FREE_CONSULT_DONE
   CONTACTED
   QUALIFIED
+  PROPOSAL_SENT
   CONVERTED
   LOST
 }
@@ -650,24 +653,38 @@ model Booking {
 // ─── Leads ────────────────────────────────────────────────────────────────────
 
 model Lead {
-  id                  String     @id @default(cuid())
-  name                String
-  email               String
-  phone               String?
-  profession          String?
-  destination         String?
-  serviceInterest     String?
-  notes               String?
-  refCode             String?
-  status              LeadStatus @default(NEW)
-  convertedPersonId   String?
+  id                   String     @id @default(cuid())
+  name                 String
+  email                String
+  phone                String?
+  profession           String?
+  destination          String?
+  serviceInterest      String?
+  notes                String?
+  refCode              String?
+  status               LeadStatus @default(NEW)
+  convertedPersonId    String?
   assignedConsultantId String?
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  sourceBookingId      String?    // free consultation booking that created this lead
+  discountCode         String?    // 10% post-session offer code
+  discountExpiry       DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
 
   bookings Booking[]
 
   @@map("leads")
+}
+
+model FreeSessionUsage {
+  id         String   @id @default(cuid())
+  email      String
+  category   String   // HEALTH | CAREER | BOTH
+  count      Int      @default(1)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([email, category])
+  @@map("free_session_usage")
 }
 
 // ─── Student Support ──────────────────────────────────────────────────────────
@@ -857,6 +874,7 @@ model ConsultationSlot {
   startAt         DateTime
   durationMinutes Int               @default(45)
   status          String            @default("AVAILABLE") // AVAILABLE | RESERVED | BOOKED | CANCELLED
+  isFree          Boolean           @default(false)
   reservedUntil   DateTime?
   reservedBy      String?           // clientEmail during 10-min checkout hold
 
@@ -885,6 +903,7 @@ model ConsultationBooking {
   refundAmount         Decimal?                  @db.Decimal(10, 2)
   refundedAt           DateTime?
   paymentRef           String?
+  caseNote             String?
   joinedAt             DateTime?
   completedAt          DateTime?
   noShowAt             DateTime?

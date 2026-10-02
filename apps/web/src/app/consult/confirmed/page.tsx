@@ -8,7 +8,7 @@ import { SiteFooter } from '../../../components/site-footer';
 import {
   CheckCircle, CalendarBlank, Clock, VideoCamera, Envelope,
   WhatsappLogo, ArrowRight, User, Warning, CircleNotch,
-  Confetti, ArrowSquareOut, BookOpen, Phone,
+  Confetti, ArrowSquareOut, BookOpen, Phone, Gift,
 } from '@mjn/ui';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
@@ -43,12 +43,14 @@ interface BookingSummary {
   durationMins: number;
   amountPaid: string;
   category: string;
-  meetingUrl?: string;
+  meetingUrl?: string | null;
+  isFree?: boolean;
 }
 
 function ConfirmedContent() {
   const params = useSearchParams();
   const bookingId = params.get('bookingId');
+  const isFreeParam = params.get('free') === '1';
   const [booking, setBooking] = React.useState<BookingSummary | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [fetchError, setFetchError] = React.useState('');
@@ -113,7 +115,8 @@ function ConfirmedContent() {
     );
   }
 
-  const isPending = booking.status === 'AWAITING_PAYMENT' || booking.status === 'PENDING';
+  const isFree = isFreeParam || booking.isFree;
+  const isPending = !isFree && (booking.status === 'AWAITING_PAYMENT' || booking.status === 'PENDING');
   const stillPolling = isPending && pollCount < 20;
 
   const sessionTime = booking.sessionStart
@@ -155,6 +158,8 @@ function ConfirmedContent() {
           <h1 className="text-2xl font-extrabold mb-2">
             {isPending
               ? (stillPolling ? 'Confirming payment…' : 'Payment processing')
+              : isFree
+              ? 'Free session confirmed!'
               : 'Session confirmed!'}
           </h1>
           <p className="text-sm text-white/80 leading-relaxed max-w-xs mx-auto">
@@ -162,7 +167,9 @@ function ConfirmedContent() {
               ? (stillPolling
                 ? 'Checking with the payment gateway — this page updates automatically.'
                 : 'Your payment is being verified. You\'ll receive your join link by email and WhatsApp once it clears.')
-              : 'Your session is locked in. Check your email for your join link — reminders arrive 24 h and 1 h before.'}
+              : isFree
+              ? 'Your complimentary session is locked in. Check your email for the join link — you\'ll get reminders 48 h, 2 h, and 15 min before.'
+              : 'Your session is locked in. Check your email for your join link — reminders arrive 48 h, 2 h, and 15 min before.'}
           </p>
           {bookingId && (
             <p className="mt-3 text-xs text-white/50 font-mono">Ref: {bookingId.slice(-10).toUpperCase()}</p>
@@ -282,8 +289,9 @@ function ConfirmedContent() {
         <div className="divide-y divide-border">
           {[
             { icon: Envelope, label: 'Confirmation email', desc: 'Session details, join link, and booking reference sent to your inbox.' },
-            { icon: WhatsappLogo, label: 'WhatsApp reminders', desc: '24 hours and 1 hour before your session starts.' },
-            { icon: VideoCamera, label: 'Join link reminder', desc: 'Resent in your final reminder email — no app download required.' },
+            { icon: WhatsappLogo, label: 'WhatsApp reminders', desc: '48 hours, 2 hours, and 15 minutes before your session starts.' },
+            { icon: VideoCamera, label: 'Join link reminder', desc: 'Resent in your final reminder — the room opens 30 minutes before.' },
+            ...(isFree ? [{ icon: Gift, label: '10% discount offer (in 48 hours)', desc: 'After your session, we\'ll send you an exclusive offer to book a full paid session.' }] : []),
           ].map(({ icon: Icon, label, desc }) => (
             <div key={label} className="flex items-start gap-3 px-5 py-3.5">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/50 mt-0.5">
@@ -339,7 +347,9 @@ function ConfirmedContent() {
 
       <p className="text-xs text-center text-muted-foreground leading-relaxed">
         To reschedule or cancel, reply to your confirmation email or WhatsApp us at +971 50 863 8660.
-        Cancellations &gt;24 h: full refund · 4–24 h: 50% · &lt;4 h: no refund.
+        {isFree
+          ? ' Free sessions are non-refundable but can be rescheduled up to 24 hours before.'
+          : ' Cancellations >24 h: full refund · 4–24 h: 50% · <4 h: no refund.'}
       </p>
     </div>
   );

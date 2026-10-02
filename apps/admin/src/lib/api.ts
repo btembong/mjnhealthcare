@@ -168,11 +168,20 @@ export const api = {
   updateLeadStatus: (id: string, status: string) =>
     request<any>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
+  updateLead: (id: string, data: Record<string, any>) =>
+    request<any>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
   assignLeadConsultant: (id: string, consultantId: string) =>
     request<any>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'CONTACTED', assignedConsultantId: consultantId }) }),
 
+  advanceLeadStage: (id: string, stage: string, notes?: string) =>
+    request<any>(`/leads/${id}/stage`, { method: 'POST', body: JSON.stringify({ stage, notes }) }),
+
   convertLead: (id: string) =>
-    request<any>(`/leads/${id}/convert`, { method: 'PATCH' }),
+    request<any>(`/leads/${id}/convert`, { method: 'POST', body: JSON.stringify({ sendInviteEmail: true }) }),
+
+  markSlotFree: (slotId: string, isFree: boolean) =>
+    request<any>(`/consultations/admin/slots/${slotId}/mark-free`, { method: 'PATCH', body: JSON.stringify({ isFree }) }),
 
   // ── Catalog (admin) ───────────────────────────────────────────────────────
   getCatalogCategories: () => request<any[]>('/catalog/categories'),
@@ -360,8 +369,8 @@ export const api = {
     return request<any[]>(`/consultations/admin/sessions${q ? `?${q}` : ''}`);
   },
 
-  markSessionCompleted: (bookingId: string) =>
-    request<any>(`/consultations/admin/bookings/${bookingId}/complete`, { method: 'POST' }),
+  markSessionCompleted: (bookingId: string, caseNote?: string) =>
+    request<any>(`/consultations/admin/bookings/${bookingId}/complete`, { method: 'POST', body: JSON.stringify({ caseNote }) }),
 
   getHostJoinInfo: (bookingId: string) =>
     request<{ roomUrl: string | null; token: string | null; clientName: string; message: string | null }>(
