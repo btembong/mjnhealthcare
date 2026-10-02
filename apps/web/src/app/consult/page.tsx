@@ -8,7 +8,7 @@ import {
   ArrowRight, ArrowLeft, VideoCamera, Heart, Briefcase,
   Star, Clock, CheckCircle, CalendarBlank, User, Warning,
   Lock, CircleNotch, Shield, CurrencyDollar, Phone, EnvelopeSimple,
-  ChatText, SealCheck, CaretRight, Globe,
+  ChatText, SealCheck, CaretRight, Globe, CreditCard,
 } from '@mjn/ui';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
@@ -822,17 +822,17 @@ export default function ConsultPage() {
                         {[
                           {
                             id: 'tranzak' as const,
+                            icon: Globe,
                             label: 'Mobile Money / African Card',
                             sub: 'MoMo · Orange · Local cards · XAF',
-                            flag: '🌍',
                           },
                           {
                             id: 'stripe' as const,
+                            icon: CreditCard,
                             label: 'International Card',
                             sub: 'Visa · Mastercard · USD — for UAE/UK/US clients',
-                            flag: '💳',
                           },
-                        ].map(({ id, label, sub, flag }) => (
+                        ].map(({ id, icon: Icon, label, sub }) => (
                           <button
                             key={id}
                             type="button"
@@ -843,7 +843,9 @@ export default function ConsultPage() {
                                 : 'border-border bg-white hover:border-primary/40'
                             }`}
                           >
-                            <span className="text-xl leading-none">{flag}</span>
+                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${paymentProvider === id ? 'bg-primary/10' : 'bg-muted'}`}>
+                              <Icon className={`h-5 w-5 ${paymentProvider === id ? 'text-primary' : 'text-muted-foreground'}`} weight="duotone" />
+                            </div>
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-foreground leading-snug">{label}</p>
                               <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">{sub}</p>
