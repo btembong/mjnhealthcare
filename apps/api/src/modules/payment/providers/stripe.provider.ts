@@ -24,9 +24,8 @@ export class StripeProvider implements IPaymentProvider {
     // input.amount is USD (dollars, not cents)
     const amountCents = Math.round(input.amount * 100);
 
-    const session = await (this.stripe.checkout.sessions.create as any)({
+    const session = await this.stripe.checkout.sessions.create({
       mode: 'payment',
-      payment_method_types: ['card'],
       line_items: [
         {
           price_data: {

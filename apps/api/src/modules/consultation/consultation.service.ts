@@ -253,9 +253,8 @@ export class ConsultationService {
         ? `${dto.returnUrl}?bookingId=${booking.id}`
         : `${webUrl}/consult/confirmed?bookingId=${booking.id}`;
       try {
-        const session = await (this.stripe.checkout.sessions.create as any)({
+        const session = await this.stripe.checkout.sessions.create({
           mode: 'payment',
-          payment_method_types: ['card'],
           line_items: [{
             price_data: {
               currency: 'usd',
