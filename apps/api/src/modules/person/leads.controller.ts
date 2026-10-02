@@ -8,6 +8,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { DatabaseService } from '@mjn/database';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 @ApiTags('leads')
 @Controller('leads')
@@ -15,6 +17,7 @@ export class LeadsController {
   constructor(
     private readonly db: DatabaseService,
     private readonly events: EventEmitter2,
+    @InjectQueue('booking-reminders') private readonly reminderQueue: Queue,
   ) {}
 
   // ── Public endpoint — no auth (called from /get-started) ─────────────────
@@ -77,6 +80,28 @@ export class LeadsController {
     });
     await this.db.bookingSlot.update({ where: { id: body.slotId }, data: { isBooked: true } });
     await this.db.lead.update({ where: { id: lead.id }, data: { sourceBookingId: booking.id } });
+
+    // Schedule reminders for both client and consultant
+    const slotMs = slot.startTime.getTime();
+    const reminderJobData = {
+      leadName: body.name.trim(),
+      leadEmail: body.email.trim().toLowerCase(),
+      leadPhone: body.phone,
+      consultantName: (slot as any).consultant?.name,
+      consultantEmail: (slot as any).consultant?.email,
+      slotStart: slot.startTime.toISOString(),
+    };
+    const reminderSchedule = [
+      { name: 'free-consult-reminder-24h', offset: 24 * 60 * 60 * 1000 },
+      { name: 'free-consult-reminder-1h',  offset: 60 * 60 * 1000 },
+      { name: 'free-consult-reminder-15m', offset: 15 * 60 * 1000 },
+    ];
+    for (const { name, offset } of reminderSchedule) {
+      const delay = slotMs - offset - Date.now();
+      if (delay > 0) {
+        await this.reminderQueue.add(name, reminderJobData, { delay });
+      }
+    }
 
     this.events.emit('lead.free_consult_booked', {
       leadId: lead.id,

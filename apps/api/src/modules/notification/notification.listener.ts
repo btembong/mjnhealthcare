@@ -830,47 +830,110 @@ export class NotificationListener {
 
   @OnEvent('lead.free_consult_booked')
   async onFreeConsultBooked(payload: {
-    bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
-    consultantName: string; sessionStart: string; roomUrl: string; category: string;
+    leadId: string;
+    leadName: string; leadEmail: string; leadPhone?: string;
+    consultantName?: string; consultantEmail?: string;
+    slotStart: string; serviceInterest?: string;
   }) {
-    const time = new Date(payload.sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
-    const webUrl = process.env.WEB_URL ?? 'http://localhost:3001';
+    const time = new Date(payload.slotStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
+    const consultantLine = payload.consultantName ? ` with <strong>${payload.consultantName}</strong>` : '';
 
-    // Email the client with joining instructions
-    if (payload.clientEmail) {
+    // 1. Confirmation email to client
+    if (payload.leadEmail) {
       await this.notificationService.sendEmail(
-        payload.clientEmail,
+        payload.leadEmail,
         'Your Free MJN Healthcare Consultation is Confirmed!',
-        `<p>Hi <strong>${payload.clientName}</strong>,</p>
-        <p>Great news! Your <strong>free ${payload.category.toLowerCase()} consultation</strong> with <strong>${payload.consultantName}</strong> is confirmed.</p>
+        `<p>Hi <strong>${payload.leadName}</strong>,</p>
+        <p>Your <strong>free 30-minute consultation</strong>${consultantLine} is confirmed.</p>
         <p><strong>When:</strong> ${time} WAT</p>
-        <p>Your video room will be ready 30 minutes before the session. You'll receive reminder emails at 48h, 2h, and 15 minutes before.</p>
-        <p><a href="${payload.roomUrl}" style="background:#00A896;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px;">Open My Session Room</a></p>
-        <p style="color:#888;font-size:13px;">This is a one-time complimentary session. After your consultation, we'll share a special offer for full-service bookings.</p>`,
-        payload.clientName,
+        ${payload.serviceInterest ? `<p><strong>Topic:</strong> ${payload.serviceInterest}</p>` : ''}
+        <p>You will receive reminder emails 24 hours, 1 hour, and 15 minutes before your session. Your advisor will share a video link closer to the time.</p>
+        <p style="color:#888;font-size:13px;">This is a complimentary session — no payment required. After the call we'll share a special offer for full-service support.</p>`,
+        payload.leadName,
       );
     }
-    // WhatsApp confirmation
-    if (payload.clientPhone) {
+
+    // 2. WhatsApp confirmation to client
+    if (payload.leadPhone) {
       await this.notificationService.sendWhatsApp(
-        payload.clientPhone,
-        `Hi ${payload.clientName}! 🎉 Your free MJN Healthcare consultation with ${payload.consultantName} is confirmed for ${time} WAT. Join link: ${payload.roomUrl}`,
+        payload.leadPhone,
+        `Hi ${payload.leadName}! Your free MJN Healthcare consultation${consultantLine ? ` with ${payload.consultantName}` : ''} is confirmed for ${time} WAT. We'll send you reminders before the session.`,
       );
     }
-    // Notify admin of new free consult lead
+
+    // 3. Email the assigned consultant
+    if (payload.consultantEmail) {
+      await this.notificationService.sendEmail(
+        payload.consultantEmail,
+        `[New Free Consult] ${payload.leadName} — ${time} WAT`,
+        `<p>Hi ${payload.consultantName ?? 'there'},</p>
+        <p>A new free consultation has been booked with you.</p>
+        <ul>
+          <li><strong>Client:</strong> ${payload.leadName} (${payload.leadEmail})</li>
+          ${payload.leadPhone ? `<li><strong>Phone/WhatsApp:</strong> ${payload.leadPhone}</li>` : ''}
+          ${payload.serviceInterest ? `<li><strong>Interest:</strong> ${payload.serviceInterest}</li>` : ''}
+          <li><strong>When:</strong> ${time} WAT</li>
+        </ul>
+        <p><a href="${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads">View Lead in Admin →</a></p>`,
+      );
+    }
+
+    // 4. Admin alert
     await this.notificationService.sendEmail(
       process.env.ADMIN_ALERT_EMAIL ?? 'admin@mjnhealth.com',
-      `[Lead] New Free Consult Booked — ${payload.clientName}`,
-      `<p>A new free consultation has been booked and a lead created.</p>
+      `[Lead] New Free Consult Booked — ${payload.leadName}`,
+      `<p>A new free consultation has been booked.</p>
       <ul>
-        <li><strong>Client:</strong> ${payload.clientName} (${payload.clientEmail})</li>
-        <li><strong>Category:</strong> ${payload.category}</li>
-        <li><strong>Consultant:</strong> ${payload.consultantName}</li>
+        <li><strong>Client:</strong> ${payload.leadName} (${payload.leadEmail})</li>
+        ${payload.serviceInterest ? `<li><strong>Interest:</strong> ${payload.serviceInterest}</li>` : ''}
+        <li><strong>Consultant:</strong> ${payload.consultantName ?? 'Unassigned'}</li>
         <li><strong>Session:</strong> ${time} WAT</li>
       </ul>
       <p><a href="${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads">View Lead →</a></p>`,
     );
-    this.logger.log(`Free consult booked notifications sent for booking ${payload.bookingId}`);
+    this.logger.log(`Free consult booked notifications sent for lead ${payload.leadId}`);
+  }
+
+  @OnEvent('free.consult.reminder')
+  async onFreeConsultReminder(payload: {
+    leadName: string; leadEmail: string; leadPhone?: string;
+    consultantName?: string; consultantEmail?: string;
+    slotStart: string; timeLabel: string;
+  }) {
+    const time = new Date(payload.slotStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
+    const consultantLine = payload.consultantName ? ` with ${payload.consultantName}` : '';
+
+    // Reminder to client
+    if (payload.leadEmail) {
+      await this.notificationService.sendEmail(
+        payload.leadEmail,
+        `Reminder: Your Free Consultation is in ${payload.timeLabel}`,
+        `<p>Hi <strong>${payload.leadName}</strong>,</p>
+        <p>Just a reminder — your free MJN Healthcare consultation${consultantLine} starts in <strong>${payload.timeLabel}</strong>.</p>
+        <p><strong>When:</strong> ${time} WAT</p>
+        <p>Your advisor will share the video link shortly before the session. If you need to reschedule, please reply to this email at least 2 hours before.</p>`,
+        payload.leadName,
+      );
+    }
+
+    if (payload.leadPhone) {
+      await this.notificationService.sendWhatsApp(
+        payload.leadPhone,
+        `Reminder: Your free MJN Healthcare consultation${consultantLine} is in ${payload.timeLabel} (${time} WAT).`,
+      );
+    }
+
+    // Reminder to consultant
+    if (payload.consultantEmail) {
+      await this.notificationService.sendEmail(
+        payload.consultantEmail,
+        `[Reminder] Free Consult with ${payload.leadName} in ${payload.timeLabel}`,
+        `<p>Hi ${payload.consultantName ?? 'there'},</p>
+        <p>Your free consultation with <strong>${payload.leadName}</strong> starts in <strong>${payload.timeLabel}</strong> (${time} WAT).</p>
+        <p>Client contact: ${payload.leadEmail}${payload.leadPhone ? ` · ${payload.leadPhone}` : ''}</p>`,
+      );
+    }
+    this.logger.log(`Free consult reminder (${payload.timeLabel}) sent for ${payload.leadEmail}`);
   }
 
   @OnEvent('lead.free_consult_done')
