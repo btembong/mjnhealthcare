@@ -283,10 +283,16 @@ export class ConsultationService {
         this.logger.log(`Stripe Checkout session ${session.id} created for booking ${booking.id}`);
         return { bookingId: booking.id, redirectUrl: session.url };
       } catch (err) {
-        await this.db.consultationSlot.update({
-          where: { id: dto.slotId },
-          data: { status: 'AVAILABLE' },
-        });
+        // Release slot AND delete the orphaned booking so the slot can be rebooked
+        await this.db.$transaction([
+          this.db.consultationSlot.update({
+            where: { id: dto.slotId },
+            data: { status: 'AVAILABLE' },
+          }),
+          this.db.consultationBooking.delete({
+            where: { id: booking.id },
+          }),
+        ]);
         this.logger.error(`Stripe payment initiation error for booking ${booking.id}: ${err}`);
         throw new BadRequestException(
           err instanceof Error ? err.message : 'Stripe payment could not be initiated. Please try again.',
