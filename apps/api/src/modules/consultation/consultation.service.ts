@@ -370,11 +370,16 @@ export class ConsultationService {
 
       return { bookingId: booking.id, redirectUrl: paymentAuthUrl };
     } catch (err) {
-      // Release the slot back to available if payment initiation fails
-      await this.db.consultationSlot.update({
-        where: { id: dto.slotId },
-        data: { status: 'AVAILABLE' },
-      });
+      // Release slot AND delete orphaned booking so the slot can be rebooked
+      await this.db.$transaction([
+        this.db.consultationSlot.update({
+          where: { id: dto.slotId },
+          data: { status: 'AVAILABLE' },
+        }),
+        this.db.consultationBooking.delete({
+          where: { id: booking.id },
+        }),
+      ]);
       this.logger.error(`Tranzak payment initiation error for booking ${booking.id}: ${err}`);
       throw new BadRequestException(
         err instanceof Error ? err.message : 'Payment could not be initiated. Please try again.',
