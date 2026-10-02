@@ -15,6 +15,9 @@ import {
   SubmitApplicationDto,
   ReviewApplicationDto,
   MarkPayoutPaidDto,
+  HoldSlotDto,
+  CreateAvailabilityRuleDto,
+  CreateBlockedTimeDto,
 } from './consultation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -69,6 +72,12 @@ export class ConsultationController {
   @Get('client/:email')
   getClientBookings(@Param('email') email: string) {
     return this.svc.getClientBookings(email);
+  }
+
+  @Post('slots/:slotId/hold')
+  @HttpCode(HttpStatus.OK)
+  holdSlot(@Param('slotId') slotId: string, @Body() dto: HoldSlotDto) {
+    return this.svc.holdSlot(slotId, dto.clientEmail);
   }
 
   // Tranzak webhook — no auth, verify via HMAC in service
@@ -227,5 +236,78 @@ export class ConsultationController {
   @Patch('admin/payouts/:id/mark-paid')
   markPayoutPaid(@Param('id') id: string, @Body() dto: MarkPayoutPaidDto) {
     return this.svc.markPayoutPaid(id, dto);
+  }
+
+  // ── Availability rules ──────────────────────────────────────────────────────
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Get('admin/consultants/:id/availability')
+  getAvailabilityRules(@Param('id') id: string) {
+    return this.svc.getAvailabilityRules(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Post('admin/consultants/:id/availability')
+  createAvailabilityRule(@Param('id') id: string, @Body() dto: CreateAvailabilityRuleDto) {
+    return this.svc.createAvailabilityRule(id, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Patch('admin/availability/:ruleId')
+  updateAvailabilityRule(@Param('ruleId') ruleId: string, @Body() dto: CreateAvailabilityRuleDto) {
+    return this.svc.updateAvailabilityRule(ruleId, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Delete('admin/availability/:ruleId')
+  @HttpCode(HttpStatus.OK)
+  deleteAvailabilityRule(@Param('ruleId') ruleId: string) {
+    return this.svc.deleteAvailabilityRule(ruleId);
+  }
+
+  // ── Blocked times ───────────────────────────────────────────────────────────
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Get('admin/consultants/:id/blocked')
+  getBlockedTimes(@Param('id') id: string) {
+    return this.svc.getBlockedTimes(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Post('admin/consultants/:id/blocked')
+  createBlockedTime(@Param('id') id: string, @Body() dto: CreateBlockedTimeDto) {
+    return this.svc.createBlockedTime(id, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Delete('admin/blocked/:blockId')
+  @HttpCode(HttpStatus.OK)
+  deleteBlockedTime(@Param('blockId') blockId: string) {
+    return this.svc.deleteBlockedTime(blockId);
+  }
+
+  // ── On-demand slot regeneration ─────────────────────────────────────────────
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Post('admin/consultants/:id/regenerate-slots')
+  @HttpCode(HttpStatus.OK)
+  regenerateSlots(@Param('id') id: string) {
+    return this.svc.regenerateSlotsForConsultant(id);
   }
 }

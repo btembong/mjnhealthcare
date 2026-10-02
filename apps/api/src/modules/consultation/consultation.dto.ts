@@ -91,3 +91,19 @@ export class ReviewApplicationDto {
 export class MarkPayoutPaidDto {
   @IsOptional() @IsString() paymentRef?: string;
 }
+
+export class HoldSlotDto {
+  @IsEmail() clientEmail!: string;
+}
+
+export class CreateAvailabilityRuleDto {
+  @IsInt() @Min(0) @Max(6) @Type(() => Number) dayOfWeek!: number;
+  @IsString() startTime!: string; // "09:00"
+  @IsString() endTime!: string;   // "17:00"
+}
+
+export class CreateBlockedTimeDto {
+  @IsString() startAt!: string; // ISO datetime
+  @IsString() endAt!: string;   // ISO datetime
+  @IsOptional() @IsString() reason?: string;
+}

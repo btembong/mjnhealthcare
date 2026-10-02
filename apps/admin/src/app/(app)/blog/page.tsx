@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { AppShell } from '@/components/app-shell';
-import { Button, Badge } from '@mjn/ui';
+import { Badge } from '@mjn/ui';
 import {
   Plus, PencilSimple, Trash, Eye, ArrowLeft,
   ArrowRight, X, CheckCircle, Article,
@@ -206,13 +205,13 @@ function PostEditor({
           <Badge variant="outline" className={form.status === 'PUBLISHED' ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-slate-300 text-slate-500'}>
             {form.status}
           </Badge>
-          <Button variant="outline" size="sm" onClick={() => save(false)} disabled={saving}>
+          <button onClick={() => save(false)} disabled={saving} className="rounded-xl border border-border bg-white px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors">
             Save Draft
-          </Button>
-          <Button size="sm" onClick={() => save(true)} disabled={saving} className="bg-primary text-white hover:bg-primary/90">
-            <CheckCircle className="h-4 w-4 mr-1.5" />
+          </button>
+          <button onClick={() => save(true)} disabled={saving} className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors">
+            <CheckCircle className="h-4 w-4" />
             {form.status === 'PUBLISHED' ? 'Update' : 'Publish'}
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -358,7 +357,7 @@ export default function BlogAdminPage() {
 
   if (editing !== null) {
     return (
-      <AppShell>
+      
         <div className="h-screen flex flex-col">
           <PostEditor
             post={editing === 'new' ? null : editing as Post}
@@ -366,12 +365,12 @@ export default function BlogAdminPage() {
             onClose={() => setEditing(null)}
           />
         </div>
-      </AppShell>
+      
     );
   }
 
   return (
-    <AppShell>
+    
       <div className="px-6 py-6 space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
@@ -379,9 +378,9 @@ export default function BlogAdminPage() {
             <h1 className="text-xl font-bold text-foreground">Blog & Articles</h1>
             <p className="text-sm text-slate-500 mt-0.5">Write and publish articles for the marketing site</p>
           </div>
-          <Button onClick={() => setEditing('new')} className="bg-primary text-white hover:bg-primary/90 shrink-0">
-            <Plus className="h-4 w-4 mr-1.5" /> New Post
-          </Button>
+          <button onClick={() => setEditing('new')} className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors shrink-0 shadow-sm">
+            <Plus className="h-4 w-4" /> New Post
+          </button>
         </div>
 
         {/* Stats */}
@@ -485,6 +484,6 @@ export default function BlogAdminPage() {
           )}
         </div>
       </div>
-    </AppShell>
+    
   );
 }

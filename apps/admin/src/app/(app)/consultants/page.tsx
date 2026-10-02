@@ -69,7 +69,94 @@ export default function ConsultantsPage() {
   const [payoutsLoading, setPayoutsLoading] = useState(true);
   const [appsLoading, setAppsLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'consultants' | 'slots' | 'payouts' | 'applications'>('consultants');
+  const [tab, setTab] = useState<'consultants' | 'slots' | 'availability' | 'payouts' | 'applications'>('consultants');
+
+  // ── Availability management state ─────────────────────────────────────────
+  const [availConsultant, setAvailConsultant] = useState<Consultant | null>(null);
+  const [availRules, setAvailRules] = useState<any[]>([]);
+  const [blockedTimes, setBlockedTimes] = useState<any[]>([]);
+  const [availLoading, setAvailLoading] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  // new rule form
+  const [newRuleDay, setNewRuleDay] = useState(1);
+  const [newRuleStart, setNewRuleStart] = useState('09:00');
+  const [newRuleEnd, setNewRuleEnd] = useState('17:00');
+  const [savingRule, setSavingRule] = useState(false);
+  const [deletingRule, setDeletingRule] = useState<string | null>(null);
+  // new block form
+  const [newBlockStart, setNewBlockStart] = useState('');
+  const [newBlockEnd, setNewBlockEnd] = useState('');
+  const [newBlockReason, setNewBlockReason] = useState('');
+  const [savingBlock, setSavingBlock] = useState(false);
+  const [deletingBlock, setDeletingBlock] = useState<string | null>(null);
+
+  const DOW_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  async function openAvailability(c: Consultant) {
+    setAvailConsultant(c);
+    setTab('availability');
+    setAvailLoading(true);
+    try {
+      const [rules, blocks] = await Promise.all([
+        api.getAvailabilityRules(c.id),
+        api.getBlockedTimes(c.id),
+      ]);
+      setAvailRules(rules ?? []);
+      setBlockedTimes(blocks ?? []);
+    } catch { setAvailRules([]); setBlockedTimes([]); }
+    finally { setAvailLoading(false); }
+  }
+
+  async function handleAddRule() {
+    if (!availConsultant || newRuleStart >= newRuleEnd) { alert('Start time must be before end time.'); return; }
+    setSavingRule(true);
+    try {
+      const rule = await api.createAvailabilityRule(availConsultant.id, { dayOfWeek: newRuleDay, startTime: newRuleStart, endTime: newRuleEnd });
+      setAvailRules((prev) => [...prev, rule].sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime)));
+    } catch { alert('Failed to add rule.'); }
+    finally { setSavingRule(false); }
+  }
+
+  async function handleDeleteRule(ruleId: string) {
+    setDeletingRule(ruleId);
+    try {
+      await api.deleteAvailabilityRule(ruleId);
+      setAvailRules((prev) => prev.filter((r) => r.id !== ruleId));
+    } catch { alert('Failed to delete rule.'); }
+    finally { setDeletingRule(null); }
+  }
+
+  async function handleAddBlock() {
+    if (!availConsultant || !newBlockStart || !newBlockEnd) { alert('Fill in both start and end.'); return; }
+    if (newBlockStart >= newBlockEnd) { alert('End must be after start.'); return; }
+    setSavingBlock(true);
+    try {
+      const block = await api.createBlockedTime(availConsultant.id, { startAt: newBlockStart, endAt: newBlockEnd, reason: newBlockReason || undefined });
+      setBlockedTimes((prev) => [...prev, block].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()));
+      setNewBlockStart(''); setNewBlockEnd(''); setNewBlockReason('');
+    } catch (e: any) { alert(e.message ?? 'Failed to add blocked time.'); }
+    finally { setSavingBlock(false); }
+  }
+
+  async function handleDeleteBlock(blockId: string) {
+    setDeletingBlock(blockId);
+    try {
+      await api.deleteBlockedTime(blockId);
+      setBlockedTimes((prev) => prev.filter((b) => b.id !== blockId));
+    } catch { alert('Failed to remove block.'); }
+    finally { setDeletingBlock(null); }
+  }
+
+  async function handleRegenerateSlots() {
+    if (!availConsultant) return;
+    if (!confirm(`Regenerate slots for ${availConsultant.name} from availability rules? This will create new slots for the next 28 days (existing slots are NOT deleted).`)) return;
+    setRegenerating(true);
+    try {
+      const result = await api.regenerateSlots(availConsultant.id);
+      alert(`Done — ${result.created} new slot(s) generated.`);
+    } catch { alert('Failed to regenerate slots.'); }
+    finally { setRegenerating(false); }
+  }
 
   // ── Slot management state ──────────────────────────────────────────────────
   const [slotConsultant, setSlotConsultant] = useState<Consultant | null>(null);
@@ -339,10 +426,11 @@ export default function ConsultantsPage() {
   const pendingApps = applications.filter((a) => a.status === 'PENDING');
 
   const TABS = [
-    { key: 'consultants', label: 'Consultants', badge: 0 },
-    { key: 'slots',       label: 'Manage Slots', badge: 0 },
-    { key: 'payouts',     label: 'Payouts', badge: pendingPayouts.length },
-    { key: 'applications',label: 'Applications', badge: pendingApps.length },
+    { key: 'consultants',  label: 'Consultants', badge: 0 },
+    { key: 'availability', label: 'Availability', badge: 0 },
+    { key: 'slots',        label: 'Slots', badge: 0 },
+    { key: 'payouts',      label: 'Payouts', badge: pendingPayouts.length },
+    { key: 'applications', label: 'Applications', badge: pendingApps.length },
   ] as const;
 
   return (
@@ -476,12 +564,20 @@ export default function ConsultantsPage() {
                           </button>
                         </td>
                         <td className="px-5 py-4">
-                          <button
-                            onClick={() => openSlots(c)}
-                            className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary transition-colors shadow-sm"
-                          >
-                            <CalendarPlus className="h-3.5 w-3.5" /> Manage
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => openAvailability(c)}
+                              className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors shadow-sm"
+                            >
+                              <Clock className="h-3.5 w-3.5" /> Availability
+                            </button>
+                            <button
+                              onClick={() => openSlots(c)}
+                              className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary transition-colors shadow-sm"
+                            >
+                              <CalendarPlus className="h-3.5 w-3.5" /> Slots
+                            </button>
+                          </div>
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2">
@@ -589,6 +685,205 @@ export default function ConsultantsPage() {
                 </table>
                 </div>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Availability tab */}
+        {tab === 'availability' && (
+          <div className="space-y-5">
+            {!availConsultant ? (
+              <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-sm">
+                <Clock className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
+                <p className="font-semibold text-foreground">Select a consultant</p>
+                <p className="mt-1 text-sm text-muted-foreground">Go to the Consultants tab and click "Availability" on a consultant row.</p>
+                <button onClick={() => setTab('consultants')} className="mt-4 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                  Go to Consultants
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-sm font-bold text-primary">
+                      {availConsultant.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-bold text-foreground">{availConsultant.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {availConsultant.specialty} · Timezone: {(availConsultant as any).timezone ?? 'UTC'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleRegenerateSlots}
+                      disabled={regenerating}
+                      className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-sm"
+                    >
+                      {regenerating ? <CircleNotch className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
+                      Regenerate slots (28 days)
+                    </button>
+                    <button onClick={() => { setAvailConsultant(null); setTab('consultants'); }}
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                      <X className="h-3.5 w-3.5" /> Change
+                    </button>
+                  </div>
+                </div>
+
+                {availLoading ? (
+                  <div className="space-y-3">{[0,1,2].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-muted" />)}</div>
+                ) : (
+                  <div className="grid gap-5 lg:grid-cols-2">
+
+                    {/* Weekly availability rules */}
+                    <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                      <div className="mb-5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CalendarBlank className="h-4 w-4 text-primary" />
+                          <p className="font-semibold text-foreground">Weekly schedule</p>
+                        </div>
+                        <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">{availRules.length} rule{availRules.length !== 1 ? 's' : ''}</span>
+                      </div>
+
+                      <p className="mb-4 text-xs text-muted-foreground">
+                        Times are in the consultant's local timezone ({(availConsultant as any).timezone ?? 'UTC'}). The daily cron uses these rules to auto-generate slots.
+                      </p>
+
+                      {/* Existing rules */}
+                      {availRules.length === 0 ? (
+                        <p className="py-4 text-center text-sm text-muted-foreground">No rules yet — add windows below. Without rules, the system falls back to weekdays 08:00–17:00.</p>
+                      ) : (
+                        <div className="mb-4 space-y-1.5">
+                          {availRules.map((r) => (
+                            <div key={r.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+                              <div>
+                                <p className="text-sm font-semibold text-foreground">{DOW_LABELS[r.dayOfWeek]}</p>
+                                <p className="text-xs text-muted-foreground">{r.startTime} – {r.endTime}</p>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteRule(r.id)}
+                                disabled={deletingRule === r.id}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-rose-50 hover:text-rose-500 transition-colors disabled:opacity-40"
+                              >
+                                {deletingRule === r.id ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Trash className="h-3.5 w-3.5" />}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add rule form */}
+                      <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 space-y-3">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add window</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">Day</label>
+                            <select value={newRuleDay} onChange={(e) => setNewRuleDay(Number(e.target.value))}
+                              className="h-9 w-full rounded-lg border border-border bg-white px-2 text-xs outline-none focus:border-primary">
+                              {DOW_LABELS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">From</label>
+                            <input type="time" value={newRuleStart} onChange={(e) => setNewRuleStart(e.target.value)}
+                              className="h-9 w-full rounded-lg border border-border bg-white px-2 text-xs outline-none focus:border-primary" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">To</label>
+                            <input type="time" value={newRuleEnd} onChange={(e) => setNewRuleEnd(e.target.value)}
+                              className="h-9 w-full rounded-lg border border-border bg-white px-2 text-xs outline-none focus:border-primary" />
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleAddRule}
+                          disabled={savingRule}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                        >
+                          {savingRule ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                          Add rule
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Blocked times */}
+                    <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                      <div className="mb-5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <X className="h-4 w-4 text-rose-500" />
+                          <p className="font-semibold text-foreground">Blocked times</p>
+                        </div>
+                        <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-600">{blockedTimes.length}</span>
+                      </div>
+
+                      <p className="mb-4 text-xs text-muted-foreground">
+                        Slots within a blocked period are automatically cancelled when a block is added. Clients won't see them.
+                      </p>
+
+                      {blockedTimes.length === 0 ? (
+                        <p className="py-4 text-center text-sm text-muted-foreground">No upcoming blocked times.</p>
+                      ) : (
+                        <div className="mb-4 space-y-1.5">
+                          {blockedTimes.map((b) => (
+                            <div key={b.id} className="flex items-center justify-between rounded-lg border border-rose-100 bg-rose-50/50 px-3 py-2.5">
+                              <div>
+                                <p className="text-xs font-semibold text-foreground">
+                                  {new Date(b.startAt).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                  {' – '}
+                                  {new Date(b.endAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                                {b.reason && <p className="text-xs text-muted-foreground">{b.reason}</p>}
+                                {b.cancelledSlots > 0 && <p className="text-xs text-rose-500">{b.cancelledSlots} slot{b.cancelledSlots !== 1 ? 's' : ''} cancelled</p>}
+                              </div>
+                              <button
+                                onClick={() => handleDeleteBlock(b.id)}
+                                disabled={deletingBlock === b.id}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-400 hover:bg-rose-100 transition-colors disabled:opacity-40"
+                              >
+                                {deletingBlock === b.id ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Trash className="h-3.5 w-3.5" />}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add block form */}
+                      <div className="rounded-xl border border-dashed border-rose-200 bg-rose-50/30 p-4 space-y-3">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Block a period</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">Start</label>
+                            <input type="datetime-local" value={newBlockStart} onChange={(e) => setNewBlockStart(e.target.value)}
+                              className="h-9 w-full rounded-lg border border-border bg-white px-2 text-xs outline-none focus:border-rose-400" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">End</label>
+                            <input type="datetime-local" value={newBlockEnd} onChange={(e) => setNewBlockEnd(e.target.value)}
+                              className="h-9 w-full rounded-lg border border-border bg-white px-2 text-xs outline-none focus:border-rose-400" />
+                          </div>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Reason (optional) — e.g. Holiday, Meeting"
+                          value={newBlockReason}
+                          onChange={(e) => setNewBlockReason(e.target.value)}
+                          className="h-9 w-full rounded-lg border border-border bg-white px-3 text-xs outline-none focus:border-rose-400"
+                        />
+                        <button
+                          onClick={handleAddBlock}
+                          disabled={savingBlock}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50 transition-colors"
+                        >
+                          {savingBlock ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                          Block period
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

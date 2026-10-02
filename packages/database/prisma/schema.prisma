@@ -839,9 +839,13 @@ model ConsultantProfile {
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
-  slots    ConsultationSlot[]
-  bookings ConsultationBooking[]
-  payouts  ConsultantPayout[]
+  bufferMins           Int                  @default(15)
+
+  slots             ConsultationSlot[]
+  bookings          ConsultationBooking[]
+  payouts           ConsultantPayout[]
+  availabilityRules ConsultantAvailabilityRule[]
+  blockedTimes      ConsultantBlockedTime[]
 
   @@map("consultant_profiles")
 }
@@ -852,7 +856,9 @@ model ConsultationSlot {
   consultant      ConsultantProfile @relation(fields: [consultantId], references: [id])
   startAt         DateTime
   durationMinutes Int               @default(45)
-  status          String            @default("AVAILABLE") // AVAILABLE | BOOKED | CANCELLED
+  status          String            @default("AVAILABLE") // AVAILABLE | RESERVED | BOOKED | CANCELLED
+  reservedUntil   DateTime?
+  reservedBy      String?           // clientEmail during 10-min checkout hold
 
   booking ConsultationBooking?
 
@@ -879,7 +885,9 @@ model ConsultationBooking {
   refundAmount         Decimal?                  @db.Decimal(10, 2)
   refundedAt           DateTime?
   paymentRef           String?
+  joinedAt             DateTime?
   completedAt          DateTime?
+  noShowAt             DateTime?
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
 
@@ -925,6 +933,33 @@ model ConsultantApplication {
   createdAt        DateTime          @default(now())
 
   @@map("consultant_applications")
+}
+
+// ── Consultant availability ──────────────────────────────────────────────────
+
+model ConsultantAvailabilityRule {
+  id           String            @id @default(cuid())
+  consultantId String
+  consultant   ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  dayOfWeek    Int               // 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat
+  startTime    String            // "09:00" — local time in consultant's timezone
+  endTime      String            // "17:00"
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+
+  @@map("consultant_availability_rules")
+}
+
+model ConsultantBlockedTime {
+  id           String            @id @default(cuid())
+  consultantId String
+  consultant   ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  startAt      DateTime          // UTC
+  endAt        DateTime          // UTC
+  reason       String?
+  createdAt    DateTime          @default(now())
+
+  @@map("consultant_blocked_times")
 }
 
 // ─── System Config ────────────────────────────────────────────────────────────

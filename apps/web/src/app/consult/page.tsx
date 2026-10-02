@@ -49,6 +49,7 @@ interface Consultant {
   id: string; name: string; bio: string; photoUrl?: string;
   specialty: string; languages: string[]; consultationCategory: string;
   priceUsd: string; sessionDurationMins: number; rating: number; sessionCount: number;
+  timezone?: string;
 }
 interface Slot { id: string; startAt: string; durationMinutes: number; }
 
@@ -110,6 +111,28 @@ export default function ConsultPage() {
   const [termsConsent, setTermsConsent]           = React.useState(false);
   const [tz, setTz]                               = React.useState(detectTimezone);
 
+  // Slot hold state
+  const [holdExpiry, setHoldExpiry]               = React.useState<Date | null>(null);
+  const [holdSecsLeft, setHoldSecsLeft]           = React.useState(0);
+  const [holdingSlot, setHoldingSlot]             = React.useState(false);
+
+  // Countdown ticker
+  React.useEffect(() => {
+    if (!holdExpiry) { setHoldSecsLeft(0); return; }
+    const tick = () => {
+      const left = Math.max(0, Math.round((holdExpiry.getTime() - Date.now()) / 1000));
+      setHoldSecsLeft(left);
+      if (left === 0) {
+        // Hold expired — release the pending slot
+        setPendingSlot(null);
+        setHoldExpiry(null);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [holdExpiry]);
+
   async function handleCategorySelect(cat: Category) {
     setCategory(cat);
     setLoadingConsultants(true);
@@ -135,9 +158,32 @@ export default function ConsultPage() {
     finally { setLoadingSlots(false); }
   }
 
+  async function handleSlotClick(slot: Slot) {
+    if (!clientEmail) {
+      // If email not yet known (step 3 before step 4), hold without email — server will accept any email
+      setPendingSlot(slot);
+      return;
+    }
+    setHoldingSlot(true);
+    try {
+      const res = await fetch(`${API}/consultations/slots/${slot.id}/hold`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientEmail: clientEmail || 'anon@mjn.hold' }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { reservedUntil: string };
+        setHoldExpiry(new Date(data.reservedUntil));
+      }
+    } catch { /* non-critical — proceed anyway */ }
+    finally { setHoldingSlot(false); }
+    setPendingSlot(slot);
+  }
+
   function handleConfirmSlot() {
     if (!pendingSlot) return;
     setSelectedSlot(pendingSlot);
+    setHoldExpiry(null);
     setStep(4);
   }
 
@@ -580,8 +626,9 @@ export default function ConsultPage() {
                           return (
                             <button
                               key={slot.id}
-                              onClick={() => setPendingSlot(isSelected ? null : slot)}
-                              className={`flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all ${
+                              onClick={() => isSelected ? setPendingSlot(null) : handleSlotClick(slot)}
+                              disabled={holdingSlot && !isSelected}
+                              className={`flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
                                 isSelected
                                   ? 'gradient-hero border-transparent text-white shadow-sm'
                                   : 'border-border bg-white text-foreground hover:border-primary/50 hover:bg-primary/4'
@@ -603,8 +650,16 @@ export default function ConsultPage() {
               {/* Confirm panel */}
               {pendingSlot && (
                 <div className="mt-6 overflow-hidden rounded-2xl border border-primary/25 bg-white shadow-md">
-                  <div className="gradient-hero px-5 py-3">
+                  <div className="gradient-hero px-5 py-3 flex items-center justify-between">
                     <p className="text-xs font-semibold text-white/80 uppercase tracking-wide">Selected time</p>
+                    {holdSecsLeft > 0 && (
+                      <div className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1">
+                        <Clock className="h-3.5 w-3.5 text-white" />
+                        <span className="text-xs font-bold text-white tabular-nums">
+                          Held for {Math.floor(holdSecsLeft / 60)}:{String(holdSecsLeft % 60).padStart(2, '0')}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -614,7 +669,19 @@ export default function ConsultPage() {
                           hour: '2-digit', minute: '2-digit', timeZone: tz,
                         })} {tzAbbr(tz)}
                       </p>
+                      {selectedConsultant.timezone && selectedConsultant.timezone !== tz && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          That's {new Date(pendingSlot.startAt).toLocaleTimeString('en-GB', {
+                            hour: '2-digit', minute: '2-digit', timeZone: selectedConsultant.timezone,
+                          })} {tzAbbr(selectedConsultant.timezone)} for {selectedConsultant.name.split(' ')[0]}
+                        </p>
+                      )}
                       <p className="mt-0.5 text-sm text-muted-foreground">{pendingSlot.durationMinutes} min · with {selectedConsultant.name}</p>
+                      {holdSecsLeft > 0 && holdSecsLeft <= 120 && (
+                        <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-amber-600">
+                          <Warning className="h-3.5 w-3.5" /> Hold expires soon — confirm before it's released
+                        </p>
+                      )}
                     </div>
                     <button
                       onClick={handleConfirmSlot}
@@ -773,7 +840,11 @@ export default function ConsultPage() {
                             value: new Date(selectedSlot.startAt).toLocaleString('en-GB', {
                               weekday: 'short', day: 'numeric', month: 'short',
                               hour: '2-digit', minute: '2-digit', timeZone: tz,
-                            }) + ' ' + tzAbbr(tz),
+                            }) + ' ' + tzAbbr(tz) + (
+                              selectedConsultant.timezone && selectedConsultant.timezone !== tz
+                                ? ` · ${new Date(selectedSlot.startAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: selectedConsultant.timezone })} ${tzAbbr(selectedConsultant.timezone)} (${selectedConsultant.name.split(' ')[0]})`
+                                : ''
+                            ),
                           },
                           { label: 'Duration', value: `${selectedSlot.durationMinutes} minutes` },
                         ].map(({ label, value }) => (

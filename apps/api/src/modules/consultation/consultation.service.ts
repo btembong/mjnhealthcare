@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bull';
@@ -14,6 +14,8 @@ import {
   SubmitApplicationDto,
   ReviewApplicationDto,
   MarkPayoutPaidDto,
+  CreateAvailabilityRuleDto,
+  CreateBlockedTimeDto,
 } from './consultation.dto';
 
 @Injectable()
@@ -71,6 +73,7 @@ export class ConsultationService {
         sessionDurationMins: true,
         rating: true,
         sessionCount: true,
+        timezone: true,
       },
       orderBy: [{ rating: 'desc' }, { sessionCount: 'desc' }],
     });
@@ -80,23 +83,75 @@ export class ConsultationService {
 
   async getAvailableSlots(consultantId: string) {
     const from = new Date();
-    const to = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // next 14 days
+    const to = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000); // next 28 days
+    const now = new Date();
+    // Return AVAILABLE slots + RESERVED slots whose hold has expired (client sees them as available)
     return this.db.consultationSlot.findMany({
       where: {
         consultantId,
-        status: 'AVAILABLE',
         startAt: { gte: from, lte: to },
+        OR: [
+          { status: 'AVAILABLE' },
+          { status: 'RESERVED', reservedUntil: { lt: now } },
+        ],
       },
       orderBy: { startAt: 'asc' },
     });
   }
 
-  // ── Public: initiate booking (holds slot, creates booking, returns payment URL) ─
+  // ── Public: hold a slot for checkout (10-minute reservation) ────────────────
+
+  async holdSlot(slotId: string, clientEmail: string) {
+    const HOLD_MINUTES = 10;
+    const reservedUntil = new Date(Date.now() + HOLD_MINUTES * 60 * 1000);
+    const now = new Date();
+
+    // Atomic: find-and-update in a single transaction to prevent race conditions.
+    // We use $transaction with a raw SELECT FOR UPDATE via executeRaw, then update.
+    // Prisma doesn't support FOR UPDATE natively, so we use executeRawUnsafe inside
+    // a transaction to lock the row.
+    const result = await this.db.$transaction(async (tx) => {
+      // Lock the row
+      const slots = await tx.$queryRaw<Array<{ id: string; status: string; reservedUntil: Date | null }>>`
+        SELECT id, status, "reservedUntil"
+        FROM consultation_slots
+        WHERE id = ${slotId}
+        FOR UPDATE
+      `;
+      const slot = slots[0];
+      if (!slot) throw new NotFoundException('Slot not found');
+
+      const isAvailable =
+        slot.status === 'AVAILABLE' ||
+        (slot.status === 'RESERVED' && slot.reservedUntil && slot.reservedUntil < now);
+
+      if (!isAvailable) {
+        throw new ConflictException('Slot is no longer available — please choose another time');
+      }
+
+      return tx.consultationSlot.update({
+        where: { id: slotId },
+        data: { status: 'RESERVED', reservedUntil, reservedBy: clientEmail },
+      });
+    });
+
+    return { slotId, reservedUntil: result.reservedUntil, holdMinutes: HOLD_MINUTES };
+  }
+
+  // ── Public: initiate booking ─────────────────────────────────────────────────
 
   async initiateBooking(dto: BookConsultationDto) {
+    const now = new Date();
+
+    // Validate slot is available or held by this client
     const slot = await this.db.consultationSlot.findUnique({ where: { id: dto.slotId } });
-    if (!slot || slot.status !== 'AVAILABLE') {
-      throw new BadRequestException('Slot is no longer available');
+    if (!slot) throw new NotFoundException('Slot not found');
+
+    const heldByThisClient = slot.status === 'RESERVED' && slot.reservedBy === dto.clientEmail && slot.reservedUntil && slot.reservedUntil > now;
+    const isOpen = slot.status === 'AVAILABLE' || (slot.status === 'RESERVED' && slot.reservedUntil && slot.reservedUntil < now);
+
+    if (!heldByThisClient && !isOpen) {
+      throw new ConflictException('Slot is no longer available');
     }
 
     const consultant = await this.db.consultantProfile.findUnique({
@@ -106,8 +161,29 @@ export class ConsultationService {
       throw new BadRequestException('Consultant not available');
     }
 
-    // Hold the slot
-    await this.db.consultationSlot.update({ where: { id: dto.slotId }, data: { status: 'BOOKED' } });
+    // Mark slot BOOKED atomically
+    await this.db.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<Array<{ id: string; status: string; reservedBy: string | null; reservedUntil: Date | null }>>`
+        SELECT id, status, "reservedBy", "reservedUntil"
+        FROM consultation_slots
+        WHERE id = ${dto.slotId}
+        FOR UPDATE
+      `;
+      const s = rows[0];
+      if (!s) throw new NotFoundException('Slot not found');
+
+      const stillOk =
+        s.status === 'AVAILABLE' ||
+        (s.status === 'RESERVED' && s.reservedBy === dto.clientEmail && s.reservedUntil && s.reservedUntil > now) ||
+        (s.status === 'RESERVED' && s.reservedUntil && s.reservedUntil < now);
+
+      if (!stillOk) throw new ConflictException('Slot was just taken');
+
+      await tx.consultationSlot.update({
+        where: { id: dto.slotId },
+        data: { status: 'BOOKED', reservedUntil: null, reservedBy: null },
+      });
+    });
 
     const booking = await this.db.consultationBooking.create({
       data: {
@@ -124,11 +200,7 @@ export class ConsultationService {
       },
     });
 
-    // Event emitted after payment URL is obtained so we can include it in the email
-
     // ── DEV BYPASS ─────────────────────────────────────────────────────────────
-    // Set DEV_SKIP_PAYMENT=true in .env to auto-confirm bookings locally
-    // without needing a real Tranzak redirect or webhook.
     if (process.env.DEV_SKIP_PAYMENT === 'true') {
       this.logger.warn(`[DEV] Skipping Tranzak — auto-confirming booking ${booking.id}`);
       await this.handlePaymentConfirmed(booking.id);
@@ -158,9 +230,8 @@ export class ConsultationService {
         throw new Error('Payment gateway authentication failed');
       }
 
-      // ── USD → XAF conversion ──────────────────────────────────────────────
       const amountUsd = Number(consultant.priceUsd);
-      let xafRate = 655; // safe fallback (CFA semi-pegged rate)
+      let xafRate = 655;
       try {
         const rateRes = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { signal: AbortSignal.timeout(4000) });
         if (rateRes.ok) {
@@ -169,7 +240,6 @@ export class ConsultationService {
         }
       } catch { /* use fallback */ }
       const amountXaf = Math.round(amountUsd * xafRate);
-      this.logger.log(`Consultation payment: $${amountUsd} USD × ${xafRate} = ${amountXaf} XAF (booking ${booking.id})`);
 
       const payRes = await fetch(`${process.env.TRANZAK_BASE_URL ?? 'https://dsapi.tranzak.me'}/xp021/v1/request/create`, {
         method: 'POST',
@@ -198,7 +268,6 @@ export class ConsultationService {
         throw new Error('Payment gateway did not return a redirect URL');
       }
 
-      // Emit now so the email includes the direct payment link
       this.events.emit('consultation.initiated', {
         bookingId: booking.id,
         clientName: dto.clientName,
@@ -212,6 +281,11 @@ export class ConsultationService {
 
       return { bookingId: booking.id, redirectUrl: paymentAuthUrl };
     } catch (err) {
+      // Release the slot back to available if payment initiation fails
+      await this.db.consultationSlot.update({
+        where: { id: dto.slotId },
+        data: { status: 'AVAILABLE' },
+      });
       this.logger.error(`Tranzak payment initiation error for booking ${booking.id}: ${err}`);
       throw new BadRequestException(
         err instanceof Error ? err.message : 'Payment could not be initiated. Please try again.',
@@ -227,11 +301,9 @@ export class ConsultationService {
       include: { slot: true, consultant: true },
     });
     if (!booking) return;
-    // Allow retry if booking is CONFIRMED but room was never created (e.g. DAILY_CO_API_KEY added later)
     const needsRoom = booking.status === 'CONFIRMED' && !booking.dailyRoomUrl;
     if (booking.status !== 'AWAITING_PAYMENT' && !needsRoom) return;
 
-    // Create Daily.co room
     let dailyRoomUrl = '';
     let dailyRoomName = '';
     try {
@@ -251,25 +323,24 @@ export class ConsultationService {
       data: { status: 'CONFIRMED', dailyRoomUrl, dailyRoomName },
     });
 
+    const sessionStart = booking.slot.startAt.toISOString();
+
     this.events.emit('consultation.confirmed', {
       bookingId,
       clientName: booking.clientName,
       clientEmail: booking.clientEmail,
       clientPhone: booking.clientPhone,
       consultantName: booking.consultant.name,
-      sessionStart: booking.slot.startAt.toISOString(),
+      sessionStart,
       durationMins: booking.slot.durationMinutes,
       roomUrl: dailyRoomUrl,
       category: booking.consultationCategory,
       recordingConsent: booking.recordingConsent,
     });
 
-    // Schedule BullMQ reminders
+    // Schedule extended reminder chain
     const now = Date.now();
     const sessionMs = booking.slot.startAt.getTime();
-
-    const delay24h = sessionMs - 24 * 60 * 60 * 1000 - now;
-    const delay1h = sessionMs - 60 * 60 * 1000 - now;
 
     const payload = {
       bookingId,
@@ -277,19 +348,34 @@ export class ConsultationService {
       clientEmail: booking.clientEmail,
       clientPhone: booking.clientPhone,
       consultantName: booking.consultant.name,
-      sessionStart: booking.slot.startAt.toISOString(),
+      sessionStart,
       roomUrl: dailyRoomUrl,
     };
 
-    if (delay24h > 0) {
-      await this.reminderQueue.add('consultation-reminder-24h', payload, { delay: delay24h });
+    const reminders: Array<{ name: string; offsetMs: number }> = [
+      { name: 'consultation-reminder-48h', offsetMs: 48 * 60 * 60 * 1000 },
+      { name: 'consultation-reminder-2h',  offsetMs: 2  * 60 * 60 * 1000 },
+      { name: 'consultation-reminder-15m', offsetMs: 15 * 60 * 1000 },
+    ];
+
+    for (const r of reminders) {
+      const delay = sessionMs - r.offsetMs - now;
+      if (delay > 0) {
+        await this.reminderQueue.add(r.name, payload, { delay });
+      }
     }
-    if (delay1h > 0) {
-      await this.reminderQueue.add('consultation-reminder-1h', payload, { delay: delay1h });
+
+    // Consultant-side reminder 30 min before
+    const consultantDelay = sessionMs - 30 * 60 * 1000 - now;
+    if (consultantDelay > 0) {
+      await this.reminderQueue.add('consultation-reminder-consultant', {
+        ...payload,
+        preSessionNote: booking.preSessionNote,
+      }, { delay: consultantDelay });
     }
   }
 
-  // ── Public: booking summary (status check for confirmed page) ──────────────
+  // ── Public: booking summary ──────────────────────────────────────────────────
 
   async getBookingSummary(bookingId: string) {
     const booking = await this.db.consultationBooking.findUnique({
@@ -314,8 +400,6 @@ export class ConsultationService {
   // ── Public: Tranzak payment webhook ────────────────────────────────────────
 
   async handlePaymentWebhook(payload: any) {
-    // Tranzak sends mchTransactionRef = booking.id (set at payment creation).
-    // Some sandbox responses nest under .data; fall back to legacy customData.
     const bookingId =
       payload?.resource?.mchTransactionRef ??
       payload?.mchTransactionRef ??
@@ -334,11 +418,17 @@ export class ConsultationService {
     if (status === 'SUCCESSFUL') {
       await this.handlePaymentConfirmed(bookingId);
     } else if (status && status !== 'PENDING' && status !== 'PROCESSING') {
-      // FAILED, CANCELLED, EXPIRED — alert admin
       const booking = await this.db.consultationBooking.findUnique({
         where: { id: bookingId },
         include: { slot: { include: { consultant: { select: { name: true, priceUsd: true } } } } },
       });
+      // Release the slot when payment fails
+      if (booking?.slotId) {
+        await this.db.consultationSlot.update({
+          where: { id: booking.slotId },
+          data: { status: 'AVAILABLE' },
+        });
+      }
       this.logger.warn(`Tranzak payment ${status} for booking ${bookingId}`);
       this.events.emit('consultation.payment_failed', {
         bookingId,
@@ -364,7 +454,14 @@ export class ConsultationService {
     if (booking.clientEmail !== email) throw new BadRequestException('Email does not match booking');
     if (booking.status !== 'CONFIRMED') throw new BadRequestException('Booking is not confirmed');
 
-    // Daily.co may not be configured yet — return a graceful message instead of throwing
+    // Record first join time
+    if (!booking.joinedAt) {
+      await this.db.consultationBooking.update({
+        where: { id: bookingId },
+        data: { joinedAt: new Date() },
+      });
+    }
+
     if (!booking.dailyRoomName || !booking.dailyRoomUrl) {
       return {
         roomUrl: null,
@@ -382,7 +479,7 @@ export class ConsultationService {
     return { roomUrl: booking.dailyRoomUrl, token, consultantName: booking.consultant.name, message: null };
   }
 
-  // ── Admin: host join (owner token) ──────────────────────────────────────────
+  // ── Admin: host join ────────────────────────────────────────────────────────
 
   async getHostJoinInfo(bookingId: string, hostName: string) {
     const booking = await this.db.consultationBooking.findUnique({
@@ -410,23 +507,16 @@ export class ConsultationService {
       throw new BadRequestException('Booking cannot be cancelled');
     }
 
-    const refund = this.refundService.calculate(
-      Number(booking.amountPaid),
-      booking.slot.startAt,
-    );
+    const refund = this.refundService.calculate(Number(booking.amountPaid), booking.slot.startAt);
 
     await this.db.$transaction([
       this.db.consultationBooking.update({
         where: { id: bookingId },
-        data: {
-          status: 'CANCELLED',
-          refundAmount: refund.refundAmount,
-          refundedAt: new Date(),
-        },
+        data: { status: 'CANCELLED', refundAmount: refund.refundAmount, refundedAt: new Date() },
       }),
       this.db.consultationSlot.update({
         where: { id: booking.slotId },
-        data: { status: 'AVAILABLE' },
+        data: { status: 'AVAILABLE', reservedUntil: null, reservedBy: null },
       }),
     ]);
 
@@ -457,27 +547,17 @@ export class ConsultationService {
       data: { status: 'COMPLETED', completedAt: new Date() },
     });
 
-    // Update consultant stats
     await this.db.consultantProfile.update({
       where: { id: booking.consultantId },
       data: { sessionCount: { increment: 1 } },
     });
 
-    // Create payout for PARTNER consultants
     if (booking.consultant.type === 'PARTNER') {
       const gross = Number(booking.amountPaid);
       const platformFee = Math.round(gross * Number(booking.consultant.commissionRate) * 100) / 100;
       const net = Math.round((gross - platformFee) * 100) / 100;
-
       await this.db.consultantPayout.create({
-        data: {
-          consultantId: booking.consultantId,
-          bookingId,
-          grossAmount: gross,
-          platformFee,
-          netAmount: net,
-          status: 'PENDING',
-        },
+        data: { consultantId: booking.consultantId, bookingId, grossAmount: gross, platformFee, netAmount: net, status: 'PENDING' },
       });
     }
 
@@ -515,25 +595,15 @@ export class ConsultationService {
   }
 
   async deactivateConsultant(id: string) {
-    return this.db.consultantProfile.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    return this.db.consultantProfile.update({ where: { id }, data: { isActive: false } });
   }
 
   async reactivateConsultant(id: string) {
-    return this.db.consultantProfile.update({
-      where: { id },
-      data: { isActive: true },
-    });
+    return this.db.consultantProfile.update({ where: { id }, data: { isActive: true } });
   }
 
   async deleteConsultant(id: string) {
-    // Cancel all future AVAILABLE slots first (booked slots are kept for history)
-    await this.db.consultationSlot.deleteMany({
-      where: { consultantId: id, status: 'AVAILABLE' },
-    });
-    // Soft-delete: deactivate and mark status INACTIVE so history is preserved
+    await this.db.consultationSlot.deleteMany({ where: { consultantId: id, status: 'AVAILABLE' } });
     return this.db.consultantProfile.update({
       where: { id },
       data: { isActive: false, status: 'INACTIVE' as any },
@@ -577,13 +647,87 @@ export class ConsultationService {
       },
       include: {
         slot: {
-          include: {
-            consultant: { select: { id: true, name: true } },
-          },
+          include: { consultant: { select: { id: true, name: true } } },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  // ── Availability rules CRUD ─────────────────────────────────────────────────
+
+  async getAvailabilityRules(consultantId: string) {
+    return this.db.consultantAvailabilityRule.findMany({
+      where: { consultantId },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    });
+  }
+
+  async createAvailabilityRule(consultantId: string, dto: CreateAvailabilityRuleDto) {
+    // Validate time format
+    if (dto.startTime >= dto.endTime) {
+      throw new BadRequestException('startTime must be before endTime');
+    }
+    return this.db.consultantAvailabilityRule.create({
+      data: { consultantId, dayOfWeek: dto.dayOfWeek, startTime: dto.startTime, endTime: dto.endTime, isActive: true },
+    });
+  }
+
+  async updateAvailabilityRule(ruleId: string, dto: Partial<CreateAvailabilityRuleDto & { isActive: boolean }>) {
+    return this.db.consultantAvailabilityRule.update({ where: { id: ruleId }, data: dto as any });
+  }
+
+  async deleteAvailabilityRule(ruleId: string) {
+    return this.db.consultantAvailabilityRule.delete({ where: { id: ruleId } });
+  }
+
+  // ── Blocked times CRUD ──────────────────────────────────────────────────────
+
+  async getBlockedTimes(consultantId: string) {
+    return this.db.consultantBlockedTime.findMany({
+      where: { consultantId, endAt: { gte: new Date() } },
+      orderBy: { startAt: 'asc' },
+    });
+  }
+
+  async createBlockedTime(consultantId: string, dto: CreateBlockedTimeDto) {
+    const startAt = new Date(dto.startAt);
+    const endAt = new Date(dto.endAt);
+    if (endAt <= startAt) throw new BadRequestException('endAt must be after startAt');
+
+    // Cancel any AVAILABLE slots within this block
+    const affected = await this.db.consultationSlot.updateMany({
+      where: {
+        consultantId,
+        status: 'AVAILABLE',
+        startAt: { gte: startAt, lt: endAt },
+      },
+      data: { status: 'CANCELLED' },
+    });
+
+    const block = await this.db.consultantBlockedTime.create({
+      data: { consultantId, startAt, endAt, reason: dto.reason },
+    });
+
+    this.logger.log(`Blocked time created for ${consultantId}: cancelled ${affected.count} slot(s)`);
+    return { ...block, cancelledSlots: affected.count };
+  }
+
+  async deleteBlockedTime(blockId: string) {
+    return this.db.consultantBlockedTime.delete({ where: { id: blockId } });
+  }
+
+  // ── On-demand slot regeneration for a consultant ────────────────────────────
+
+  async regenerateSlotsForConsultant(consultantId: string) {
+    const consultant = await this.db.consultantProfile.findUnique({
+      where: { id: consultantId },
+      include: { availabilityRules: { where: { isActive: true } } },
+    });
+    if (!consultant) throw new NotFoundException('Consultant not found');
+
+    const created = await this._generateSlotsForConsultant(consultant);
+    return { created, consultantId };
   }
 
   // ── Admin: applications ─────────────────────────────────────────────────────
@@ -617,16 +761,10 @@ export class ConsultationService {
   async reviewApplication(id: string, adminId: string, dto: ReviewApplicationDto) {
     const application = await this.db.consultantApplication.update({
       where: { id },
-      data: {
-        status: dto.decision as any,
-        reviewedBy: adminId,
-        reviewNote: dto.reviewNote,
-        reviewedAt: new Date(),
-      },
+      data: { status: dto.decision as any, reviewedBy: adminId, reviewNote: dto.reviewNote, reviewedAt: new Date() },
     });
 
     if (dto.decision === 'APPROVED') {
-      // Create an active PARTNER consultant profile from the application
       await this.db.consultantProfile.create({
         data: {
           type: 'PARTNER',
@@ -638,7 +776,7 @@ export class ConsultationService {
           languages: application.languages,
           licenseNumber: application.licenseNumber,
           licenseBody: application.licenseBody,
-          priceUsd: 40, // default — admin sets the real price after
+          priceUsd: 40,
           sessionDurationMins: 45,
           commissionRate: 0.25,
           isActive: true,
@@ -674,7 +812,7 @@ export class ConsultationService {
     });
   }
 
-  // ── Admin: get slots for a consultant ───────────────────────────────────────
+  // ── Admin: get slots ─────────────────────────────────────────────────────────
 
   async getConsultantSlots(consultantId: string) {
     const from = new Date();
@@ -691,55 +829,193 @@ export class ConsultationService {
     return this.db.consultationSlot.delete({ where: { id: slotId } });
   }
 
-  // ── Cron: auto-generate slots every Monday at 6 AM ─────────────────────────
-  // Fills the next 14 days for every active consultant.
-  // Skips weekends and slots that already exist at that time.
-  // Default hours: 08:00, 10:00, 13:00, 15:00, 17:00 WAT (UTC+1 → stored as UTC-1h)
+  // ── CRON: release expired slot holds (every 5 minutes) ─────────────────────
 
-  @Cron('0 5 * * 1') // Every Monday at 05:00 UTC (06:00 WAT)
+  @Cron('*/5 * * * *')
+  async releaseExpiredHolds() {
+    const { count } = await this.db.consultationSlot.updateMany({
+      where: {
+        status: 'RESERVED',
+        reservedUntil: { lt: new Date() },
+      },
+      data: { status: 'AVAILABLE', reservedUntil: null, reservedBy: null },
+    });
+    if (count > 0) {
+      this.logger.log(`[HoldCron] Released ${count} expired slot hold(s)`);
+    }
+  }
+
+  // ── CRON: auto-expire no-shows (daily at 9AM UTC) ──────────────────────────
+
+  @Cron('0 9 * * *')
+  async autoExpireNoShows() {
+    // Any CONFIRMED booking whose session ended 30+ minutes ago with no manual completion
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+
+    const stale = await this.db.consultationBooking.findMany({
+      where: {
+        status: 'CONFIRMED',
+        slot: { startAt: { lt: cutoff } },
+      },
+      include: { slot: true, consultant: true },
+    });
+
+    for (const booking of stale) {
+      const sessionEnd = new Date(booking.slot.startAt.getTime() + booking.slot.durationMinutes * 60 * 1000);
+      if (sessionEnd > new Date(Date.now() - 30 * 60 * 1000)) continue; // not ended + 30m yet
+
+      if (!booking.joinedAt) {
+        // Client never joined — no-show
+        await this.db.consultationBooking.update({
+          where: { id: booking.id },
+          data: { status: 'NO_SHOW', noShowAt: new Date() },
+        });
+        this.events.emit('consultation.no_show', {
+          bookingId: booking.id,
+          clientName: booking.clientName,
+          clientEmail: booking.clientEmail,
+          clientPhone: booking.clientPhone,
+          consultantName: booking.consultant.name,
+          sessionStart: booking.slot.startAt.toISOString(),
+        });
+        this.logger.log(`[NoShowCron] Marked booking ${booking.id} as NO_SHOW`);
+      } else {
+        // Client joined but session wasn't marked complete — auto-complete
+        await this.db.consultationBooking.update({
+          where: { id: booking.id },
+          data: { status: 'COMPLETED', completedAt: new Date() },
+        });
+        await this.db.consultantProfile.update({
+          where: { id: booking.consultantId },
+          data: { sessionCount: { increment: 1 } },
+        });
+        if (booking.consultant.type === 'PARTNER') {
+          const gross = Number(booking.amountPaid);
+          const platformFee = Math.round(gross * Number(booking.consultant.commissionRate) * 100) / 100;
+          const net = Math.round((gross - platformFee) * 100) / 100;
+          await this.db.consultantPayout.upsert({
+            where: { bookingId: booking.id },
+            update: {},
+            create: { consultantId: booking.consultantId, bookingId: booking.id, grossAmount: gross, platformFee, netAmount: net, status: 'PENDING' },
+          });
+        }
+        this.events.emit('consultation.completed', { bookingId: booking.id });
+        this.logger.log(`[NoShowCron] Auto-completed booking ${booking.id}`);
+      }
+    }
+  }
+
+  // ── CRON: auto-generate slots (daily at 5AM UTC) ────────────────────────────
+  // Uses ConsultantAvailabilityRule records — falls back to default hours if none set.
+
+  @Cron('0 5 * * *') // Daily at 05:00 UTC (was Monday-only)
   async autoGenerateSlots() {
-    this.logger.log('[SlotCron] Running weekly slot auto-generation');
+    this.logger.log('[SlotCron] Running daily slot auto-generation');
 
     const consultants = await this.db.consultantProfile.findMany({
       where: { isActive: true, status: 'ACTIVE' },
-      select: { id: true, name: true, sessionDurationMins: true },
+      include: { availabilityRules: { where: { isActive: true } } },
     });
 
-    // Default slot hours in WAT (UTC+1) — stored as UTC offset
-    const SLOT_HOURS_WAT = [8, 10, 13, 15, 17];
-    const DURATION = 45;
     let created = 0;
+    for (const consultant of consultants) {
+      created += await this._generateSlotsForConsultant(consultant);
+    }
 
+    this.logger.log(`[SlotCron] Auto-generated ${created} new slot(s) across ${consultants.length} consultants`);
+  }
+
+  // ── Internal: generate slots for one consultant (28-day rolling window) ─────
+
+  private async _generateSlotsForConsultant(
+    consultant: { id: string; timezone: string; sessionDurationMins: number; bufferMins: number; availabilityRules: Array<{ dayOfWeek: number; startTime: string; endTime: string }> },
+  ): Promise<number> {
+    const tz = consultant.timezone ?? 'UTC';
+    const duration = consultant.sessionDurationMins ?? 45;
+    const buffer = consultant.bufferMins ?? 15;
+    const rules = consultant.availabilityRules ?? [];
+
+    // Get UTC offset hours for this consultant's timezone
+    const tzOffsetHours = (() => {
+      try {
+        const ref = new Date();
+        const utcH = Number(ref.toLocaleString('en-US', { timeZone: 'UTC', hour: '2-digit', hour12: false }));
+        const localH = Number(ref.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }));
+        return localH - utcH;
+      } catch { return 0; }
+    })();
+
+    // Fetch blocked times for this consultant (next 28 days)
+    const windowEnd = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000);
+    const blockedTimes = await this.db.consultantBlockedTime.findMany({
+      where: { consultantId: consultant.id, endAt: { gte: new Date() }, startAt: { lte: windowEnd } },
+    });
+
+    let created = 0;
     const now = new Date();
 
-    for (const consultant of consultants) {
-      const duration = consultant.sessionDurationMins ?? DURATION;
+    for (let day = 1; day <= 28; day++) {
+      const date = new Date(now);
+      date.setDate(now.getDate() + day);
+      const dow = date.getDay(); // 0=Sun
 
-      for (let day = 1; day <= 14; day++) {
-        const date = new Date(now);
-        date.setDate(now.getDate() + day);
-        const dow = date.getDay();
-        if (dow === 0 || dow === 6) continue; // skip weekends
+      let slotsForDay: Array<{ startTime: string; endTime: string }>;
 
-        for (const hourWAT of SLOT_HOURS_WAT) {
-          // Convert WAT (UTC+1) to UTC
+      if (rules.length > 0) {
+        // Use availability rules
+        slotsForDay = rules.filter((r) => r.dayOfWeek === dow);
+      } else {
+        // Fallback: weekdays 08:00–17:00
+        if (dow === 0 || dow === 6) continue;
+        slotsForDay = [{ startTime: '08:00', endTime: '17:00' }];
+      }
+
+      for (const rule of slotsForDay) {
+        const [startHour, startMin] = rule.startTime.split(':').map(Number);
+        const [endHour, endMin] = rule.endTime.split(':').map(Number);
+        const windowStartMins = startHour * 60 + startMin;
+        const windowEndMins = endHour * 60 + endMin;
+
+        // Generate slots within this window with buffer
+        let currentMins = windowStartMins;
+        while (currentMins + duration <= windowEndMins) {
+          const localHour = Math.floor(currentMins / 60);
+          const localMin = currentMins % 60;
+
+          // Convert local time to UTC
           const startAt = new Date(date);
-          startAt.setUTCHours(hourWAT - 1, 0, 0, 0);
+          startAt.setUTCHours(localHour - tzOffsetHours, localMin, 0, 0);
 
-          // Check if slot already exists
+          // Skip if in the past
+          if (startAt <= now) {
+            currentMins += duration + buffer;
+            continue;
+          }
+
+          // Skip if overlaps a blocked time
+          const endAt = new Date(startAt.getTime() + duration * 60 * 1000);
+          const blocked = blockedTimes.some((b) => startAt < b.endAt && endAt > b.startAt);
+          if (blocked) {
+            currentMins += duration + buffer;
+            continue;
+          }
+
+          // Idempotent: skip if slot already exists
           const existing = await this.db.consultationSlot.findFirst({
             where: { consultantId: consultant.id, startAt },
           });
-          if (existing) continue;
+          if (!existing) {
+            await this.db.consultationSlot.create({
+              data: { consultantId: consultant.id, startAt, durationMinutes: duration, status: 'AVAILABLE' },
+            });
+            created++;
+          }
 
-          await this.db.consultationSlot.create({
-            data: { consultantId: consultant.id, startAt, durationMinutes: duration },
-          });
-          created++;
+          currentMins += duration + buffer;
         }
       }
     }
 
-    this.logger.log(`[SlotCron] Auto-generated ${created} new slots for ${consultants.length} consultants`);
+    return created;
   }
 }

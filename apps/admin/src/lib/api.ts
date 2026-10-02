@@ -308,6 +308,36 @@ export const api = {
   deleteSlot: (slotId: string) =>
     request<any>(`/consultations/admin/slots/${slotId}`, { method: 'DELETE' }),
 
+  // Availability rules
+  getAvailabilityRules: (consultantId: string) =>
+    request<any[]>(`/consultations/admin/consultants/${consultantId}/availability`),
+
+  createAvailabilityRule: (consultantId: string, rule: { dayOfWeek: number; startTime: string; endTime: string }) =>
+    request<any>(`/consultations/admin/consultants/${consultantId}/availability`, {
+      method: 'POST',
+      body: JSON.stringify(rule),
+    }),
+
+  deleteAvailabilityRule: (ruleId: string) =>
+    request<any>(`/consultations/admin/availability/${ruleId}`, { method: 'DELETE' }),
+
+  // Blocked times
+  getBlockedTimes: (consultantId: string) =>
+    request<any[]>(`/consultations/admin/consultants/${consultantId}/blocked`),
+
+  createBlockedTime: (consultantId: string, block: { startAt: string; endAt: string; reason?: string }) =>
+    request<any>(`/consultations/admin/consultants/${consultantId}/blocked`, {
+      method: 'POST',
+      body: JSON.stringify(block),
+    }),
+
+  deleteBlockedTime: (blockId: string) =>
+    request<any>(`/consultations/admin/blocked/${blockId}`, { method: 'DELETE' }),
+
+  // On-demand slot regeneration
+  regenerateSlots: (consultantId: string) =>
+    request<any>(`/consultations/admin/consultants/${consultantId}/regenerate-slots`, { method: 'POST' }),
+
   getPayoutQueue: () => request<any[]>('/consultations/admin/payouts'),
 
   markPayoutPaid: (id: string) =>

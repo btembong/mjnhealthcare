@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DatabaseService } from '../../database.module';
+import { DatabaseService } from '@mjn/database';
 
 function slugify(title: string): string {
   return title
