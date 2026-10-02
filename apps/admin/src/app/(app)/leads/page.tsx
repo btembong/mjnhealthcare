@@ -5,7 +5,7 @@ import { PageHeader } from '@mjn/ui';
 import Link from 'next/link';
 import {
   CircleNotch, ArrowsClockwise, UserPlus, UsersFour, ArrowSquareOut,
-  X, Tag, Gift, Phone, EnvelopeSimple,
+  X, Tag, Gift, Phone, EnvelopeSimple, Rows, SquaresFour, MagnifyingGlass,
 } from '@mjn/ui';
 import { api } from '../../../lib/api';
 
@@ -182,6 +182,56 @@ function LeadCard({ lead, onClick }: { lead: any; onClick: () => void }) {
   );
 }
 
+// ── List row ──────────────────────────────────────────────────────────────────
+
+function LeadRow({
+  lead, consultants, onOpen,
+}: { lead: any; consultants: any[]; onOpen: () => void }) {
+  const stage = STAGES.find((s) => s.key === lead.status);
+  const consultant = consultants.find((c) => c.id === lead.assignedConsultantId);
+  const consultantName = consultant?.person?.name ?? consultant?.name ?? null;
+
+  return (
+    <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+      <td className="px-4 py-3">
+        <p className="font-semibold text-sm text-foreground">{lead.name}</p>
+        {lead.profession && <p className="text-xs text-muted-foreground capitalize">{lead.profession}</p>}
+      </td>
+      <td className="px-4 py-3">
+        <a href={`mailto:${lead.email}`} className="text-xs text-primary hover:underline block">{lead.email}</a>
+        {lead.phone && <a href={`tel:${lead.phone}`} className="text-xs text-muted-foreground block">{lead.phone}</a>}
+      </td>
+      <td className="px-4 py-3">
+        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${stage?.badge ?? 'bg-muted text-muted-foreground'}`}>
+          {stage?.label ?? lead.status}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-xs text-muted-foreground">
+        {lead.serviceInterest ?? '—'}
+      </td>
+      <td className="px-4 py-3">
+        {lead.discountCode ? (
+          <span className="font-mono text-xs font-bold text-amber-600">{lead.discountCode}</span>
+        ) : <span className="text-xs text-muted-foreground/50">—</span>}
+      </td>
+      <td className="px-4 py-3 text-xs text-muted-foreground">
+        {consultantName ?? <span className="text-muted-foreground/40">Unassigned</span>}
+      </td>
+      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+        {new Date(lead.createdAt).toLocaleDateString()}
+      </td>
+      <td className="px-4 py-3">
+        <button
+          onClick={onOpen}
+          className="rounded-lg border border-border px-3 py-1 text-xs font-semibold hover:bg-muted/60 transition-colors"
+        >
+          Open
+        </button>
+      </td>
+    </tr>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function LeadsPage() {
@@ -191,6 +241,9 @@ export default function LeadsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [toast, setToast] = useState('');
+  const [view, setView] = useState<'kanban' | 'list'>('kanban');
+  const [search, setSearch] = useState('');
+  const [stageFilter, setStageFilter] = useState<Stage | 'ALL'>('ALL');
 
   useEffect(() => {
     Promise.allSettled([
@@ -257,12 +310,39 @@ export default function LeadsPage() {
   const activeLeads = leads.filter((l) => l.status !== 'LOST');
   const lostLeads = leads.filter((l) => l.status === 'LOST');
 
+  // Filtered leads for list view
+  const filteredLeads = leads.filter((l) => {
+    const matchSearch = !search ||
+      l.name?.toLowerCase().includes(search.toLowerCase()) ||
+      l.email?.toLowerCase().includes(search.toLowerCase());
+    const matchStage = stageFilter === 'ALL' || l.status === stageFilter;
+    return matchSearch && matchStage;
+  });
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Leads Pipeline"
-        subtitle={`${activeLeads.length} active · ${lostLeads.length} lost · ${leads.filter((l) => l.status === 'CONVERTED').length} converted`}
-      />
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader
+          title="Leads Pipeline"
+          subtitle={`${activeLeads.length} active · ${lostLeads.length} lost · ${leads.filter((l) => l.status === 'CONVERTED').length} converted`}
+        />
+        {/* View toggle */}
+        <div className="mt-1 flex shrink-0 items-center rounded-xl border border-border bg-white p-1 shadow-sm">
+          <button
+            onClick={() => setView('kanban')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${view === 'kanban' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:bg-muted/60'}`}
+          >
+            <SquaresFour className="h-3.5 w-3.5" /> Kanban
+          </button>
+          <button
+            onClick={() => setView('list')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${view === 'list' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:bg-muted/60'}`}
+          >
+            <Rows className="h-3.5 w-3.5" /> List
+          </button>
+        </div>
+      </div>
 
       {toast && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{toast}</div>
@@ -277,29 +357,24 @@ export default function LeadsPage() {
           <UsersFour className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">No leads yet. They appear here when clients book free consultations or are captured via the support bot.</p>
         </div>
-      ) : (
+      ) : view === 'kanban' ? (
+        /* ── KANBAN VIEW ── */
         <div className="overflow-x-auto pb-4">
           <div className="flex gap-3 min-w-max">
             {STAGES.map((stage) => {
               const stageLeads = leads.filter((l) => l.status === stage.key);
               return (
                 <div key={stage.key} className={`flex flex-col rounded-2xl border ${stage.color} w-56 shrink-0`}>
-                  {/* Column header */}
                   <div className="flex items-center justify-between px-3 pt-3 pb-2">
                     <span className="text-xs font-bold uppercase tracking-wide text-foreground/70">{stage.label}</span>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${stage.badge}`}>{stageLeads.length}</span>
                   </div>
-                  {/* Cards */}
                   <div className="flex flex-col gap-2 px-2 pb-3 min-h-[120px]">
                     {stageLeads.length === 0 ? (
                       <p className="py-4 text-center text-xs text-muted-foreground/50">Empty</p>
                     ) : (
                       stageLeads.map((lead) => (
-                        <LeadCard
-                          key={lead.id}
-                          lead={lead}
-                          onClick={() => setSelectedLead(lead)}
-                        />
+                        <LeadCard key={lead.id} lead={lead} onClick={() => setSelectedLead(lead)} />
                       ))
                     )}
                   </div>
@@ -308,9 +383,71 @@ export default function LeadsPage() {
             })}
           </div>
         </div>
+      ) : (
+        /* ── LIST VIEW ── */
+        <div className="space-y-3">
+          {/* Filters bar */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px] max-w-xs">
+              <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search by name or email…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-xl border border-border bg-white py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <select
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value as Stage | 'ALL')}
+              className="rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="ALL">All stages</option>
+              {STAGES.map((s) => (
+                <option key={s.key} value={s.key}>{s.label}</option>
+              ))}
+            </select>
+            <span className="text-xs text-muted-foreground">{filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</span>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto rounded-2xl border border-border bg-white shadow-sm">
+            <table className="w-full min-w-[800px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/40">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contact</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Stage</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Interest</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Discount</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Consultant</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Created</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLeads.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-sm text-muted-foreground">No leads match your filters.</td>
+                  </tr>
+                ) : (
+                  filteredLeads.map((lead) => (
+                    <LeadRow
+                      key={lead.id}
+                      lead={lead}
+                      consultants={consultants}
+                      onOpen={() => setSelectedLead(lead)}
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
-      {/* Detail drawer */}
+      {/* Detail drawer — same for both views */}
       {selectedLead && (
         <LeadDrawer
           lead={selectedLead}
