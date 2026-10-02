@@ -110,6 +110,7 @@ export default function ConsultPage() {
   const [recordingConsent, setRecordingConsent]   = React.useState(false);
   const [termsConsent, setTermsConsent]           = React.useState(false);
   const [tz, setTz]                               = React.useState(detectTimezone);
+  const [paymentProvider, setPaymentProvider]     = React.useState<'tranzak' | 'stripe'>('tranzak');
 
   // Slot hold state
   const [holdExpiry, setHoldExpiry]               = React.useState<Date | null>(null);
@@ -200,6 +201,7 @@ export default function ConsultPage() {
           slotId: selectedSlot.id, clientName, clientEmail, clientPhone,
           consultationCategory: category, recordingConsent,
           preSessionNote: preSessionNote || undefined,
+          provider: selectedSlot.isFree ? undefined : paymentProvider,
         }),
       });
       if (!res.ok) {
@@ -812,6 +814,49 @@ export default function ConsultPage() {
                     </label>
                   </div>
 
+                  {/* Payment method selector — paid sessions only */}
+                  {!selectedSlot?.isFree && (
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold text-foreground">Payment method</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {[
+                          {
+                            id: 'tranzak' as const,
+                            label: 'Mobile Money / African Card',
+                            sub: 'MoMo · Orange · Local cards · XAF',
+                            flag: '🌍',
+                          },
+                          {
+                            id: 'stripe' as const,
+                            label: 'International Card',
+                            sub: 'Visa · Mastercard · USD — for UAE/UK/US clients',
+                            flag: '💳',
+                          },
+                        ].map(({ id, label, sub, flag }) => (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setPaymentProvider(id)}
+                            className={`flex items-start gap-3 rounded-xl border-2 p-3.5 text-left transition-all ${
+                              paymentProvider === id
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border bg-white hover:border-primary/40'
+                            }`}
+                          >
+                            <span className="text-xl leading-none">{flag}</span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground leading-snug">{label}</p>
+                              <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">{sub}</p>
+                            </div>
+                            {paymentProvider === id && (
+                              <CheckCircle className="ml-auto mt-0.5 h-4 w-4 shrink-0 text-primary" weight="fill" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Submit */}
                   <button
                     type="submit"
@@ -822,12 +867,17 @@ export default function ConsultPage() {
                       ? <><CircleNotch className="h-5 w-5 animate-spin" /> {selectedSlot?.isFree ? 'Booking…' : 'Processing payment…'}</>
                       : selectedSlot?.isFree
                       ? <><CheckCircle className="h-5 w-5" weight="fill" /> Confirm Free Session</>
-                      : <><Lock className="h-5 w-5" /> Pay ${selectedConsultant.priceUsd} securely</>
+                      : <><Lock className="h-5 w-5" /> Pay ${selectedConsultant.priceUsd} {paymentProvider === 'stripe' ? 'USD' : ''} securely</>
                     }
                   </button>
 
                   <p className="text-center text-xs text-muted-foreground">
-                    Powered by Tranzak · SSL encrypted · Partial refund if cancelled more than 4 h before session
+                    {selectedSlot?.isFree
+                      ? 'Free session — no payment required'
+                      : paymentProvider === 'stripe'
+                      ? 'Powered by Stripe · SSL encrypted · Partial refund if cancelled more than 4 h before session'
+                      : 'Powered by Tranzak · SSL encrypted · Partial refund if cancelled more than 4 h before session'
+                    }
                   </p>
                 </form>
               </div>

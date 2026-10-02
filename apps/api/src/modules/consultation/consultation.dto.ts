@@ -19,6 +19,7 @@ export class BookConsultationDto {
   @IsBoolean() recordingConsent!: boolean;
   @IsOptional() @IsString() preSessionNote?: string;
   @IsOptional() @IsUrl() returnUrl?: string;
+  @IsOptional() @IsEnum(['tranzak', 'stripe']) provider?: 'tranzak' | 'stripe';
 }
 
 export class CancelConsultationDto {

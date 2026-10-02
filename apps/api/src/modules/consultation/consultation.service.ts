@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
+import Stripe from 'stripe';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bull';
@@ -21,6 +22,9 @@ import {
 @Injectable()
 export class ConsultationService {
   private readonly logger = new Logger(ConsultationService.name);
+  private readonly stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
+    apiVersion: '2026-09-30.endive',
+  });
 
   constructor(
     private readonly db: DatabaseService,
@@ -241,8 +245,56 @@ export class ConsultationService {
       return { bookingId: booking.id, redirectUrl: devReturnUrl };
     }
 
-    // Initiate Tranzak payment
     const webUrl = process.env.WEB_URL ?? 'http://localhost:3001';
+
+    // ── Stripe payment ───────────────────────────────────────────────────────
+    if (dto.provider === 'stripe') {
+      const stripeReturnBase = dto.returnUrl
+        ? `${dto.returnUrl}?bookingId=${booking.id}`
+        : `${webUrl}/consult/confirmed?bookingId=${booking.id}`;
+      try {
+        const session = await this.stripe.checkout.sessions.create({
+          mode: 'payment',
+          line_items: [{
+            price_data: {
+              currency: 'usd',
+              unit_amount: Math.round(Number(consultant.priceUsd) * 100),
+              product_data: {
+                name: `${dto.consultationCategory} Consultation — ${consultant.name} (${consultant.sessionDurationMins} min)`,
+              },
+            },
+            quantity: 1,
+          }],
+          success_url: `${stripeReturnBase}&session_id={CHECKOUT_SESSION_ID}&provider=stripe`,
+          cancel_url: `${webUrl}/consult`,
+          customer_email: dto.clientEmail,
+          metadata: { bookingId: booking.id },
+        });
+
+        if (session.id) {
+          await this.db.consultationBooking.update({
+            where: { id: booking.id },
+            data: { paymentRef: session.id },
+          });
+        }
+
+        if (!session.url) throw new Error('Stripe did not return a redirect URL');
+
+        this.logger.log(`Stripe Checkout session ${session.id} created for booking ${booking.id}`);
+        return { bookingId: booking.id, redirectUrl: session.url };
+      } catch (err) {
+        await this.db.consultationSlot.update({
+          where: { id: dto.slotId },
+          data: { status: 'AVAILABLE' },
+        });
+        this.logger.error(`Stripe payment initiation error for booking ${booking.id}: ${err}`);
+        throw new BadRequestException(
+          err instanceof Error ? err.message : 'Stripe payment could not be initiated. Please try again.',
+        );
+      }
+    }
+
+    // Initiate Tranzak payment
     const returnUrl = dto.returnUrl
       ? `${dto.returnUrl}?bookingId=${booking.id}`
       : `${webUrl}/consult/confirmed?bookingId=${booking.id}`;
@@ -506,6 +558,38 @@ export class ConsultationService {
         failReason: status,
         sessionStart: booking?.slot?.startAt?.toISOString() ?? '',
       });
+    }
+  }
+
+  // ── Public: Stripe payment webhook ─────────────────────────────────────────
+
+  async handleStripeWebhook(rawBody: Buffer | string, signature: string): Promise<void> {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
+    if (!webhookSecret) {
+      this.logger.warn('STRIPE_WEBHOOK_SECRET not set — skipping consultation Stripe webhook');
+      return;
+    }
+    let event: Stripe.Event;
+    try {
+      event = this.stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    } catch (err: any) {
+      this.logger.warn(`Consultation Stripe webhook signature failed: ${err.message}`);
+      return;
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const bookingId = session.metadata?.bookingId ?? '';
+      if (!bookingId) {
+        this.logger.warn('Consultation Stripe webhook: no bookingId in session metadata');
+        return;
+      }
+      if (session.payment_status === 'paid') {
+        this.logger.log(`Stripe payment confirmed for consultation booking ${bookingId}`);
+        await this.handlePaymentConfirmed(bookingId);
+      } else {
+        this.logger.warn(`Stripe session ${session.id} completed but payment_status=${session.payment_status}`);
+      }
     }
   }
 

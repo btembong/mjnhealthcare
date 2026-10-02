@@ -87,6 +87,15 @@ export class ConsultationController {
     return this.svc.handlePaymentWebhook(payload);
   }
 
+  // Stripe webhook — no auth, verified via stripe-signature header
+  @Post('webhook/stripe')
+  @HttpCode(HttpStatus.OK)
+  async stripeWebhook(@Req() req: any) {
+    const sig = req.headers['stripe-signature'] ?? '';
+    await this.svc.handleStripeWebhook(req.rawBody ?? Buffer.alloc(0), sig);
+    return { received: true };
+  }
+
   // ── Admin ───────────────────────────────────────────────────────────────────
 
   @ApiBearerAuth()
