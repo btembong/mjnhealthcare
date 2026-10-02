@@ -575,7 +575,7 @@ export class ConsultationService {
   // ── Public: Stripe payment webhook ─────────────────────────────────────────
 
   async handleStripeWebhook(rawBody: Buffer | string, signature: string): Promise<void> {
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
+    const webhookSecret = process.env.STRIPE_CONSULTATION_WEBHOOK_SECRET ?? process.env.STRIPE_WEBHOOK_SECRET ?? '';
     if (!webhookSecret) {
       this.logger.warn('STRIPE_WEBHOOK_SECRET not set — skipping consultation Stripe webhook');
       return;
