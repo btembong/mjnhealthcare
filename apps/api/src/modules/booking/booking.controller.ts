@@ -13,6 +13,7 @@ class SlotInputDto {
 
 class CreateSlotsDto {
   @IsString() resourceId!: string;
+  @IsString() consultantId?: string;
   @IsArray() @ValidateNested({ each: true }) @Type(() => SlotInputDto) slots!: SlotInputDto[];
 }
 

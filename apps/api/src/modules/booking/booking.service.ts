@@ -23,6 +23,7 @@ export class BookingService {
 
   async createSlots(data: {
     resourceId: string;
+    consultantId?: string;
     slots: { date: string; startTime: string; endTime: string }[];
   }) {
     return this.db.bookingSlot.createMany({
@@ -32,6 +33,7 @@ export class BookingService {
         startTime: new Date(s.startTime),
         endTime: new Date(s.endTime),
         isBooked: false,
+        ...(data.consultantId ? { consultantId: data.consultantId } : {}),
       })),
     });
   }
@@ -94,6 +96,7 @@ export class BookingService {
         startTime: { gte: new Date() },
       },
       include: {
+        consultant: { select: { id: true, name: true, photoUrl: true, specialty: true } },
         bookings: {
           include: { lead: { select: { id: true, name: true, email: true } } },
         },

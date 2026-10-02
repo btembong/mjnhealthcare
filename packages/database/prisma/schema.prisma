@@ -623,12 +623,14 @@ model PracticeResult {
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 
 model BookingSlot {
-  id         String    @id @default(cuid())
-  resourceId String
-  date       DateTime
-  startTime  DateTime
-  endTime    DateTime
-  isBooked   Boolean   @default(false)
+  id           String             @id @default(cuid())
+  resourceId   String
+  date         DateTime
+  startTime    DateTime
+  endTime      DateTime
+  isBooked     Boolean            @default(false)
+  consultantId String?
+  consultant   ConsultantProfile? @relation(fields: [consultantId], references: [id])
 
   bookings Booking[]
 
@@ -863,6 +865,7 @@ model ConsultantProfile {
   payouts           ConsultantPayout[]
   availabilityRules ConsultantAvailabilityRule[]
   blockedTimes      ConsultantBlockedTime[]
+  freeSlots         BookingSlot[]
 
   @@map("consultant_profiles")
 }

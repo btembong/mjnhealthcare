@@ -236,7 +236,7 @@ function GetStartedInner() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-  const [confirmed, setConfirmed] = useState<{ name: string; email: string; slotStart: string } | null>(null);
+  const [confirmed, setConfirmed] = useState<{ name: string; email: string; slotStart: string; consultant?: { name: string; photoUrl?: string; specialty?: string } | null } | null>(null);
 
   function mockSlots(date: string): Slot[] {
     if (new Date(date).getDay() === 0) return [];
@@ -321,7 +321,8 @@ function GetStartedInner() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message ?? 'Something went wrong.');
       }
-      setConfirmed({ name: name.trim(), email: email.trim(), slotStart: selectedSlot.startTime });
+      const resJson = await res.json().catch(() => ({}));
+      setConfirmed({ name: name.trim(), email: email.trim(), slotStart: selectedSlot.startTime, consultant: resJson.consultant ?? null });
       setStep('confirmed');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
@@ -880,14 +881,13 @@ function GetStartedInner() {
             {step !== 'confirmed' && (
               <div className="mt-6 space-y-4 lg:mt-0">
 
-                {/* Advisor card */}
+                {/* Advisor card — dynamic based on selected slot's consultant */}
                 <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
                   <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     {t.advisor_title}
                   </p>
                   <div className="flex items-center gap-3">
-                    {/* gradient-hero avatar */}
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ring-primary/20">
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ring-primary/20 bg-primary/10 flex items-center justify-center">
                       <img src="/nyah-ceo.png" alt="Mbout John Nyah" className="h-full w-full object-cover object-top" />
                     </div>
                     <div>
@@ -898,7 +898,7 @@ function GetStartedInner() {
                       </span>
                     </div>
                   </div>
-                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">He will review your profile and map the clearest path forward.</p>
+                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t.advisor_line}</p>
                 </div>
 
                 {/* Trust stats */}

@@ -34,7 +34,10 @@ export class LeadsController {
     selectedServices?: string;
     estimate?: string;
   }) {
-    const slot = await this.db.bookingSlot.findUnique({ where: { id: body.slotId } });
+    const slot = await this.db.bookingSlot.findUnique({
+      where: { id: body.slotId },
+      include: { consultant: { select: { id: true, name: true, email: true, photoUrl: true } } },
+    });
     if (!slot) throw new NotFoundException('Slot not found');
     if (slot.isBooked) throw new BadRequestException('This slot is no longer available — please choose another time.');
 
@@ -82,9 +85,17 @@ export class LeadsController {
       leadPhone: body.phone,
       slotStart: slot.startTime.toISOString(),
       serviceInterest: body.serviceInterest,
+      consultantId: (slot as any).consultant?.id,
+      consultantName: (slot as any).consultant?.name,
+      consultantEmail: (slot as any).consultant?.email,
     });
 
-    return { name: body.name.trim(), email: body.email.trim().toLowerCase(), slotStart: slot.startTime.toISOString() };
+    return {
+      name: body.name.trim(),
+      email: body.email.trim().toLowerCase(),
+      slotStart: slot.startTime.toISOString(),
+      consultant: (slot as any).consultant ?? null,
+    };
   }
 
   // ── Authenticated routes ──────────────────────────────────────────────────

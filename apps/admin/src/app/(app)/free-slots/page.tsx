@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '@mjn/ui';
 import {
   CircleNotch, CalendarBlank, Trash, Plus, CheckCircle,
-  Clock, User, EnvelopeSimple,
+  Clock, User, EnvelopeSimple, Briefcase,
 } from '@mjn/ui';
 import { api } from '../../../lib/api';
 
@@ -31,6 +31,7 @@ function buildDateOptions() {
 
 export default function FreeSlotsPage() {
   const [slots, setSlots] = useState<any[]>([]);
+  const [consultants, setConsultants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -40,11 +41,22 @@ export default function FreeSlotsPage() {
   const [newDate, setNewDate] = useState(buildDateOptions()[0]);
   const [newTimes, setNewTimes] = useState<string[]>(['09:00', '11:00', '14:00', '16:00']);
   const [customTime, setCustomTime] = useState('');
+  const [selectedConsultantId, setSelectedConsultantId] = useState('');
 
   const dateOptions = buildDateOptions();
 
   useEffect(() => {
-    api.getGeneralConsultationSlots().then((data) => setSlots(data ?? [])).finally(() => setLoading(false));
+    Promise.allSettled([
+      api.getGeneralConsultationSlots(),
+      api.getConsultants(true),
+    ]).then(([slotsRes, consultantsRes]) => {
+      if (slotsRes.status === 'fulfilled') setSlots(slotsRes.value ?? []);
+      if (consultantsRes.status === 'fulfilled') {
+        const list = consultantsRes.value ?? [];
+        setConsultants(list);
+        if (list.length > 0) setSelectedConsultantId(list[0].id);
+      }
+    }).finally(() => setLoading(false));
   }, []);
 
   function showToast(msg: string) {
@@ -65,19 +77,15 @@ export default function FreeSlotsPage() {
 
   async function handleCreate() {
     if (newTimes.length === 0) { showToast('Select at least one time slot'); return; }
+    if (!selectedConsultantId) { showToast('Select a consultant first'); return; }
     setCreating(true);
     try {
       const slotsPayload = newTimes.map((time) => {
-        const [h, m] = time.split(':').map(Number);
         const start = new Date(`${newDate}T${time}:00.000Z`);
-        const end = new Date(start.getTime() + 30 * 60 * 1000); // 30-min sessions
-        return {
-          date: newDate,
-          startTime: start.toISOString(),
-          endTime: end.toISOString(),
-        };
+        const end = new Date(start.getTime() + 30 * 60 * 1000);
+        return { date: newDate, startTime: start.toISOString(), endTime: end.toISOString() };
       });
-      await api.createFreeConsultationSlots(slotsPayload);
+      await api.createFreeConsultationSlots(slotsPayload, selectedConsultantId);
       const updated = await api.getGeneralConsultationSlots();
       setSlots(updated ?? []);
       showToast(`${slotsPayload.length} slot${slotsPayload.length > 1 ? 's' : ''} created`);
@@ -120,6 +128,24 @@ export default function FreeSlotsPage() {
         {/* ── Add slots form ── */}
         <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
           <h3 className="mb-4 font-bold text-foreground">Add Availability</h3>
+
+          {/* Consultant picker */}
+          <div className="mb-4">
+            <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Assigned Consultant</label>
+            {consultants.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No consultants found. Add a consultant first.</p>
+            ) : (
+              <select
+                value={selectedConsultantId}
+                onChange={(e) => setSelectedConsultantId(e.target.value)}
+                className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                {consultants.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name} — {c.specialty}</option>
+                ))}
+              </select>
+            )}
+          </div>
 
           {/* Date picker */}
           <div className="mb-4">
@@ -225,7 +251,14 @@ export default function FreeSlotsPage() {
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-foreground">{formatSlotTime(slot.startTime)}</p>
-                            <p className="text-xs text-muted-foreground">30 min · Available</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-xs text-muted-foreground">30 min · Available</p>
+                              {slot.consultant && (
+                                <span className="flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-xs font-semibold text-primary">
+                                  <Briefcase className="h-2.5 w-2.5" /> {slot.consultant.name}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <button
@@ -258,7 +291,14 @@ export default function FreeSlotsPage() {
                               </div>
                               <div>
                                 <p className="text-sm font-semibold text-foreground">{formatSlotTime(slot.startTime)}</p>
-                                <p className="text-xs text-muted-foreground">30 min · Booked</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <p className="text-xs text-muted-foreground">30 min · Booked</p>
+                                  {slot.consultant && (
+                                    <span className="flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-xs font-semibold text-primary">
+                                      <Briefcase className="h-2.5 w-2.5" /> {slot.consultant.name}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>

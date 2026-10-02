@@ -184,8 +184,8 @@ export const api = {
   getGeneralConsultationSlots: () =>
     request<any[]>('/bookings/admin/general-consultation'),
 
-  createFreeConsultationSlots: (slots: { date: string; startTime: string; endTime: string }[]) =>
-    request<any>('/bookings/slots', { method: 'POST', body: JSON.stringify({ resourceId: 'general-consultation', slots }) }),
+  createFreeConsultationSlots: (slots: { date: string; startTime: string; endTime: string }[], consultantId: string) =>
+    request<any>('/bookings/slots', { method: 'POST', body: JSON.stringify({ resourceId: 'general-consultation', consultantId, slots }) }),
 
   deleteFreeConsultationSlot: (slotId: string) =>
     request<any>(`/bookings/slots/${slotId}`, { method: 'DELETE' }),
