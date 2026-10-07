@@ -39,15 +39,21 @@ export class OrderService {
   ): Promise<any> {
     const engagement: any = await this.db.engagement.findUniqueOrThrow({
       where: { id: engagementId },
+      include: { person: { select: { email: true } } },
     });
     if (engagement.status === 'PENDING_SIGNATURE') {
       throw new BadRequestException('Engagement letter must be signed before checkout');
     }
 
-    // Auto-waive $50 engagement fee if client came via paid consultation route
-    if (!waiveEngagementFee) {
+    // Auto-waive $50 engagement fee if client came via paid consultation route.
+    // Consultation bookings are public (no personId), so they are matched by email.
+    const clientEmail: string | undefined = engagement.person?.email;
+    if (!waiveEngagementFee && clientEmail) {
       const hasPaidConsultation = await (this.db as any).consultationBooking.count({
-        where: { personId: engagement.personId, status: { in: ['CONFIRMED', 'COMPLETED'] } },
+        where: {
+          clientEmail: { equals: clientEmail, mode: 'insensitive' },
+          status: { in: ['CONFIRMED', 'COMPLETED'] },
+        },
       });
       if (hasPaidConsultation > 0) waiveEngagementFee = true;
     }
