@@ -12,6 +12,7 @@ import {
 } from '@mjn/ui';
 import { useUser } from '../../contexts/user-context';
 import { api } from '../../lib/api';
+import { SurveyInvite } from '../../components/survey-invite';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -812,6 +813,8 @@ export default function PortalDashboard() {
 
         {/* Next action */}
         <NextActionBanner engagement={engagement} documents={documents} orders={orders} me={me} onNavigate={router.push} />
+
+        <SurveyInvite me={me} />
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">

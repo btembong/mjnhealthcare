@@ -540,6 +540,22 @@ export const api = {
   countCampaignAudience: (audienceFilter: Record<string, any>) =>
     request<{ total: number; unsubscribed: number; deliverable: number }>('/campaigns/audience/count', { method: 'POST', body: JSON.stringify({ audienceFilter }) }),
 
+  // ── Surveys ───────────────────────────────────────────────────────────────
+  getSurveys: () => request<any[]>('/surveys'),
+  getSurvey: (id: string) => request<any>(`/surveys/${id}`),
+  createSurvey: (title: string) => request<any>('/surveys', { method: 'POST', body: JSON.stringify({ title }) }),
+  updateSurvey: (id: string, data: Record<string, any>) =>
+    request<any>(`/surveys/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  saveSurveyQuestions: (id: string, questions: any[]) =>
+    request<any>(`/surveys/${id}/questions`, { method: 'PUT', body: JSON.stringify({ questions }) }),
+  duplicateSurvey: (id: string) => request<any>(`/surveys/${id}/duplicate`, { method: 'POST' }),
+  deleteSurvey: (id: string) => request<{ deleted: boolean }>(`/surveys/${id}`, { method: 'DELETE' }),
+  getSurveyResults: (id: string) => request<any>(`/surveys/${id}/results`),
+  deleteSurveyResponse: (id: string, responseId: string) =>
+    request<{ deleted: boolean }>(`/surveys/${id}/responses/${responseId}`, { method: 'DELETE' }),
+  logSurveyExport: (id: string, format: string) =>
+    request<{ logged: boolean }>(`/surveys/${id}/exports`, { method: 'POST', body: JSON.stringify({ format }) }),
+
   // ── Payment Admin ─────────────────────────────────────────────────────────
   getPaymentStats: () => request<any>('/admin/payments/stats'),
 

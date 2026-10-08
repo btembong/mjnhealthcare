@@ -1397,3 +1397,110 @@ model BlogPost {
 
   @@map("blog_posts")
 }
+
+// ─── Surveys ─────────────────────────────────────────────────────────────────
+
+enum SurveyStatus {
+  DRAFT
+  LIVE
+  CLOSED
+}
+
+enum SurveyQuestionType {
+  SHORT_TEXT
+  LONG_TEXT
+  SINGLE_CHOICE
+  MULTI_CHOICE
+  DROPDOWN
+  RATING // 1–5 stars
+  SCALE // 0–10
+  YES_NO
+  DATE
+  EMAIL
+  PHONE
+}
+
+model Survey {
+  id                String       @id @default(cuid())
+  slug              String       @unique
+  status            SurveyStatus @default(DRAFT)
+  title             String
+  titleFr           String?
+  description       String?
+  descriptionFr     String?
+  layout            String       @default("ONE_PER_PAGE") // ONE_PER_PAGE | ALL_ON_ONE
+  identified        Boolean      @default(false) // ask for name + email before the questions
+  onePerPerson      Boolean      @default(false) // enforced by email when identified
+  captureLead       Boolean      @default(false) // add identified respondents to Leads
+  showInPortal      Boolean      @default(false) // invite logged-in clients from the portal
+  opensAt           DateTime?
+  closesAt          DateTime?
+  maxResponses      Int?
+  consentText       String?
+  consentTextFr     String?
+  thankYouTitle     String?
+  thankYouTitleFr   String?
+  thankYouMessage   String?
+  thankYouMessageFr String?
+  ctaLabel          String?
+  ctaLabelFr        String?
+  ctaUrl            String?
+  viewCount         Int          @default(0) // public page loads, for response rate
+  createdById       String
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  questions SurveyQuestion[]
+  responses SurveyResponse[]
+
+  @@map("surveys")
+}
+
+model SurveyQuestion {
+  id         String             @id @default(cuid())
+  surveyId   String
+  survey     Survey             @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  order      Int
+  type       SurveyQuestionType
+  label      String
+  labelFr    String?
+  helpText   String?
+  helpTextFr String?
+  required   Boolean            @default(false)
+  options    Json? // [{ id, label, labelFr? }] for choice questions
+  showIf     Json? // { questionId, operator: "equals" | "not_equals", value } — skip logic
+
+  answers SurveyAnswer[]
+
+  @@index([surveyId, order])
+  @@map("survey_questions")
+}
+
+model SurveyResponse {
+  id              String   @id @default(cuid())
+  surveyId        String
+  survey          Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  respondentName  String?
+  respondentEmail String? // lowercased
+  consentAt       DateTime? // when the consent box was ticked, if the survey has one
+  locale          String   @default("en")
+  createdAt       DateTime @default(now())
+
+  answers SurveyAnswer[]
+
+  @@index([surveyId, createdAt])
+  @@index([surveyId, respondentEmail])
+  @@map("survey_responses")
+}
+
+model SurveyAnswer {
+  id         String         @id @default(cuid())
+  responseId String
+  response   SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  questionId String
+  question   SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  value      Json // string | number | boolean | string[] (option ids)
+
+  @@index([questionId])
+  @@map("survey_answers")
+}

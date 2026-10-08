@@ -227,6 +227,10 @@ export const api = {
   getMyConsultationBookings: (email: string) =>
     request<any[]>(`/consultations/client/${encodeURIComponent(email)}`),
 
+  // ── Surveys ───────────────────────────────────────────────────────────────
+  getActiveSurveys: () =>
+    request<{ slug: string; title: string; titleFr?: string | null; description?: string | null; descriptionFr?: string | null }[]>('/portal/surveys'),
+
   // ── Messaging ─────────────────────────────────────────────────────────────
   getMessages: (engagementId: string) =>
     request<any[]>(`/messages/engagement/${engagementId}`),

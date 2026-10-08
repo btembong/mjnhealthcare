@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { X as XIcon, ChatCircle, ArrowRight, CalendarCheck, CaretLeft, CircleNotch } from '@mjn/ui';
 
@@ -66,7 +67,14 @@ function BotBubble({ content }: { content: string }) {
   );
 }
 
+/** Hidden on survey pages, where it would cover the form controls on phones. */
 export function SupportBot() {
+  const pathname = usePathname();
+  if (pathname?.startsWith('/survey/')) return null;
+  return <SupportBotWidget />;
+}
+
+function SupportBotWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState('');

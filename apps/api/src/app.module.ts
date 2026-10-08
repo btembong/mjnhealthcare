@@ -26,6 +26,7 @@ import { ConsultationModule } from './modules/consultation/consultation.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { TicketModule } from './modules/ticket/ticket.module';
 import { CampaignModule } from './modules/campaign/campaign.module';
+import { SurveyModule } from './modules/survey/survey.module';
 import { PaymentAdminModule } from './modules/payment-admin/payment-admin.module';
 import { OfficerModule } from './modules/officer/officer.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -72,6 +73,7 @@ import { BlogModule } from './modules/blog/blog.module';
     MessagingModule,
     TicketModule,
     CampaignModule,
+    SurveyModule,
     PaymentAdminModule,
     OfficerModule,
     ReportsModule,

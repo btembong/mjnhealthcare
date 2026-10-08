@@ -10,6 +10,8 @@ export { Checkbox } from './components/ui/checkbox';
 export { Switch } from './components/ui/switch';
 export { Select, SelectGroup, SelectValue, SelectTrigger, SelectContent, SelectLabel, SelectItem, SelectSeparator } from './components/ui/select';
 export { DateTimePicker, TimePicker, formatTime12, localTimezoneLabel } from './components/date-time-picker';
+export { SurveyForm, SurveySubmitError, surveyHasFrench } from './components/survey-form';
+export type { SurveyFormData, SurveyFormQuestion, SurveySubmission, SurveyLocale, SurveyQuestionType, SurveyAnswer } from './components/survey-form';
 
 // ── Overlay ───────────────────────────────────────────────────────────────────
 export { Dialog, DialogPortal, DialogOverlay, DialogClose, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from './components/ui/dialog';

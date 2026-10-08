@@ -158,6 +158,7 @@ function useSidebarSections(
       items: [
         { label: 'Blog & Articles', href: '/blog', icon: Newspaper },
         { label: 'Campaigns', href: '/campaigns', icon: MegaphoneSimple },
+        { label: 'Surveys', href: '/surveys', icon: ClipboardText },
         { label: 'Support Tickets', href: '/tickets', icon: Headset },
       ],
     },
