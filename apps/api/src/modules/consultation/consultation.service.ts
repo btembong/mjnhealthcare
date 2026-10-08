@@ -38,7 +38,7 @@ export class ConsultationService {
 
   async getClientBookings(clientEmail: string) {
     return this.db.consultationBooking.findMany({
-      where: { clientEmail },
+      where: { clientEmail: { equals: clientEmail, mode: 'insensitive' } },
       include: {
         slot: {
           include: {
