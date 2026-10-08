@@ -1,18 +1,14 @@
 // Creates the "MJN Healthcare Client Feedback Survey" as a DRAFT.
-// If it already exists, adds the "Other" service option and its follow-up question when missing.
+// If it already exists, adds whichever of the questions below are missing, in the right position.
+// Existing questions, their answers, and any questions added by hand are left as they are.
 // Safe to run more than once.
 const { randomBytes } = require('crypto');
 
 const id = (prefix) => `${prefix}_${randomBytes(9).toString('hex')}`;
-const options = (labels) => labels.map((label) => ({ id: id('o'), label }));
 
 const SERVICE_LABEL = 'Which service did you receive?';
+const SERVICE_FOLLOW_UP_LABEL = 'Please tell us which service you received.';
 const OTHER_LABEL = 'Other';
-const FOLLOW_UP = {
-  type: 'SHORT_TEXT',
-  required: true,
-  label: 'Please tell us which service you received.',
-};
 
 const SURVEY = {
   slug: 'client-feedback',
@@ -24,62 +20,94 @@ const SURVEY = {
     'Thank you for helping MJN Healthcare improve and continue serving healthcare professionals and students across Africa and beyond.',
 };
 
-function buildQuestions() {
-  const serviceId = id('q');
-  const serviceOptions = options(['DHA DataFlow', 'DOH DataFlow', 'MOH DataFlow', 'NCLEX–US', 'UK CBT', 'Student Support', OTHER_LABEL]);
-  const other = serviceOptions[serviceOptions.length - 1];
-  return [
-    { type: 'SHORT_TEXT', required: true, label: 'Full Name' },
-    { type: 'MONTH_YEAR', required: true, label: 'When was the service provided?' },
-    { id: serviceId, type: 'DROPDOWN', required: true, label: SERVICE_LABEL, options: serviceOptions },
-    { ...FOLLOW_UP, showIf: { questionId: serviceId, operator: 'equals', value: other.id } },
-    { type: 'RATING', required: true, label: 'How would you rate your overall experience with MJN Healthcare?' },
-    { type: 'LONG_TEXT', required: true, label: 'Please share your experience or review.',
-      helpText: 'You may describe the service you received, the support provided, your outcome, and any recommendations for improvement.' },
-    { type: 'SINGLE_CHOICE', required: true, label: 'May MJN Healthcare publish your review as a testimonial?',
-      options: options([
-        'Yes, with my full name',
-        'Yes, but use only my first name and last initial',
-        'No, please keep my feedback private',
-      ]) },
-  ].map((q, order) => ({ id: q.id ?? id('q'), order, ...q }));
+/** The survey's questions in display order. `choices` become options; labels identify a question. */
+const QUESTIONS = [
+  { type: 'SHORT_TEXT', required: true, label: 'Full Name' },
+  { type: 'EMAIL', required: true, label: 'Email address' },
+  { type: 'PHONE', required: false, label: 'Phone or WhatsApp number', helpText: 'Optional. Include your country code.' },
+  { type: 'SHORT_TEXT', required: true, label: 'Country of residence' },
+  { type: 'DROPDOWN', required: true, label: 'What is your profession?',
+    choices: ['Nurse', 'Midwife', 'Physician', 'Allied health professional', 'Student', OTHER_LABEL] },
+  { type: 'MONTH_YEAR', required: true, label: 'When was the service provided?' },
+  { type: 'DROPDOWN', required: true, label: SERVICE_LABEL,
+    choices: ['DHA DataFlow', 'DOH DataFlow', 'MOH DataFlow', 'NCLEX–US', 'UK CBT', 'Student Support', OTHER_LABEL] },
+  { type: 'SHORT_TEXT', required: true, label: SERVICE_FOLLOW_UP_LABEL },
+  { type: 'RATING', required: true, label: 'How would you rate your overall experience with MJN Healthcare?' },
+  { type: 'SCALE', required: true, label: 'How likely are you to recommend MJN Healthcare to a friend or colleague?' },
+  { type: 'LONG_TEXT', required: true, label: 'Please share your experience or review.',
+    helpText: 'You may describe the service you received, the support provided, your outcome, and any recommendations for improvement.' },
+  { type: 'SINGLE_CHOICE', required: false, label: 'How did you hear about MJN Healthcare?',
+    choices: ['Friend or colleague', 'Facebook', 'Instagram', 'LinkedIn', 'WhatsApp', 'Google search', 'Event or webinar', OTHER_LABEL] },
+  { type: 'SINGLE_CHOICE', required: true, label: 'May MJN Healthcare publish your review as a testimonial?',
+    choices: [
+      'Yes, with my full name',
+      'Yes, but use only my first name and last initial',
+      'No, please keep my feedback private',
+    ] },
+];
+
+const sameLabel = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+
+/**
+ * Works out the full question list for the survey, reusing `existing` questions (matched by label)
+ * and creating the missing ones. Returns the ordered rows plus a description of what is new.
+ */
+function planQuestions(existing = []) {
+  const added = [];
+  const used = new Set();
+
+  const planned = QUESTIONS.map(({ choices, ...spec }) => {
+    const match = existing.find((q) => !used.has(q.id) && sameLabel(q.label, spec.label));
+    if (match) { used.add(match.id); return { ...match, isNew: false, changed: false }; }
+    added.push(`"${spec.label}"`);
+    return {
+      id: id('q'), ...spec,
+      options: choices ? choices.map((label) => ({ id: id('o'), label })) : null,
+      showIf: null, isNew: true, changed: false,
+    };
+  });
+
+  // The service question needs an "Other" choice for its follow-up to hang off.
+  const service = planned.find((q) => sameLabel(q.label, SERVICE_LABEL));
+  const followUp = planned.find((q) => sameLabel(q.label, SERVICE_FOLLOW_UP_LABEL));
+  const serviceOptions = Array.isArray(service.options) ? service.options : [];
+  let other = serviceOptions.find((o) => sameLabel(o.label, OTHER_LABEL));
+  if (!other) {
+    other = { id: id('o'), label: OTHER_LABEL };
+    service.options = [...serviceOptions, other];
+    if (!service.isNew) { service.changed = true; added.push(`the "Other" choice on "${service.label}"`); }
+  }
+  if (followUp.isNew) followUp.showIf = { questionId: service.id, operator: 'equals', value: other.id };
+
+  // Questions added by hand in the builder stay, after the standard ones.
+  const extras = existing.filter((q) => !used.has(q.id)).map((q) => ({ ...q, isNew: false, changed: false }));
+  const rows = [...planned, ...extras].map((q, order) => ({ ...q, newOrder: order }));
+  return { rows, added };
 }
 
-/** Adds the "Other" option and its follow-up to an existing survey. Returns what it changed. */
-async function addOtherOption(db, survey) {
-  const service = survey.questions.find((q) => q.label === SERVICE_LABEL);
-  if (!service) return { skipped: `No question titled "${SERVICE_LABEL}" was found. Add the option in the survey builder instead.` };
+const toData = ({ isNew, changed, newOrder, order, surveyId, ...q }) => ({ ...q, order: newOrder });
 
-  const changes = [];
-  const current = Array.isArray(service.options) ? service.options : [];
-  let other = current.find((o) => String(o.label).trim().toLowerCase() === OTHER_LABEL.toLowerCase());
+/** Brings an existing survey up to date. Returns the list of things it added. */
+async function upgradeSurvey(db, survey) {
+  const { rows, added } = planQuestions(survey.questions);
+  const reorder = rows.filter((q) => !q.isNew && (q.order !== q.newOrder || q.changed));
+  if (added.length === 0 && reorder.length === 0) return [];
 
   await db.$transaction(async (tx) => {
-    if (!other) {
-      other = { id: id('o'), label: OTHER_LABEL };
-      await tx.surveyQuestion.update({ where: { id: service.id }, data: { options: [...current, other] } });
-      changes.push('added the "Other" choice');
+    for (const q of rows.filter((r) => r.isNew)) {
+      await tx.surveyQuestion.create({ data: { ...toData(q), surveyId: survey.id } });
     }
-    const hasFollowUp = survey.questions.some((q) => q.showIf?.questionId === service.id && q.showIf?.value === other.id);
-    if (!hasFollowUp) {
-      // Make room directly after the service question.
-      await tx.surveyQuestion.updateMany({
-        where: { surveyId: survey.id, order: { gt: service.order } },
-        data: { order: { increment: 1 } },
+    for (const q of reorder) {
+      await tx.surveyQuestion.update({
+        where: { id: q.id },
+        data: q.changed ? { order: q.newOrder, options: q.options } : { order: q.newOrder },
       });
-      await tx.surveyQuestion.create({
-        data: {
-          id: id('q'), surveyId: survey.id, order: service.order + 1, ...FOLLOW_UP,
-          showIf: { questionId: service.id, operator: 'equals', value: other.id },
-        },
-      });
-      changes.push('added the "please specify" follow-up question');
     }
   });
-  return { changes };
+  return added;
 }
 
-module.exports = { SURVEY, buildQuestions, addOtherOption, SERVICE_LABEL };
+module.exports = { SURVEY, QUESTIONS, planQuestions, upgradeSurvey, SERVICE_LABEL, SERVICE_FOLLOW_UP_LABEL };
 
 if (require.main === module) {
   const { PrismaClient } = require('../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client');
@@ -96,16 +124,17 @@ if (require.main === module) {
       include: { questions: { orderBy: { order: 'asc' } } },
     });
     if (existing) {
-      const result = await addOtherOption(db, existing);
-      if (result.skipped) { console.log(result.skipped); return; }
-      if (result.changes.length === 0) { console.log('The survey already has the "Other" option and follow-up. Nothing was changed.'); return; }
-      await audit(existing.id, 'survey.questions_saved', { changes: result.changes });
-      console.log(`Updated "${existing.title}": ${result.changes.join(', ')}.`);
+      const added = await upgradeSurvey(db, existing);
+      if (added.length === 0) { console.log('The survey already has every question. Nothing was changed.'); return; }
+      await audit(existing.id, 'survey.questions_saved', { added });
+      console.log(`Updated "${existing.title}". Added:`);
+      for (const item of added) console.log(`  - ${item}`);
       return;
     }
 
+    const { rows } = planQuestions();
     const survey = await db.survey.create({
-      data: { ...SURVEY, status: 'DRAFT', createdById: admin.id, questions: { create: buildQuestions() } },
+      data: { ...SURVEY, status: 'DRAFT', createdById: admin.id, questions: { create: rows.map(toData) } },
       include: { _count: { select: { questions: true } } },
     });
     await audit(survey.id, 'survey.created', { title: survey.title });
