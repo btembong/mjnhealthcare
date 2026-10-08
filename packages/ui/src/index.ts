@@ -9,9 +9,11 @@ export { Label } from './components/ui/label';
 export { Checkbox } from './components/ui/checkbox';
 export { Switch } from './components/ui/switch';
 export { Select, SelectGroup, SelectValue, SelectTrigger, SelectContent, SelectLabel, SelectItem, SelectSeparator } from './components/ui/select';
+export { DateTimePicker, TimePicker, formatTime12, localTimezoneLabel } from './components/date-time-picker';
 
 // ── Overlay ───────────────────────────────────────────────────────────────────
 export { Dialog, DialogPortal, DialogOverlay, DialogClose, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from './components/ui/dialog';
+export { Popover, PopoverTrigger, PopoverAnchor, PopoverContent } from './components/ui/popover';
 export { Sheet, SheetPortal, SheetOverlay, SheetTrigger, SheetClose, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescription } from './components/ui/sheet';
 
 // ── Navigation & Menus ────────────────────────────────────────────────────────

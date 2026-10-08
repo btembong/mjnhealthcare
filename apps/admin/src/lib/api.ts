@@ -508,6 +508,12 @@ export const api = {
   sendCampaignTest: (id: string, email: string) =>
     request<{ sentTo: string }>(`/campaigns/${id}/test`, { method: 'POST', body: JSON.stringify({ email }) }),
 
+  sendCampaignTestContent: (data: { subject: string; body: string; email: string }) =>
+    request<{ sentTo: string }>('/campaigns/test', { method: 'POST', body: JSON.stringify(data) }),
+
+  previewCampaignSchedule: (recurrence: CampaignRecurrence) =>
+    request<{ nextRunAt: string; cronExpression: string; timezone: string }>('/campaigns/schedule/preview', { method: 'POST', body: JSON.stringify({ recurrence }) }),
+
   pauseCampaign: (id: string) =>
     request<any>(`/campaigns/${id}/pause`, { method: 'PATCH' }),
 

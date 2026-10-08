@@ -314,6 +314,28 @@ export class CampaignService {
     return { sentTo: email };
   }
 
+  /** Test send for content that has not been saved as a campaign yet. */
+  async sendTestContent(content: { subject: string; body: string }, toEmail: string) {
+    const email = String(toEmail ?? '').trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) throw new BadRequestException('Enter a valid email address');
+    try {
+      await this.sendOne({ id: '', ...content }, { email, name: 'Test Recipient' }, true);
+    } catch (err: any) {
+      throw new BadRequestException(`Test email failed: ${err?.message ?? err}`);
+    }
+    return { sentTo: email };
+  }
+
+  /** Validates a recurring schedule and reports when it would first send. */
+  previewSchedule(recurrence: RecurrenceInput) {
+    const schedule = this.buildSchedule({ recurrence }, new Date());
+    return {
+      nextRunAt: schedule.nextRunAt,
+      cronExpression: schedule.cronExpression,
+      timezone: recurrence.timezone ?? DEFAULT_TIMEZONE,
+    };
+  }
+
   private async sendLegacyBrevoCampaign(id: string, brevoId: number) {
     try {
       await this.emailCampaignsApi.sendEmailCampaignNow(brevoId);

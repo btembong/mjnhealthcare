@@ -57,6 +57,16 @@ class TestSendDto {
   @IsEmail() email: string;
 }
 
+class TestContentDto {
+  @IsString() subject: string;
+  @IsString() body: string;
+  @IsEmail() email: string;
+}
+
+class SchedulePreviewDto {
+  @ValidateNested() @Type(() => RecurrenceDto) recurrence: RecurrenceDto;
+}
+
 @ApiTags('campaigns')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -95,6 +105,18 @@ export class CampaignController {
   @Post('audience/count')
   countAudience(@Body() dto: AudienceCountDto) {
     return this.campaignService.countAudience(dto.audienceFilter);
+  }
+
+  @ApiOperation({ summary: 'Validate a recurring schedule and return its first send time' })
+  @Post('schedule/preview')
+  previewSchedule(@Body() dto: SchedulePreviewDto) {
+    return this.campaignService.previewSchedule(dto.recurrence);
+  }
+
+  @ApiOperation({ summary: 'Send a test copy of unsaved content to one address' })
+  @Post('test')
+  sendTestContent(@Body() dto: TestContentDto) {
+    return this.campaignService.sendTestContent({ subject: dto.subject, body: dto.body }, dto.email);
   }
 
   @ApiOperation({ summary: 'Get one campaign' })
