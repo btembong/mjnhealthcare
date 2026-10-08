@@ -464,6 +464,7 @@ export class ConsultationService {
     if (consultantDelay > 0) {
       await this.reminderQueue.add('consultation-reminder-consultant', {
         ...payload,
+        consultantEmail: booking.consultant.email,
         preSessionNote: booking.preSessionNote,
       }, { delay: consultantDelay });
     }

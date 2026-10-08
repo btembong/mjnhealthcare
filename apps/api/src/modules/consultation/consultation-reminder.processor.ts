@@ -9,6 +9,7 @@ interface ReminderPayload {
   clientEmail: string;
   clientPhone: string;
   consultantName: string;
+  consultantEmail?: string | null;
   sessionStart: string;
   roomUrl: string;
   preSessionNote?: string;
@@ -117,20 +118,33 @@ export class ConsultationReminderProcessor {
 
   @Process('consultation-reminder-consultant')
   async handleConsultantReminder(job: Job<ReminderPayload>) {
-    const { consultantName, clientName, clientEmail, sessionStart, roomUrl, preSessionNote } = job.data;
+    const { bookingId, consultantName, consultantEmail, clientName, clientEmail, sessionStart, preSessionNote } = job.data;
     const time = new Date(sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
 
+    // Send to the consultant's own inbox when we have it; otherwise fall back to the admin alert inbox.
+    const adminInbox = process.env.ADMIN_ALERT_EMAIL ?? 'admin@mjnhealth.com';
+    const recipient = consultantEmail || adminInbox;
+
+    // The host link requires an authenticated console session (host token is issued there),
+    // so deep-link into the Sessions page rather than embedding the raw room URL.
+    const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
+    const joinHref = `${adminUrl}/sessions`;
+
     await this.notifications.sendEmail(
-      // Consultant email not in payload — log only; consultant alert goes to admin inbox
-      process.env.ADMIN_ALERT_EMAIL ?? 'admin@mjnhealth.com',
+      recipient,
       `Upcoming Session in 30 Min — ${clientName} with ${consultantName}`,
       `<p>Hi <strong>${consultantName}</strong>,</p>
       <p>You have a consultation with <strong>${clientName}</strong> (<a href="mailto:${clientEmail}">${clientEmail}</a>) starting in <strong>30 minutes</strong> at <strong>${time} WAT</strong>.</p>
       ${preSessionNote ? `<p><strong>Client's pre-session note:</strong><br/><em>${preSessionNote}</em></p>` : ''}
-      <p><a href="${roomUrl}" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Open Session Room</a></p>`,
+      <p>Open the session in your console and click <strong>Join as host</strong> to start the video room:</p>
+      <p><a href="${joinHref}" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Open My Sessions</a></p>`,
       consultantName,
     );
-    this.logger.log(`Consultant 30m alert sent for booking ${job.data.bookingId}`);
+    if (!consultantEmail) {
+      this.logger.warn(`Consultant 30m alert for booking ${bookingId} sent to admin inbox — consultant has no email on file`);
+    } else {
+      this.logger.log(`Consultant 30m alert sent to ${consultantEmail} for booking ${bookingId}`);
+    }
   }
 
   // ── 48h post-session follow-up for free consult clients ─────────────────────
