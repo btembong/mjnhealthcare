@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { DateTimePicker } from './date-time-picker';
+import { DateTimePicker, MonthPicker } from './date-time-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ArrowLeft, ArrowRight, Check, CheckCircle, CircleNotch, Star, Warning } from '../icons';
 import { cn } from '../lib/utils';
 
@@ -67,7 +68,7 @@ const STRINGS = {
   en: {
     start: 'Start', next: 'Next', back: 'Back', submit: 'Submit', sending: 'Sending…',
     name: 'Your name', email: 'Your email', optional: 'Optional', required: 'Required',
-    yes: 'Yes', no: 'No', choose: 'Choose an option', pickDate: 'Pick a date', month: 'Month', year: 'Year',
+    yes: 'Yes', no: 'No', choose: 'Choose an option', pickDate: 'Pick a date', pickMonth: 'Pick a month',
     selectAll: 'Select all that apply', progress: (a: number, b: number) => `Question ${a} of ${b}`,
     errRequired: 'Please answer this question.', errEmail: 'Enter a valid email address.',
     errPhone: 'Enter a valid phone number.', errInvalid: 'This answer is not valid.',
@@ -79,7 +80,7 @@ const STRINGS = {
   fr: {
     start: 'Commencer', next: 'Suivant', back: 'Retour', submit: 'Envoyer', sending: 'Envoi…',
     name: 'Votre nom', email: 'Votre e-mail', optional: 'Facultatif', required: 'Obligatoire',
-    yes: 'Oui', no: 'Non', choose: 'Choisissez une option', pickDate: 'Choisissez une date', month: 'Mois', year: 'Année',
+    yes: 'Oui', no: 'Non', choose: 'Choisissez une option', pickDate: 'Choisissez une date', pickMonth: 'Choisissez un mois',
     selectAll: 'Sélectionnez toutes les réponses applicables', progress: (a: number, b: number) => `Question ${a} sur ${b}`,
     errRequired: 'Veuillez répondre à cette question.', errEmail: 'Saisissez une adresse e-mail valide.',
     errPhone: 'Saisissez un numéro de téléphone valide.', errInvalid: 'Cette réponse n’est pas valide.',
@@ -169,15 +170,17 @@ function QuestionField({ question, value, onChange, locale, onEnter, invalid }: 
       );
     case 'DROPDOWN':
       return (
-        <select
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value || undefined)}
-          aria-invalid={invalid} aria-describedby={describedBy} aria-labelledby={`${question.id}-label`}
-          className={inputClass}
-        >
-          <option value="">{s.choose}</option>
-          {options.map((o) => <option key={o.id} value={o.id}>{text(o.label, o.labelFr)}</option>)}
-        </select>
+        <Select value={typeof value === 'string' ? value : ''} onValueChange={(v) => onChange(v || undefined)}>
+          <SelectTrigger aria-invalid={invalid} aria-describedby={describedBy} aria-labelledby={`${question.id}-label`}
+            className={cn('h-12 rounded-xl border-border px-4 text-base data-[placeholder]:text-muted-foreground', invalid && 'border-rose-400')}>
+            <SelectValue placeholder={s.choose} />
+          </SelectTrigger>
+          <SelectContent className="max-h-[min(26rem,var(--radix-select-content-available-height))]">
+            {options.map((o) => (
+              <SelectItem key={o.id} value={o.id} className="py-2.5 text-base">{text(o.label, o.labelFr)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       );
     case 'SINGLE_CHOICE':
       return (
@@ -269,28 +272,19 @@ function QuestionField({ question, value, onChange, locale, onEnter, invalid }: 
         />
       );
     }
-    case 'MONTH_YEAR': {
-      // Held as "YYYY-MM"; a half-chosen value keeps the other part blank until both are set.
-      const [year = '', month = ''] = typeof value === 'string' ? value.split('-') : [];
-      const thisYear = new Date().getFullYear();
-      const update = (y: string, m: string) => onChange(y || m ? `${y}-${m}` : undefined);
+    case 'MONTH_YEAR':
       return (
-        <div className="grid max-w-sm grid-cols-2 gap-3" role="group" aria-labelledby={`${question.id}-label`}>
-          <select value={month} onChange={(e) => update(year, e.target.value)} aria-label={s.month} aria-invalid={invalid} className={inputClass}>
-            <option value="">{s.month}</option>
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i} value={String(i + 1).padStart(2, '0')}>
-                {new Date(2000, i, 1).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB', { month: 'long' })}
-              </option>
-            ))}
-          </select>
-          <select value={year} onChange={(e) => update(e.target.value, month)} aria-label={s.year} aria-invalid={invalid} className={inputClass}>
-            <option value="">{s.year}</option>
-            {Array.from({ length: 16 }, (_, i) => thisYear - i).map((y) => <option key={y} value={String(y)}>{y}</option>)}
-          </select>
-        </div>
+        <MonthPicker
+          value={typeof value === 'string' ? value : ''}
+          onChange={onChange}
+          maxDate={new Date()}
+          locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
+          placeholder={s.pickMonth}
+          invalid={invalid}
+          labelledBy={`${question.id}-label`}
+          className="max-w-xs"
+        />
       );
-    }
     default:
       return null;
   }

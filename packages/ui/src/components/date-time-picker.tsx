@@ -335,3 +335,84 @@ export function TimePicker({ value, onChange, stepMinutes = 15, className }: Tim
     </Popover>
   );
 }
+
+// ── MonthPicker ───────────────────────────────────────────────────────────────
+
+type MonthPickerProps = {
+  /** "YYYY-MM", or empty for no selection. */
+  value: string;
+  onChange: (value: string | undefined) => void;
+  /** Latest month that can be picked, e.g. today for "when did this happen". */
+  maxDate?: Date;
+  locale?: string;
+  placeholder?: string;
+  invalid?: boolean;
+  labelledBy?: string;
+  className?: string;
+};
+
+export function MonthPicker({
+  value, onChange, maxDate, locale = 'en-GB', placeholder = 'Pick a month', invalid, labelledBy, className,
+}: MonthPickerProps) {
+  const [open, setOpen] = React.useState(false);
+  const selected = /^\d{4}-\d{2}$/.test(value) ? { year: Number(value.slice(0, 4)), month: Number(value.slice(5)) } : null;
+  const today = new Date();
+  const [viewYear, setViewYear] = React.useState(selected?.year ?? (maxDate ?? today).getFullYear());
+
+  React.useEffect(() => {
+    if (open) setViewYear(selected?.year ?? (maxDate ?? today).getFullYear());
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const monthName = (month: number, style: 'short' | 'long') =>
+    new Date(2000, month - 1, 1).toLocaleDateString(locale, { month: style });
+  const afterMax = (year: number, month: number) =>
+    !!maxDate && (year > maxDate.getFullYear() || (year === maxDate.getFullYear() && month > maxDate.getMonth() + 1));
+  const canGoForward = !maxDate || viewYear < maxDate.getFullYear();
+
+  const label = selected ? `${monthName(selected.month, 'long')} ${selected.year}` : null;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" aria-labelledby={labelledBy} aria-invalid={invalid}
+          className={cn(triggerClass, 'h-12 text-base', invalid && 'border-rose-400', className)}>
+          <CalendarBlank className="h-4 w-4 shrink-0 text-primary" />
+          <span className={cn('truncate capitalize', !label && 'normal-case text-muted-foreground')}>{label ?? placeholder}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72">
+        <div className="mb-3 flex items-center justify-between">
+          <button type="button" aria-label="Previous year" onClick={() => setViewYear((y) => y - 1)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            <CaretLeft className="h-4 w-4" />
+          </button>
+          <p className="text-sm font-semibold tabular-nums text-foreground" aria-live="polite">{viewYear}</p>
+          <button type="button" aria-label="Next year" disabled={!canGoForward} onClick={() => setViewYear((y) => y + 1)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
+            <CaretRight className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => {
+            const isSelected = selected?.year === viewYear && selected.month === month;
+            const isCurrent = today.getFullYear() === viewYear && today.getMonth() + 1 === month;
+            const disabled = afterMax(viewYear, month);
+            return (
+              <button key={month} type="button" disabled={disabled} aria-pressed={isSelected}
+                aria-label={`${monthName(month, 'long')} ${viewYear}`}
+                onClick={() => { onChange(`${viewYear}-${pad(month)}`); setOpen(false); }}
+                className={cn(
+                  'h-10 rounded-xl text-sm capitalize transition-colors',
+                  isSelected ? 'bg-primary font-semibold text-white' : 'text-foreground hover:bg-primary/10',
+                  !isSelected && isCurrent && 'font-semibold text-primary ring-1 ring-inset ring-primary/40',
+                  disabled && 'pointer-events-none text-muted-foreground/40',
+                )}>
+                {monthName(month, 'short')}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}

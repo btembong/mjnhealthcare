@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import {
   Switch, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   Plus, Trash, Copy, ArrowUp, ArrowDown, X, type SurveyQuestionType,
 } from '@mjn/ui';
 import {
@@ -13,6 +14,20 @@ const fieldClass =
   'w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20';
 const iconButton =
   'flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-30';
+
+/** Styled dropdown used throughout the builder. */
+function Pick({ value, onChange, options, label }: {
+  value: string; onChange: (value: string) => void; options: { value: string; label: string }[]; label: string;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger aria-label={label} className="rounded-xl border-border"><SelectValue /></SelectTrigger>
+      <SelectContent className="max-h-72">
+        {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
 
 /** Drops conditions that no longer point at an earlier question or a value it still offers. */
 export function sanitizeQuestions(questions: Question[]): Question[] {
@@ -145,9 +160,8 @@ export function QuestionBuilder({ questions, onChange, french }: Props) {
                   </div>
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold text-foreground">Answer type</label>
-                    <select value={q.type} onChange={(e) => changeType(q, e.target.value as SurveyQuestionType)} className={fieldClass}>
-                      {QUESTION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
+                    <Pick label="Answer type" value={q.type} onChange={(v) => changeType(q, v as SurveyQuestionType)}
+                      options={QUESTION_TYPES.map((t) => ({ value: t.value, label: t.label }))} />
                   </div>
                 </div>
                 {french && (
@@ -228,24 +242,17 @@ export function QuestionBuilder({ questions, onChange, french }: Props) {
                   </label>
                   {q.showIf && parent && (
                     <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_7rem_1fr]">
-                      <select value={q.showIf.questionId} aria-label="Depends on question" className={fieldClass}
-                        onChange={(e) => {
-                          const next = candidates.find((c) => c.id === e.target.value)!;
+                      <Pick label="Depends on question" value={q.showIf.questionId}
+                        options={candidates.map((c) => ({ value: c.id, label: `${questions.indexOf(c) + 1}. ${c.label || 'Untitled question'}` }))}
+                        onChange={(v) => {
+                          const next = candidates.find((c) => c.id === v)!;
                           patch(q.id, { showIf: { questionId: next.id, operator: q.showIf!.operator, value: conditionValues(next)[0].value } });
-                        }}>
-                        {candidates.map((c) => (
-                          <option key={c.id} value={c.id}>{questions.indexOf(c) + 1}. {c.label || 'Untitled question'}</option>
-                        ))}
-                      </select>
-                      <select value={q.showIf.operator} aria-label="Condition" className={fieldClass}
-                        onChange={(e) => patch(q.id, { showIf: { ...q.showIf!, operator: e.target.value as 'equals' | 'not_equals' } })}>
-                        <option value="equals">is</option>
-                        <option value="not_equals">is not</option>
-                      </select>
-                      <select value={q.showIf.value} aria-label="Answer" className={fieldClass}
-                        onChange={(e) => patch(q.id, { showIf: { ...q.showIf!, value: e.target.value } })}>
-                        {conditionValues(parent).map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
-                      </select>
+                        }} />
+                      <Pick label="Condition" value={q.showIf.operator}
+                        options={[{ value: 'equals', label: 'is' }, { value: 'not_equals', label: 'is not' }]}
+                        onChange={(v) => patch(q.id, { showIf: { ...q.showIf!, operator: v as 'equals' | 'not_equals' } })} />
+                      <Pick label="Answer" value={q.showIf.value} options={conditionValues(parent)}
+                        onChange={(v) => patch(q.id, { showIf: { ...q.showIf!, value: v } })} />
                     </div>
                   )}
                 </div>
