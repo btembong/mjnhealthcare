@@ -112,7 +112,8 @@ export class PaymentAdminService {
       this.db.order.findMany({ select: { status: true, total: true, createdAt: true } }),
     ]);
 
-    const paidBookings = bookings.filter((b) => ['CONFIRMED', 'COMPLETED'].includes(b.status));
+    // NO_SHOW is money received too — the client paid and forfeited, no refund.
+    const paidBookings = bookings.filter((b) => ['CONFIRMED', 'COMPLETED', 'NO_SHOW'].includes(b.status));
     const paidOrders = orders.filter((o) => o.status === 'PAID');
 
     const consultRevenue = paidBookings.reduce((sum, b) => sum + Number(b.amountPaid ?? 0), 0);

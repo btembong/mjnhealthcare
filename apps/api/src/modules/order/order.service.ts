@@ -566,7 +566,7 @@ export class OrderService {
     const count = await (this.db as any).consultationBooking.count({
       where: {
         clientEmail: { equals: email, mode: 'insensitive' },
-        status: { in: ['CONFIRMED', 'COMPLETED'] },
+        status: { in: ['CONFIRMED', 'COMPLETED', 'NO_SHOW'] },
         amountPaid: { gt: 0 },
       },
     });

@@ -160,7 +160,8 @@ export class ReportsService {
       }).catch(() => []),
       this.db.creditWallet.findMany({ select: { balanceCents: true } }),
       this.db.consultationBooking.findMany({
-        where: { status: { in: ['CONFIRMED', 'COMPLETED'] } },
+        // NO_SHOW is money received too — the client paid and forfeited, no refund.
+        where: { status: { in: ['CONFIRMED', 'COMPLETED', 'NO_SHOW'] } },
         select: { amountPaid: true, createdAt: true },
       }),
     ]);
@@ -379,7 +380,8 @@ export class ReportsService {
 
     const [consultationBookings, payouts] = await Promise.all([
       this.db.consultationBooking.findMany({
-        where: { status: { in: ['CONFIRMED', 'COMPLETED'] }, ...dateFilter },
+        // NO_SHOW is money received too — the client paid and forfeited, no refund.
+        where: { status: { in: ['CONFIRMED', 'COMPLETED', 'NO_SHOW'] }, ...dateFilter },
         include: { slot: { include: { consultant: { select: { id: true, name: true, commissionRate: true, type: true } } } } },
       }),
       (this.db as any).consultantPayout?.findMany({
@@ -398,8 +400,10 @@ export class ReportsService {
       if (!c) continue;
       const gross = Number(b.amountPaid ?? 0);
       const commissionRate = Number(c.commissionRate ?? 0.75);
-      const platformFee = c.type === 'PARTNER' ? gross * (1 - commissionRate) : gross;
-      const netPayout = c.type === 'PARTNER' ? gross * commissionRate : 0;
+      // No-show: no session delivered, so the consultant earns nothing — MJN keeps 100%.
+      const partnerEarns = c.type === 'PARTNER' && b.status !== 'NO_SHOW';
+      const platformFee = partnerEarns ? gross * (1 - commissionRate) : gross;
+      const netPayout = partnerEarns ? gross * commissionRate : 0;
       if (!consultantMap[c.id]) {
         consultantMap[c.id] = { name: c.name, type: c.type, grossRevenue: 0, platformFee: 0, netPayout: 0, sessions: 0 };
       }
