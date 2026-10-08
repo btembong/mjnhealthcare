@@ -1416,6 +1416,7 @@ enum SurveyQuestionType {
   SCALE // 0–10
   YES_NO
   DATE
+  MONTH_YEAR // "YYYY-MM"
   EMAIL
   PHONE
 }

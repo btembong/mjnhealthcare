@@ -231,7 +231,7 @@ export function SurveyResults({ surveyId, surveyTitle, questions, identified, vi
                   ) : (
                     <ul className="max-h-56 space-y-2 overflow-y-auto pr-1">
                       {values.slice(0, 50).map((v, i) => (
-                        <li key={i} className="rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground">{String(v)}</li>
+                        <li key={i} className="rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground">{answerText(q, v)}</li>
                       ))}
                       {values.length > 50 && <li className="px-1 text-xs text-muted-foreground">Showing the latest 50. Export to see all {values.length}.</li>}
                     </ul>

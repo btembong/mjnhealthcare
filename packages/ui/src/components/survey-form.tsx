@@ -9,7 +9,7 @@ export type SurveyLocale = 'en' | 'fr';
 
 export type SurveyQuestionType =
   | 'SHORT_TEXT' | 'LONG_TEXT' | 'SINGLE_CHOICE' | 'MULTI_CHOICE' | 'DROPDOWN'
-  | 'RATING' | 'SCALE' | 'YES_NO' | 'DATE' | 'EMAIL' | 'PHONE';
+  | 'RATING' | 'SCALE' | 'YES_NO' | 'DATE' | 'MONTH_YEAR' | 'EMAIL' | 'PHONE';
 
 export type SurveyAnswer = string | number | string[];
 
@@ -67,7 +67,7 @@ const STRINGS = {
   en: {
     start: 'Start', next: 'Next', back: 'Back', submit: 'Submit', sending: 'Sending…',
     name: 'Your name', email: 'Your email', optional: 'Optional', required: 'Required',
-    yes: 'Yes', no: 'No', choose: 'Choose an option', pickDate: 'Pick a date',
+    yes: 'Yes', no: 'No', choose: 'Choose an option', pickDate: 'Pick a date', month: 'Month', year: 'Year',
     selectAll: 'Select all that apply', progress: (a: number, b: number) => `Question ${a} of ${b}`,
     errRequired: 'Please answer this question.', errEmail: 'Enter a valid email address.',
     errPhone: 'Enter a valid phone number.', errInvalid: 'This answer is not valid.',
@@ -79,7 +79,7 @@ const STRINGS = {
   fr: {
     start: 'Commencer', next: 'Suivant', back: 'Retour', submit: 'Envoyer', sending: 'Envoi…',
     name: 'Votre nom', email: 'Votre e-mail', optional: 'Facultatif', required: 'Obligatoire',
-    yes: 'Oui', no: 'Non', choose: 'Choisissez une option', pickDate: 'Choisissez une date',
+    yes: 'Oui', no: 'Non', choose: 'Choisissez une option', pickDate: 'Choisissez une date', month: 'Mois', year: 'Année',
     selectAll: 'Sélectionnez toutes les réponses applicables', progress: (a: number, b: number) => `Question ${a} sur ${b}`,
     errRequired: 'Veuillez répondre à cette question.', errEmail: 'Saisissez une adresse e-mail valide.',
     errPhone: 'Saisissez un numéro de téléphone valide.', errInvalid: 'Cette réponse n’est pas valide.',
@@ -269,6 +269,28 @@ function QuestionField({ question, value, onChange, locale, onEnter, invalid }: 
         />
       );
     }
+    case 'MONTH_YEAR': {
+      // Held as "YYYY-MM"; a half-chosen value keeps the other part blank until both are set.
+      const [year = '', month = ''] = typeof value === 'string' ? value.split('-') : [];
+      const thisYear = new Date().getFullYear();
+      const update = (y: string, m: string) => onChange(y || m ? `${y}-${m}` : undefined);
+      return (
+        <div className="grid max-w-sm grid-cols-2 gap-3" role="group" aria-labelledby={`${question.id}-label`}>
+          <select value={month} onChange={(e) => update(year, e.target.value)} aria-label={s.month} aria-invalid={invalid} className={inputClass}>
+            <option value="">{s.month}</option>
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i} value={String(i + 1).padStart(2, '0')}>
+                {new Date(2000, i, 1).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB', { month: 'long' })}
+              </option>
+            ))}
+          </select>
+          <select value={year} onChange={(e) => update(e.target.value, month)} aria-label={s.year} aria-invalid={invalid} className={inputClass}>
+            <option value="">{s.year}</option>
+            {Array.from({ length: 16 }, (_, i) => thisYear - i).map((y) => <option key={y} value={String(y)}>{y}</option>)}
+          </select>
+        </div>
+      );
+    }
     default:
       return null;
   }
@@ -340,6 +362,7 @@ export function SurveyForm({ survey, locale, onSubmit, preview, initial, storage
       return next;
     });
     setErrors((prev) => (prev[id] ? { ...prev, [id]: '' } : prev));
+    setFormError('');
   }
 
   function questionError(q: SurveyFormQuestion): string {
@@ -348,6 +371,7 @@ export function SurveyForm({ survey, locale, onSubmit, preview, initial, storage
     if (blank) return q.required ? s.errRequired : '';
     if (q.type === 'EMAIL' && !EMAIL_RE.test(String(value).trim())) return s.errEmail;
     if (q.type === 'PHONE' && !PHONE_RE.test(String(value).trim())) return s.errPhone;
+    if (q.type === 'MONTH_YEAR' && !/^\d{4}-\d{2}$/.test(String(value))) return s.errInvalid;
     return '';
   }
 

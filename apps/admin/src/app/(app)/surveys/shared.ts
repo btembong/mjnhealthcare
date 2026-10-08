@@ -31,6 +31,7 @@ export const QUESTION_TYPES: { value: SurveyQuestionType; label: string; hint: s
   { value: 'SHORT_TEXT', label: 'Short answer', hint: 'One line of text' },
   { value: 'LONG_TEXT', label: 'Long answer', hint: 'A paragraph' },
   { value: 'DATE', label: 'Date', hint: 'Pick a date' },
+  { value: 'MONTH_YEAR', label: 'Month and year', hint: 'e.g. when a service was provided' },
   { value: 'EMAIL', label: 'Email', hint: 'An email address' },
   { value: 'PHONE', label: 'Phone', hint: 'A phone number' },
 ];
@@ -93,5 +94,9 @@ export function answerText(question: Question | undefined, value: unknown): stri
   if (Array.isArray(value)) return value.map((v) => label(String(v))).join(', ');
   if (CHOICE_TYPES.includes(question.type)) return label(String(value));
   if (question.type === 'YES_NO') return value === 'yes' ? 'Yes' : 'No';
+  if (question.type === 'MONTH_YEAR' && /^\d{4}-\d{2}$/.test(String(value))) {
+    const [year, month] = String(value).split('-').map(Number);
+    return new Date(year, month - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  }
   return String(value);
 }

@@ -1,6 +1,6 @@
 export type QuestionType =
   | 'SHORT_TEXT' | 'LONG_TEXT' | 'SINGLE_CHOICE' | 'MULTI_CHOICE' | 'DROPDOWN'
-  | 'RATING' | 'SCALE' | 'YES_NO' | 'DATE' | 'EMAIL' | 'PHONE';
+  | 'RATING' | 'SCALE' | 'YES_NO' | 'DATE' | 'MONTH_YEAR' | 'EMAIL' | 'PHONE';
 
 export const CHOICE_TYPES: QuestionType[] = ['SINGLE_CHOICE', 'MULTI_CHOICE', 'DROPDOWN'];
 
@@ -24,6 +24,7 @@ export type AnswerValue = string | number | string[];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[+\d][\d\s().-]{5,24}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_RE = /^(19|20)\d{2}-(0[1-9]|1[0-2])$/;
 
 /** Whether a question is shown, given the answers kept so far. */
 export function isVisible(question: LogicQuestion, answers: Record<string, AnswerValue>): boolean {
@@ -71,6 +72,8 @@ function cleanValue(question: LogicQuestion, raw: unknown): { value?: AnswerValu
     case 'DATE':
       return typeof raw === 'string' && DATE_RE.test(raw) && !Number.isNaN(Date.parse(raw))
         ? { value: raw } : { error: 'invalid' };
+    case 'MONTH_YEAR':
+      return typeof raw === 'string' && MONTH_RE.test(raw) ? { value: raw } : { error: 'invalid' };
     case 'EMAIL':
       return typeof raw === 'string' && EMAIL_RE.test(raw.trim())
         ? { value: raw.trim().toLowerCase() } : { error: 'invalid_email' };
