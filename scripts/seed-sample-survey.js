@@ -1,6 +1,6 @@
 // Creates the sample "Consultation Feedback" survey as a DRAFT. Safe to run twice.
 const { randomBytes } = require('crypto');
-const { PrismaClient } = require('./node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client');
+const { PrismaClient } = require('../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client');
 
 const db = new PrismaClient();
 const id = (prefix) => `${prefix}_${randomBytes(9).toString('hex')}`;
