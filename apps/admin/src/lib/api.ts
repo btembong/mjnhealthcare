@@ -44,6 +44,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return text ? JSON.parse(text) : ({} as T);
 }
 
+export type CampaignRecurrence = {
+  frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  daysOfWeek?: number[]; // 0 = Sunday … 6 = Saturday
+  dayOfMonth?: number;
+  timeOfDay: string; // "HH:mm"
+  timezone?: string;
+  endsAt?: string | null;
+  maxRuns?: number | null;
+};
+
 export const api = {
   // ── Auth ────────────────────────────────────────────────────────────────
   loginStaff: (email: string, password: string) =>
@@ -486,17 +496,40 @@ export const api = {
 
   getCampaign: (id: string) => request<any>(`/campaigns/${id}`),
 
-  createCampaign: (data: { name: string; subject: string; body: string; audienceFilter?: any; scheduledAt?: string }) =>
+  createCampaign: (data: { name: string; subject: string; body: string; audienceFilter?: any; scheduledAt?: string | null; recurrence?: CampaignRecurrence | null }) =>
     request<any>('/campaigns', { method: 'POST', body: JSON.stringify(data) }),
 
-  updateCampaign: (id: string, data: { name?: string; subject?: string; body?: string; scheduledAt?: string; audienceFilter?: Record<string, any> }) =>
+  updateCampaign: (id: string, data: { name?: string; subject?: string; body?: string; scheduledAt?: string | null; recurrence?: CampaignRecurrence | null; audienceFilter?: Record<string, any> }) =>
     request<any>(`/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   sendCampaignNow: (id: string) =>
     request<any>(`/campaigns/${id}/send`, { method: 'POST' }),
 
+  sendCampaignTest: (id: string, email: string) =>
+    request<{ sentTo: string }>(`/campaigns/${id}/test`, { method: 'POST', body: JSON.stringify({ email }) }),
+
+  pauseCampaign: (id: string) =>
+    request<any>(`/campaigns/${id}/pause`, { method: 'PATCH' }),
+
+  resumeCampaign: (id: string) =>
+    request<any>(`/campaigns/${id}/resume`, { method: 'PATCH' }),
+
   cancelCampaign: (id: string) =>
     request<any>(`/campaigns/${id}/cancel`, { method: 'PATCH' }),
+
+  getCampaignRuns: (id: string) => request<any[]>(`/campaigns/${id}/runs`),
+
+  getContactLists: () =>
+    request<{ id: string; name: string; contactCount: number; createdAt: string }[]>('/campaigns/lists'),
+
+  createContactList: (data: { name: string; contacts: { name?: string; email: string; phone?: string }[] }) =>
+    request<{ id: string; name: string; contactCount: number; createdAt: string }>('/campaigns/lists', { method: 'POST', body: JSON.stringify(data) }),
+
+  deleteContactList: (id: string) =>
+    request<{ deleted: boolean }>(`/campaigns/lists/${id}`, { method: 'DELETE' }),
+
+  countCampaignAudience: (audienceFilter: Record<string, any>) =>
+    request<{ total: number; unsubscribed: number; deliverable: number }>('/campaigns/audience/count', { method: 'POST', body: JSON.stringify({ audienceFilter }) }),
 
   // ── Payment Admin ─────────────────────────────────────────────────────────
   getPaymentStats: () => request<any>('/admin/payments/stats'),

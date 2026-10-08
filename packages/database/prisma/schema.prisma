@@ -1149,8 +1149,16 @@ model TicketReply {
 enum CampaignStatus {
   DRAFT
   SCHEDULED
+  SENDING
+  PAUSED
   SENT
   CANCELLED
+}
+
+enum CampaignFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
 }
 
 model Campaign {
@@ -1167,7 +1175,60 @@ model Campaign {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
+  // Recurrence — null frequency means a one-off campaign
+  frequency      CampaignFrequency?
+  daysOfWeek     Int[]              @default([]) // 0 = Sunday … 6 = Saturday (WEEKLY)
+  dayOfMonth     Int?               // 1–31, clamped to month length (MONTHLY)
+  timeOfDay      String?            // "HH:mm" wall-clock time in `timezone`
+  timezone       String             @default("Africa/Douala")
+  cronExpression String?            // derived from the fields above, for display
+  endsAt         DateTime?
+  maxRuns        Int?
+  runCount       Int                @default(0)
+  nextRunAt      DateTime?          // the scheduler sends when this is due
+  lastRunAt      DateTime?
+
+  runs CampaignRun[]
+
+  @@index([status, nextRunAt])
   @@map("campaigns")
+}
+
+model CampaignRun {
+  id             String    @id @default(cuid())
+  campaignId     String
+  campaign       Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  trigger        String    // "manual" | "schedule"
+  status         String    @default("RUNNING") // RUNNING | COMPLETED | INTERRUPTED
+  recipientCount Int       @default(0)
+  sentCount      Int       @default(0)
+  failedCount    Int       @default(0)
+  skippedCount   Int       @default(0) // unsubscribed
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+
+  @@index([campaignId, startedAt])
+  @@map("campaign_runs")
+}
+
+model ContactList {
+  id           String   @id @default(cuid())
+  name         String
+  contacts     Json     // [{ name, email, phone? }]
+  contactCount Int      @default(0)
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  @@map("contact_lists")
+}
+
+model EmailUnsubscribe {
+  id         String   @id @default(cuid())
+  email      String   @unique // lowercased
+  campaignId String?
+  createdAt  DateTime @default(now())
+
+  @@map("email_unsubscribes")
 }
 
 // ─── Referral & Credit Wallet ────────────────────────────────────────────────

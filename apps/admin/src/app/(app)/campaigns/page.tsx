@@ -12,7 +12,8 @@ import { api } from '../../../lib/api';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Contact = { name: string; email: string; phone?: string };
-type SavedList = { id: string; name: string; contacts: Contact[]; valid: number; invalid: number };
+type SavedList = { id: string; name: string; contactCount: number };
+type ImportedList = { name: string; contacts: Contact[] };
 type TabKey = 'ALL' | 'DRAFT' | 'SCHEDULED' | 'SENT' | 'CANCELLED';
 
 interface CampaignForm {
@@ -39,6 +40,8 @@ const TABS: { key: TabKey; label: string }[] = [
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: 'bg-muted text-muted-foreground',
   SCHEDULED: 'bg-blue-100 text-blue-700',
+  SENDING: 'bg-amber-100 text-amber-700',
+  PAUSED: 'bg-slate-200 text-slate-700',
   SENT: 'bg-emerald-100 text-emerald-700',
   CANCELLED: 'bg-rose-100 text-rose-700',
 };
@@ -55,13 +58,20 @@ function formatTime(ts: string) {
   return new Date(ts).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// datetime-local values are wall-clock time in the admin's own timezone.
+function toLocalInput(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function isValidEmail(e: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
 
 // ── Import Modal ──────────────────────────────────────────────────────────────
 
-function ImportModal({ onClose, onSave }: { onClose: () => void; onSave: (list: SavedList) => void }) {
+function ImportModal({ onClose, onSave }: { onClose: () => void; onSave: (list: ImportedList) => Promise<boolean> }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
@@ -69,6 +79,7 @@ function ImportModal({ onClose, onSave }: { onClose: () => void; onSave: (list: 
   const [listName, setListName] = useState('');
   const [dragging, setDragging] = useState(false);
   const [parsed, setParsed] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   async function parseFile(file: File) {
     if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
@@ -109,11 +120,13 @@ function ImportModal({ onClose, onSave }: { onClose: () => void; onSave: (list: 
   const valid = contacts.filter((c) => isValidEmail(c.email));
   const invalid = contacts.filter((c) => !isValidEmail(c.email));
 
-  function handleSave() {
+  async function handleSave() {
     if (!listName.trim()) { toast.error('Enter a name for this list.'); return; }
     if (!valid.length) { toast.error('No valid email addresses found.'); return; }
-    onSave({ id: Date.now().toString(), name: listName.trim(), contacts: valid, valid: valid.length, invalid: invalid.length });
-    onClose();
+    setSaving(true);
+    const saved = await onSave({ name: listName.trim(), contacts: valid });
+    setSaving(false);
+    if (saved) onClose();
   }
 
   return (
@@ -256,10 +269,10 @@ function ImportModal({ onClose, onSave }: { onClose: () => void; onSave: (list: 
           {parsed && (
             <button
               onClick={handleSave}
-              disabled={!valid.length || !listName.trim()}
+              disabled={saving || !valid.length || !listName.trim()}
               className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
-              <Users className="h-4 w-4" />
+              {saving ? <CircleNotch className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
               Save List · {valid.length} contacts
             </button>
           )}
@@ -291,7 +304,20 @@ export default function CampaignsPage() {
       .then(setCampaigns)
       .catch((err: any) => toast.error(err.message))
       .finally(() => setLoading(false));
+    api.getContactLists()
+      .then(setSavedLists)
+      .catch((err: any) => toast.error(err.message));
   }, []);
+
+  // Sends run in the background on the server; refresh until they finish.
+  const anySending = campaigns.some((c) => c.status === 'SENDING');
+  useEffect(() => {
+    if (!anySending) return;
+    const timer = setInterval(() => {
+      api.getCampaigns().then(setCampaigns).catch(() => {});
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [anySending]);
 
   const tabCampaigns = useMemo(() =>
     activeTab === 'ALL' ? campaigns : campaigns.filter((c) => c.status === activeTab),
@@ -310,10 +336,11 @@ export default function CampaignsPage() {
     setEditId(c.id);
     setForm({
       name: c.name, subject: c.subject, body: c.body,
-      scheduledAt: c.scheduledAt ? c.scheduledAt.slice(0, 16) : '',
-      audienceType: af?.type === 'custom_list' ? 'custom' : 'segment',
+      scheduledAt: c.scheduledAt ? toLocalInput(c.scheduledAt) : '',
+      // Lists embedded by older campaigns can't be reselected; the admin must pick a saved list.
+      audienceType: af?.type === 'contact_list' || af?.type === 'custom_list' ? 'custom' : 'segment',
       audienceSegment: af?.type === 'segment' ? (af.segment ?? 'leads') : 'leads',
-      audienceListId: '',
+      audienceListId: af?.type === 'contact_list' ? (af.listId ?? '') : '',
     });
     setShowForm(true);
   }
@@ -326,7 +353,7 @@ export default function CampaignsPage() {
     if (form.audienceType === 'custom') {
       const list = savedLists.find((l) => l.id === form.audienceListId);
       if (!list) { toast.error('Select an imported list first.'); return; }
-      audienceFilter = { type: 'custom_list', listName: list.name, contacts: list.contacts };
+      audienceFilter = { type: 'contact_list', listId: list.id, listName: list.name, contactCount: list.contactCount };
     } else {
       audienceFilter = { type: 'segment', segment: form.audienceSegment };
     }
@@ -335,7 +362,7 @@ export default function CampaignsPage() {
     try {
       const payload = {
         name: form.name, subject: form.subject, body: form.body,
-        scheduledAt: form.scheduledAt || undefined, audienceFilter,
+        scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : null, audienceFilter,
       };
       if (editId) {
         const updated = await api.updateCampaign(editId, payload);
@@ -344,7 +371,7 @@ export default function CampaignsPage() {
       } else {
         const created = await api.createCampaign(payload);
         setCampaigns((prev) => [created, ...prev]);
-        toast.success('Campaign draft created.');
+        toast.success(created.status === 'SCHEDULED' ? 'Campaign scheduled.' : 'Campaign draft created.');
       }
       setShowForm(false); setEditId(null); setForm(EMPTY_FORM);
     } catch (err: any) {
@@ -357,12 +384,12 @@ export default function CampaignsPage() {
   async function handleSendNow(id: string) {
     const c = campaigns.find((x) => x.id === id);
     const af = c?.audienceFilter as any;
-    const isCustom = af?.type === 'custom_list';
+    const isCustom = af?.type === 'contact_list' || af?.type === 'custom_list';
     const isSegment = af?.type === 'segment';
     const segLabel = SEGMENTS.find((s) => s.value === af?.segment)?.label ?? af?.segment ?? 'selected segment';
     const confirmed = confirm(
       isCustom
-        ? `Send to ${af.contacts?.length ?? 0} contacts in "${af.listName}"?`
+        ? `Send to ${af.contactCount ?? af.contacts?.length ?? 0} contacts in "${af.listName}"?`
         : isSegment
           ? `Send to all contacts in the "${segLabel}" segment?`
           : 'Send this campaign now?'
@@ -371,8 +398,8 @@ export default function CampaignsPage() {
     setSending(id);
     try {
       const updated = await api.sendCampaignNow(id);
-      setCampaigns((prev) => prev.map((x) => x.id === id ? { ...x, status: 'SENT', sentAt: updated.sentAt } : x));
-      toast.success('Campaign sent.');
+      setCampaigns((prev) => prev.map((x) => x.id === id ? { ...x, ...updated } : x));
+      toast.success(updated.status === 'SENDING' ? 'Sending started.' : 'Campaign sent.');
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -390,6 +417,17 @@ export default function CampaignsPage() {
     }
   }
 
+  async function handleDeleteList(list: SavedList) {
+    if (!confirm(`Delete the list "${list.name}"? This cannot be undone.`)) return;
+    try {
+      await api.deleteContactList(list.id);
+      setSavedLists((prev) => prev.filter((x) => x.id !== list.id));
+      toast.success('List deleted.');
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  }
+
   const selectedList = savedLists.find((l) => l.id === form.audienceListId);
 
   return (
@@ -397,9 +435,16 @@ export default function CampaignsPage() {
       {showImport && (
         <ImportModal
           onClose={() => setShowImport(false)}
-          onSave={(list) => {
-            setSavedLists((prev) => [list, ...prev]);
-            toast.success(`"${list.name}" saved — ${list.valid} contacts ready.`);
+          onSave={async (list) => {
+            try {
+              const saved = await api.createContactList(list);
+              setSavedLists((prev) => [saved, ...prev]);
+              toast.success(`"${saved.name}" saved — ${saved.contactCount} contacts ready.`);
+              return true;
+            } catch (err: any) {
+              toast.error(err.message);
+              return false;
+            }
           }}
         />
       )}
@@ -431,8 +476,8 @@ export default function CampaignsPage() {
             <div key={l.id} className="flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-xs shadow-sm">
               <Users className="h-3.5 w-3.5 text-primary shrink-0" />
               <span className="font-semibold text-foreground">{l.name}</span>
-              <span className="text-muted-foreground">{l.valid} contacts</span>
-              <button onClick={() => setSavedLists((p) => p.filter((x) => x.id !== l.id))} className="ml-0.5 text-muted-foreground hover:text-rose-500 transition-colors">
+              <span className="text-muted-foreground">{l.contactCount} contacts</span>
+              <button onClick={() => handleDeleteList(l)} title="Delete list" className="ml-0.5 text-muted-foreground hover:text-rose-500 transition-colors">
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -546,14 +591,13 @@ export default function CampaignsPage() {
                 <select value={form.audienceListId} onChange={(e) => setForm((f) => ({ ...f, audienceListId: e.target.value }))}
                   className="h-10 w-full rounded-xl border border-border bg-muted/30 px-3 text-sm outline-none focus:border-primary">
                   <option value="">— Select a list —</option>
-                  {savedLists.map((l) => <option key={l.id} value={l.id}>{l.name} · {l.valid} contacts</option>)}
+                  {savedLists.map((l) => <option key={l.id} value={l.id}>{l.name} · {l.contactCount} contacts</option>)}
                 </select>
                 {selectedList && (
                   <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
                     <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
                     <p className="text-xs text-emerald-700">
-                      <span className="font-semibold">{selectedList.valid} recipients</span>
-                      {selectedList.invalid > 0 && ` · ${selectedList.invalid} invalid rows skipped`}
+                      <span className="font-semibold">{selectedList.contactCount} recipients</span>
                     </p>
                   </div>
                 )}
@@ -609,7 +653,7 @@ export default function CampaignsPage() {
               <tbody className="divide-y divide-border">
                 {tabCampaigns.map((c) => {
                   const af = c.audienceFilter as any;
-                  const isCustom = af?.type === 'custom_list';
+                  const isCustom = af?.type === 'contact_list' || af?.type === 'custom_list';
                   const isSegment = af?.type === 'segment';
                   const segLabel = SEGMENTS.find((s) => s.value === af?.segment)?.label ?? af?.segment ?? 'Segment';
                   return (
@@ -621,7 +665,7 @@ export default function CampaignsPage() {
                           <div className="flex items-center gap-1.5">
                             <Users className="h-3.5 w-3.5 text-primary shrink-0" />
                             <span className="text-xs font-medium text-foreground">
-                              {af.listName ?? 'Custom list'} · {(af.contacts as any[])?.length ?? 0}
+                              {af.listName ?? 'Custom list'} · {af.contactCount ?? (af.contacts as any[])?.length ?? 0}
                             </span>
                           </div>
                         ) : isSegment ? (
