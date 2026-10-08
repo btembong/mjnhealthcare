@@ -160,16 +160,13 @@ export default function ConsultPage() {
   }
 
   async function handleSlotClick(slot: Slot) {
-    if (!clientEmail) {
-      // If email not yet known (step 3 before step 4), hold without email — server will accept any email
-      setPendingSlot(slot);
-      return;
-    }
     setHoldingSlot(true);
     try {
       const res = await fetch(`${API}/consultations/slots/${slot.id}/hold`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // Use real email if already collected; otherwise use a placeholder — the hold still
+        // reserves the slot immediately so it can't be deleted under the client's feet.
         body: JSON.stringify({ clientEmail: clientEmail || 'anon@mjn.hold' }),
       });
       if (res.ok) {
@@ -205,7 +202,24 @@ export default function ConsultPage() {
         }),
       });
       if (!res.ok) {
-        const err = await res.json() as { message?: string };
+        const err = await res.json() as { message?: string; statusCode?: number };
+        // Slot was deleted or taken between page-load and submit — bounce back to time picker
+        if (res.status === 404 || (err.message ?? '').toLowerCase().includes('slot not found')) {
+          setSelectedSlot(null);
+          setPendingSlot(null);
+          setHoldExpiry(null);
+          setStep(3);
+          // Reload fresh slot list for the same consultant
+          if (selectedConsultant) {
+            try {
+              const slotsRes = await fetch(`${API}/consultations/slots/${selectedConsultant.id}`);
+              if (slotsRes.ok) setSlots(await slotsRes.json() as Slot[]);
+            } catch { /* keep stale list */ }
+          }
+          setError('That time slot is no longer available. Please choose another time below.');
+          setSubmitting(false);
+          return;
+        }
         throw new Error(err.message ?? 'Booking failed. Please try again.');
       }
       const data = await res.json() as { bookingId: string; redirectUrl: string };
