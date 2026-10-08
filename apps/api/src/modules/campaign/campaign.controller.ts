@@ -3,7 +3,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import {
-  IsString, IsOptional, IsObject, IsDateString, IsEnum, IsArray, IsInt, Min, Max,
+  IsString, IsOptional, IsObject, IsDateString, IsEnum, IsArray, IsInt, IsBoolean, Min, Max,
   ValidateNested, ArrayMaxSize, IsEmail, Matches, ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -29,6 +29,7 @@ class CreateCampaignDto {
   @IsString() subject: string;
   @IsString() body: string;
   @IsObject() @IsOptional() audienceFilter?: Record<string, any>;
+  @IsBoolean() @IsOptional() useBrandTemplate?: boolean;
   @ValidateIf((o) => o.scheduledAt !== null) @IsDateString() @IsOptional() scheduledAt?: string | null;
   @ValidateIf((o) => o.recurrence !== null) @ValidateNested() @Type(() => RecurrenceDto) @IsOptional()
   recurrence?: RecurrenceDto | null;
@@ -39,6 +40,7 @@ class UpdateCampaignDto {
   @IsString() @IsOptional() subject?: string;
   @IsString() @IsOptional() body?: string;
   @IsObject() @IsOptional() audienceFilter?: Record<string, any>;
+  @IsBoolean() @IsOptional() useBrandTemplate?: boolean;
   @ValidateIf((o) => o.scheduledAt !== null) @IsDateString() @IsOptional() scheduledAt?: string | null;
   @ValidateIf((o) => o.recurrence !== null) @ValidateNested() @Type(() => RecurrenceDto) @IsOptional()
   recurrence?: RecurrenceDto | null;
@@ -57,9 +59,13 @@ class TestSendDto {
   @IsEmail() email: string;
 }
 
-class TestContentDto {
+class EmailContentDto {
   @IsString() subject: string;
   @IsString() body: string;
+  @IsBoolean() @IsOptional() useBrandTemplate?: boolean;
+}
+
+class TestContentDto extends EmailContentDto {
   @IsEmail() email: string;
 }
 
@@ -116,7 +122,18 @@ export class CampaignController {
   @ApiOperation({ summary: 'Send a test copy of unsaved content to one address' })
   @Post('test')
   sendTestContent(@Body() dto: TestContentDto) {
-    return this.campaignService.sendTestContent({ subject: dto.subject, body: dto.body }, dto.email);
+    return this.campaignService.sendTestContent(
+      { subject: dto.subject, body: dto.body, useBrandTemplate: dto.useBrandTemplate ?? true },
+      dto.email,
+    );
+  }
+
+  @ApiOperation({ summary: 'Render content as the email a recipient would receive' })
+  @Post('preview')
+  previewEmail(@Body() dto: EmailContentDto) {
+    return this.campaignService.previewEmail({
+      subject: dto.subject, body: dto.body, useBrandTemplate: dto.useBrandTemplate ?? true,
+    });
   }
 
   @ApiOperation({ summary: 'Get one campaign' })

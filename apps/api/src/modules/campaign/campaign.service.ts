@@ -7,6 +7,7 @@ import { CampaignStatus } from '@mjn/database';
 import {
   Recurrence, Frequency, isValidTimezone, nextOccurrence, toCronExpression,
 } from './campaign-schedule';
+import { renderCampaignEmail } from './campaign-render';
 
 export type Contact = { email: string; name?: string | null };
 
@@ -25,6 +26,8 @@ export interface CampaignInput {
   subject?: string;
   body?: string;
   audienceFilter?: Record<string, any>;
+  /** Wrap the content in the MJN branded email layout. Defaults to true. */
+  useBrandTemplate?: boolean;
   /** ISO instant for a one-off send; null clears the schedule. */
   scheduledAt?: string | null;
   /** Recurring schedule; null clears it. */
@@ -69,6 +72,7 @@ export class CampaignService {
         subject: data.subject,
         body: data.body,
         audienceFilter: data.audienceFilter ?? {},
+        useBrandTemplate: data.useBrandTemplate ?? true,
         createdById: data.createdById,
         ...schedule,
       },
@@ -110,6 +114,7 @@ export class CampaignService {
     if (data.subject !== undefined) update.subject = data.subject;
     if (data.body !== undefined) update.body = data.body;
     if (data.audienceFilter !== undefined) update.audienceFilter = data.audienceFilter;
+    if (data.useBrandTemplate !== undefined) update.useBrandTemplate = data.useBrandTemplate;
 
     if (data.scheduledAt !== undefined || data.recurrence !== undefined) {
       Object.assign(update, this.buildSchedule(data, new Date()));
@@ -315,7 +320,7 @@ export class CampaignService {
   }
 
   /** Test send for content that has not been saved as a campaign yet. */
-  async sendTestContent(content: { subject: string; body: string }, toEmail: string) {
+  async sendTestContent(content: { subject: string; body: string; useBrandTemplate: boolean }, toEmail: string) {
     const email = String(toEmail ?? '').trim().toLowerCase();
     if (!EMAIL_RE.test(email)) throw new BadRequestException('Enter a valid email address');
     try {
@@ -324,6 +329,11 @@ export class CampaignService {
       throw new BadRequestException(`Test email failed: ${err?.message ?? err}`);
     }
     return { sentTo: email };
+  }
+
+  /** The email exactly as a sample recipient would receive it. */
+  previewEmail(content: { subject: string; body: string; useBrandTemplate: boolean }) {
+    return renderCampaignEmail({ ...content, name: 'Amina', unsubscribeUrl: '#' });
   }
 
   /** Validates a recurring schedule and reports when it would first send. */
@@ -436,28 +446,24 @@ export class CampaignService {
   }
 
   private async sendOne(
-    campaign: { id: string; subject: string; body: string },
+    campaign: { id: string; subject: string; body: string; useBrandTemplate: boolean },
     contact: Contact,
     isTest: boolean,
   ) {
     const unsubscribeUrl = this.unsubscribeUrl(contact.email, campaign.id);
-    const name = contact.name?.trim() || 'there';
-    const personalise = (text: string, value: string) => text.replace(/\{\{\s*name\s*\}\}/gi, value);
-
-    const isHtml = /<[a-z][\s\S]*>/i.test(campaign.body);
-    const content = isHtml
-      ? personalise(campaign.body, escapeHtml(name))
-      : personalise(escapeHtml(campaign.body), escapeHtml(name)).replace(/\r?\n/g, '<br>');
-
-    const footer =
-      `<p style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280;">` +
-      `You are receiving this email from MJN Healthcare. ` +
-      `<a href="${unsubscribeUrl}" style="color:#6b7280;">Unsubscribe</a></p>`;
+    const { subject, html } = renderCampaignEmail({
+      subject: campaign.subject,
+      body: campaign.body,
+      name: contact.name,
+      unsubscribeUrl,
+      useBrandTemplate: campaign.useBrandTemplate,
+      isTest,
+    });
 
     await this.transactionalApi.sendTransacEmail({
       to: [{ email: contact.email, name: contact.name ?? contact.email }],
-      subject: (isTest ? '[TEST] ' : '') + personalise(campaign.subject, name),
-      htmlContent: content + footer,
+      subject,
+      htmlContent: html,
       sender: {
         email: process.env.BREVO_FROM_EMAIL ?? 'hello@mjnhealth.com',
         name: process.env.BREVO_FROM_NAME ?? 'MJN Healthcare',
@@ -627,10 +633,3 @@ export class CampaignService {
   }
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}

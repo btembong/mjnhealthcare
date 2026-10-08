@@ -496,10 +496,10 @@ export const api = {
 
   getCampaign: (id: string) => request<any>(`/campaigns/${id}`),
 
-  createCampaign: (data: { name: string; subject: string; body: string; audienceFilter?: any; scheduledAt?: string | null; recurrence?: CampaignRecurrence | null }) =>
+  createCampaign: (data: { name: string; subject: string; body: string; audienceFilter?: any; useBrandTemplate?: boolean; scheduledAt?: string | null; recurrence?: CampaignRecurrence | null }) =>
     request<any>('/campaigns', { method: 'POST', body: JSON.stringify(data) }),
 
-  updateCampaign: (id: string, data: { name?: string; subject?: string; body?: string; scheduledAt?: string | null; recurrence?: CampaignRecurrence | null; audienceFilter?: Record<string, any> }) =>
+  updateCampaign: (id: string, data: { name?: string; subject?: string; body?: string; useBrandTemplate?: boolean; scheduledAt?: string | null; recurrence?: CampaignRecurrence | null; audienceFilter?: Record<string, any> }) =>
     request<any>(`/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   sendCampaignNow: (id: string) =>
@@ -508,7 +508,10 @@ export const api = {
   sendCampaignTest: (id: string, email: string) =>
     request<{ sentTo: string }>(`/campaigns/${id}/test`, { method: 'POST', body: JSON.stringify({ email }) }),
 
-  sendCampaignTestContent: (data: { subject: string; body: string; email: string }) =>
+  previewCampaignEmail: (data: { subject: string; body: string; useBrandTemplate: boolean }) =>
+    request<{ subject: string; html: string }>('/campaigns/preview', { method: 'POST', body: JSON.stringify(data) }),
+
+  sendCampaignTestContent: (data: { subject: string; body: string; useBrandTemplate: boolean; email: string }) =>
     request<{ sentTo: string }>('/campaigns/test', { method: 'POST', body: JSON.stringify(data) }),
 
   previewCampaignSchedule: (recurrence: CampaignRecurrence) =>

@@ -1167,6 +1167,7 @@ model Campaign {
   subject        String
   body           String
   audienceFilter Json?
+  useBrandTemplate Boolean      @default(true) // wrap content in the MJN branded layout
   status         CampaignStatus @default(DRAFT)
   brevoId        Int?
   scheduledAt    DateTime?

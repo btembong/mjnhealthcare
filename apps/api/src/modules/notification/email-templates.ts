@@ -25,7 +25,11 @@ const MUTED  = '#6B7A90';
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
 
-export function shell(body: string): string {
+const DEFAULT_FOOTER_NOTE =
+  'Sent because of your engagement with MJN Healthcare. Reply to this email with any questions.';
+
+/** `footerNote` (HTML) replaces the closing footer line, e.g. for marketing opt-out wording. */
+export function shell(body: string, footerNote: string = DEFAULT_FOOTER_NOTE): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -98,7 +102,7 @@ export function shell(body: string): string {
           &nbsp;·&nbsp; @mjnhealthcare
         </p>
         <p style="margin:0;font-size:10px;color:#B0B8C4;text-align:center;">
-          Sent because of your engagement with MJN Healthcare. Reply to this email with any questions.
+          ${footerNote}
         </p>
       </td>
     </tr>

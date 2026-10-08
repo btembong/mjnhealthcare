@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import {
   Sheet, SheetContent, SheetTitle, SheetDescription,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
-  DateTimePicker, TimePicker, localTimezoneLabel,
+  DateTimePicker, TimePicker, localTimezoneLabel, Switch,
   Check, CircleNotch, Users, FileArrowUp, PaperPlaneTilt, CalendarBlank, ArrowsClockwise,
   Pencil, Warning, CheckCircle, ArrowLeft, ArrowRight, Envelope,
 } from '@mjn/ui';
@@ -13,14 +13,14 @@ import { api, CampaignRecurrence } from '../../../lib/api';
 import {
   SavedList, Frequency, SEGMENTS, TIMEZONES, WEEKDAY_CHIPS, DEFAULT_TIMEZONE,
   describeRecurrence, formatInTimezone, formatDateTime, audienceLabel,
-  renderEmailPreview, previewSubject, isValidEmail,
+  isValidEmail,
 } from './shared';
 
 type Mode = 'manual' | 'once' | 'recurring';
 type EndMode = 'never' | 'date' | 'count';
 
 type Form = {
-  name: string; subject: string; body: string;
+  name: string; subject: string; body: string; useBrandTemplate: boolean;
   audienceType: 'segment' | 'list'; segment: string; listId: string;
   mode: Mode; scheduledAt: Date | null;
   frequency: Frequency; daysOfWeek: number[]; dayOfMonth: number; timeOfDay: string; timezone: string;
@@ -28,7 +28,7 @@ type Form = {
 };
 
 const EMPTY: Form = {
-  name: '', subject: '', body: '',
+  name: '', subject: '', body: '', useBrandTemplate: true,
   audienceType: 'segment', segment: 'leads', listId: '',
   mode: 'manual', scheduledAt: null,
   frequency: 'WEEKLY', daysOfWeek: [1], dayOfMonth: 1, timeOfDay: '09:00', timezone: DEFAULT_TIMEZONE,
@@ -43,6 +43,7 @@ function formFromCampaign(c: any): Form {
   return {
     ...EMPTY,
     name: c.name ?? '', subject: c.subject ?? '', body: c.body ?? '',
+    useBrandTemplate: c.useBrandTemplate ?? true,
     audienceType: isList ? 'list' : 'segment',
     segment: af?.type === 'segment' ? af.segment ?? 'leads' : 'leads',
     // Lists embedded by older campaigns have no id; the admin picks a saved list instead.
@@ -115,6 +116,7 @@ export function CampaignComposer({ open, onOpenChange, campaign, lists, onImport
   const [scheduleError, setScheduleError] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [testing, setTesting] = useState(false);
+  const [preview, setPreview] = useState<{ subject: string; html: string } | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => ({ ...f, [key]: value }));
@@ -126,7 +128,20 @@ export function CampaignComposer({ open, onOpenChange, campaign, lists, onImport
     setAudience(null);
     setSchedule(null);
     setScheduleError('');
+    setPreview(null);
   }, [open, campaign]);
+
+  // The API renders the preview, so it is exactly the email that gets sent.
+  useEffect(() => {
+    if (!open || !form.body.trim()) { setPreview(null); return; }
+    let stale = false;
+    const timer = setTimeout(() => {
+      api.previewCampaignEmail({ subject: form.subject, body: form.body, useBrandTemplate: form.useBrandTemplate })
+        .then((res) => { if (!stale) setPreview(res); })
+        .catch(() => {});
+    }, 350);
+    return () => { stale = true; clearTimeout(timer); };
+  }, [open, form.subject, form.body, form.useBrandTemplate]);
 
   const selectedList = lists.find((l) => l.id === form.listId);
 
@@ -231,7 +246,9 @@ export function CampaignComposer({ open, onOpenChange, campaign, lists, onImport
     if (!form.subject.trim() || !form.body.trim()) { toast.error('Add a subject and content first.'); return; }
     setTesting(true);
     try {
-      const res = await api.sendCampaignTestContent({ subject: form.subject, body: form.body, email: testEmail.trim() });
+      const res = await api.sendCampaignTestContent({
+        subject: form.subject, body: form.body, useBrandTemplate: form.useBrandTemplate, email: testEmail.trim(),
+      });
       toast.success(`Test sent to ${res.sentTo}.`);
     } catch (err: any) {
       toast.error(err.message);
@@ -252,6 +269,7 @@ export function CampaignComposer({ open, onOpenChange, campaign, lists, onImport
         name: form.name.trim(),
         subject: form.subject.trim(),
         body: form.body,
+        useBrandTemplate: form.useBrandTemplate,
         audienceFilter: audienceFilter!,
         scheduledAt: form.mode === 'once' && form.scheduledAt ? form.scheduledAt.toISOString() : null,
         recurrence: form.mode === 'recurring' ? recurrence : null,
@@ -347,8 +365,17 @@ export function CampaignComposer({ open, onOpenChange, campaign, lists, onImport
                   placeholder={'Hi {{name}},\n\nWrite your message here. Plain text or HTML both work.'}
                   className={`${fieldClass} resize-y font-mono leading-relaxed`} />
                 <p className="text-xs text-muted-foreground">
-                  Plain text keeps your line breaks. An unsubscribe link is added to the bottom of every email automatically.
+                  Leave a blank line between paragraphs. An unsubscribe link is added to every email automatically.
                 </p>
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-white px-4 py-3">
+                  <Switch checked={form.useBrandTemplate} onCheckedChange={(v) => set('useBrandTemplate', v)} className="mt-0.5" />
+                  <span>
+                    <span className="block text-sm font-semibold text-foreground">Use MJN branded template</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Adds the logo header and company footer, like your other emails. Turn off for an email that already has its own design.
+                    </span>
+                  </span>
+                </label>
               </div>
             )}
 
@@ -598,7 +625,7 @@ export function CampaignComposer({ open, onOpenChange, campaign, lists, onImport
           </div>
 
           {/* Live preview */}
-          <aside className="hidden w-[24rem] shrink-0 flex-col border-l border-border bg-muted/20 lg:flex">
+          <aside className="hidden w-[28rem] shrink-0 flex-col border-l border-border bg-muted/20 lg:flex">
             <div className="flex items-center gap-2 border-b border-border px-5 py-3">
               <Envelope className="h-4 w-4 text-primary" />
               <p className="text-xs font-semibold text-foreground">Preview</p>
@@ -609,11 +636,13 @@ export function CampaignComposer({ open, onOpenChange, campaign, lists, onImport
                 <div className="border-b border-border px-4 py-3">
                   <p className="text-xs text-muted-foreground">From MJN Healthcare</p>
                   <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
-                    {form.subject.trim() ? previewSubject(form.subject) : 'Your subject line'}
+                    {preview?.subject || form.subject.trim() || 'Your subject line'}
                   </p>
                 </div>
-                {form.body.trim() ? (
-                  <iframe title="Email preview" sandbox="" srcDoc={renderEmailPreview(form.body)} className="min-h-0 w-full flex-1" />
+                {form.body.trim() && preview ? (
+                  <iframe title="Email preview" sandbox="" srcDoc={preview.html} className="min-h-0 w-full flex-1" />
+                ) : form.body.trim() ? (
+                  <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">Loading preview…</div>
                 ) : (
                   <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-muted-foreground">
                     Your email will appear here as you write it.

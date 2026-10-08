@@ -102,24 +102,3 @@ export function audienceLabel(af: any): string {
   if (af?.type === 'contact_list' || af?.type === 'custom_list') return af.listName ?? 'Imported list';
   return 'No audience';
 }
-
-const SAMPLE_NAME = 'Amina';
-
-function escapeHtml(value: string) {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-/** Mirrors how the API turns a campaign body into the delivered email. */
-export function renderEmailPreview(body: string): string {
-  const personalise = (text: string) => text.replace(/\{\{\s*name\s*\}\}/gi, SAMPLE_NAME);
-  const isHtml = /<[a-z][\s\S]*>/i.test(body);
-  const content = isHtml ? personalise(body) : personalise(escapeHtml(body)).replace(/\r?\n/g, '<br>');
-  const footer =
-    '<p style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280;">' +
-    'You are receiving this email from MJN Healthcare. <u>Unsubscribe</u></p>';
-  return `<!doctype html><html><body style="margin:0;padding:20px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#111827;">${content}${footer}</body></html>`;
-}
-
-export function previewSubject(subject: string) {
-  return subject.replace(/\{\{\s*name\s*\}\}/gi, SAMPLE_NAME);
-}
