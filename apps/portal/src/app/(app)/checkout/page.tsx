@@ -43,6 +43,7 @@ const STEPS = [
 
 const TAX_RATE = 0.0325;
 const SESSION_KEY = 'mjn-checkout-v1';
+const ENGAGEMENT_FEE_ITEM_ID = 'engagement-fee';
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
@@ -272,7 +273,13 @@ function WhatHappensNext() {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { me, engagement, loading: userLoading } = useUser();
+  const { me, engagement, consultationBookings, loading: userLoading } = useUser();
+  // Clients who paid for a consultation may drop the engagement fee. The API re-checks this.
+  const feeWaivable = consultationBookings.some(
+    (b: any) => ['CONFIRMED', 'COMPLETED'].includes(b.status) && Number(b.amountPaid) > 0,
+  );
+  const isLocked = (cat: Category, itemId: string) =>
+    cat.isMandatory && !(feeWaivable && itemId === ENGAGEMENT_FEE_ITEM_ID);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -394,7 +401,8 @@ export default function CheckoutPage() {
     for (const cat of categories) {
       for (const item of cat.items) {
         const sel = selections[item.id];
-        if (sel?.checked) {
+        // Locked items stay in the cart even if a restored session had them unchecked.
+        if (sel?.checked || (isLocked(cat, item.id) && !paidItemIds.has(item.id))) {
           lines.push({
             serviceItemId: item.id,
             variantKey: sel.variantKey,
@@ -483,8 +491,13 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setSubmitError('');
     try {
-      const lines = cartLines.map((l) => ({ serviceItemId: l.serviceItemId, variantKey: l.variantKey }));
-      const order = await api.createOrder(engagement.id, lines, paymentMode);
+      // The API adds the engagement fee itself; we only say whether the client waived it.
+      const feeInCart = cartLines.some((l) => l.serviceItemId === ENGAGEMENT_FEE_ITEM_ID);
+      const waiveFee = feeWaivable && !feeInCart && !paidItemIds.has(ENGAGEMENT_FEE_ITEM_ID);
+      const lines = cartLines
+        .filter((l) => l.serviceItemId !== ENGAGEMENT_FEE_ITEM_ID)
+        .map((l) => ({ serviceItemId: l.serviceItemId, variantKey: l.variantKey }));
+      const order = await api.createOrder(engagement.id, lines, paymentMode, waiveFee);
       // Apply credits if toggled
       if (useCredits && creditPreview && creditPreview.maxSpendableCents > 0) {
         await api.transferCredits('__spend__', creditPreview.maxSpendableCents, `Applied to order ${order.id}`)
@@ -640,9 +653,14 @@ export default function CheckoutPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {cat.isMandatory && (
+                        {cat.isMandatory && cat.items.some((i) => isLocked(cat, i.id)) && (
                           <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
                             <Lock className="h-3 w-3" /> Required
+                          </span>
+                        )}
+                        {cat.isMandatory && !cat.items.some((i) => isLocked(cat, i.id)) && (
+                          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                            Optional for you
                           </span>
                         )}
                         {!cat.isMandatory && (
@@ -659,7 +677,8 @@ export default function CheckoutPage() {
                           const alreadyPaid = paidItemIds.has(item.id);
                           const sel = selections[item.id] ?? { checked: false };
                           const price = resolvePrice(item, sel.variantKey);
-                          const mandatory = cat.isMandatory;
+                          const mandatory = isLocked(cat, item.id);
+                          const waivableFee = cat.isMandatory && !mandatory && !alreadyPaid;
                           const needsVariant = item.variants.length > 0 && sel.checked && !sel.variantKey;
 
                           if (alreadyPaid) {
@@ -708,8 +727,15 @@ export default function CheckoutPage() {
                                     </span>
                                   </div>
 
-                                  {item.description && (
+                                  {item.description && !waivableFee && (
                                     <p className="mt-0.5 text-xs text-muted-foreground">{item.description}</p>
+                                  )}
+                                  {waivableFee && (
+                                    <p className="mt-0.5 text-xs text-emerald-700">
+                                      {sel.checked
+                                        ? 'You paid for a consultation, so this fee is optional. Untick it to remove it.'
+                                        : 'Waived because you paid for a consultation.'}
+                                    </p>
                                   )}
 
                                   {item.variants.length > 0 && sel.checked && (

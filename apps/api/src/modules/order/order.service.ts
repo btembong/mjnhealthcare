@@ -45,17 +45,11 @@ export class OrderService {
       throw new BadRequestException('Engagement letter must be signed before checkout');
     }
 
-    // Auto-waive $50 engagement fee if client came via paid consultation route.
-    // Consultation bookings are public (no personId), so they are matched by email.
-    const clientEmail: string | undefined = engagement.person?.email;
-    if (!waiveEngagementFee && clientEmail) {
-      const hasPaidConsultation = await (this.db as any).consultationBooking.count({
-        where: {
-          clientEmail: { equals: clientEmail, mode: 'insensitive' },
-          status: { in: ['CONFIRMED', 'COMPLETED'] },
-        },
-      });
-      if (hasPaidConsultation > 0) waiveEngagementFee = true;
+    // The engagement fee may only be waived by clients who paid for a consultation.
+    if (waiveEngagementFee && !(await this.hasPaidConsultation(engagement.person?.email))) {
+      throw new BadRequestException(
+        'The engagement fee can only be waived after a paid consultation.',
+      );
     }
     if (paymentMode === 'PAY_PER_STAGE') {
       throw new BadRequestException(
@@ -84,24 +78,22 @@ export class OrderService {
         .flatMap((o) => o.lineItems.map((li: any) => li.serviceItemId as string)),
     );
 
-    // Engagement fee is charged once — remove from new order if already paid
+    // The server alone decides whether the engagement fee is on the order: it is charged
+    // once per engagement unless waived, whatever the client sent in its lines.
     const hasPaidEngagementFee = paidItemIds.has(ENGAGEMENT_FEE_ITEM_ID);
-    const deduplicatedLines = lines.filter((l) => {
-      if (paidItemIds.has(l.serviceItemId)) return false;
-      return true;
-    });
+    const deduplicatedLines = lines.filter(
+      (l) => l.serviceItemId !== ENGAGEMENT_FEE_ITEM_ID && !paidItemIds.has(l.serviceItemId),
+    );
 
-    if (deduplicatedLines.length === 0) {
+    const allLines = (hasPaidEngagementFee || waiveEngagementFee)
+      ? deduplicatedLines
+      : [{ serviceItemId: ENGAGEMENT_FEE_ITEM_ID }, ...deduplicatedLines];
+
+    if (allLines.length === 0) {
       throw new BadRequestException(
         'All selected services have already been paid for on this engagement.',
       );
     }
-
-    const baseLines = (hasPaidEngagementFee || waiveEngagementFee)
-      ? deduplicatedLines
-      : [{ serviceItemId: ENGAGEMENT_FEE_ITEM_ID }, ...deduplicatedLines];
-
-    const allLines = baseLines;
     const { resolvedLines, subtotal } = await this.resolveLines(allLines);
     const taxAmount = subtotal * TAX_RATE;
     const total = subtotal + taxAmount;
@@ -567,6 +559,19 @@ export class OrderService {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  // Consultation bookings are public (no personId), so they are matched by email.
+  private async hasPaidConsultation(email?: string | null): Promise<boolean> {
+    if (!email) return false;
+    const count = await (this.db as any).consultationBooking.count({
+      where: {
+        clientEmail: { equals: email, mode: 'insensitive' },
+        status: { in: ['CONFIRMED', 'COMPLETED'] },
+        amountPaid: { gt: 0 },
+      },
+    });
+    return count > 0;
+  }
 
   private async resolveLines(lines: CartLineInput[]) {
     let subtotal = 0;

@@ -175,10 +175,15 @@ export const api = {
     request<any[]>('/catalog/categories'),
 
   // ── Checkout / Payment ────────────────────────────────────────────────────
-  createOrder: (engagementId: string, lines: { serviceItemId: string; variantKey?: string }[], paymentMode?: 'FULL' | 'INSTALLMENT') =>
+  createOrder: (
+    engagementId: string,
+    lines: { serviceItemId: string; variantKey?: string }[],
+    paymentMode?: 'FULL' | 'INSTALLMENT',
+    waiveEngagementFee = false,
+  ) =>
     request<any>('/orders', {
       method: 'POST',
-      body: JSON.stringify({ engagementId, lines, paymentMode: paymentMode ?? 'FULL' }),
+      body: JSON.stringify({ engagementId, lines, paymentMode: paymentMode ?? 'FULL', waiveEngagementFee }),
     }),
 
   initiatePayment: (orderId: string, phone?: string, email?: string, provider: 'tranzak' | 'stripe' = 'tranzak') =>
