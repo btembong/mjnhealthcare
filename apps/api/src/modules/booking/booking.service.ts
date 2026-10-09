@@ -14,11 +14,40 @@ export class BookingService {
     @InjectQueue('booking-reminders') private readonly reminderQueue: Queue,
   ) {}
 
-  async getAvailableSlots(resourceId: string, date: string) {
+  async getAvailableSlots(resourceId: string, date: string, consultantId?: string) {
     return this.db.bookingSlot.findMany({
-      where: { resourceId, date: new Date(date), isBooked: false },
+      where: {
+        resourceId,
+        date: new Date(date),
+        isBooked: false,
+        ...(consultantId ? { consultantId } : {}),
+      },
       orderBy: { startTime: 'asc' },
     });
+  }
+
+  /**
+   * Consultants who have at least one future, unbooked free-consultation slot —
+   * powers the public "choose your advisor" step on /get-started.
+   */
+  async getGeneralConsultationConsultants() {
+    const slots = await this.db.bookingSlot.findMany({
+      where: {
+        resourceId: 'general-consultation',
+        isBooked: false,
+        startTime: { gte: new Date() },
+        consultantId: { not: null },
+      },
+      select: {
+        consultant: { select: { id: true, name: true, photoUrl: true, specialty: true } },
+      },
+    });
+    // Distinct by consultant id, preserving only those with a profile.
+    const byId = new Map<string, { id: string; name: string; photoUrl: string | null; specialty: string | null }>();
+    for (const s of slots) {
+      if (s.consultant && !byId.has(s.consultant.id)) byId.set(s.consultant.id, s.consultant as any);
+    }
+    return Array.from(byId.values());
   }
 
   async createSlots(data: {

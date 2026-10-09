@@ -22,7 +22,13 @@ const T = {
     hero_sub: 'A dedicated advisor will review your profile and map the fastest route to your goals.',
     step_details: 'Your details',
     step_profile: 'Your situation',
+    step_advisor: 'Choose advisor',
     step_slot: 'Choose a time',
+    advisor_pick_title: 'Choose your advisor',
+    advisor_pick_sub: 'Pick the consultant you\'d like to meet. You\'ll then see their available times.',
+    advisors_loading: 'Loading advisors…',
+    no_advisors: 'No advisors available right now',
+    no_advisors_sub: 'Please try again shortly or reach us on WhatsApp.',
     name: 'Full name',
     name_ph: 'Amara Diallo',
     email: 'Email address',
@@ -72,7 +78,13 @@ const T = {
     hero_sub: 'Un conseiller dédié examinera votre profil et tracera le chemin le plus rapide vers vos objectifs.',
     step_details: 'Vos coordonnées',
     step_profile: 'Votre situation',
+    step_advisor: 'Choisir un conseiller',
     step_slot: 'Choisissez un créneau',
+    advisor_pick_title: 'Choisissez votre conseiller',
+    advisor_pick_sub: 'Sélectionnez le conseiller que vous souhaitez rencontrer. Vous verrez ensuite ses créneaux disponibles.',
+    advisors_loading: 'Chargement des conseillers…',
+    no_advisors: 'Aucun conseiller disponible pour le moment',
+    no_advisors_sub: 'Réessayez bientôt ou contactez-nous sur WhatsApp.',
     name: 'Nom complet',
     name_ph: 'Amara Diallo',
     email: 'Adresse e-mail',
@@ -154,8 +166,9 @@ const testimonials = [
 ];
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type Step = 'details' | 'profile' | 'slot' | 'confirmed';
+type Step = 'details' | 'profile' | 'consultant' | 'slot' | 'confirmed';
 type Slot = { id: string; startTime: string; endTime: string };
+type Consultant = { id: string; name: string; photoUrl?: string | null; specialty?: string | null };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function formatTime(iso: string) {
@@ -238,36 +251,41 @@ function GetStartedInner() {
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [confirmed, setConfirmed] = useState<{ name: string; email: string; slotStart: string; consultant?: { name: string; photoUrl?: string; specialty?: string } | null } | null>(null);
 
-  function mockSlots(date: string): Slot[] {
-    if (new Date(date).getDay() === 0) return [];
-    const times = [
-      ['09:00', '09:30'], ['11:00', '11:30'],
-      ['14:00', '14:30'], ['16:00', '16:30'],
-    ];
-    return times.map(([start, end], i) => ({
-      id: `mock-${date}-${i}`,
-      startTime: `${date}T${start}:00.000Z`,
-      endTime:   `${date}T${end}:00.000Z`,
-    }));
-  }
+  // Consultant state
+  const [consultants, setConsultants] = useState<Consultant[]>([]);
+  const [consultantsLoading, setConsultantsLoading] = useState(false);
+  const [consultantsError, setConsultantsError] = useState('');
+  const [selectedConsultant, setSelectedConsultant] = useState<Consultant | null>(null);
 
-  const fetchSlots = useCallback(async (date: string) => {
+  const fetchConsultants = useCallback(async () => {
+    setConsultantsLoading(true);
+    setConsultantsError('');
+    try {
+      const res = await fetch(`${API}/bookings/general-consultation/consultants`);
+      if (!res.ok) throw new Error('api_error');
+      const data = await res.json();
+      setConsultants(Array.isArray(data) ? data : []);
+    } catch {
+      setConsultantsError('load_error');
+      setConsultants([]);
+    } finally {
+      setConsultantsLoading(false);
+    }
+  }, []);
+
+  const fetchSlots = useCallback(async (date: string, consultantId?: string) => {
+    if (!consultantId) { setSlots([]); return; }
     setSlotsLoading(true);
     setSlotsError('');
     setSelectedSlot(null);
     try {
-      const res = await fetch(`${API}/bookings/slots/${CONSULTATION_RESOURCE_ID}?date=${date}`);
+      const res = await fetch(`${API}/bookings/slots/${CONSULTATION_RESOURCE_ID}?date=${date}&consultantId=${consultantId}`);
       if (!res.ok) throw new Error('api_error');
       const data = await res.json();
-      const live = Array.isArray(data) ? data : [];
-      setSlots(live.length > 0 ? live : mockSlots(date));
+      setSlots(Array.isArray(data) ? data : []);
     } catch {
-      if (process.env.NODE_ENV === 'development') {
-        setSlots(mockSlots(date));
-      } else {
-        setSlotsError('Could not load slots. Please try a different date or book via WhatsApp.');
-        setSlots([]);
-      }
+      setSlotsError('Could not load slots. Please try a different date or book via WhatsApp.');
+      setSlots([]);
     } finally {
       setSlotsLoading(false);
     }
@@ -275,7 +293,7 @@ function GetStartedInner() {
 
   function handleDateSelect(date: string) {
     setSelectedDate(date);
-    fetchSlots(date);
+    fetchSlots(date, selectedConsultant?.id);
   }
 
   function goToProfile() {
@@ -289,10 +307,18 @@ function GetStartedInner() {
     setStep('profile');
   }
 
-  function goToSlot() {
+  function goToConsultant() {
+    setError('');
+    setStep('consultant');
+    fetchConsultants();
+  }
+
+  function selectConsultant(c: Consultant) {
+    setSelectedConsultant(c);
+    setSelectedSlot(null);
     setError('');
     setStep('slot');
-    fetchSlots(selectedDate);
+    fetchSlots(selectedDate, c.id);
   }
 
   async function handleBook() {
@@ -331,8 +357,8 @@ function GetStartedInner() {
     }
   }
 
-  const stepIndex = { details: 0, profile: 1, slot: 2, confirmed: 3 };
-  const steps = [t.step_details, t.step_profile, t.step_slot];
+  const stepIndex = { details: 0, profile: 1, consultant: 2, slot: 3, confirmed: 4 };
+  const steps = [t.step_details, t.step_profile, t.step_advisor, t.step_slot];
 
   const waText = encodeURIComponent(
     lang === 'fr'
@@ -419,7 +445,7 @@ function GetStartedInner() {
                 <div className="rounded-3xl border border-border bg-white p-7 shadow-sm">
                   {/* Step heading */}
                   <div className="mb-6">
-                    <p className="text-xs font-bold uppercase tracking-widest text-primary">Step 1 of 3</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-primary">Step 1 of 4</p>
                     <h2 className="mt-1 text-xl font-extrabold text-foreground">{t.step_details}</h2>
                   </div>
 
@@ -554,7 +580,7 @@ function GetStartedInner() {
 
                   {/* Step heading */}
                   <div className="mb-6">
-                    <p className="text-xs font-bold uppercase tracking-widest text-primary">Step 2 of 3</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-primary">Step 2 of 4</p>
                     <h2 className="mt-1 text-xl font-extrabold text-foreground">{t.step_profile}</h2>
                   </div>
 
@@ -657,7 +683,7 @@ function GetStartedInner() {
                     )}
 
                     <button
-                      onClick={goToSlot}
+                      onClick={goToConsultant}
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-md shadow-primary/20 transition hover:-translate-y-px hover:bg-primary/90"
                     >
                       {t.next} <ArrowRight className="h-4 w-4" />
@@ -666,8 +692,8 @@ function GetStartedInner() {
                 </div>
               )}
 
-              {/* ── STEP 3: Slot picker ──────────────────────────────── */}
-              {step === 'slot' && (
+              {/* ── STEP 3: Choose advisor ───────────────────────────── */}
+              {step === 'consultant' && (
                 <div className="rounded-3xl border border-border bg-white p-7 shadow-sm">
                   <button
                     onClick={() => setStep('profile')}
@@ -676,11 +702,103 @@ function GetStartedInner() {
                     <ArrowLeft className="h-4 w-4" /> {t.back}
                   </button>
 
+                  <div className="mb-6">
+                    <p className="text-xs font-bold uppercase tracking-widest text-primary">Step 3 of 4</p>
+                    <h2 className="mt-1 text-xl font-extrabold text-foreground">{t.advisor_pick_title}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">{t.advisor_pick_sub}</p>
+                  </div>
+
+                  {consultantsLoading && (
+                    <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                      <CircleNotch className="h-4 w-4 animate-spin" /> {t.advisors_loading}
+                    </div>
+                  )}
+
+                  {!consultantsLoading && (consultantsError || consultants.length === 0) && (
+                    <div className="rounded-xl bg-muted/40 p-5 text-center">
+                      <User className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm font-semibold text-foreground">{t.no_advisors}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{t.no_advisors_sub}</p>
+                      <a
+                        href={`https://wa.me/${WA_NUMBER}?text=${waText}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-secondary px-4 py-2 text-xs font-semibold text-white hover:bg-secondary/90"
+                      >
+                        <ChatCircle className="h-3.5 w-3.5" /> {t.wa_btn}
+                      </a>
+                    </div>
+                  )}
+
+                  {!consultantsLoading && consultants.length > 0 && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {consultants.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => selectConsultant(c)}
+                          className="flex items-center gap-3 rounded-2xl border border-border bg-white p-4 text-left transition-all hover:-translate-y-px hover:border-primary/50 hover:bg-primary/5"
+                        >
+                          {c.photoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={c.photoUrl} alt={c.name} className="h-12 w-12 shrink-0 rounded-full object-cover" />
+                          ) : (
+                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                              {c.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
+                            </span>
+                          )}
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-bold text-foreground">{c.name}</span>
+                            {c.specialty && <span className="block truncate text-xs text-muted-foreground">{c.specialty}</span>}
+                          </span>
+                          <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── STEP 4: Slot picker ──────────────────────────────── */}
+              {step === 'slot' && (
+                <div className="rounded-3xl border border-border bg-white p-7 shadow-sm">
+                  <button
+                    onClick={() => setStep('consultant')}
+                    className="mb-5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+                  >
+                    <ArrowLeft className="h-4 w-4" /> {t.back}
+                  </button>
+
                   {/* Step heading */}
                   <div className="mb-6">
-                    <p className="text-xs font-bold uppercase tracking-widest text-primary">Step 3 of 3</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-primary">Step 4 of 4</p>
                     <h2 className="mt-1 text-xl font-extrabold text-foreground">{t.step_slot}</h2>
                   </div>
+
+                  {/* Chosen advisor */}
+                  {selectedConsultant && (
+                    <div className="mb-6 flex items-center gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-3">
+                      {selectedConsultant.photoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={selectedConsultant.photoUrl} alt={selectedConsultant.name} className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                      ) : (
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          {selectedConsultant.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
+                        </span>
+                      )}
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-bold text-foreground">{selectedConsultant.name}</span>
+                        {selectedConsultant.specialty && <span className="block truncate text-xs text-muted-foreground">{selectedConsultant.specialty}</span>}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setStep('consultant')}
+                        className="ml-auto shrink-0 text-xs font-semibold text-primary hover:underline"
+                      >
+                        {lang === 'en' ? 'Change' : 'Changer'}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Date strip — horizontal scroll */}
                   <div className="mb-6">

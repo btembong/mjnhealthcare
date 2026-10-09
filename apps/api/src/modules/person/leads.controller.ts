@@ -42,7 +42,14 @@ export class LeadsController {
       include: { consultant: { select: { id: true, name: true, email: true, photoUrl: true } } },
     });
     if (!slot) throw new NotFoundException('Slot not found');
-    if (slot.isBooked) throw new BadRequestException('This slot is no longer available — please choose another time.');
+    // Atomically claim the slot so two people can't grab the same time.
+    const claimed = await this.db.bookingSlot.updateMany({
+      where: { id: body.slotId, isBooked: false },
+      data: { isBooked: true },
+    });
+    if (claimed.count === 0) {
+      throw new BadRequestException('This slot is no longer available — please choose another time.');
+    }
 
     // Create or update lead
     const existingLead = await this.db.lead.findFirst({ where: { email: body.email } });
@@ -78,7 +85,6 @@ export class LeadsController {
     const booking = await this.db.booking.create({
       data: { leadId: lead.id, slotId: body.slotId, type: 'FREE_CONSULTATION', status: 'CONFIRMED' },
     });
-    await this.db.bookingSlot.update({ where: { id: body.slotId }, data: { isBooked: true } });
     await this.db.lead.update({ where: { id: lead.id }, data: { sourceBookingId: booking.id } });
 
     // Schedule reminders for both client and consultant

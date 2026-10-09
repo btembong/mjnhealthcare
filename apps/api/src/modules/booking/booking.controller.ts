@@ -28,11 +28,22 @@ class CreateBookingDto {
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
+  @ApiOperation({ summary: 'List consultants with free-consultation availability (public)' })
+  @Get('general-consultation/consultants')
+  getGeneralConsultationConsultants() {
+    return this.bookingService.getGeneralConsultationConsultants();
+  }
+
   @ApiOperation({ summary: 'List available slots for a resource on a date (public)' })
   @ApiQuery({ name: 'date', required: true, example: '2026-08-01' })
+  @ApiQuery({ name: 'consultantId', required: false })
   @Get('slots/:resourceId')
-  getSlots(@Param('resourceId') resourceId: string, @Query('date') date: string) {
-    return this.bookingService.getAvailableSlots(resourceId, date);
+  getSlots(
+    @Param('resourceId') resourceId: string,
+    @Query('date') date: string,
+    @Query('consultantId') consultantId?: string,
+  ) {
+    return this.bookingService.getAvailableSlots(resourceId, date, consultantId);
   }
 
   @ApiOperation({ summary: 'Bulk create availability slots (admin / consultant)' })

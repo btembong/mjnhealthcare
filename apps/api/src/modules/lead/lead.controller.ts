@@ -14,19 +14,6 @@ class CreateLeadDto {
   @IsOptional() @IsString() notes?: string;
 }
 
-class BookConsultationDto {
-  @IsString() name!: string;
-  @IsEmail() email!: string;
-  @IsOptional() @IsString() phone?: string;
-  @IsOptional() @IsString() profession?: string;
-  @IsOptional() @IsString() destination?: string;
-  @IsOptional() @IsString() serviceInterest?: string;
-  @IsString() slotId!: string;
-  @IsOptional() @IsString() selectedServices?: string; // JSON array of selected service labels
-  @IsOptional() @IsString() estimate?: string;         // formatted total e.g. "$1,250"
-  @IsOptional() @IsString() lang?: string;             // "en" | "fr"
-}
-
 class UpdateLeadDto {
   @IsString() status!: string;
   @IsOptional() @IsString() assignedConsultantId?: string;
@@ -41,12 +28,6 @@ export class LeadController {
   @Post()
   create(@Body() dto: CreateLeadDto) {
     return this.leadService.createLead(dto);
-  }
-
-  @ApiOperation({ summary: 'Book a free consultation slot (public — no auth required)' })
-  @Post('book-consultation')
-  bookConsultation(@Body() dto: BookConsultationDto) {
-    return this.leadService.bookConsultation(dto);
   }
 
   @ApiOperation({ summary: 'List all leads (admin / consultant)' })
