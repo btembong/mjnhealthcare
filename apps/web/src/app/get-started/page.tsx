@@ -249,7 +249,7 @@ function GetStartedInner() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-  const [confirmed, setConfirmed] = useState<{ name: string; email: string; slotStart: string; consultant?: { name: string; photoUrl?: string; specialty?: string } | null } | null>(null);
+  const [confirmed, setConfirmed] = useState<{ name: string; email: string; slotStart: string; consultant?: { name: string; photoUrl?: string; specialty?: string } | null; roomUrl?: string | null } | null>(null);
 
   // Consultant state
   const [consultants, setConsultants] = useState<Consultant[]>([]);
@@ -348,7 +348,7 @@ function GetStartedInner() {
         throw new Error(body.message ?? 'Something went wrong.');
       }
       const resJson = await res.json().catch(() => ({}));
-      setConfirmed({ name: name.trim(), email: email.trim(), slotStart: selectedSlot.startTime, consultant: resJson.consultant ?? null });
+      setConfirmed({ name: name.trim(), email: email.trim(), slotStart: selectedSlot.startTime, consultant: resJson.consultant ?? null, roomUrl: resJson.roomUrl ?? null });
       setStep('confirmed');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
@@ -953,9 +953,27 @@ function GetStartedInner() {
                         {formatDate(confirmed.slotStart.split('T')[0])}
                       </p>
                       <p className="text-sm font-semibold text-primary">{formatTime(confirmed.slotStart)}</p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Video call — link sent by your advisor before the call
-                      </p>
+                      {confirmed.roomUrl ? (
+                        <>
+                          <a
+                            href={confirmed.roomUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90"
+                          >
+                            {lang === 'en' ? 'Join Session' : 'Rejoindre'}
+                          </a>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {lang === 'en'
+                              ? 'The room opens a few minutes before your session. This link is also in your email.'
+                              : 'La salle ouvre quelques minutes avant la session. Ce lien est aussi dans votre e-mail.'}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Video call — link sent by your advisor before the call
+                        </p>
+                      )}
                     </div>
 
                     <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">

@@ -19,6 +19,6 @@ import { NotificationModule } from '../notification/notification.module';
     DailyCoService,
     RefundService,
   ],
-  exports: [ConsultationService],
+  exports: [ConsultationService, DailyCoService],
 })
 export class ConsultationModule {}

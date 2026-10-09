@@ -6,6 +6,7 @@ type FreeConsultReminderJob = {
   leadName: string; leadEmail: string; leadPhone?: string;
   consultantName?: string; consultantEmail?: string;
   slotStart: string;
+  roomUrl?: string; hostUrl?: string;
 };
 
 @Processor('booking-reminders')

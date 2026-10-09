@@ -325,7 +325,7 @@ export function tplSessionReminder(opts: {
 }
 
 export function tplLeadConsultationBooked(opts: {
-  name: string; slotStart: string; consultantName?: string | null;
+  name: string; slotStart: string; consultantName?: string | null; roomUrl?: string | null;
 }): string {
   const time = new Date(opts.slotStart).toLocaleString('en-GB', {
     timeZone: 'Africa/Douala', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
@@ -338,9 +338,13 @@ export function tplLeadConsultationBooked(opts: {
       ...(opts.consultantName ? [row('Advisor', `<strong>${opts.consultantName}</strong>`)] : []),
       row('Date &amp; time', `<strong>${time} WAT</strong>`, true),
     ]) +
-    p('One of our consultants will contact you before the session to confirm connection details. To make the most of your time, come prepared with:') +
+    (opts.roomUrl
+      ? p('Join from any device using the button below — the room opens a few minutes before your session. To make the most of your time, come prepared with:')
+      : p('One of our consultants will contact you before the session to confirm connection details. To make the most of your time, come prepared with:')) +
     p('<strong>· Your target destination country</strong> (UAE, UK, US, Ireland, etc.)<br><strong>· Your profession and current registration status</strong><br><strong>· Any specific questions</strong> about licensing timelines, exam requirements, or placement') +
-    btn('Explore our services', `${WEB()}/services`) +
+    (opts.roomUrl
+      ? btn('Join Session', opts.roomUrl)
+      : btn('Explore our services', `${WEB()}/services`)) +
     divider() +
     pSmall('Need to reschedule? Reply to this email or WhatsApp us at +971 50 863 8660 as soon as possible.')
   );

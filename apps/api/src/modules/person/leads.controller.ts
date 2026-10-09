@@ -10,6 +10,7 @@ import { DatabaseService } from '@mjn/database';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { DailyCoService } from '../consultation/daily-co.service';
 
 @ApiTags('leads')
 @Controller('leads')
@@ -20,6 +21,7 @@ export class LeadsController {
     private readonly db: DatabaseService,
     private readonly events: EventEmitter2,
     @InjectQueue('booking-reminders') private readonly reminderQueue: Queue,
+    private readonly dailyCo: DailyCoService,
   ) {}
 
   // ── Public endpoint — no auth (called from /get-started) ─────────────────
@@ -99,6 +101,21 @@ export class LeadsController {
     });
     await this.db.lead.update({ where: { id: lead.id }, data: { sourceBookingId: booking.id } });
 
+    // Create the video room. Best-effort: if Daily.co is down the booking still
+    // succeeds — the advisor can share a link manually as a fallback.
+    const FREE_CONSULT_MINUTES = 30;
+    let roomUrl = '';
+    let hostUrl = '';
+    try {
+      const room = await this.dailyCo.createRoom(booking.id, slot.startTime, FREE_CONSULT_MINUTES);
+      roomUrl = room.url;
+      const consultantName = (slot as any).consultant?.name ?? 'Advisor';
+      const hostToken = await this.dailyCo.createMeetingToken(room.name, true, consultantName);
+      hostUrl = `${room.url}?t=${hostToken}`;
+    } catch (err) {
+      this.logger.error(`Could not create Daily.co room for free consult ${booking.id}: ${err}`);
+    }
+
     // Schedule reminders for both client and consultant
     const slotMs = slot.startTime.getTime();
     const reminderJobData = {
@@ -108,6 +125,8 @@ export class LeadsController {
       consultantName: (slot as any).consultant?.name,
       consultantEmail: (slot as any).consultant?.email,
       slotStart: slot.startTime.toISOString(),
+      roomUrl,
+      hostUrl,
     };
     const reminderSchedule = [
       { name: 'free-consult-reminder-24h', offset: 24 * 60 * 60 * 1000 },
@@ -138,6 +157,8 @@ export class LeadsController {
       consultantId: (slot as any).consultant?.id,
       consultantName: (slot as any).consultant?.name,
       consultantEmail: (slot as any).consultant?.email,
+      roomUrl,
+      hostUrl,
     });
 
     return {
@@ -145,6 +166,7 @@ export class LeadsController {
       email: body.email.trim().toLowerCase(),
       slotStart: slot.startTime.toISOString(),
       consultant: (slot as any).consultant ?? null,
+      roomUrl: roomUrl || null,
     };
   }
 

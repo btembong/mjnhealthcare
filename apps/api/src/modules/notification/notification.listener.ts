@@ -894,6 +894,7 @@ export class NotificationListener {
     leadName: string; leadEmail: string; leadPhone?: string;
     consultantName?: string; consultantEmail?: string;
     slotStart: string; serviceInterest?: string;
+    roomUrl?: string; hostUrl?: string;
   }) {
     const time = new Date(payload.slotStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
     const consultantLine = payload.consultantName ? ` with <strong>${payload.consultantName}</strong>` : '';
@@ -907,6 +908,7 @@ export class NotificationListener {
           name: payload.leadName,
           slotStart: payload.slotStart,
           consultantName: payload.consultantName,
+          roomUrl: payload.roomUrl,
         }),
         payload.leadName,
         undefined,
@@ -918,11 +920,11 @@ export class NotificationListener {
     if (payload.leadPhone) {
       await this.notificationService.sendWhatsApp(
         payload.leadPhone,
-        `Hi ${payload.leadName}! Your free MJN Healthcare consultation${consultantLine ? ` with ${payload.consultantName}` : ''} is confirmed for ${time} WAT. We'll send you reminders before the session.`,
+        `Hi ${payload.leadName}! Your free MJN Healthcare consultation${consultantLine ? ` with ${payload.consultantName}` : ''} is confirmed for ${time} WAT.${payload.roomUrl ? ` Join link: ${payload.roomUrl}` : ''} We'll send you reminders before the session.`,
       );
     }
 
-    // 3. Email the assigned consultant (branded)
+    // 3. Email the assigned consultant (branded, with host join link)
     if (payload.consultantEmail) {
       await this.notificationService.sendEmail(
         payload.consultantEmail,
@@ -937,7 +939,9 @@ export class NotificationListener {
             ...(payload.serviceInterest ? [T.row('Interest', payload.serviceInterest)] : []),
             T.row('When', `${time} WAT`, true),
           ]) +
-          T.btn('View Lead in Admin', `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads`),
+          (payload.hostUrl
+            ? T.p('Use the button below to join as host when it is time. You will also get a reminder before the session.') + T.btn('Join as Host', payload.hostUrl)
+            : T.btn('View Lead in Admin', `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads`)),
         ),
       );
     }
@@ -966,9 +970,13 @@ export class NotificationListener {
     leadName: string; leadEmail: string; leadPhone?: string;
     consultantName?: string; consultantEmail?: string;
     slotStart: string; timeLabel: string;
+    roomUrl?: string; hostUrl?: string;
   }) {
     const time = new Date(payload.slotStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
     const consultantLine = payload.consultantName ? ` with ${payload.consultantName}` : '';
+    const joinBtn = payload.roomUrl
+      ? `<p><a href="${payload.roomUrl}" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px;">Join Session</a></p>`
+      : '<p>Your advisor will share the video link shortly before the session.</p>';
 
     // Reminder to client
     if (payload.leadEmail) {
@@ -978,7 +986,8 @@ export class NotificationListener {
         `<p>Hi <strong>${payload.leadName}</strong>,</p>
         <p>Just a reminder — your free MJN Healthcare consultation${consultantLine} starts in <strong>${payload.timeLabel}</strong>.</p>
         <p><strong>When:</strong> ${time} WAT</p>
-        <p>Your advisor will share the video link shortly before the session. If you need to reschedule, please reply to this email at least 2 hours before.</p>`,
+        ${joinBtn}
+        <p style="color:#888;font-size:13px;">If you need to reschedule, please reply to this email at least 2 hours before.</p>`,
         payload.leadName,
       );
     }
@@ -986,18 +995,22 @@ export class NotificationListener {
     if (payload.leadPhone) {
       await this.notificationService.sendWhatsApp(
         payload.leadPhone,
-        `Reminder: Your free MJN Healthcare consultation${consultantLine} is in ${payload.timeLabel} (${time} WAT).`,
+        `Reminder: Your free MJN Healthcare consultation${consultantLine} is in ${payload.timeLabel} (${time} WAT).${payload.roomUrl ? ` Join: ${payload.roomUrl}` : ''}`,
       );
     }
 
     // Reminder to consultant
     if (payload.consultantEmail) {
+      const hostBtn = payload.hostUrl
+        ? `<p><a href="${payload.hostUrl}" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px;">Join as Host</a></p>`
+        : '';
       await this.notificationService.sendEmail(
         payload.consultantEmail,
         `[Reminder] Free Consult with ${payload.leadName} in ${payload.timeLabel}`,
         `<p>Hi ${payload.consultantName ?? 'there'},</p>
         <p>Your free consultation with <strong>${payload.leadName}</strong> starts in <strong>${payload.timeLabel}</strong> (${time} WAT).</p>
-        <p>Client contact: ${payload.leadEmail}${payload.leadPhone ? ` · ${payload.leadPhone}` : ''}</p>`,
+        <p>Client contact: ${payload.leadEmail}${payload.leadPhone ? ` · ${payload.leadPhone}` : ''}</p>
+        ${hostBtn}`,
       );
     }
     this.logger.log(`Free consult reminder (${payload.timeLabel}) sent for ${payload.leadEmail}`);
