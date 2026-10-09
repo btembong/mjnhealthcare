@@ -116,8 +116,8 @@ export class ConsultationService {
     // a transaction to lock the row.
     const result = await this.db.$transaction(async (tx) => {
       // Lock the row
-      const slots = await tx.$queryRaw<Array<{ id: string; status: string; reservedUntil: Date | null }>>`
-        SELECT id, status, "reservedUntil"
+      const slots = await tx.$queryRaw<Array<{ id: string; status: string; reservedUntil: Date | null; reservedBy: string | null }>>`
+        SELECT id, status, "reservedUntil", "reservedBy"
         FROM consultation_slots
         WHERE id = ${slotId}
         FOR UPDATE
@@ -127,6 +127,7 @@ export class ConsultationService {
 
       const isAvailable =
         slot.status === 'AVAILABLE' ||
+        (slot.status === 'RESERVED' && slot.reservedBy === clientEmail) ||
         (slot.status === 'RESERVED' && slot.reservedUntil && slot.reservedUntil < now);
 
       if (!isAvailable) {
@@ -160,7 +161,15 @@ export class ConsultationService {
     const slot = await this.db.consultationSlot.findUnique({ where: { id: dto.slotId } });
     if (!slot) throw new NotFoundException('Slot not found');
 
-    const heldByThisClient = slot.status === 'RESERVED' && slot.reservedBy === dto.clientEmail && slot.reservedUntil && slot.reservedUntil > now;
+    // The hold is placed at slot-pick time, before the client's email is known, so it is
+    // usually recorded under the visitor's hold token rather than their email.
+    // LEGACY_ANON_HOLD: pages loaded before the token existed held every slot under one
+    // shared placeholder; such a hold can't identify anyone, so it doesn't block a booking.
+    const LEGACY_ANON_HOLD = 'anon@mjn.hold';
+    const isOwnHold = (reservedBy: string | null) =>
+      !!reservedBy && (reservedBy === dto.clientEmail || reservedBy === dto.holdToken || reservedBy === LEGACY_ANON_HOLD);
+
+    const heldByThisClient = slot.status === 'RESERVED' && isOwnHold(slot.reservedBy) && slot.reservedUntil && slot.reservedUntil > now;
     const isOpen = slot.status === 'AVAILABLE' || (slot.status === 'RESERVED' && slot.reservedUntil && slot.reservedUntil < now);
 
     if (!heldByThisClient && !isOpen) {
@@ -197,7 +206,7 @@ export class ConsultationService {
 
       const stillOk =
         s.status === 'AVAILABLE' ||
-        (s.status === 'RESERVED' && s.reservedBy === dto.clientEmail && s.reservedUntil && s.reservedUntil > now) ||
+        (s.status === 'RESERVED' && isOwnHold(s.reservedBy) && s.reservedUntil && s.reservedUntil > now) ||
         (s.status === 'RESERVED' && s.reservedUntil && s.reservedUntil < now);
 
       if (!stillOk) throw new ConflictException('Slot was just taken');

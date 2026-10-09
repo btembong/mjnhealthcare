@@ -116,6 +116,11 @@ export default function ConsultPage() {
   const [holdExpiry, setHoldExpiry]               = React.useState<Date | null>(null);
   const [holdSecsLeft, setHoldSecsLeft]           = React.useState(0);
   const [holdingSlot, setHoldingSlot]             = React.useState(false);
+  // Identifies this visitor's slot hold. The email isn't known yet when a time is
+  // picked, so the hold is placed under this token and presented again at booking.
+  const holdToken = React.useRef(
+    `${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)}@mjn.hold`,
+  );
 
   // Countdown ticker
   React.useEffect(() => {
@@ -165,9 +170,8 @@ export default function ConsultPage() {
       const res = await fetch(`${API}/consultations/slots/${slot.id}/hold`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Use real email if already collected; otherwise use a placeholder — the hold still
-        // reserves the slot immediately so it can't be deleted under the client's feet.
-        body: JSON.stringify({ clientEmail: clientEmail || 'anon@mjn.hold' }),
+        // Held under this visitor's token (the email comes later, at step 4).
+        body: JSON.stringify({ clientEmail: holdToken.current }),
       });
       if (res.ok) {
         const data = await res.json() as { reservedUntil: string };
@@ -199,6 +203,7 @@ export default function ConsultPage() {
           consultationCategory: category, recordingConsent,
           preSessionNote: preSessionNote || undefined,
           provider: selectedSlot.isFree ? undefined : paymentProvider,
+          holdToken: holdToken.current,
         }),
       });
       if (!res.ok) {

@@ -20,6 +20,8 @@ export class BookConsultationDto {
   @IsOptional() @IsString() preSessionNote?: string;
   @IsOptional() @IsUrl() returnUrl?: string;
   @IsOptional() @IsEnum(['tranzak', 'stripe']) provider?: 'tranzak' | 'stripe';
+  // Token the slot was held under before the client's email was known.
+  @IsOptional() @IsString() holdToken?: string;
 }
 
 export class CancelConsultationDto {
