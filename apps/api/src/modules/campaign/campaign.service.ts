@@ -464,10 +464,13 @@ export class CampaignService {
       to: [{ email: contact.email, name: contact.name ?? contact.email }],
       subject,
       htmlContent: html,
+      // Marketing mail sends from the team/hello identity (replies welcome),
+      // not the transactional noreply default.
       sender: {
-        email: process.env.BREVO_FROM_EMAIL ?? 'hello@mjnhealth.com',
-        name: process.env.BREVO_FROM_NAME ?? 'MJN Healthcare',
+        email: process.env.BREVO_TEAM_EMAIL ?? process.env.BREVO_FROM_EMAIL ?? 'hello@mjnhealthcare.com',
+        name: process.env.BREVO_TEAM_NAME ?? process.env.BREVO_FROM_NAME ?? 'MJN Healthcare Team',
       },
+      replyTo: { email: process.env.BREVO_REPLYTO_EMAIL ?? 'hello@mjnhealthcare.com' },
       headers: {
         'List-Unsubscribe': `<${unsubscribeUrl}>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
