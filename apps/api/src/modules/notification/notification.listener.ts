@@ -60,6 +60,7 @@ export class NotificationListener {
         T.tplPaymentConfirmed({ name: person.name, receiptId: payload.receiptId ?? 'N/A', orderId: payload.orderId }),
         person.name,
         pdfAttachment ? [pdfAttachment] : undefined,
+        'billing',
       );
     }
     if (person.phone) {
@@ -82,6 +83,8 @@ export class NotificationListener {
         'Instalment Payment Due — MJN Healthcare',
         T.tplInstallmentDue({ name: payload.personName ?? 'Client', orderId: payload.orderId, amount }),
         payload.personName,
+        undefined,
+        'billing',
       );
     }
     if (payload.phone) {
@@ -116,6 +119,8 @@ export class NotificationListener {
           isWarning,
         }),
         payload.personName,
+        undefined,
+        'billing',
       );
     }
     if (payload.phone) {
@@ -145,6 +150,8 @@ export class NotificationListener {
           daysPastDue: payload.daysPastDue,
         }),
         payload.personName,
+        undefined,
+        'billing',
       );
     }
     if (payload.phone) {
@@ -307,12 +314,16 @@ export class NotificationListener {
           `Your free resource from MJN Healthcare — "${resourceTitle}"`,
           T.tplLibraryResourceDelivery({ name: payload.name, resourceTitle }),
           payload.name,
+          undefined,
+          'team',
         )
       : this.notificationService.sendEmail(
           payload.email,
           'We\'ve received your enquiry — MJN Healthcare',
           T.tplLeadAcknowledgement({ name: payload.name }),
           payload.name,
+          undefined,
+          'team',
         );
 
     await Promise.allSettled([
@@ -350,6 +361,8 @@ export class NotificationListener {
       'Your MJN Healthcare portal is ready — log in now',
       T.tplLeadConvertedInvite({ name: payload.name, email: payload.email }),
       payload.name,
+      undefined,
+      'team',
     );
     this.logger.log(`Portal invite sent to converted lead: ${payload.email}`);
   }
@@ -382,6 +395,8 @@ export class NotificationListener {
         'Your Free Consultation Is Booked — MJN Healthcare',
         T.tplLeadConsultationBooked({ name: payload.name, slotStart: payload.slotStart }),
         payload.name,
+        undefined,
+        'team',
       ),
       this.notificationService.sendEmail(
         process.env.ADMIN_EMAIL ?? 'hello@mjnhealthcare.com',
@@ -418,6 +433,8 @@ export class NotificationListener {
           paymentUrl: payload.paymentUrl,
         }),
         payload.clientName,
+        undefined,
+        'billing',
       ),
       this.notificationService.sendWhatsApp(
         payload.clientPhone,
@@ -454,6 +471,8 @@ export class NotificationListener {
           recordingConsent: payload.recordingConsent,
         }),
         payload.clientName,
+        undefined,
+        'team',
       ),
       this.notificationService.sendWhatsApp(
         payload.clientPhone,
@@ -483,6 +502,8 @@ export class NotificationListener {
           reason: payload.reason,
         }),
         payload.clientName,
+        undefined,
+        'billing',
       ),
       this.notificationService.sendWhatsApp(
         payload.clientPhone,
@@ -527,6 +548,8 @@ export class NotificationListener {
         : 'Your MJN Healthcare Consultant Application — Update',
       T.tplApplicationReviewed({ applicantName: payload.applicantName, approved, reviewNote: payload.reviewNote }),
       payload.applicantName,
+      undefined,
+      'team',
     );
   }
 
@@ -549,6 +572,8 @@ export class NotificationListener {
           T.btn('View Your Case', `${process.env.PORTAL_URL ?? 'http://localhost:3002'}/case`),
         ),
         payload.clientName,
+        undefined,
+        'team',
       );
     }
     if (payload.clientPhone) {
@@ -850,6 +875,8 @@ export class NotificationListener {
         <p>You will receive reminder emails 24 hours, 1 hour, and 15 minutes before your session. Your advisor will share a video link closer to the time.</p>
         <p style="color:#888;font-size:13px;">This is a complimentary session — no payment required. After the call we'll share a special offer for full-service support.</p>`,
         payload.leadName,
+        undefined,
+        'team',
       );
     }
 
@@ -973,6 +1000,8 @@ export class NotificationListener {
         <p>You can now log in to the client portal to track your case, upload documents, and book sessions.</p>
         <p><a href="${portalUrl}/login" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Access Your Portal</a></p>`,
         payload.leadName,
+        undefined,
+        'team',
       );
     }
     this.logger.log(`Lead converted notification sent for lead ${payload.leadId}`);

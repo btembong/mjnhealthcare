@@ -70,6 +70,9 @@ export class AuthService {
         identifier,
         'Your MJN Healthcare verification code',
         tplOtp({ otp }),
+        undefined,
+        undefined,
+        'security',
       );
     } else {
       await this.notificationService.sendSms(
@@ -143,6 +146,9 @@ export class AuthService {
       email,
       'Reset your MJN staff password',
       tplPasswordReset({ name: person.name, resetUrl }),
+      undefined,
+      undefined,
+      'security',
     );
     this.logger.log(`Password reset link sent to ${email}`);
   }
@@ -166,6 +172,9 @@ export class AuthService {
         person.email,
         'Your MJN staff password was changed',
         tplPasswordChanged({ name: person.name }),
+        undefined,
+        undefined,
+        'security',
       ).catch(() => {}); // non-fatal
     }
 

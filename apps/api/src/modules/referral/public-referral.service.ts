@@ -61,6 +61,8 @@ export class PublicReferralService {
           <p style="color:#666;font-size:13px">Questions? Contact us at info@mjnhealthcare.com</p>
         </div>`,
         referrer.name,
+        undefined,
+        'team',
       );
     }
 
@@ -164,6 +166,8 @@ export class PublicReferralService {
           <p style="color:#666;font-size:13px">Questions? Contact us at info@mjnhealthcare.com</p>
         </div>`,
         referral.referrer.name,
+        undefined,
+        'billing',
       );
     }
   }
@@ -217,6 +221,8 @@ export class PublicReferralService {
           <p>Keep sharing: <a href="${process.env.WEB_URL ?? 'https://mjnhealthcare.com'}/refer/status/${referral.referrer.code}" style="color:#0F4C81">View your referrals</a></p>
         </div>`,
         referral.referrer.name,
+        undefined,
+        'billing',
       );
     }
 
