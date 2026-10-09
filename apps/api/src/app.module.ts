@@ -44,10 +44,19 @@ import { BlogModule } from './modules/blog/blog.module';
     BullModule.forRootAsync({
       useFactory: () => ({
         redis: {
-          host: process.env.UPSTASH_REDIS_URL,
-          port: 6380,
+          // UPSTASH_REDIS_URL is the REST URL (https://host) used by the OTP store;
+          // Bull needs the bare hostname. Upstash serves Redis over TLS on 6379.
+          host: (process.env.UPSTASH_REDIS_URL ?? '').replace(/^[a-z]+:\/\//i, '').replace(/[:/].*$/, ''),
+          port: Number(process.env.UPSTASH_REDIS_PORT ?? 6379),
           password: process.env.UPSTASH_REDIS_TOKEN,
           tls: {},
+        },
+        // Idle queues poll Redis; these intervals keep Upstash command usage low.
+        // Delayed jobs still fire on their own timers, so reminders stay on time.
+        settings: {
+          drainDelay: 60,
+          guardInterval: 60_000,
+          stalledInterval: 300_000,
         },
       }),
     }),
