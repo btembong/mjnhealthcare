@@ -1,6 +1,6 @@
 import {
   Controller, Get, Patch, Post, Param, Body, Query,
-  UseGuards, NotFoundException, BadRequestException, HttpCode,
+  UseGuards, NotFoundException, BadRequestException, HttpCode, Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,6 +14,8 @@ import { Queue } from 'bull';
 @ApiTags('leads')
 @Controller('leads')
 export class LeadsController {
+  private readonly logger = new Logger(LeadsController.name);
+
   constructor(
     private readonly db: DatabaseService,
     private readonly events: EventEmitter2,
@@ -102,12 +104,19 @@ export class LeadsController {
       { name: 'free-consult-reminder-1h',  offset: 60 * 60 * 1000 },
       { name: 'free-consult-reminder-15m', offset: 15 * 60 * 1000 },
     ];
-    for (const { name, offset } of reminderSchedule) {
-      const delay = slotMs - offset - Date.now();
-      if (delay > 0) {
-        await this.reminderQueue.add(name, reminderJobData, { delay });
+    // Best-effort: never block the booking response on the reminder queue. If Redis
+    // is unreachable the booking (+ lead + notifications) still completes; reminders
+    // are non-critical and simply won't be scheduled.
+    void (async () => {
+      try {
+        for (const { name, offset } of reminderSchedule) {
+          const delay = slotMs - offset - Date.now();
+          if (delay > 0) await this.reminderQueue.add(name, reminderJobData, { delay });
+        }
+      } catch (err) {
+        this.logger.warn(`Could not schedule free-consult reminders for ${body.email}: ${err}`);
       }
-    }
+    })();
 
     this.events.emit('lead.free_consult_booked', {
       leadId: lead.id,
