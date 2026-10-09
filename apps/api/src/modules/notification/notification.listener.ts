@@ -480,6 +480,41 @@ export class NotificationListener {
       ),
     ]);
     this.logger.log(`Consultation confirmed notifications sent for booking ${payload.bookingId}`);
+
+    // Tell the consultant too. Looked up here so every emitter of this event is covered.
+    try {
+      const booking = await this.db.consultationBooking.findUnique({
+        where: { id: payload.bookingId },
+        include: { consultant: true },
+      });
+      const consultantEmail = booking?.consultant?.email;
+      if (!consultantEmail) {
+        this.logger.warn(`No consultant email for booking ${payload.bookingId} — consultant not notified of confirmation`);
+        return;
+      }
+      await this.notificationService.sendEmail(
+        consultantEmail,
+        `New Consultation Booked — ${payload.clientName} — ${sessionTime} WAT`,
+        T.shell(
+          T.h1('New Consultation Booked') +
+          T.p(`Hi ${booking.consultant.name}, a ${categoryLabel} consultation has been confirmed with you.`) +
+          T.infoTable([
+            T.row('Client', payload.clientName),
+            T.row('Email', payload.clientEmail),
+            T.row('Phone / WhatsApp', payload.clientPhone),
+            T.row('When', `${sessionTime} WAT`),
+            T.row('Duration', `${payload.durationMins} minutes`, !booking.preSessionNote),
+            ...(booking.preSessionNote ? [T.row('Client note', booking.preSessionNote, true)] : []),
+          ]) +
+          T.p('Open the session in your console and click <strong>Join as host</strong> when it is time. You will also get a reminder 30 minutes before.') +
+          T.btn('Open My Sessions', `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/sessions`),
+        ),
+        booking.consultant.name,
+      );
+      this.logger.log(`Consultant ${consultantEmail} notified of confirmed booking ${payload.bookingId}`);
+    } catch (err) {
+      this.logger.error(`Failed to notify consultant of booking ${payload.bookingId}: ${err}`);
+    }
   }
 
   @OnEvent('consultation.cancelled')
