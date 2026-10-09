@@ -53,6 +53,14 @@ export class LeadsController {
       throw new BadRequestException('This slot is no longer available — please choose another time.');
     }
 
+    // Context carried over from the pricing page — saved to the lead's notes so the
+    // consultant sees what the client was looking at.
+    const noteParts: string[] = [];
+    if (body.estimate) noteParts.push(`Estimate: ${body.estimate}`);
+    if (body.selectedServices) noteParts.push(`Services: ${body.selectedServices}`);
+    if (body.lang && body.lang !== 'en') noteParts.push(`Language preference: ${body.lang}`);
+    const notes = noteParts.length ? noteParts.join(' | ') : undefined;
+
     // Create or update lead
     const existingLead = await this.db.lead.findFirst({ where: { email: body.email } });
     let lead: any;
@@ -65,6 +73,7 @@ export class LeadsController {
           ...(body.destination ? { destination: body.destination } : {}),
           ...(body.serviceInterest ? { serviceInterest: body.serviceInterest } : {}),
           ...(body.refCode ? { refCode: body.refCode } : {}),
+          ...(notes ? { notes } : {}),
           updatedAt: new Date(),
         },
       });
@@ -78,6 +87,7 @@ export class LeadsController {
           destination: body.destination || null,
           serviceInterest: body.serviceInterest || null,
           refCode: body.refCode || null,
+          ...(notes ? { notes } : {}),
           status: 'FREE_CONSULT_BOOKED' as any,
         },
       });

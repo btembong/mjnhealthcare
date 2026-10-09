@@ -325,7 +325,7 @@ export function tplSessionReminder(opts: {
 }
 
 export function tplLeadConsultationBooked(opts: {
-  name: string; slotStart: string;
+  name: string; slotStart: string; consultantName?: string | null;
 }): string {
   const time = new Date(opts.slotStart).toLocaleString('en-GB', {
     timeZone: 'Africa/Douala', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
@@ -335,6 +335,7 @@ export function tplLeadConsultationBooked(opts: {
     label('Consultation') +
     h1('Your free consultation is confirmed') +
     infoTable([
+      ...(opts.consultantName ? [row('Advisor', `<strong>${opts.consultantName}</strong>`)] : []),
       row('Date &amp; time', `<strong>${time} WAT</strong>`, true),
     ]) +
     p('One of our consultants will contact you before the session to confirm connection details. To make the most of your time, come prepared with:') +

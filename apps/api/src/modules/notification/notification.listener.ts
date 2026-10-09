@@ -898,17 +898,16 @@ export class NotificationListener {
     const time = new Date(payload.slotStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
     const consultantLine = payload.consultantName ? ` with <strong>${payload.consultantName}</strong>` : '';
 
-    // 1. Confirmation email to client
+    // 1. Confirmation email to client (branded template)
     if (payload.leadEmail) {
       await this.notificationService.sendEmail(
         payload.leadEmail,
         'Your Free MJN Healthcare Consultation is Confirmed!',
-        `<p>Hi <strong>${payload.leadName}</strong>,</p>
-        <p>Your <strong>free 30-minute consultation</strong>${consultantLine} is confirmed.</p>
-        <p><strong>When:</strong> ${time} WAT</p>
-        ${payload.serviceInterest ? `<p><strong>Topic:</strong> ${payload.serviceInterest}</p>` : ''}
-        <p>You will receive reminder emails 24 hours, 1 hour, and 15 minutes before your session. Your advisor will share a video link closer to the time.</p>
-        <p style="color:#888;font-size:13px;">This is a complimentary session — no payment required. After the call we'll share a special offer for full-service support.</p>`,
+        T.tplLeadConsultationBooked({
+          name: payload.leadName,
+          slotStart: payload.slotStart,
+          consultantName: payload.consultantName,
+        }),
         payload.leadName,
         undefined,
         'team',
@@ -923,35 +922,41 @@ export class NotificationListener {
       );
     }
 
-    // 3. Email the assigned consultant
+    // 3. Email the assigned consultant (branded)
     if (payload.consultantEmail) {
       await this.notificationService.sendEmail(
         payload.consultantEmail,
         `[New Free Consult] ${payload.leadName} — ${time} WAT`,
-        `<p>Hi ${payload.consultantName ?? 'there'},</p>
-        <p>A new free consultation has been booked with you.</p>
-        <ul>
-          <li><strong>Client:</strong> ${payload.leadName} (${payload.leadEmail})</li>
-          ${payload.leadPhone ? `<li><strong>Phone/WhatsApp:</strong> ${payload.leadPhone}</li>` : ''}
-          ${payload.serviceInterest ? `<li><strong>Interest:</strong> ${payload.serviceInterest}</li>` : ''}
-          <li><strong>When:</strong> ${time} WAT</li>
-        </ul>
-        <p><a href="${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads">View Lead in Admin →</a></p>`,
+        T.shell(
+          T.h1('New Free Consultation Booked') +
+          T.p(`Hi ${payload.consultantName ?? 'there'}, a new free consultation has been booked with you.`) +
+          T.infoTable([
+            T.row('Client', payload.leadName),
+            T.row('Email', payload.leadEmail),
+            ...(payload.leadPhone ? [T.row('Phone / WhatsApp', payload.leadPhone)] : []),
+            ...(payload.serviceInterest ? [T.row('Interest', payload.serviceInterest)] : []),
+            T.row('When', `${time} WAT`, true),
+          ]) +
+          T.btn('View Lead in Admin', `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads`),
+        ),
       );
     }
 
-    // 4. Admin alert
+    // 4. Admin alert (branded)
     await this.notificationService.sendEmail(
       process.env.ADMIN_ALERT_EMAIL ?? 'admin@mjnhealth.com',
       `[Lead] New Free Consult Booked — ${payload.leadName}`,
-      `<p>A new free consultation has been booked.</p>
-      <ul>
-        <li><strong>Client:</strong> ${payload.leadName} (${payload.leadEmail})</li>
-        ${payload.serviceInterest ? `<li><strong>Interest:</strong> ${payload.serviceInterest}</li>` : ''}
-        <li><strong>Consultant:</strong> ${payload.consultantName ?? 'Unassigned'}</li>
-        <li><strong>Session:</strong> ${time} WAT</li>
-      </ul>
-      <p><a href="${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads">View Lead →</a></p>`,
+      T.shell(
+        T.h1('New Free Consultation Booked') +
+        T.p('A new free consultation has been booked.') +
+        T.infoTable([
+          T.row('Client', `${payload.leadName} (${payload.leadEmail})`),
+          ...(payload.serviceInterest ? [T.row('Interest', payload.serviceInterest)] : []),
+          T.row('Consultant', payload.consultantName ?? 'Unassigned'),
+          T.row('Session', `${time} WAT`, true),
+        ]) +
+        T.btn('View Lead', `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads`),
+      ),
     );
     this.logger.log(`Free consult booked notifications sent for lead ${payload.leadId}`);
   }
