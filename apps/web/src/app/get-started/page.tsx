@@ -185,6 +185,13 @@ function localTime(iso: string) {
   try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }); }
   catch { return ''; }
 }
+// Appointment date/time shown in WAT (Africa/Douala), matching the confirmation emails.
+function apptDateWAT(iso: string) {
+  return new Date(iso).toLocaleDateString('en-GB', { timeZone: 'Africa/Douala', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+function apptTimeWAT(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Africa/Douala', hour: '2-digit', minute: '2-digit', hour12: false });
+}
 
 function validateField(field: string, value: string): string {
   if (field === 'name' && !value.trim()) return 'Name is required';
@@ -948,11 +955,30 @@ function GetStartedInner() {
                       <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                         {lang === 'en' ? 'Your appointment' : 'Votre rendez-vous'}
                       </p>
-                      <p className="mt-2 text-sm font-bold text-foreground">{confirmed.name}</p>
+
+                      {/* Advisor */}
+                      {confirmed.consultant && (
+                        <div className="mt-3 flex items-center gap-2.5">
+                          {confirmed.consultant.photoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={confirmed.consultant.photoUrl} alt={confirmed.consultant.name} className="h-9 w-9 shrink-0 rounded-full object-cover" />
+                          ) : (
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                              {confirmed.consultant.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
+                            </span>
+                          )}
+                          <span className="min-w-0">
+                            <span className="block text-xs text-muted-foreground">{lang === 'en' ? 'With' : 'Avec'}</span>
+                            <span className="block truncate text-sm font-bold text-foreground">{confirmed.consultant.name}</span>
+                          </span>
+                        </div>
+                      )}
+
+                      <p className="mt-3 text-sm font-semibold text-foreground">{confirmed.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {formatDate(confirmed.slotStart.split('T')[0])}
+                        {apptDateWAT(confirmed.slotStart)}
                       </p>
-                      <p className="text-sm font-semibold text-primary">{formatTime(confirmed.slotStart)}</p>
+                      <p className="text-sm font-semibold text-primary">{apptTimeWAT(confirmed.slotStart)} WAT</p>
                       {confirmed.roomUrl ? (
                         <>
                           <a
