@@ -9,6 +9,7 @@ import {
   CheckCircle, Clock, WarningCircle, TrendUp, ArrowRight,
   Sparkle, Buildings, Student, X, PaperPlaneTilt, ChatCircle,
   UploadSimple, CaretRight, Shield, ShoppingCart,
+  IdentificationCard, Certificate, XCircle,
 } from '@mjn/ui';
 import { useUser } from '../../contexts/user-context';
 import { api } from '../../lib/api';
@@ -685,7 +686,17 @@ function MessageModal({ consultant, engagementId, onClose }: { consultant: any; 
 
 // ── Right Rail ────────────────────────────────────────────────────────────────
 
-type RailAlert = { text: string; sub: string; tone: 'rose' | 'amber'; cta: string; href: string };
+type RailAlert = {
+  text: string; sub: string; tone: 'rose' | 'amber'; cta: string; href: string;
+  kind: 'payment' | 'rejected' | 'expiring'; docType?: string;
+};
+
+function alertIcon(a: RailAlert) {
+  if (a.kind === 'payment') return CreditCard;
+  if (/passport|identity|national_id|visa/i.test(a.docType ?? '')) return IdentificationCard;
+  if (/licen[cs]e|certificate|degree|diploma|transcript/i.test(a.docType ?? '')) return Certificate;
+  return FileText;
+}
 
 function untilLabel(dateStr: string): string {
   const diff = new Date(dateStr).getTime() - Date.now();
@@ -729,26 +740,31 @@ function AttentionCard({ alerts, onNavigate }: { alerts: RailAlert[]; onNavigate
           {alerts.length}
         </span>
       </div>
-      <div className="space-y-2.5">
+      <div className="divide-y divide-border/60">
         {alerts.map((a, i) => {
           const rose = a.tone === 'rose';
+          const Icon = alertIcon(a);
+          const BadgeIcon = a.kind === 'rejected' ? XCircle : a.kind === 'expiring' ? Clock : WarningCircle;
           return (
-            <div
-              key={i}
-              className={`rounded-xl border border-l-4 p-3 ${
-                rose ? 'border-rose-100 border-l-rose-500 bg-rose-50/60' : 'border-amber-100 border-l-amber-500 bg-amber-50/60'
-              }`}
-            >
-              <p className="text-sm font-bold leading-snug text-foreground">{a.text}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{a.sub}</p>
-              <button
-                onClick={() => onNavigate(a.href)}
-                className={`mt-2.5 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-white transition-colors ${
-                  rose ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-600 hover:bg-amber-700'
-                }`}
-              >
-                {a.cta} <ArrowRight className="h-3 w-3" />
-              </button>
+            <div key={i} className="flex gap-3 py-3.5 first:pt-0 last:pb-0">
+              <div className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${rose ? 'bg-rose-50' : 'bg-amber-50'}`}>
+                <Icon weight="duotone" className={`h-5 w-5 ${rose ? 'text-rose-600' : 'text-amber-600'}`} />
+                <span className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white">
+                  <BadgeIcon weight="fill" className={`h-4 w-4 ${rose ? 'text-rose-500' : 'text-amber-500'}`} />
+                </span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold leading-snug text-foreground">{a.text}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{a.sub}</p>
+                <button
+                  onClick={() => onNavigate(a.href)}
+                  className={`mt-2.5 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-white transition-colors ${
+                    rose ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-600 hover:bg-amber-700'
+                  }`}
+                >
+                  {a.cta} <ArrowRight className="h-3 w-3" />
+                </button>
+              </div>
             </div>
           );
         })}
@@ -1023,12 +1039,12 @@ export default function PortalDashboard() {
     ...orders.filter((o) => o.status === 'PENDING').map((o) => ({
       text: `Payment of $${Number(o.total).toLocaleString()} due`,
       sub: 'Complete payment to continue your pathway.',
-      tone: 'rose' as const, cta: 'Pay now', href: '/payments',
+      tone: 'rose' as const, cta: 'Pay now', href: '/payments', kind: 'payment' as const,
     })),
     ...documents.filter((d) => d.status === 'REJECTED').map((d) => ({
       text: `${statusLabel(d.type)} was rejected`,
       sub: 'Upload a corrected copy to keep your case moving.',
-      tone: 'rose' as const, cta: 'Re-upload', href: '/documents',
+      tone: 'rose' as const, cta: 'Re-upload', href: '/documents', kind: 'rejected' as const, docType: d.type,
     })),
     ...documents.filter((d) => {
       if (!d.expiryDate) return false;
@@ -1039,6 +1055,7 @@ export default function PortalDashboard() {
         text: `${statusLabel(d.type)} ${expired ? 'has expired' : 'expiring soon'}`,
         sub: `${expired ? 'Expired' : 'Expires'} ${fmtDate(d.expiryDate)}`,
         tone: expired ? ('rose' as const) : ('amber' as const), cta: 'Renew', href: '/documents',
+        kind: 'expiring' as const, docType: d.type,
       };
     }),
   ];
