@@ -64,6 +64,21 @@ function groupSlotsByDate(slots: Slot[], tz: string): Record<string, Slot[]> {
   }, {});
 }
 
+const CAL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const CAL_DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function buildCalGrid(year: number, month: number) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayIso = new Date().toISOString().split('T')[0];
+  const cells: Array<{ iso: string; day: number; isToday: boolean; isPast: boolean } | null> = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    cells.push({ iso, day: d, isToday: iso === todayIso, isPast: iso < todayIso });
+  }
+  return cells;
+}
+
 const STEPS = ['Session type', 'Specialist', 'Date & time', 'Your details', 'Payment'] as const;
 
 // ── Reusable back button ──────────────────────────────────────────────────────
@@ -112,6 +127,11 @@ export default function ConsultPage() {
   const [tz, setTz]                               = React.useState(detectTimezone);
   const [paymentProvider, setPaymentProvider]     = React.useState<'tranzak' | 'stripe'>('tranzak');
 
+  // Calendar state for Step 3
+  const [calYear, setCalYear]   = React.useState(() => new Date().getFullYear());
+  const [calMonth, setCalMonth] = React.useState(() => new Date().getMonth());
+  const [calDate, setCalDate]   = React.useState('');
+
   // Slot hold state
   const [holdExpiry, setHoldExpiry]               = React.useState<Date | null>(null);
   const [holdSecsLeft, setHoldSecsLeft]           = React.useState(0);
@@ -158,7 +178,16 @@ export default function ConsultPage() {
     setError('');
     try {
       const res = await fetch(`${API}/consultations/slots/${consultant.id}`);
-      setSlots(await res.json() as Slot[]);
+      const fetched = await res.json() as Slot[];
+      setSlots(fetched);
+      // Auto-select the first available date
+      if (fetched.length > 0) {
+        const firstIso = fetched[0].startAt.split('T')[0];
+        setCalDate(firstIso);
+        const d = new Date(firstIso);
+        setCalYear(d.getFullYear());
+        setCalMonth(d.getMonth());
+      }
       setStep(3);
     } catch { setError('Failed to load available times. Please try again.'); }
     finally { setLoadingSlots(false); }
@@ -623,63 +652,172 @@ export default function ConsultPage() {
               </div>
 
               {loadingSlots ? (
-                <div className="space-y-5">
-                  {[0, 1].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />)}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr]">
+                  <div className="h-72 animate-pulse rounded-2xl bg-muted" />
+                  <div className="h-72 animate-pulse rounded-2xl bg-muted" />
                 </div>
-              ) : Object.keys(slotsByDate).length === 0 ? (
+              ) : slots.length === 0 ? (
                 <div className="rounded-2xl border border-border bg-white p-14 text-center shadow-sm">
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/60">
                     <CalendarBlank className="h-7 w-7 text-muted-foreground" />
                   </div>
-                  <p className="font-semibold text-foreground">No slots available in the next 14 days</p>
+                  <p className="font-semibold text-foreground">No slots available right now</p>
                   <p className="mt-1.5 text-sm text-muted-foreground">
                     <Link href="/contact" className="text-primary hover:underline">Contact us</Link> to arrange a custom time.
                   </p>
                 </div>
-              ) : (
-                <div className="space-y-5">
-                  {Object.entries(slotsByDate).map(([date, daySlots]) => (
-                    <div key={date} className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-                      <div className="flex items-center gap-2.5 border-b border-border bg-muted/30 px-5 py-3">
-                        <CalendarBlank className="h-4 w-4 text-primary" />
-                        <p className="text-sm font-bold text-foreground">{date}</p>
-                        <span className="ml-auto text-xs text-muted-foreground">{daySlots.length} available</span>
+              ) : (() => {
+                // Build iso-date → slots map from all fetched slots
+                const slotsByIso: Record<string, Slot[]> = {};
+                slots.forEach(s => {
+                  const iso = s.startAt.split('T')[0];
+                  if (!slotsByIso[iso]) slotsByIso[iso] = [];
+                  slotsByIso[iso].push(s);
+                });
+                const todayIso = new Date().toISOString().split('T')[0];
+                const activeDateSlots = calDate ? (slotsByIso[calDate] ?? []) : [];
+                const activeDateLabel = calDate
+                  ? new Date(calDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+                  : '';
+
+                return (
+                  <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] divide-y md:divide-y-0 md:divide-x divide-border">
+
+                      {/* ── Left: calendar ── */}
+                      <div className="p-4">
+                        {/* Month nav */}
+                        <div className="mb-3 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              let m = calMonth - 1; let y = calYear;
+                              if (m < 0) { m = 11; y--; }
+                              setCalMonth(m); setCalYear(y);
+                            }}
+                            disabled={calYear === new Date().getFullYear() && calMonth <= new Date().getMonth()}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <ArrowLeft className="h-4 w-4" />
+                          </button>
+                          <span className="text-sm font-bold text-foreground">{CAL_MONTHS[calMonth]} {calYear}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              let m = calMonth + 1; let y = calYear;
+                              if (m > 11) { m = 0; y++; }
+                              setCalMonth(m); setCalYear(y);
+                            }}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-muted"
+                          >
+                            <ArrowRight className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        {/* Day headers */}
+                        <div className="grid grid-cols-7 mb-1">
+                          {CAL_DAYS.map(d => (
+                            <div key={d} className="py-1 text-center text-[11px] font-semibold text-muted-foreground">{d}</div>
+                          ))}
+                        </div>
+
+                        {/* Day cells */}
+                        <div className="grid grid-cols-7 gap-y-0.5">
+                          {buildCalGrid(calYear, calMonth).map((cell, idx) => {
+                            if (!cell) return <div key={`e-${idx}`} />;
+                            const hasSlots = !!slotsByIso[cell.iso];
+                            const isSelected = cell.iso === calDate;
+                            const isDisabled = cell.isPast || !hasSlots;
+                            return (
+                              <button
+                                key={cell.iso}
+                                type="button"
+                                disabled={isDisabled}
+                                onClick={() => setCalDate(cell.iso)}
+                                className={`
+                                  flex h-9 w-full items-center justify-center rounded-full text-sm transition-all select-none
+                                  ${isSelected ? 'gradient-hero font-bold text-white shadow-md' : ''}
+                                  ${!isSelected && hasSlots ? 'font-bold text-secondary hover:bg-secondary/10 cursor-pointer' : ''}
+                                  ${!isSelected && isDisabled ? 'text-muted-foreground/30 cursor-not-allowed font-normal' : ''}
+                                  ${cell.isToday && !isSelected ? 'ring-2 ring-primary/30 ring-offset-1' : ''}
+                                `}
+                              >
+                                {cell.day}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-2 p-4">
-                        {daySlots.map((slot) => {
-                          const isSelected = pendingSlot?.id === slot.id;
-                          return (
-                            <button
-                              key={slot.id}
-                              onClick={() => isSelected ? setPendingSlot(null) : handleSlotClick(slot)}
-                              disabled={holdingSlot && !isSelected}
-                              className={`relative flex flex-col items-center gap-0.5 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
-                                isSelected
-                                  ? 'gradient-hero border-transparent text-white shadow-sm'
-                                  : slot.isFree
-                                  ? 'border-emerald-300 bg-emerald-50 text-foreground hover:border-emerald-400 hover:bg-emerald-100'
-                                  : 'border-border bg-white text-foreground hover:border-primary/50 hover:bg-primary/4'
-                              }`}
-                            >
-                              <span className="flex items-center gap-1.5">
-                                {isSelected && <CheckCircle className="h-3.5 w-3.5" weight="fill" />}
-                                {new Date(slot.startAt).toLocaleTimeString('en-GB', {
-                                  hour: '2-digit', minute: '2-digit', timeZone: tz,
+
+                      {/* ── Right: time slots ── */}
+                      <div className="flex flex-col p-4">
+                        {calDate ? (
+                          <>
+                            <p className="mb-1 text-sm font-bold text-foreground">{activeDateLabel}</p>
+                            <p className="mb-4 text-xs text-muted-foreground">
+                              {activeDateSlots.length > 0
+                                ? `${activeDateSlots.length} slot${activeDateSlots.length > 1 ? 's' : ''} available`
+                                : 'No slots on this day'}
+                            </p>
+                            {activeDateSlots.length === 0 ? (
+                              <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl bg-muted/30 py-10 text-center">
+                                <Clock className="h-8 w-8 text-muted-foreground/50" />
+                                <p className="text-sm text-muted-foreground">No available times</p>
+                                <p className="text-xs text-muted-foreground">Try another date</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                {activeDateSlots.map((slot) => {
+                                  const isSelected = pendingSlot?.id === slot.id;
+                                  const startLabel = new Date(slot.startAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz });
+                                  const endTime = new Date(new Date(slot.startAt).getTime() + (slot.durationMinutes ?? selectedConsultant.sessionDurationMins) * 60000)
+                                    .toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz });
+                                  return (
+                                    <button
+                                      key={slot.id}
+                                      type="button"
+                                      onClick={() => isSelected ? setPendingSlot(null) : handleSlotClick(slot)}
+                                      disabled={holdingSlot && !isSelected}
+                                      className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold transition-all disabled:opacity-50 ${
+                                        isSelected
+                                          ? 'gradient-hero border-transparent text-white shadow-md'
+                                          : slot.isFree
+                                            ? 'border-emerald-200 bg-emerald-50 text-foreground hover:border-emerald-400 hover:bg-emerald-100'
+                                            : 'border-border bg-white text-foreground hover:border-secondary/40 hover:bg-secondary/5'
+                                      }`}
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        <Clock className={`h-4 w-4 shrink-0 ${isSelected ? 'text-white/70' : 'text-muted-foreground'}`} />
+                                        <span>{startLabel} – {endTime}</span>
+                                      </span>
+                                      <span className="flex items-center gap-2">
+                                        {slot.isFree && (
+                                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isSelected ? 'bg-white/20 text-white' : 'bg-emerald-500 text-white'}`}>
+                                            FREE
+                                          </span>
+                                        )}
+                                        {isSelected
+                                          ? <CheckCircle className="h-4 w-4 text-white" weight="fill" />
+                                          : <CaretRight className="h-4 w-4 text-muted-foreground/50" />
+                                        }
+                                      </span>
+                                    </button>
+                                  );
                                 })}
-                              </span>
-                              {slot.isFree && (
-                                <span className={`text-[9px] font-bold leading-none rounded-full px-1.5 py-0.5 ${isSelected ? 'bg-white/20 text-white' : 'bg-emerald-500 text-white'}`}>
-                                  FREE
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+                            <CalendarBlank className="h-10 w-10 text-muted-foreground/30" />
+                            <p className="text-sm text-muted-foreground">Select a date to see available times</p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                );
+              })()}
 
               {/* Confirm panel */}
               {pendingSlot && (
