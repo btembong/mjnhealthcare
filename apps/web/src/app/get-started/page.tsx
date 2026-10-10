@@ -768,7 +768,7 @@ function GetStartedInner() {
 
               {/* ── STEP 4: Slot picker ──────────────────────────────── */}
               {step === 'slot' && (
-                <div className="rounded-3xl border border-border bg-white p-7 shadow-sm">
+                <div className="w-full min-w-0 overflow-hidden rounded-3xl border border-border bg-white p-7 shadow-sm">
                   <button
                     onClick={() => setStep('consultant')}
                     className="mb-5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground"
@@ -808,9 +808,9 @@ function GetStartedInner() {
                   )}
 
                   {/* Date strip — horizontal scroll */}
-                  <div className="mb-6">
+                  <div className="mb-6 min-w-0 w-full">
                     <label className="mb-3 block text-sm font-bold text-foreground">{t.slot_date}</label>
-                    <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1 scrollbar-hide">
+                    <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1 scrollbar-hide -mx-1 px-1">
                       {dateStrip.map(({ iso, day, date, month }) => (
                         <button
                           key={iso}
