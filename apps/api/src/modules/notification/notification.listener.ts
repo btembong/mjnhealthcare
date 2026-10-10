@@ -4,6 +4,10 @@ import { DatabaseService } from '@mjn/database';
 import { NotificationService } from './notification.service';
 import { PdfService } from '../order/pdf.service';
 import * as T from './email-templates';
+import { findConsultantContact } from '../../common/consultant-contact';
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 @Injectable()
 export class NotificationListener {
@@ -653,7 +657,7 @@ export class NotificationListener {
     officerId: string; consultantId: string; reason: string;
   }) {
     const [consultant, officer] = await Promise.all([
-      this.db.person.findUnique({ where: { id: payload.consultantId }, select: { name: true, email: true, phone: true } }),
+      findConsultantContact(this.db, payload.consultantId),
       this.db.person.findUnique({ where: { id: payload.officerId }, select: { name: true } }),
     ]);
     if (!consultant?.email) return;
@@ -853,6 +857,43 @@ export class NotificationListener {
 
   // ── Officer update pending approval ───────────────────────────────────────
 
+  @OnEvent('client.message_sent')
+  async onClientMessageSent(payload: {
+    engagementId: string;
+    clientName: string;
+    consultantName?: string;
+    consultantEmail?: string;
+    message: string;
+  }) {
+    try {
+      const recipient = payload.consultantEmail || process.env.ADMIN_ALERT_EMAIL;
+      if (!recipient) {
+        this.logger.warn(`No consultant email or ADMIN_ALERT_EMAIL for engagement ${payload.engagementId}; client message not emailed`);
+        return;
+      }
+      const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
+      const clientName = escapeHtml(payload.clientName);
+      const preview = payload.message.length > 500 ? payload.message.slice(0, 500) + '…' : payload.message;
+      await this.notificationService.sendEmail(
+        recipient,
+        `New message from ${payload.clientName} — MJN Healthcare`,
+        T.shell(
+          T.h1('New client message') +
+          T.p(`Hello ${escapeHtml(payload.consultantName ?? 'there')},`) +
+          T.p(`<strong>${clientName}</strong> sent a message in the client portal${payload.consultantEmail ? '' : '. This case has no consultant email on file, so it was sent to the admin inbox'}.`) +
+          `<blockquote style="margin:0 0 20px;border-left:4px solid #0F4C81;padding:10px 16px;background:#f5f7fa;font-size:14px;line-height:1.6;color:#3D4A5C;white-space:pre-wrap;">${escapeHtml(preview)}</blockquote>` +
+          T.btn('Reply in Admin Console', `${adminUrl}/messages`),
+        ),
+        payload.consultantName,
+        undefined,
+        'team',
+      );
+      this.logger.log(`Client message notification sent to ${recipient} for engagement ${payload.engagementId}`);
+    } catch (err: any) {
+      this.logger.error(`Client message notification failed for engagement ${payload.engagementId}: ${err?.message ?? err}`);
+    }
+  }
+
   @OnEvent('officer.update_pending_approval')
   async onUpdatePendingApproval(payload: {
     noteId: string;
@@ -864,10 +905,7 @@ export class NotificationListener {
   }) {
     if (!payload.consultantId) return;
 
-    const consultant = await this.db.person.findUnique({
-      where: { id: payload.consultantId },
-      select: { name: true, email: true, phone: true },
-    });
+    const consultant = await findConsultantContact(this.db, payload.consultantId);
     if (!consultant) return;
 
     const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';

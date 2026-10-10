@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 import { DOCUMENT_CHECKLISTS } from './document-checklists';
+import { findConsultantContact } from '../../common/consultant-contact';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument: any = require('pdfkit');
 @Injectable()
@@ -369,15 +370,14 @@ export class EngagementService {
       include: { person: { select: { id: true, name: true, email: true } } },
     });
 
-    const consultant = engagement.consultantId
-      ? await this.db.person.findUnique({ where: { id: engagement.consultantId }, select: { email: true } })
-      : null;
+    const consultant = await findConsultantContact(this.db, engagement.consultantId);
 
     this.events.emit('client.message_sent', {
       engagementId,
       clientName: engagement.person.name,
       clientEmail: engagement.person.email,
-      consultantEmail: consultant?.email,
+      consultantName: consultant?.name ?? undefined,
+      consultantEmail: consultant?.email ?? undefined,
       message,
     });
 
