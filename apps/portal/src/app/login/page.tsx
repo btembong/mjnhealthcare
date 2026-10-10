@@ -230,53 +230,6 @@ function StepProgress({ current }: { current: 'email' | 'otp' | 'done' }) {
   );
 }
 
-// ── Left panel — pipeline preview card ──────────────────────────────────────
-
-function PipelinePreview() {
-  const stages = [
-    { label: 'Documents Submitted',  done: true  },
-    { label: 'DataFlow Verification', done: true  },
-    { label: 'DHA Exam Registration', done: false, active: true },
-    { label: 'License Issued',        done: false },
-  ];
-
-  return (
-    <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 p-5 shadow-xl">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-white/60 uppercase tracking-wide">Active Case</p>
-          <p className="text-sm font-bold text-white mt-0.5">UAE — DHA Nurse Pathway</p>
-        </div>
-        <span className="rounded-full bg-emerald-400/20 border border-emerald-400/30 px-2.5 py-1 text-[10px] font-bold text-emerald-300 uppercase tracking-wide">
-          Active
-        </span>
-      </div>
-      <div className="space-y-2.5 mt-4">
-        {stages.map((stage, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <div className={[
-              'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold transition-all',
-              stage.done   ? 'bg-emerald-400 border-emerald-400 text-white' : '',
-              stage.active ? 'border-white text-white bg-white/20 ring-2 ring-white/30' : '',
-              !stage.done && !stage.active ? 'border-white/20 text-white/20' : '',
-            ].join(' ')}>
-              {stage.done ? '✓' : i + 1}
-            </div>
-            <span className={`text-sm leading-none ${stage.done ? 'text-white/60 line-through' : stage.active ? 'text-white font-semibold' : 'text-white/30'}`}>
-              {stage.label}
-            </span>
-            {stage.active && (
-              <span className="ml-auto text-[10px] font-bold text-amber-300 bg-amber-300/10 border border-amber-300/20 px-2 py-0.5 rounded-full">
-                In progress
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Main Login Page ──────────────────────────────────────────────────────────
 
 export default function LoginPage() {
@@ -388,7 +341,7 @@ export default function LoginPage() {
           </div>
 
           {/* Hero copy */}
-          <div className="relative space-y-7">
+          <div className="relative space-y-8">
             <div>
               <h1 className="text-[2rem] font-extrabold leading-tight tracking-tight">
                 Your licensing journey,<br />managed end to end.
@@ -398,10 +351,22 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Pipeline preview card */}
-            <PipelinePreview />
+            {/* Feature list */}
+            <div className="space-y-3">
+              {[
+                'Real-time pipeline status',
+                'Secure document vault',
+                'Exam prep & AI study assistant',
+                'Direct messaging with your consultant',
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-2.5 text-sm text-blue-100/90">
+                  <CheckCircle className="h-4 w-4 shrink-0 text-white/70" weight="fill" />
+                  {item}
+                </div>
+              ))}
+            </div>
 
-            {/* Trust stats */}
+            {/* Stats */}
             <div className="grid grid-cols-3 gap-3">
               {[
                 { value: '2,400+', label: 'Professionals' },
@@ -413,25 +378,6 @@ export default function LoginPage() {
                   <p className="text-[10px] font-medium text-white/50 mt-0.5">{stat.label}</p>
                 </div>
               ))}
-            </div>
-
-            {/* Testimonial */}
-            <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 px-4 py-3.5">
-              <p className="text-sm text-white/90 leading-relaxed italic">
-                "MJN handled everything — DataFlow, DHA exam prep, even the job offer. I was in Dubai in 7 months."
-              </p>
-              <div className="mt-2.5 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-white">
-                  AN
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-white">Aisha Nkomo</p>
-                  <p className="text-[10px] text-white/50">RN · Dubai, UAE</p>
-                </div>
-                <div className="ml-auto flex">
-                  {[0,1,2,3,4].map(i => <span key={i} className="text-amber-300 text-xs">★</span>)}
-                </div>
-              </div>
             </div>
           </div>
 
