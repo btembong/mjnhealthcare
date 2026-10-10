@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Param, Body, UseGuards, Query, Request, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Param, Body, UseGuards, Query, Request, BadRequestException, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
@@ -13,9 +13,15 @@ class UpdatePersonDto {
   @IsOptional() @IsEnum(['en', 'fr']) locale?: 'en' | 'fr';
 }
 
+const STAFF_ROLES = ['ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER', 'FINANCE', 'COMPLIANCE'];
+
+function isStaff(user: { role?: string }): boolean {
+  return STAFF_ROLES.includes((user?.role ?? '').toUpperCase());
+}
+
 @ApiTags('persons')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('persons')
 export class PersonController {
   constructor(private readonly personService: PersonService) {}
@@ -38,6 +44,7 @@ export class PersonController {
 
   @ApiQuery({ name: 'role', required: false })
   @ApiQuery({ name: 'locale', required: false })
+  @Roles(...STAFF_ROLES)
   @Get()
   findAll(@Query('role') role?: string, @Query('locale') locale?: string) {
     return this.personService.findAll({ role, locale });
@@ -101,12 +108,18 @@ export class PersonController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Request() req: any, @Param('id') id: string) {
+    if (req.user.id !== id && !isStaff(req.user)) {
+      throw new ForbiddenException('You can only view your own profile.');
+    }
     return this.personService.findById(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdatePersonDto) {
+  update(@Request() req: any, @Param('id') id: string, @Body() dto: UpdatePersonDto) {
+    if (req.user.id !== id && (req.user.role ?? '').toUpperCase() !== 'ADMIN') {
+      throw new ForbiddenException('You can only edit your own profile.');
+    }
     return this.personService.update(id, dto);
   }
 }
