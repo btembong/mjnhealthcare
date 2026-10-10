@@ -375,7 +375,7 @@ export default function BlogAdminPage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Blog & Articles</h1>
+            <h1 data-tour="page-title" className="text-xl font-bold text-foreground">Blog & Articles</h1>
             <p className="text-sm text-slate-500 mt-0.5">Write and publish articles for the marketing site</p>
           </div>
           <button onClick={() => setEditing('new')} className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors shrink-0 shadow-sm">
@@ -384,7 +384,7 @@ export default function BlogAdminPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div data-tour="blog-stats" className="grid grid-cols-3 gap-4">
           {[
             { label: 'Total', value: posts.length, active: filter === 'ALL', key: 'ALL' as const },
             { label: 'Published', value: publishedCount, active: filter === 'PUBLISHED', key: 'PUBLISHED' as const },
@@ -402,7 +402,7 @@ export default function BlogAdminPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <div data-tour="blog-table" className="rounded-xl border border-slate-200 bg-white overflow-hidden">
           {loading ? (
             <div className="py-16 text-center text-sm text-slate-400">Loading posts...</div>
           ) : filtered.length === 0 ? (

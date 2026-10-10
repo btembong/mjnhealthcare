@@ -132,7 +132,7 @@ export default function FinancePage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Finance Dashboard</h1>
+          <h1 data-tour="page-title" className="text-2xl font-bold text-foreground">Finance Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Revenue, outstanding payments, payouts, tax, and client ledger.</p>
         </div>
       </div>
@@ -153,7 +153,7 @@ export default function FinancePage() {
       ) : (
         <>
           {/* KPI strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div data-tour="fin-kpis" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {[
               { label: 'Total Revenue', value: fmt(data.summary.totalRevenue), icon: TrendUp,
                 delta: <DeltaBadge current={data.summary.thisMonthRevenue} previous={data.summary.lastMonthRevenue} /> },
@@ -182,7 +182,7 @@ export default function FinancePage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex overflow-x-auto gap-1 rounded-xl border border-border bg-muted/30 p-1 w-fit">
+          <div data-tour="fin-tabs" className="flex overflow-x-auto gap-1 rounded-xl border border-border bg-muted/30 p-1 w-fit">
             {TABS.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}

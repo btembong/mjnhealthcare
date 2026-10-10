@@ -147,7 +147,7 @@ export default function SessionsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 data-tour="page-title" className="text-2xl font-bold text-foreground">
             {role === 'CONSULTANT' ? 'My Sessions' : 'Consultation Sessions'}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -159,7 +159,7 @@ export default function SessionsPage() {
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div data-tour="sessions-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Upcoming', value: upcoming, icon: CalendarBlank, color: 'text-primary', bg: 'bg-primary/10' },
           { label: 'Confirmed', value: confirmed, icon: VideoCamera, color: 'text-primary', bg: 'bg-primary/10' },
@@ -179,7 +179,7 @@ export default function SessionsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div data-tour="sessions-filters" className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input

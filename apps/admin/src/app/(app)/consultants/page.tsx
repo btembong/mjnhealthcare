@@ -451,7 +451,7 @@ export default function ConsultantsPage() {
         />
 
         {/* Tabs */}
-        <div className="flex gap-1 rounded-xl border border-border bg-muted/30 p-1 w-fit">
+        <div data-tour="cons-tabs" className="flex gap-1 rounded-xl border border-border bg-muted/30 p-1 w-fit">
           {TABS.map(({ key, label, badge }) => (
             <button
               key={key}

@@ -89,7 +89,7 @@ export default function NewEngagementPage() {
       />
 
       {/* Step 1 — Select client */}
-      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+      <div data-tour="new-client" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-white text-xs font-bold">1</div>
           <div>
@@ -166,7 +166,7 @@ export default function NewEngagementPage() {
       </div>
 
       {/* Step 2 — Assign consultant (optional) */}
-      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+      <div data-tour="new-consultant" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-bold">2</div>
           <div>

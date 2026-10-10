@@ -100,7 +100,7 @@ export default function PartnersPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div data-tour="partners-stats" className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-2xl border border-border bg-white p-4 shadow-sm flex items-center gap-3">
             <div className="rounded-xl bg-primary/10 p-2.5"><Buildings className="h-5 w-5 text-primary" /></div>
             <div><p className="text-2xl font-bold">{partners.length}</p><p className="text-xs text-muted-foreground">Total Partners</p></div>
@@ -128,7 +128,7 @@ export default function PartnersPage() {
 
         {/* List */}
         {loading ? (
-          <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
+          <div data-tour="partners-list" className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-white p-12 text-center shadow-sm">
             <Buildings className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />

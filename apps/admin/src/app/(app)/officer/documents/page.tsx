@@ -43,7 +43,7 @@ export default function OfficerDocumentsPage() {
       <div className="flex items-center gap-3">
         <FileText className="h-6 w-6 text-primary" />
         <div>
-          <h1 className="text-xl font-bold">Documents</h1>
+          <h1 data-tour="page-title" className="text-xl font-bold">Documents</h1>
           <p className="text-xs text-muted-foreground">Documents belonging to your assigned cases</p>
         </div>
       </div>

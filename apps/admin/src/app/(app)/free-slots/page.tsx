@@ -126,7 +126,7 @@ export default function FreeSlotsPage() {
       <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
 
         {/* ── Add slots form ── */}
-        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+        <div data-tour="slots-form" className="rounded-2xl border border-border bg-white p-6 shadow-sm">
           <h3 className="mb-4 font-bold text-foreground">Add Availability</h3>
 
           {/* Consultant picker */}
@@ -228,7 +228,7 @@ export default function FreeSlotsPage() {
         </div>
 
         {/* ── Slots list ── */}
-        <div className="space-y-4">
+        <div data-tour="slots-list" className="space-y-4">
           {loading ? (
             <div className="flex justify-center py-16"><CircleNotch className="h-7 w-7 animate-spin text-primary" /></div>
           ) : slots.length === 0 ? (

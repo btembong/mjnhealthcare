@@ -44,7 +44,7 @@ export default function EscalationsInboxPage() {
       <div className="flex items-center gap-3">
         <Warning className="h-6 w-6 text-rose-500" />
         <div>
-          <h1 className="text-xl font-bold">Escalation Inbox</h1>
+          <h1 data-tour="page-title" className="text-xl font-bold">Escalation Inbox</h1>
           <p className="text-xs text-muted-foreground">Cases flagged by processing officers for your attention</p>
         </div>
       </div>

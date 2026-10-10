@@ -82,7 +82,7 @@ export default function EarningsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">
+        <h1 data-tour="page-title" className="text-2xl font-bold text-foreground">
           {isConsultant ? 'My Earnings' : 'Payout Queue'}
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -93,7 +93,7 @@ export default function EarningsPage() {
       </div>
 
       {/* KPI strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div data-tour="earn-kpis" className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Total earned', value: `$${totalEarned.toLocaleString()}`, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'Pending payout', value: `$${totalPending.toLocaleString()}`, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -114,7 +114,7 @@ export default function EarningsPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="space-y-3">
+        <div data-tour="earn-table" className="space-y-3">
           {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 rounded-2xl" />)}
         </div>
       ) : payouts.length === 0 ? (

@@ -35,7 +35,7 @@ export default function ClientsPage() {
       <PageHeader title="Clients" subtitle={`${filtered.length} of ${persons.length} candidates`} />
 
       {/* Search */}
-      <div className="relative max-w-sm">
+      <div data-tour="clients-search" className="relative max-w-sm">
         <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           value={search}

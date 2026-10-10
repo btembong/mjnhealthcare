@@ -328,7 +328,7 @@ export default function LeadsPage() {
           subtitle={`${activeLeads.length} active · ${lostLeads.length} lost · ${leads.filter((l) => l.status === 'CONVERTED').length} converted`}
         />
         {/* View toggle */}
-        <div className="mt-1 flex shrink-0 items-center rounded-xl border border-border bg-white p-1 shadow-sm">
+        <div data-tour="leads-view" className="mt-1 flex shrink-0 items-center rounded-xl border border-border bg-white p-1 shadow-sm">
           <button
             onClick={() => setView('kanban')}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${view === 'kanban' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:bg-muted/60'}`}
@@ -387,7 +387,7 @@ export default function LeadsPage() {
         /* ── LIST VIEW ── */
         <div className="space-y-3">
           {/* Filters bar */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div data-tour="leads-filters" className="flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-[200px] max-w-xs">
               <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input

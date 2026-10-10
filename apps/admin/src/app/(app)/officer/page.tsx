@@ -144,7 +144,7 @@ export default function OfficerDashboard() {
           <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-1">
             Processing Officer · {format(new Date(), 'EEEE, MMMM d, yyyy')}
           </p>
-          <h1 className="text-2xl font-bold text-slate-900">{greeting(staffName)}</h1>
+          <h1 data-tour="page-title" className="text-2xl font-bold text-slate-900">{greeting(staffName)}</h1>
           <p className="text-xs text-slate-500 mt-1">{urgencyLabel(stats)}</p>
         </div>
 
@@ -164,7 +164,7 @@ export default function OfficerDashboard() {
       </div>
 
       {/* ── KPI Cards ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="off-kpis" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Assigned Cases"    value={stats.totalCases}       icon={UsersThree}       primary />
         <KpiCard label="SLA Alerts"        value={stats.slaAlerts}        icon={Warning}          alert={stats.slaAlerts > 0}        sub={stats.slaAlerts > 0 ? 'Overdue next actions' : 'All on track'} />
         <KpiCard label="Open Escalations"  value={stats.openEscalations}  icon={ArrowSquareUpRight} alert={stats.openEscalations > 0} sub={stats.openEscalations > 0 ? 'Awaiting consultant' : 'None open'} />
@@ -172,7 +172,7 @@ export default function OfficerDashboard() {
       </div>
 
       {/* ── Quick Actions strip ─────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div data-tour="off-actions" className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <SectionLabel>Quick Actions</SectionLabel>
         <div className="flex flex-wrap gap-2 sm:ml-4">
           {[
@@ -239,7 +239,7 @@ export default function OfficerDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
         {/* My Caseload */}
-        <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden flex flex-col">
+        <div data-tour="off-caseload" className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div>
               <SectionLabel>My Caseload</SectionLabel>

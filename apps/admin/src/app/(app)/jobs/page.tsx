@@ -459,7 +459,7 @@ export default function JobsPage() {
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-1 rounded-2xl border border-border bg-muted/30 p-1 w-fit">
+        <div data-tour="jobs-tabs" className="flex gap-1 rounded-2xl border border-border bg-muted/30 p-1 w-fit">
           {([
             { id: 'opportunities', label: 'Opportunities', count: opportunities.length },
             { id: 'applications', label: 'Applications', count: totalApps },

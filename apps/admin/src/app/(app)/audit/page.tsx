@@ -74,7 +74,7 @@ export default function AuditLogPage() {
       />
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div data-tour="audit-filters" className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -110,7 +110,7 @@ export default function AuditLogPage() {
       </div>
 
       {/* Log table */}
-      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+      <div data-tour="audit-table" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-6 space-y-3">
             {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}

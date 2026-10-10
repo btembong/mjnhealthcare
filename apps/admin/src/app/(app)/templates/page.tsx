@@ -123,7 +123,7 @@ export default function TemplatesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Message Templates</h1>
+          <h1 data-tour="page-title" className="text-2xl font-bold text-foreground">Message Templates</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Shared templates for client communications — visible to all staff.
             {saving && <span className="ml-2 text-primary text-xs">Saving…</span>}
@@ -183,7 +183,7 @@ export default function TemplatesPage() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div data-tour="tpl-filters" className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -208,7 +208,7 @@ export default function TemplatesPage() {
 
       {/* Grid */}
       {loading ? (
-        <div className="flex justify-center py-16">
+        <div data-tour="tpl-grid" className="flex justify-center py-16">
           <CircleNotch className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : filtered.length === 0 ? (

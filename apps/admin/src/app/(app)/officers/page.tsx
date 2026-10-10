@@ -264,7 +264,7 @@ export default function OfficersPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Processing Officers</h1>
+          <h1 data-tour="page-title" className="text-2xl font-bold text-foreground">Processing Officers</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Manage back-office document processing staff</p>
         </div>
         <div className="flex gap-2">
@@ -284,7 +284,7 @@ export default function OfficersPage() {
       </div>
 
       {/* Stats bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div data-tour="officers-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Active Officers', value: activeOfficers.length, icon: User, color: 'text-primary', bg: 'bg-primary/10' },
           { label: 'Available Now', value: availableOfficers, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
@@ -316,7 +316,7 @@ export default function OfficersPage() {
       </div>
 
       {/* Active officers grid */}
-      <div>
+      <div data-tour="officers-grid">
         <h2 className="text-sm font-semibold text-foreground mb-3">
           Officers ({filteredActive.length}{search ? ` of ${activeOfficers.length}` : ''})
         </h2>

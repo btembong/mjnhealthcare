@@ -878,7 +878,7 @@ export default function CourseDetailPage() {
           ) : (
             <>
               <div className="flex items-center gap-3">
-                <h1 className="text-xl font-bold text-foreground truncate">{course.title}</h1>
+                <h1 data-tour="page-title" className="text-xl font-bold text-foreground truncate">{course.title}</h1>
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase ${course.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground'}`}>
                   {course.isPublished ? 'Published' : 'Draft'}
                 </span>
@@ -894,7 +894,7 @@ export default function CourseDetailPage() {
       {/* Tabs */}
       {!loading && !error && (
         <>
-          <div className="flex gap-1 rounded-xl border border-border bg-muted/30 p-1 w-fit">
+          <div data-tour="course-tabs" className="flex gap-1 rounded-xl border border-border bg-muted/30 p-1 w-fit">
             {TABS.map(({ key, label, icon: Icon }) => (
               <button key={key} onClick={() => setTab(key)}
                 className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${tab === key ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>

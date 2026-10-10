@@ -313,7 +313,7 @@ function ConsultantDashboard() {
       {/* Header */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">{greeting(staffName)}</h1>
+          <h1 data-tour="page-title" className="text-xl font-bold text-slate-900">{greeting(staffName)}</h1>
           <p className="text-xs text-slate-400 mt-0.5">{format(new Date(), 'EEEE, MMMM d, yyyy')} · {myCases.length} cases assigned</p>
         </div>
       </div>
@@ -353,7 +353,7 @@ function ConsultantDashboard() {
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="dash-kpis" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Active Cases"     value={active.length}         sub={`${myCases.length} total assigned`}         icon={Briefcase}     primary />
         <KpiCard label="Today's Sessions" value={todaySessions.length}  sub={`${upcomingSessions.length} upcoming total`} icon={CalendarBlank} />
         <KpiCard label="Pending Docs"     value={myPendingDocs.length}  sub={myPendingDocs.length > 0 ? 'needs review' : 'all clear'}          icon={FileText}      alert={myPendingDocs.length > 0} />
@@ -364,7 +364,7 @@ function ConsultantDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
         {/* Priority Inbox */}
-        <div className="lg:col-span-2 rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+        <div data-tour="dash-inbox" className="lg:col-span-2 rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col">
           <div className="px-5 pt-5 pb-4 border-b border-slate-100">
             <SectionLabel>Priority Inbox</SectionLabel>
             <div className="flex items-center gap-2 mt-3">
@@ -411,7 +411,7 @@ function ConsultantDashboard() {
         </div>
 
         {/* My Caseload */}
-        <div className="lg:col-span-3 rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+        <div data-tour="dash-caseload" className="lg:col-span-3 rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div>
               <SectionLabel>My Caseload</SectionLabel>
@@ -524,7 +524,7 @@ function ConsultantDashboard() {
         </div>
 
         {/* AI Drafts */}
-        <div className="rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+        <div data-tour="dash-drafts" className="rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
             <div>
               <SectionLabel>AI Drafts</SectionLabel>
@@ -618,7 +618,7 @@ function ComplianceDashboard() {
 
       {/* Header */}
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-bold text-slate-900">{greeting(staffName)}</h1>
+        <h1 data-tour="page-title" className="text-xl font-bold text-slate-900">{greeting(staffName)}</h1>
         <p className="text-xs text-slate-400">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
       </div>
 
@@ -634,14 +634,14 @@ function ComplianceDashboard() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div data-tour="dash-kpis" className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KpiCard label="Pending Documents" value={pendingDocs.length} sub={pendingDocs.length > 0 ? 'Awaiting verification' : 'Queue clear'} icon={FileText} alert={pendingDocs.length > 0} />
         <KpiCard label="On Hold Cases"     value={onHold.length}      sub={onHold.length > 0 ? 'Needs attention' : 'All clear'}             icon={Warning}  alert={onHold.length > 0} />
         <KpiCard label="Total Engagements" value={engagements.length}  sub="Across all consultants"                                           icon={Briefcase} primary />
       </div>
 
       {/* Doc queue + On hold */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div data-tour="dash-queue" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div>
@@ -811,7 +811,7 @@ function AdminDashboard() {
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">{greeting(staffName)}</h1>
+          <h1 data-tour="page-title" className="text-xl font-bold text-slate-900">{greeting(staffName)}</h1>
           <p className="text-xs text-slate-400 mt-0.5">Here's what's happening across your caseload</p>
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm self-start sm:self-auto">
@@ -824,7 +824,7 @@ function AdminDashboard() {
       </div>
 
       {/* ── KPI Row ─────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="dash-kpis" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label="Active Cases"
           value={activeEngagements}
@@ -854,7 +854,7 @@ function AdminDashboard() {
       </div>
 
       {/* ── Quick Actions strip ──────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div data-tour="dash-actions" className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 shrink-0 sm:w-28">Quick Actions</p>
         <div className="flex flex-wrap gap-2">
           <QA icon={Plus}            label="New Case"  onClick={() => router.push('/caseload/new')} primary />
@@ -902,7 +902,7 @@ function AdminDashboard() {
         </div>
 
         {/* Priority Inbox */}
-        <div className="lg:col-span-2 rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+        <div data-tour="dash-inbox" className="lg:col-span-2 rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col">
           <div className="px-5 pt-5 pb-4 border-b border-slate-100">
             <SectionLabel>Priority Inbox</SectionLabel>
             <div className="flex items-center gap-2 mt-3 flex-wrap">
@@ -935,7 +935,7 @@ function AdminDashboard() {
       </div>
 
       {/* ── Client Pipeline ──────────────────────────────────────────────────── */}
-      <div className="rounded-xl bg-white border border-slate-100 shadow-sm p-6">
+      <div data-tour="dash-pipeline" className="rounded-xl bg-white border border-slate-100 shadow-sm p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
             <SectionLabel>Client Pipeline</SectionLabel>
@@ -1073,7 +1073,7 @@ function AdminDashboard() {
         </div>
 
         {/* AI Drafts */}
-        <div className="rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+        <div data-tour="dash-drafts" className="rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
             <div>
               <SectionLabel>AI Drafts</SectionLabel>

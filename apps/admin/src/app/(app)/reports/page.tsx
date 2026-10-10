@@ -205,7 +205,7 @@ export default function ReportsPage() {
       </div>
 
       {/* ── KPI strip ─────────────────────────────────────────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div data-tour="rep-kpis" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           icon={CurrencyDollar}
           label="Revenue this month"
@@ -239,7 +239,7 @@ export default function ReportsPage() {
       </div>
 
       {/* ── Charts row 1 ──────────────────────────────────────────────────────── */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div data-tour="rep-revenue" className="grid gap-5 lg:grid-cols-2">
         {/* Revenue over time */}
         <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
           <p className="mb-4 text-sm font-bold text-foreground">Monthly Revenue</p>
@@ -337,7 +337,7 @@ export default function ReportsPage() {
       </div>
 
       {/* ── Pipeline + clients ────────────────────────────────────────────────── */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div data-tour="rep-pipeline" className="grid gap-5 lg:grid-cols-2">
         {/* Pipeline funnel */}
         <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
           <p className="mb-4 text-sm font-bold text-foreground">Engagement Pipeline</p>

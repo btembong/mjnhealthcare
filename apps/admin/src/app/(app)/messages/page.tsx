@@ -119,11 +119,11 @@ export default function MessagesPage() {
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
 
       {/* ── Left panel: conversation list ── */}
-      <div className={`flex w-full flex-col border-r border-border md:w-80 lg:w-96 shrink-0 ${selectedId ? 'hidden md:flex' : 'flex'}`}>
+      <div data-tour="msg-list" className={`flex w-full flex-col border-r border-border md:w-80 lg:w-96 shrink-0 ${selectedId ? 'hidden md:flex' : 'flex'}`}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
           <div>
-            <h1 className="text-base font-bold text-foreground">Messages</h1>
+            <h1 data-tour="page-title" className="text-base font-bold text-foreground">Messages</h1>
             <p className="text-xs text-muted-foreground">{cases.length} conversation{cases.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
@@ -196,7 +196,7 @@ export default function MessagesPage() {
       </div>
 
       {/* ── Right panel: chat ── */}
-      <div className={`flex flex-1 flex-col ${selectedId ? 'flex' : 'hidden md:flex'}`}>
+      <div data-tour="msg-chat" className={`flex flex-1 flex-col ${selectedId ? 'flex' : 'hidden md:flex'}`}>
         {!selectedId ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center px-8">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">

@@ -495,7 +495,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* ── Stats bar ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div data-tour="pay-stats" className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {statsLoading ? (
           [...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)
         ) : (
@@ -529,7 +529,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* ── Filters ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div data-tour="pay-filters" className="flex flex-wrap items-center gap-3">
         <div className="relative">
           <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
@@ -586,7 +586,7 @@ export default function PaymentsPage() {
 
       {/* ── Table ──────────────────────────────────────────────────────────── */}
       {loading ? (
-        <div className="space-y-3">
+        <div data-tour="pay-table" className="space-y-3">
           {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-16 rounded-2xl" />)}
         </div>
       ) : payments.length === 0 ? (

@@ -102,7 +102,7 @@ export default function OfficerCaseDetailPage() {
             {person?.name?.slice(0, 2).toUpperCase() ?? '??'}
           </div>
           <div>
-            <h1 className="text-lg font-bold text-foreground">{person?.name}</h1>
+            <h1 data-tour="page-title" className="text-lg font-bold text-foreground">{person?.name}</h1>
             <p className="text-xs text-muted-foreground">{person?.email} · {person?.profession}</p>
           </div>
         </div>
@@ -126,7 +126,7 @@ export default function OfficerCaseDetailPage() {
         {/* Left: milestones + tracking */}
         <div className="lg:col-span-2 space-y-5">
           {/* Milestones */}
-          <Card className="p-5">
+          <Card data-tour="ocase-milestones" className="p-5">
             <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-primary" /> Milestones
             </h2>
@@ -150,7 +150,7 @@ export default function OfficerCaseDetailPage() {
           </Card>
 
           {/* Application Tracking */}
-          <Card className="p-5">
+          <Card data-tour="ocase-tracking" className="p-5">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <ArrowSquareUpRight className="h-4 w-4 text-primary" /> Application Tracking
@@ -181,7 +181,7 @@ export default function OfficerCaseDetailPage() {
           </Card>
 
           {/* Send Form to Client */}
-          <Card className="p-5">
+          <Card data-tour="ocase-sendform" className="p-5">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <PaperPlaneRight className="h-4 w-4 text-primary" /> Forms Sent to Client
@@ -305,7 +305,7 @@ export default function OfficerCaseDetailPage() {
           )}
 
           {/* Case Notes */}
-          <Card className="p-5">
+          <Card data-tour="ocase-notes" className="p-5">
             <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
               <Note className="h-4 w-4 text-primary" /> Case Notes
             </h2>

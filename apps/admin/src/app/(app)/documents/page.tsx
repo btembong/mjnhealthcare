@@ -420,7 +420,7 @@ export default function DocumentsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Document Verification</h1>
+          <h1 data-tour="page-title" className="text-xl font-bold text-slate-900">Document Verification</h1>
           <p className="text-xs text-slate-400 mt-0.5">Review, verify, and manage all client-uploaded credentials</p>
         </div>
         <button onClick={() => load()}
@@ -430,7 +430,7 @@ export default function DocumentsPage() {
       </div>
 
       {/* KPI bar — monochrome */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div data-tour="docs-kpis" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { icon: Clock,         value: pending,      label: 'Pending Review', primary: true  },
           { icon: ShieldCheck,   value: verified,     label: 'Verified',       primary: false },
@@ -450,7 +450,7 @@ export default function DocumentsPage() {
       </div>
 
       {/* Tabs + Filters */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div data-tour="docs-filters" className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
           {TABS.map((t) => (
             <button key={t.key} onClick={() => { setTab(t.key); setSearch(''); setTypeFilter(''); setSortKey('uploaded'); setSortDir('desc'); }}
@@ -494,7 +494,7 @@ export default function DocumentsPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="space-y-2">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}</div>
+        <div data-tour="docs-table" className="space-y-2">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}</div>
       ) : sorted.length === 0 ? (
         <div className="rounded-xl border border-slate-100 bg-white p-14 text-center shadow-sm">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100">

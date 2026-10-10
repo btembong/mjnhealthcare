@@ -264,7 +264,7 @@ export default function PathwaysPage() {
       />
 
       {/* Filter + stats */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-tour="path-filters" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <input
           type="text"
           placeholder="Filter by country, body, or profession…"

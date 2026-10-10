@@ -136,12 +136,12 @@ export default function ReferralsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Referrals & Credits</h1>
+        <h1 data-tour="page-title" className="text-2xl font-bold text-foreground">Referrals & Credits</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Manage referral codes, credit wallets, and manual adjustments.</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div data-tour="ref-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Total Codes', value: codes.length, icon: Gift, color: 'text-primary', bg: 'bg-primary/8' },
           { label: 'Successful Referrals', value: totalUses, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
@@ -161,7 +161,7 @@ export default function ReferralsPage() {
       </div>
 
       {/* Tabs + search */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div data-tour="ref-tabs" className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex rounded-xl border border-border bg-white overflow-hidden shadow-sm">
           {(['codes', 'wallets', 'affiliates'] as const).map((t) => (
             <button

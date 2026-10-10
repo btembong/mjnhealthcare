@@ -87,7 +87,7 @@ export default function DraftsPage() {
       )}
 
       {/* Guardrail notice */}
-      <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-700">
+      <div data-tour="drafts-rule" className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-700">
         <strong>Review requirement:</strong> All AI-drafted communications touching licensing, visa, or exam content must be reviewed and approved by an authorised consultant before sending. This is enforced in code — approved drafts are flagged with your ID and timestamp.
       </div>
 

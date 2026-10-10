@@ -540,7 +540,7 @@ export default function AdminTicketsPage() {
       {/* Page header */}
       <div className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Support Tickets</h1>
+          <h1 data-tour="page-title" className="text-xl font-bold text-foreground">Support Tickets</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Client support requests · manage and respond</p>
         </div>
         {stats.needsReply > 0 && (
@@ -552,7 +552,7 @@ export default function AdminTicketsPage() {
       </div>
 
       {/* Stat bar (clickable filters) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
+      <div data-tour="tix-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
         <StatCard label="Open"        value={stats.open}       color="bg-blue-400"    active={statusFilter === 'OPEN'}        onClick={() => setStatusFilter(statusFilter === 'OPEN'        ? '' : 'OPEN')} />
         <StatCard label="In Progress" value={stats.inProgress} color="bg-amber-400"   active={statusFilter === 'IN_PROGRESS'} onClick={() => setStatusFilter(statusFilter === 'IN_PROGRESS' ? '' : 'IN_PROGRESS')} />
         <StatCard label="Resolved"    value={stats.resolved}   color="bg-emerald-400" active={statusFilter === 'RESOLVED'}    onClick={() => setStatusFilter(statusFilter === 'RESOLVED'    ? '' : 'RESOLVED')} />
@@ -608,7 +608,7 @@ export default function AdminTicketsPage() {
       <div className="flex flex-1 overflow-hidden rounded-2xl border border-border shadow-sm min-h-0">
 
         {/* Left: ticket list */}
-        <div className={`${selected ? 'hidden lg:flex' : 'flex'} flex-col w-full lg:w-80 xl:w-96 shrink-0 border-r border-border bg-white overflow-hidden`}>
+        <div data-tour="tix-list" className={`${selected ? 'hidden lg:flex' : 'flex'} flex-col w-full lg:w-80 xl:w-96 shrink-0 border-r border-border bg-white overflow-hidden`}>
 
           {loading ? (
             <div className="p-4 space-y-3">
@@ -645,7 +645,7 @@ export default function AdminTicketsPage() {
         </div>
 
         {/* Right: thread panel */}
-        <div className={`${selected ? 'flex' : 'hidden lg:flex'} flex-1 flex-col overflow-hidden`}>
+        <div data-tour="tix-thread" className={`${selected ? 'flex' : 'hidden lg:flex'} flex-1 flex-col overflow-hidden`}>
           {selected ? (
             <ThreadPanel
               ticket={selected}

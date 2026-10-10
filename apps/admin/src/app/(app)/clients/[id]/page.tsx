@@ -87,7 +87,7 @@ export default function ClientProfilePage() {
       </div>
 
       {/* Identity card */}
-      <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+      <div data-tour="client-identity" className="rounded-2xl border border-border bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-start gap-5">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-xl font-bold text-primary">
             {initials}
@@ -132,7 +132,7 @@ export default function ClientProfilePage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Engagements */}
-        <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+        <div data-tour="client-engagements" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
           <div className="flex items-center gap-2 border-b border-border px-5 py-4">
             <CalendarCheck className="h-4 w-4 text-primary" />
             <p className="font-bold text-foreground">Engagements</p>
@@ -161,7 +161,7 @@ export default function ClientProfilePage() {
         </div>
 
         {/* Documents */}
-        <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+        <div data-tour="client-documents" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
           <div className="flex items-center gap-2 border-b border-border px-5 py-4">
             <FileText className="h-4 w-4 text-primary" />
             <p className="font-bold text-foreground">Documents</p>

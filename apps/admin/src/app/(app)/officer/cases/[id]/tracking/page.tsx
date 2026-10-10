@@ -71,14 +71,14 @@ export default function TrackingPage() {
       <div className="flex items-center gap-3">
         <ArrowSquareUpRight className="h-6 w-6 text-primary" />
         <div>
-          <h1 className="text-xl font-bold">Application Tracking</h1>
+          <h1 data-tour="page-title" className="text-xl font-bold">Application Tracking</h1>
           <Link href={`/officer/cases/${id}`} className="text-xs text-primary hover:underline">← Back to case</Link>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Add form */}
-        <Card className="p-5">
+        <Card data-tour="track-form" className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold">{editingId ? 'Edit Entry' : 'Add Submission Entry'}</h2>
             {editingId && (
@@ -160,7 +160,7 @@ export default function TrackingPage() {
         </Card>
 
         {/* History */}
-        <Card className="p-5">
+        <Card data-tour="track-history" className="p-5">
           <h2 className="text-sm font-bold mb-4">Submission History</h2>
           {loading ? (
             <div className="space-y-2">

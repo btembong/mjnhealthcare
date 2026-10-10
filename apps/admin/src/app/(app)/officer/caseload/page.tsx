@@ -31,7 +31,7 @@ export default function OfficerCaseloadPage() {
       <div className="flex items-center gap-3">
         <UsersThree className="h-6 w-6 text-primary" />
         <div>
-          <h1 className="text-xl font-bold text-foreground">My Caseload</h1>
+          <h1 data-tour="page-title" className="text-xl font-bold text-foreground">My Caseload</h1>
           <p className="text-xs text-muted-foreground">Cases assigned to you for document processing</p>
         </div>
       </div>

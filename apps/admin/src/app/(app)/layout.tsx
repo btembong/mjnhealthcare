@@ -258,7 +258,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
               tours={TOURS}
               labels={TOUR_LABELS}
               welcomeKey={welcomeKeyForRole(role)}
-              pageKey={tourKeyForPath(pathname)}
+              pageKey={tourKeyForPath(pathname, role)}
               completed={me ? me.completedTours ?? [] : null}
               onComplete={(key) => { api.completeTour(key).catch(() => {}); }}
               ready={!loading}

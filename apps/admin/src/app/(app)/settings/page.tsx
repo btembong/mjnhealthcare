@@ -602,7 +602,7 @@ export default function SettingsPage() {
       <PageHeader title="Settings" subtitle="Manage your account, staff, and system configuration." />
 
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-2xl border border-border bg-muted/30 p-1">
+      <div data-tour="settings-tabs" className="flex gap-1 rounded-2xl border border-border bg-muted/30 p-1">
         {visibleTabs.map((t) => {
           const Icon = t.icon;
           return (

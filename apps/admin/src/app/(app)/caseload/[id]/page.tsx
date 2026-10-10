@@ -415,7 +415,7 @@ export default function CaseDetailPage() {
   return (
     <div className="space-y-5">
       {/* Back + header */}
-      <div className="flex items-center gap-3">
+      <div data-tour="case-header" className="flex items-center gap-3">
         <button
           onClick={() => router.back()}
           className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors shadow-sm"
@@ -423,7 +423,7 @@ export default function CaseDetailPage() {
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <div>
-          <h1 className="text-xl font-bold text-foreground">{person.name ?? 'Case Detail'}</h1>
+          <h1 data-tour="page-title" className="text-xl font-bold text-foreground">{person.name ?? 'Case Detail'}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Engagement · {id.slice(0, 8)}…</p>
         </div>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
@@ -592,7 +592,7 @@ export default function CaseDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
         {/* Client profile */}
-        <div className="rounded-2xl border border-border bg-white shadow-sm p-5 space-y-4">
+        <div data-tour="case-profile" className="rounded-2xl border border-border bg-white shadow-sm p-5 space-y-4">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-lg font-bold text-white">
               {(person.name ?? 'UN').slice(0, 2).toUpperCase()}
@@ -630,7 +630,7 @@ export default function CaseDetailPage() {
         </div>
 
         {/* Engagement detail */}
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+        <div data-tour="case-engagement" className="lg:col-span-2 rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
           <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center justify-between">
             <p className="font-semibold text-foreground text-sm">Engagement</p>
             <span className="text-xs text-muted-foreground">
@@ -755,7 +755,7 @@ export default function CaseDetailPage() {
       </div>
 
       {/* Milestones */}
-      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+      <div data-tour="case-milestones" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
         <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center justify-between">
           <p className="font-semibold text-foreground text-sm">Milestones</p>
           <button
@@ -831,7 +831,7 @@ export default function CaseDetailPage() {
       </div>
 
       {/* Orders / payments */}
-      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+      <div data-tour="case-orders" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
         <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center justify-between">
           <p className="font-semibold text-foreground text-sm">Payments</p>
           <div className="flex items-center gap-4 text-xs">
@@ -1105,7 +1105,7 @@ export default function CaseDetailPage() {
       })()}
 
       {/* ── Officer Activity ───────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+      <div data-tour="case-officer" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
         <button
           onClick={() => {
             const next = !activityOpen;
@@ -1207,7 +1207,7 @@ export default function CaseDetailPage() {
       </div>
 
       {/* ── Messages (WhatsApp-style) ─────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden flex flex-col" style={{ height: 580 }}>
+      <div data-tour="case-messages" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden flex flex-col" style={{ height: 580 }}>
 
         {/* Chat header */}
         <div className="shrink-0 flex items-center gap-3 border-b border-border bg-[#0F4C81] px-5 py-3.5">

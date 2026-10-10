@@ -24,7 +24,7 @@ export default function OfficerEscalationsPage() {
       <div className="flex items-center gap-3">
         <Warning className="h-6 w-6 text-rose-500" />
         <div>
-          <h1 className="text-xl font-bold">My Escalations</h1>
+          <h1 data-tour="page-title" className="text-xl font-bold">My Escalations</h1>
           <p className="text-xs text-muted-foreground">Cases you have escalated to a consultant</p>
         </div>
       </div>
