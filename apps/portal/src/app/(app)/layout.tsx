@@ -1,6 +1,6 @@
 'use client';
 
-import { AppShell, Skeleton } from '@mjn/ui';
+import { AppShell, Skeleton, TourHelp } from '@mjn/ui';
 import {
   SquaresFour, FileText, CreditCard, BookOpen, CalendarBlank,
   GearSix, SignOut, Bell, MagnifyingGlass, UploadSimple,
@@ -10,7 +10,9 @@ import {
 } from '@mjn/ui';
 import { UserProvider, useUser } from '../../contexts/user-context';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { api } from '../../lib/api';
+import { getTours, getTourLabels, tourKeyForPath, SUPPORT_LABEL, WELCOME_TOUR } from '../../lib/tours';
 
 // ── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -184,6 +186,8 @@ function ShellSkeleton() {
 
 function PortalShell({ children }: { children: React.ReactNode }) {
   const { me, documents, orders, engagement, loading, signOut } = useUser();
+  const pathname = usePathname();
+  const tourLocale = me?.locale === 'fr' ? 'fr' : 'en';
 
   const rejectedDocs = documents.filter((d) => d.status === 'REJECTED').length;
   const expiringDocs = documents.filter((d) => {
@@ -232,6 +236,17 @@ function PortalShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <TourHelp
+              tours={getTours(tourLocale)}
+              labels={getTourLabels(tourLocale)}
+              welcomeKey={WELCOME_TOUR}
+              pageKey={tourKeyForPath(pathname)}
+              completed={me ? me.completedTours ?? [] : null}
+              onComplete={(key) => { api.completeTour(key).catch(() => {}); }}
+              ready={!loading}
+              storageKey={`mjn_tours_${me?.id ?? 'anon'}`}
+              support={{ label: SUPPORT_LABEL[tourLocale], href: '/messages' }}
+            />
             <NotificationBell count={alertCount} />
             <div className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-xs font-bold text-white shadow-sm">

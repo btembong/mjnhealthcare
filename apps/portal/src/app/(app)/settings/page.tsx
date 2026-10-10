@@ -107,7 +107,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Profile form */}
-      <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+      <div data-tour="settings-profile" className="rounded-2xl border border-border bg-white p-6 shadow-sm">
         <h3 className="mb-5 font-semibold text-foreground">Profile Information</h3>
 
         <form onSubmit={handleSave} className="space-y-4">
@@ -224,7 +224,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Notification preferences */}
-      <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+      <div data-tour="settings-notifications" className="rounded-2xl border border-border bg-white p-6 shadow-sm">
         <div className="mb-5 flex items-center gap-2">
           <Bell className="h-5 w-5 text-primary" />
           <h3 className="font-semibold text-foreground">Notification Preferences</h3>

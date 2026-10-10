@@ -55,6 +55,18 @@ export class PersonService {
     return this.db.person.update({ where: { id }, data: data as any });
   }
 
+  async completeTour(id: string, key: string) {
+    const person = (await this.db.person.findUnique({
+      where: { id },
+      select: { completedTours: true } as any,
+    })) as { completedTours?: string[] } | null;
+    const done = person?.completedTours ?? [];
+    if (done.includes(key) || done.length >= 200) return { completedTours: done };
+    const completedTours = [...done, key];
+    await this.db.person.update({ where: { id }, data: { completedTours } as any });
+    return { completedTours };
+  }
+
   async updateRole(id: string, role: string) {
     return this.db.person.update({ where: { id }, data: { role: role as any } });
   }

@@ -87,6 +87,9 @@ export const api = {
   // ── Persons ─────────────────────────────────────────────────────────────
   getMe: () => request<any>('/persons/me'),
 
+  completeTour: (key: string) =>
+    request<{ completedTours: string[] }>(`/persons/me/tours/${encodeURIComponent(key)}`, { method: 'POST' }),
+
   updateMe: (data: { name?: string; email?: string }) =>
     request<any>('/persons/me', { method: 'PATCH', body: JSON.stringify(data) }),
 

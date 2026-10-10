@@ -1,6 +1,6 @@
 'use client';
 
-import { AppShell, Skeleton } from '@mjn/ui';
+import { AppShell, Skeleton, TourHelp } from '@mjn/ui';
 import {
   UsersThree, FileText, Robot, BookOpen, UsersFour, Briefcase,
   ChartLineUp, SignOut, User, Tag, CalendarBlank, CurrencyDollar,
@@ -13,6 +13,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { AdminProvider, useAdmin } from '../../contexts/admin-context';
 import { NotificationBell } from '../../components/notification-bell';
+import { api } from '../../lib/api';
+import { TOURS, TOUR_LABELS, tourKeyForPath, welcomeKeyForRole } from '../../lib/tours';
 
 // ── Role-gated sidebar sections ───────────────────────────────────────────────
 
@@ -252,6 +254,16 @@ function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-3 ml-auto">
+            <TourHelp
+              tours={TOURS}
+              labels={TOUR_LABELS}
+              welcomeKey={welcomeKeyForRole(role)}
+              pageKey={tourKeyForPath(pathname)}
+              completed={me ? me.completedTours ?? [] : null}
+              onComplete={(key) => { api.completeTour(key).catch(() => {}); }}
+              ready={!loading}
+              storageKey={`mjn_admin_tours_${me?.id ?? 'anon'}`}
+            />
             <NotificationBell />
             {/* Role badge */}
             <span className="hidden sm:inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600 ring-1 ring-slate-200">

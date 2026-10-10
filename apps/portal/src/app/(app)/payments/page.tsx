@@ -398,7 +398,7 @@ export default function PaymentsPage() {
 
           {/* Outstanding payment banner */}
           {dueOrder ? (
-            <div className="relative overflow-hidden rounded-2xl border border-border bg-white p-5 shadow-sm">
+            <div data-tour="pay-due" className="relative overflow-hidden rounded-2xl border border-border bg-white p-5 shadow-sm">
               <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-primary/5" />
               <div className="relative">
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -479,7 +479,7 @@ export default function PaymentsPage() {
           ) : null}
 
           {/* Stat cards */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div data-tour="pay-stats" className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-border bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
                 <div>
@@ -540,7 +540,7 @@ export default function PaymentsPage() {
 
           {/* Service plan */}
           {servicePlan && servicePlan.stages?.length > 0 && (
-            <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+            <div data-tour="pay-plan" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
               <div className="border-b border-border bg-muted/20 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <TrendUp className="h-5 w-5 text-primary" />
@@ -637,7 +637,7 @@ export default function PaymentsPage() {
           )}
 
           {/* Invoice history */}
-          <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+          <div data-tour="pay-invoices" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
             <div className="border-b border-border bg-muted/20 px-6 py-4 flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-foreground">Invoice History</h3>

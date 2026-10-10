@@ -245,7 +245,7 @@ function HeroHeader({
   ];
 
   return (
-    <div className="rounded-2xl border border-border bg-white shadow-sm">
+    <div data-tour="dash-hero" className="rounded-2xl border border-border bg-white shadow-sm">
       <div className="p-6">
         {/* Who and what */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -359,7 +359,7 @@ function PipelineRail({ engagement, progress, milestones, onNavigate, onMessage 
   engagement: any; progress: any; milestones: any[]; onNavigate: (p: string) => void; onMessage: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-white shadow-md overflow-hidden">
+    <div data-tour="dash-pipeline" className="rounded-2xl border border-border bg-white shadow-md overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
@@ -1233,7 +1233,7 @@ export default function PortalDashboard() {
         </div>
 
         {/* ── Right rail ── */}
-        <aside className="w-full shrink-0 xl:w-80">
+        <aside data-tour="dash-rail" className="w-full shrink-0 xl:w-80">
           <div className="xl:sticky xl:top-6 xl:-m-1 xl:max-h-[calc(100vh-3rem)] xl:overflow-y-auto xl:p-1">
             <RightRail
               consultant={consultant}

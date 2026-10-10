@@ -11,11 +11,11 @@ type PageHeaderProps = {
 export function PageHeader({ title, subtitle, actions, className }: PageHeaderProps) {
   return (
     <div className={cn('flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between', className)}>
-      <div>
+      <div data-tour="page-header">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
         {subtitle && <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
-      {actions && <div className="flex items-center gap-3">{actions}</div>}
+      {actions && <div data-tour="page-actions" className="flex items-center gap-3">{actions}</div>}
     </div>
   );
 }

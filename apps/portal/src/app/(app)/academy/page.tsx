@@ -823,7 +823,7 @@ export default function AcademyPage() {
           })()}
 
           {/* ── Stat strip ───────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div data-tour="academy-stats" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               { icon: BookOpen, value: courses.length, label: 'Courses', color: 'text-primary', bg: 'bg-primary/10' },
               { icon: Medal, value: enrolledCourses.length, label: 'Enrolled', color: 'text-primary', bg: 'bg-primary/10' },
@@ -878,7 +878,7 @@ export default function AcademyPage() {
           )}
 
           {/* ── Tabs ─────────────────────────────────────────────────── */}
-          <div className="flex gap-1 rounded-xl border border-border bg-muted/30 p-1 w-fit">
+          <div data-tour="academy-tabs" className="flex gap-1 rounded-xl border border-border bg-muted/30 p-1 w-fit">
             {([
               { key: 'courses' as const, label: 'Courses', icon: BookOpen },
               { key: 'plan' as const, label: 'Study Plan', icon: ListChecks, count: planRemaining > 0 ? planRemaining : null },
@@ -1210,7 +1210,7 @@ export default function AcademyPage() {
         </div>
 
         {/* ── RIGHT: AI Study Assistant (desktop only) ──────────────── */}
-        <aside className="hidden xl:block w-[340px] shrink-0">
+        <aside data-tour="academy-assistant" className="hidden xl:block w-[340px] shrink-0">
           {me && (
             <StudyAssistantPanel
               personId={me.id}

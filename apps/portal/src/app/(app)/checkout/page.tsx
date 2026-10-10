@@ -586,7 +586,7 @@ export default function CheckoutPage() {
       )}
 
       {/* ── Step indicator ────────────────────────────────────────────── */}
-      <div className="flex items-center">
+      <div data-tour="checkout-steps" className="flex items-center">
         {STEPS.map(({ label }, i) => (
           <div key={label} className="flex items-center">
             <button
@@ -618,7 +618,7 @@ export default function CheckoutPage() {
 
       {/* ── Two-column layout ─────────────────────────────────────────── */}
       <div className="flex gap-6 items-start">
-        <div className="flex-1 min-w-0">
+        <div data-tour="checkout-main" className="flex-1 min-w-0">
 
           {/* ── Step 0: Select services ──────────────────────────────────── */}
           {step === 0 && (

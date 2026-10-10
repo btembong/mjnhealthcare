@@ -325,7 +325,7 @@ export default function BookingsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div data-tour="bookings-header" className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader
           title="Bookings"
           subtitle="Your scheduled sessions with your consultant and academy classes."
@@ -453,7 +453,7 @@ export default function BookingsPage() {
           </div>
 
           {/* Tabs + list */}
-          <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+          <div data-tour="bookings-list" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
             <div className="flex border-b border-border px-6">
               {(['upcoming', 'past'] as const).map((t) => (
                 <button

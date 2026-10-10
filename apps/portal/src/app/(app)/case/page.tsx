@@ -623,7 +623,7 @@ function CaseStatusBot({ personId, engagementId, name }: { personId: string; eng
   return (
     <>
       {/* Floating trigger */}
-      <button
+      <button data-tour="case-bot"
         onClick={() => setOpen((o) => !o)}
         className="fixed bottom-6 right-6 z-50 flex h-13 w-13 items-center justify-center rounded-full shadow-xl transition-all hover:scale-105 active:scale-95"
         style={{ height: 52, width: 52, background: 'linear-gradient(135deg, #0F4C81 0%, #00A896 100%)', boxShadow: '0 8px 24px rgba(15,76,129,0.35)' }}
@@ -762,7 +762,7 @@ export default function CasePage() {
       )}
 
       {/* Page title */}
-      <div className="flex items-start justify-between gap-4">
+      <div data-tour="case-title" className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-foreground">My Case</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Track your licensing journey and stay up to date with your consultant.</p>
@@ -832,7 +832,7 @@ export default function CasePage() {
             <div className="flex-1 min-w-0 space-y-5">
 
               {/* Engagement letter */}
-              <div className={`rounded-2xl border p-6 shadow-sm ${
+              <div data-tour="case-letter" className={`rounded-2xl border p-6 shadow-sm ${
                 engagement.letterSignedAt
                   ? 'border-primary/20 bg-primary/5'
                   : 'border-amber-200 bg-amber-50/60'
@@ -960,7 +960,7 @@ export default function CasePage() {
               </div>
 
               {/* Licensing Pipeline */}
-              <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+              <div data-tour="case-pipeline" className="rounded-2xl border border-border bg-white p-6 shadow-sm">
                 <div className="mb-6 flex items-center gap-2">
                   <TrendUp className="h-5 w-5 text-primary" />
                   <h3 className="font-semibold text-foreground">Licensing Pipeline</h3>

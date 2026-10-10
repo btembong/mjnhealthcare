@@ -103,6 +103,7 @@ export function Sidebar({ logo, sections, footer, accent = 'primary', onClose, c
                     <Link
                       href={item.href}
                       onClick={onClose}
+                      data-tour={`nav:${item.href}`}
                       title={collapsed ? item.label : undefined}
                       className={cn(
                         'group flex items-center rounded-xl text-sm font-medium transition-all',

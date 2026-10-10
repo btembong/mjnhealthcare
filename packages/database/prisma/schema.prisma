@@ -117,6 +117,7 @@ model Person {
   role         PersonRole @default(CANDIDATE)
   isActive     Boolean    @default(true)
   isAvailable  Boolean    @default(true)
+  completedTours String[] @default([])
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

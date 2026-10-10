@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Body, UseGuards, Query, Request, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Param, Body, UseGuards, Query, Request, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
@@ -28,6 +28,12 @@ export class PersonController {
   @Patch('me')
   updateMe(@Request() req: any, @Body() dto: UpdatePersonDto) {
     return this.personService.update(req.user.id, dto);
+  }
+
+  @Post('me/tours/:key')
+  completeTour(@Request() req: any, @Param('key') key: string) {
+    if (!/^[a-z0-9._-]{1,64}$/.test(key)) throw new BadRequestException('Invalid tour key.');
+    return this.personService.completeTour(req.user.id, key);
   }
 
   @ApiQuery({ name: 'role', required: false })

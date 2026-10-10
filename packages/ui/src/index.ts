@@ -46,6 +46,8 @@ export { EmptyState } from './components/empty-state';
 export { ConfirmDialog } from './components/confirm-dialog';
 export { SlideDrawer } from './components/slide-drawer';
 export { DataTable } from './components/data-table';
+export { TourHelp } from './components/tour';
+export type { TourStep, TourDef, TourLabels } from './components/tour';
 export type { Column } from './components/data-table';
 
 // ── Utilities ─────────────────────────────────────────────────────────────────

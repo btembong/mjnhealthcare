@@ -708,7 +708,7 @@ export default function DocumentsPage() {
 
           {/* Stage-required docs checklist */}
           {stageRequiredDocs.length > 0 && (
-            <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+            <div data-tour="docs-checklist" className="rounded-2xl border border-border bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10">
                   <CheckCircle weight="fill" className="h-4 w-4 text-primary" />
@@ -777,7 +777,7 @@ export default function DocumentsPage() {
           )}
 
           {/* Summary stat cards */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div data-tour="docs-stats" className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-border bg-white p-4 shadow-sm flex items-center gap-3">
               <div className="rounded-xl bg-primary/10 p-2.5">
                 <CheckCircle weight="fill" className="h-5 w-5 text-primary" />
@@ -808,7 +808,7 @@ export default function DocumentsPage() {
           </div>
 
           {/* Filter pills */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div data-tour="docs-filters" className="flex items-center gap-2 flex-wrap">
             {([
               { key: 'ALL', label: 'All', count: documents.length },
               { key: 'ACTION', label: 'Needs Action', count: documents.filter((d) => d.status === 'REJECTED').length },
