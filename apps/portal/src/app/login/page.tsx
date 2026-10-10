@@ -111,8 +111,8 @@ function OnboardingModal({
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl border border-border/40">
         {/* Header */}
         <div className="mb-7 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl gradient-hero shadow-lg">
-            <span className="text-lg font-extrabold text-white">MJN</span>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl gradient-hero shadow-lg p-2">
+            <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-full w-full object-contain brightness-0 invert" />
           </div>
           <h2 className="text-xl font-extrabold text-foreground">Welcome to MJN Healthcare</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -379,9 +379,7 @@ export default function LoginPage() {
 
           {/* Logo */}
           <div className="relative flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shadow-inner border border-white/20">
-              <span className="text-xs font-extrabold text-white">MJN</span>
-            </div>
+            <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-10 w-auto object-contain brightness-0 invert" />
             <div>
               <span className="block text-sm font-bold tracking-tight">MJN Healthcare</span>
               <span className="block text-[10px] text-white/50 leading-none">Academy & Professional Services</span>
@@ -449,9 +447,7 @@ export default function LoginPage() {
           <div className="relative w-full max-w-[420px]">
             {/* Mobile logo */}
             <div className="mb-6 flex items-center gap-2.5 lg:hidden">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-hero shadow">
-                <span className="text-xs font-bold text-white">MJN</span>
-              </div>
+              <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-9 w-auto object-contain" />
               <div>
                 <span className="block text-sm font-bold text-foreground">MJN Healthcare</span>
                 <span className="block text-[10px] text-muted-foreground">Portal</span>

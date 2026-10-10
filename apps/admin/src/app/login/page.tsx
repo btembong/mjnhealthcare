@@ -112,9 +112,7 @@ export default function AdminLoginPage() {
       <div className="relative z-10 hidden flex-col justify-between bg-white p-10 lg:flex lg:w-[44%] xl:w-[42%]">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl gradient-hero shadow-md">
-            <span className="text-xs font-extrabold text-white">MJN</span>
-          </div>
+          <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-10 w-auto object-contain" />
           <div>
             <span className="block text-sm font-bold text-foreground">MJN Healthcare</span>
             <span className="block text-[10px] text-muted-foreground leading-none">Admin Console</span>
@@ -166,9 +164,7 @@ export default function AdminLoginPage() {
         <div className="w-full max-w-[400px]">
           {/* Mobile logo */}
           <div className="mb-6 flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 border border-white/15">
-              <span className="text-xs font-bold text-white">MJN</span>
-            </div>
+            <img src="/mjnlogo.png" alt="MJN Healthcare" className="h-9 w-auto object-contain brightness-0 invert" />
             <div>
               <span className="block text-sm font-bold text-white">MJN Healthcare</span>
               <span className="block text-[10px] text-white/40">Admin Console</span>
