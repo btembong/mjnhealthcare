@@ -56,7 +56,7 @@ function fmtDate(d: string) {
 function DashboardSkeleton() {
   return (
     <div className="space-y-5">
-      <Skeleton className="h-52 w-full rounded-3xl" />
+      <Skeleton className="h-64 w-full rounded-2xl" />
       <div className="grid gap-4 lg:grid-cols-5">
         <Skeleton className="lg:col-span-3 h-72 rounded-2xl" />
         <Skeleton className="lg:col-span-2 h-72 rounded-2xl" />
@@ -200,121 +200,152 @@ function HeroHeader({
   onNavigate: (p: string) => void;
 }) {
   const firstName = me?.name && me.name !== me.email ? me.name.split(' ')[0] : 'there';
-  const initials = me?.name && me.name !== me.email
-    ? me.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
-    : '??';
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const currentIdx = milestones.findIndex((m: any) => !m.completedAt);
+  const allDone = milestones.length > 0 && currentIdx === -1;
+  const current = currentIdx >= 0 ? milestones[currentIdx] : null;
+  const upNext = currentIdx >= 0 ? milestones[currentIdx + 1] : null;
+
+  const nextSession = bookings
+    .filter((b) => b.status === 'CONFIRMED' && b.slot?.startTime && new Date(b.slot.startTime).getTime() > Date.now())
+    .sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime())[0];
+  const unpaidOrders = orders.filter((o) => o.status !== 'PAID').length;
 
   const stats = [
     {
-      value: documents.length ? `${verifiedDocs}/${documents.length}` : '—',
-      label: 'Docs verified',
+      label: 'Documents',
+      value: documents.length ? `${verifiedDocs} / ${documents.length}` : '—',
+      sub: documents.length ? 'verified' : 'None uploaded yet',
       href: '/documents',
     },
     {
+      label: 'Pipeline',
       value: milestones.length ? `${caseProgress}%` : '—',
-      label: 'Pipeline progress',
+      sub: milestones.length ? `${completedMilestones} of ${milestones.length} stages` : 'Not started',
       href: '/case',
     },
     {
-      value: balanceRemaining > 0 ? `$${balanceRemaining.toLocaleString()}` : orders.length ? 'Settled' : '—',
       label: 'Balance due',
+      value: balanceRemaining > 0 ? `$${balanceRemaining.toLocaleString()}` : orders.length ? 'Settled' : '—',
+      sub: balanceRemaining > 0
+        ? `${unpaidOrders} order${unpaidOrders !== 1 ? 's' : ''} pending`
+        : orders.length ? 'Nothing owed' : 'No orders yet',
       href: '/payments',
       alert: balanceRemaining > 0,
     },
     {
-      value: bookings.filter((b) => b.status === 'CONFIRMED').length || '—',
-      label: 'Sessions upcoming',
+      label: 'Next session',
+      value: nextSession
+        ? `${new Date(nextSession.slot.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${new Date(nextSession.slot.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+        : '—',
+      sub: nextSession ? untilLabel(nextSession.slot.startTime) : 'Nothing scheduled',
       href: '/bookings',
     },
   ];
 
   return (
-    <div className="relative overflow-hidden rounded-3xl shadow-xl" style={{ background: 'linear-gradient(135deg, #0F4C81 0%, #00A896 100%)' }}>
-      {/* Decorative rings */}
-      <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/8" />
-      <div className="pointer-events-none absolute -right-4 -top-4 h-36 w-36 rounded-full bg-white/8" />
-      <div className="pointer-events-none absolute bottom-0 left-1/3 h-48 w-48 rounded-full bg-white/5" />
-
-      <div className="relative p-6 pb-0">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          {/* Left — avatar + greeting */}
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/20 ring-2 ring-white/30 text-xl font-extrabold text-white select-none shadow-inner">
-              {initials}
-            </div>
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-white/50 mb-0.5">Client Portal</p>
-              <h1 className="text-2xl font-extrabold text-white leading-tight">Welcome back, {firstName}</h1>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                {me?.profession && (
-                  <span className="text-xs font-medium text-white/60">{me.profession}</span>
-                )}
-                {engagement && (
-                  <>
-                    {me?.profession && <span className="text-white/30">·</span>}
-                    <span className="text-xs font-medium text-white/60">{formatCaseRef(engagement.id)}</span>
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                      engagement.status === 'ACTIVE'
-                        ? 'bg-white/20 border-white/30 text-white'
-                        : 'bg-white/10 border-white/20 text-white/60'
-                    }`}>
-                      {engagement.status === 'ACTIVE' && <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />}
-                      {statusLabel(engagement.status)}
-                    </span>
-                  </>
-                )}
-              </div>
+    <div className="rounded-2xl border border-border bg-white shadow-sm">
+      <div className="p-6">
+        {/* Who and what */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-muted-foreground">{today}</p>
+            <h1 className="mt-1 text-2xl font-extrabold leading-tight tracking-tight text-foreground">
+              Welcome back, {firstName}
+            </h1>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              {me?.profession && <span>{statusLabel(me.profession)}</span>}
+              {engagement && (
+                <>
+                  {me?.profession && <span className="text-muted-foreground/40">·</span>}
+                  <span className="font-mono">{formatCaseRef(engagement.id)}</span>
+                  <span className="text-muted-foreground/40">·</span>
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                    <span className={`h-1.5 w-1.5 rounded-full ${engagement.status === 'ACTIVE' ? 'bg-secondary' : 'bg-muted-foreground/40'}`} />
+                    {statusLabel(engagement.status)}
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Right — actions */}
-          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={() => onNavigate('/documents')}
-              className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/20 transition-all active:scale-95"
+              className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/30 hover:bg-muted/50"
             >
               <UploadSimple className="h-4 w-4" /> Upload
             </button>
             <button
               onClick={() => onNavigate(engagement ? '/case' : '/bookings')}
-              className="flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-primary hover:bg-white/90 transition-all active:scale-95 shadow-md"
+              className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary/90"
             >
-              {engagement ? 'View case' : 'Book now'}
-              <ArrowRight className="h-4 w-4" />
+              {engagement ? 'View case' : 'Book now'} <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Progress bar — only if there are milestones */}
-        {milestones.length > 0 && (
-          <div className="mt-5">
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-xs font-semibold text-white/60">Overall case progress</span>
-              <span className="text-xs font-bold text-white">{completedMilestones} of {milestones.length} stages</span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-white/15 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-white/90 transition-all duration-1000 shadow-sm"
-                style={{ width: `${caseProgress}%` }}
-              />
-            </div>
-          </div>
-        )}
+        {/* Where you are */}
+        <div className="mt-6">
+          {!engagement ? (
+            <p className="text-sm text-muted-foreground">
+              Book a consultation to set up your licensing pathway.
+            </p>
+          ) : milestones.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Your consultant is setting up your stages — they will appear here once ready.
+            </p>
+          ) : (
+            <>
+              <div className="flex items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    {allDone ? 'Pathway' : 'Current stage'}
+                  </p>
+                  <p className="mt-1 truncate text-base font-bold text-foreground">
+                    {allDone ? 'All stages complete' : current?.label}
+                  </p>
+                </div>
+                <p className="shrink-0 text-xs font-semibold text-muted-foreground">
+                  {allDone ? `${milestones.length} of ${milestones.length}` : `Stage ${currentIdx + 1} of ${milestones.length}`}
+                </p>
+              </div>
+              <div className="mt-3 flex gap-1">
+                {milestones.map((m: any, i: number) => (
+                  <div
+                    key={m.id}
+                    title={m.label}
+                    className={`h-2 flex-1 rounded-full ${
+                      m.completedAt ? 'gradient-hero' : i === currentIdx ? 'bg-primary/30' : 'bg-muted'
+                    }`}
+                  />
+                ))}
+              </div>
+              {upNext && (
+                <p className="mt-2.5 text-xs text-muted-foreground">
+                  Next: <span className="font-semibold text-foreground">{upNext.label}</span>
+                </p>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Stat chips strip */}
-      <div className="relative mt-5 grid grid-cols-2 divide-x divide-white/10 border-t border-white/10 sm:grid-cols-4">
+      {/* The four numbers */}
+      <div className="grid grid-cols-2 gap-y-1 border-t border-border/70 px-2 py-2 sm:grid-cols-4">
         {stats.map((stat, i) => (
           <button
-            key={i}
+            key={stat.label}
             onClick={() => onNavigate(stat.href)}
-            className="flex flex-col items-center gap-0.5 px-4 py-3.5 text-center hover:bg-white/8 transition-colors"
+            className={`rounded-xl px-4 py-3 text-left transition-colors hover:bg-muted/40 ${i > 0 ? 'sm:border-l sm:border-border/60 sm:rounded-l-none' : ''}`}
           >
-            <span className="flex items-center gap-1.5 text-xl font-extrabold text-white">
-              {stat.alert && <span className="h-2 w-2 rounded-full bg-accent" />}
+            <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
+            <p className="mt-1 flex items-center gap-1.5 text-lg font-extrabold leading-tight text-foreground">
+              {stat.alert && <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />}
               {stat.value}
-            </span>
-            <span className="text-[11px] font-medium text-white/50 leading-tight">{stat.label}</span>
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{stat.sub}</p>
           </button>
         ))}
       </div>
