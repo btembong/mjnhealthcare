@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { Redis } from '@upstash/redis';
+import IORedis from 'ioredis';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -32,9 +32,12 @@ import { REDIS_CLIENT } from './auth.constants';
     {
       provide: REDIS_CLIENT,
       useFactory: () =>
-        new Redis({
-          url: process.env.UPSTASH_REDIS_URL ?? '',
-          token: process.env.UPSTASH_REDIS_TOKEN ?? '',
+        new IORedis({
+          host: process.env.REDIS_HOST ?? '127.0.0.1',
+          port: Number(process.env.REDIS_PORT ?? 6379),
+          password: process.env.REDIS_PASSWORD || undefined,
+          lazyConnect: true,
+          maxRetriesPerRequest: 3,
         }),
     },
   ],

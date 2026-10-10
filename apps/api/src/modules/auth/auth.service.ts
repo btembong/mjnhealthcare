@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, Logger, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { Redis } from '@upstash/redis';
+import type { Redis } from 'ioredis';
 import { PersonService } from '../person/person.service';
 import { NotificationService } from '../notification/notification.service';
 import { REDIS_CLIENT } from './auth.constants';
@@ -63,7 +63,7 @@ export class AuthService {
 
   async sendOtp(identifier: string, via: 'email' | 'phone' = 'email'): Promise<void> {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    await this.redis.set(`otp:${identifier}`, otp, { ex: OTP_TTL_SECONDS });
+    await this.redis.setex(`otp:${identifier}`, OTP_TTL_SECONDS, otp);
 
     if (via === 'email') {
       await this.notificationService.sendEmail(
@@ -137,7 +137,7 @@ export class AuthService {
 
     const token = randomBytes(32).toString('hex');
     const FIFTEEN_MIN = 15 * 60;
-    await this.redis.set(`pwd-reset:${token}`, person.id, { ex: FIFTEEN_MIN });
+    await this.redis.setex(`pwd-reset:${token}`, FIFTEEN_MIN, person.id);
 
     const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
     const resetUrl = `${adminUrl}/reset-password?token=${token}`;
@@ -154,7 +154,7 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string): Promise<{ access_token: string }> {
-    const personId = await this.redis.get<string>(`pwd-reset:${token}`);
+    const personId = await this.redis.get(`pwd-reset:${token}`);
     if (!personId) throw new UnauthorizedException('Reset link is invalid or has expired');
 
     // Consume token immediately (one-time use)
