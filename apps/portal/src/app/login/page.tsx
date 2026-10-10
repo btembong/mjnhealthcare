@@ -371,11 +371,10 @@ export default function LoginPage() {
 
       <div className="flex min-h-screen bg-slate-50">
         {/* ── Left panel ── */}
-        <div className="gradient-hero hidden flex-col justify-between p-10 text-white lg:flex lg:w-[44%] xl:w-[42%] relative overflow-hidden">
-          {/* Decorative circles */}
-          <div className="pointer-events-none absolute -top-24 -right-24 h-80 w-80 rounded-full bg-white/5" />
-          <div className="pointer-events-none absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-white/5" />
-          <div className="pointer-events-none absolute top-1/3 -right-8 h-40 w-40 rounded-full bg-white/5" />
+        <div className="hidden flex-col justify-between p-10 text-white lg:flex lg:w-[44%] xl:w-[42%] relative overflow-hidden"
+          style={{ backgroundImage: 'url("https://res.cloudinary.com/dmxnsttmu/image/upload/v1791638383/african-american-female-doctor-using-smartphone-holding-takeaway-coffee-hospital-corridor_13339-355195_pbdde2.jpg")', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+          {/* Dark gradient overlay for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0F4C81]/70 via-[#0F4C81]/50 to-[#00A896]/60" />
 
           {/* Logo */}
           <div className="relative flex items-center gap-3">
