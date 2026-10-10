@@ -910,9 +910,9 @@ function GetStartedInner() {
                               className={`
                                 relative flex h-9 w-full items-center justify-center rounded-full text-sm transition-all select-none
                                 ${isSelected
-                                  ? 'bg-primary font-bold text-white shadow-md'
+                                  ? 'gradient-hero font-bold text-white shadow-md'
                                   : hasSlots === true
-                                    ? 'font-bold text-primary hover:bg-primary/10 cursor-pointer'
+                                    ? 'font-bold text-secondary hover:bg-secondary/10 cursor-pointer'
                                     : isPending
                                       ? 'font-normal text-muted-foreground/60 cursor-default animate-pulse'
                                       : 'font-normal text-muted-foreground/35 cursor-not-allowed'}
