@@ -205,18 +205,21 @@ function validateField(field: string, value: string): string {
   return '';
 }
 
-// Build date strip: next 21 days
-function buildDateStrip() {
-  return Array.from({ length: 21 }, (_, i) => {
-    const d = addDays(new Date(), i + 1);
-    return {
-      iso: toDateStr(d),
-      day: d.toLocaleDateString('en-US', { weekday: 'short' }),
-      date: d.getDate(),
-      month: d.toLocaleDateString('en-US', { month: 'short' }),
-    };
-  });
+// Build calendar grid for a given year/month
+function buildCalendarGrid(year: number, month: number) {
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = toDateStr(new Date());
+  const cells: Array<{ iso: string; day: number; isToday: boolean; isPast: boolean } | null> = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    cells.push({ iso, day: d, isToday: iso === today, isPast: iso < today });
+  }
+  return cells;
 }
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAY_HEADERS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 // ── Inner component (needs useSearchParams) ────────────────────────────────────
 function GetStartedInner() {
@@ -249,9 +252,15 @@ function GetStartedInner() {
     setFieldErrors(p => ({ ...p, [field]: validateField(field, value) }));
   }
 
+  // Calendar state
+  const today = new Date();
+  const [calYear, setCalYear] = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [selectedDate, setSelectedDate] = useState(toDateStr(addDays(today, 1)));
+  // Map of date → slot count (populated by fetching each date when consultant is selected)
+  const [availability, setAvailability] = useState<Record<string, number>>({});
+
   // Slot state
-  const dateStrip = buildDateStrip();
-  const [selectedDate, setSelectedDate] = useState(dateStrip[0].iso);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState('');
@@ -289,7 +298,10 @@ function GetStartedInner() {
       const res = await fetch(`${API}/bookings/slots/${CONSULTATION_RESOURCE_ID}?date=${date}&consultantId=${consultantId}`);
       if (!res.ok) throw new Error('api_error');
       const data = await res.json();
-      setSlots(Array.isArray(data) ? data : []);
+      const slotList = Array.isArray(data) ? data : [];
+      setSlots(slotList);
+      // Update availability map for this date
+      setAvailability(prev => ({ ...prev, [date]: slotList.length }));
     } catch {
       setSlotsError('Could not load slots. Please try a different date or book via WhatsApp.');
       setSlots([]);
@@ -298,12 +310,36 @@ function GetStartedInner() {
     }
   }, []);
 
+  // Pre-fetch availability for all days in the visible month so dots render
+  const prefetchMonthAvailability = useCallback(async (year: number, month: number, consultantId: string) => {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = toDateStr(new Date());
+    const fetches = Array.from({ length: daysInMonth }, (_, i) => {
+      const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
+      if (iso <= todayStr) return Promise.resolve();
+      return fetch(`${API}/bookings/slots/${CONSULTATION_RESOURCE_ID}?date=${iso}&consultantId=${consultantId}`)
+        .then(r => r.ok ? r.json() : [])
+        .then((data: Slot[]) => {
+          const count = Array.isArray(data) ? data.length : 0;
+          setAvailability(prev => ({ ...prev, [iso]: count }));
+        })
+        .catch(() => {});
+    });
+    await Promise.all(fetches);
+  }, []);
+
   // Fetch consultants immediately so the sidebar preview is ready on Step 1
   useEffect(() => { fetchConsultants(); }, [fetchConsultants]);
 
   function handleDateSelect(date: string) {
     setSelectedDate(date);
     fetchSlots(date, selectedConsultant?.id);
+  }
+
+  function handleCalDateSelect(iso: string, isPast: boolean, hasSlots: boolean) {
+    if (isPast || hasSlots === false) return;
+    setSelectedDate(iso);
+    fetchSlots(iso, selectedConsultant?.id);
   }
 
   function goToProfile() {
@@ -326,9 +362,21 @@ function GetStartedInner() {
   function selectConsultant(c: Consultant) {
     setSelectedConsultant(c);
     setSelectedSlot(null);
+    setAvailability({});
     setError('');
     setStep('slot');
     fetchSlots(selectedDate, c.id);
+    prefetchMonthAvailability(calYear, calMonth, c.id);
+  }
+
+  function handleCalNav(dir: 1 | -1) {
+    let m = calMonth + dir;
+    let y = calYear;
+    if (m > 11) { m = 0; y++; }
+    if (m < 0)  { m = 11; y--; }
+    setCalMonth(m);
+    setCalYear(y);
+    if (selectedConsultant) prefetchMonthAvailability(y, m, selectedConsultant.id);
   }
 
   async function handleBook() {
@@ -810,31 +858,85 @@ function GetStartedInner() {
                     </div>
                   )}
 
-                  {/* Date strip — horizontal scroll */}
-                  <div className="mb-6 min-w-0 w-full">
+                  {/* Calendar grid */}
+                  <div className="mb-6">
                     <label className="mb-3 block text-sm font-bold text-foreground">{t.slot_date}</label>
-                    <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1 scrollbar-hide -mx-1 px-1">
-                      {dateStrip.map(({ iso, day, date, month }) => (
+                    <div className="rounded-2xl border border-border bg-white overflow-hidden">
+                      {/* Month navigation header */}
+                      <div className="flex items-center justify-between border-b border-border px-4 py-3">
                         <button
-                          key={iso}
-                          onClick={() => handleDateSelect(iso)}
-                          className={`flex shrink-0 snap-start flex-col items-center gap-0.5 rounded-xl border px-3 py-2.5 transition-all ${
-                            selectedDate === iso
-                              ? 'border-primary bg-primary text-white shadow-sm shadow-primary/20'
-                              : 'border-border bg-white text-foreground hover:border-primary/40'
-                          }`}
+                          type="button"
+                          onClick={() => handleCalNav(-1)}
+                          disabled={calYear === today.getFullYear() && calMonth <= today.getMonth()}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
                         >
-                          <span className={`text-xs font-semibold uppercase tracking-wide ${selectedDate === iso ? 'text-white/70' : 'text-muted-foreground'}`}>
-                            {day}
-                          </span>
-                          <span className="text-base font-extrabold leading-none">{date}</span>
-                          <span className={`text-xs ${selectedDate === iso ? 'text-white/70' : 'text-muted-foreground'}`}>
-                            {month}
-                          </span>
+                          <ArrowLeft className="h-4 w-4 text-foreground" />
                         </button>
-                      ))}
+                        <span className="text-sm font-bold text-foreground">
+                          {MONTH_NAMES[calMonth]} {calYear}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCalNav(1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-muted"
+                        >
+                          <ArrowRight className="h-4 w-4 text-foreground" />
+                        </button>
+                      </div>
+
+                      {/* Day-of-week headers */}
+                      <div className="grid grid-cols-7 border-b border-border">
+                        {DAY_HEADERS.map(d => (
+                          <div key={d} className="py-2 text-center text-xs font-semibold text-muted-foreground">{d}</div>
+                        ))}
+                      </div>
+
+                      {/* Day cells */}
+                      <div className="grid grid-cols-7 p-2 gap-1">
+                        {buildCalendarGrid(calYear, calMonth).map((cell, idx) => {
+                          if (!cell) return <div key={`empty-${idx}`} />;
+                          const isSelected = cell.iso === selectedDate;
+                          const slotCount = availability[cell.iso];
+                          const hasSlots = slotCount !== undefined ? slotCount > 0 : null;
+                          const isDisabled = cell.isPast || hasSlots === false;
+                          const isUnknown = !cell.isPast && hasSlots === null;
+                          return (
+                            <button
+                              key={cell.iso}
+                              type="button"
+                              onClick={() => !isDisabled && handleCalDateSelect(cell.iso, cell.isPast, hasSlots ?? true)}
+                              disabled={isDisabled}
+                              className={`relative flex flex-col items-center justify-center rounded-xl py-2 text-sm font-semibold transition-all
+                                ${isSelected ? 'bg-primary text-white shadow-sm' : ''}
+                                ${!isSelected && !isDisabled ? 'hover:bg-primary/8 text-foreground cursor-pointer' : ''}
+                                ${isDisabled ? 'text-muted-foreground/40 cursor-not-allowed' : ''}
+                                ${cell.isToday && !isSelected ? 'ring-1 ring-primary/40' : ''}
+                              `}
+                            >
+                              {cell.day}
+                              {/* Availability dot */}
+                              <span className={`mt-0.5 h-1 w-1 rounded-full transition-all ${
+                                isSelected ? 'bg-white/60' :
+                                hasSlots === true ? 'bg-secondary' :
+                                isUnknown && !cell.isPast ? 'bg-muted-foreground/20' :
+                                'bg-transparent'
+                              }`} />
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Legend */}
+                      <div className="flex items-center gap-4 border-t border-border px-4 py-2.5">
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="h-2 w-2 rounded-full bg-secondary inline-block" />
+                          {lang === 'en' ? 'Available' : 'Disponible'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(selectedDate)}
+                        </span>
+                      </div>
                     </div>
-                    <p className="mt-2 text-xs text-muted-foreground">{formatDate(selectedDate)}</p>
                   </div>
 
                   {/* Time slots */}
