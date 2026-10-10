@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Badge, Button, Skeleton } from '@mjn/ui';
@@ -8,7 +8,7 @@ import {
   FileText, CreditCard, BookOpen, CalendarBlank,
   CheckCircle, Clock, WarningCircle, TrendUp, ArrowRight,
   Sparkle, Buildings, Student, X, PaperPlaneTilt, ChatCircle,
-  UploadSimple, CaretRight, Shield, Bell,
+  UploadSimple, CaretRight, Shield, ShoppingCart,
 } from '@mjn/ui';
 import { useUser } from '../../contexts/user-context';
 import { api } from '../../lib/api';
@@ -685,211 +685,280 @@ function MessageModal({ consultant, engagementId, onClose }: { consultant: any; 
 
 // ── Right Rail ────────────────────────────────────────────────────────────────
 
-function RightRail({
-  consultant, engagement, bookings, milestones, caseProgress,
-  completedMilestones, pendingPayment, alerts, onMessage, onNavigate,
-}: {
-  consultant: any; engagement: any; bookings: any[]; milestones: any[];
-  caseProgress: number; completedMilestones: number; pendingPayment: any;
-  alerts: { text: string; sub: string; color: string }[];
-  onMessage: () => void; onNavigate: (p: string) => void;
-}) {
-  const upcoming = bookings.filter((b) => b.status === 'CONFIRMED').slice(0, 3);
+type RailAlert = { text: string; sub: string; tone: 'rose' | 'amber'; cta: string; href: string };
+
+function untilLabel(dateStr: string): string {
+  const diff = new Date(dateStr).getTime() - Date.now();
+  if (diff <= 0) return 'Starting now';
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 60) return `in ${mins} min`;
+  if (hours < 24) return `in ${hours}h`;
+  return `in ${days} day${days !== 1 ? 's' : ''}`;
+}
+
+function RailCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+      <div className="mb-3.5 flex items-center justify-between">
+        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{title}</h3>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function AttentionCard({ alerts, onNavigate }: { alerts: RailAlert[]; onNavigate: (p: string) => void }) {
+  if (alerts.length === 0) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <Shield weight="fill" className="h-4 w-4 shrink-0 text-emerald-600" />
+        <span className="text-xs font-semibold text-emerald-800">All clear — nothing needs your attention</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col divide-y divide-border/60 h-full">
+    <section className="rounded-2xl border border-rose-200 bg-white p-5 shadow-sm">
+      <div className="mb-3.5 flex items-center gap-2">
+        <WarningCircle weight="fill" className="h-4 w-4 text-rose-500" />
+        <h3 className="text-xs font-bold uppercase tracking-widest text-foreground">Needs attention</h3>
+        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-xs font-bold text-white">
+          {alerts.length}
+        </span>
+      </div>
+      <div className="space-y-2.5">
+        {alerts.map((a, i) => {
+          const rose = a.tone === 'rose';
+          return (
+            <div
+              key={i}
+              className={`rounded-xl border border-l-4 p-3 ${
+                rose ? 'border-rose-100 border-l-rose-500 bg-rose-50/60' : 'border-amber-100 border-l-amber-500 bg-amber-50/60'
+              }`}
+            >
+              <p className="text-sm font-bold leading-snug text-foreground">{a.text}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{a.sub}</p>
+              <button
+                onClick={() => onNavigate(a.href)}
+                className={`mt-2.5 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-white transition-colors ${
+                  rose ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+              >
+                {a.cta} <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
-      {/* Case Team */}
-      <div className="relative overflow-hidden p-5" style={{ background: 'linear-gradient(135deg, #0F4C81 0%, #00A896 100%)' }}>
-        <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/8" />
-        <div className="pointer-events-none absolute right-4 bottom-0 h-12 w-12 rounded-full bg-white/8" />
+function RightRail({ consultant, bookings, documents, alerts, onMessage, onNavigate }: {
+  consultant: any; bookings: any[]; documents: any[]; alerts: RailAlert[];
+  onMessage: () => void; onNavigate: (p: string) => void;
+}) {
+  const upcoming = bookings
+    .filter((b) => b.status === 'CONFIRMED' && b.slot?.startTime && new Date(b.slot.startTime).getTime() > Date.now() - 3600000)
+    .sort((a, b) => new Date(a.slot.startTime).getTime() - new Date(b.slot.startTime).getTime());
+  const next = upcoming[0];
+  const later = upcoming.slice(1, 3);
 
-        <p className="relative mb-3 text-[10px] font-bold uppercase tracking-widest text-white/50">Case Team</p>
+  const docSegments = [
+    { label: 'Verified',  count: documents.filter((d) => d.status === 'VERIFIED').length, bar: 'bg-emerald-500', dot: 'bg-emerald-500' },
+    { label: 'In review', count: documents.filter((d) => d.status === 'PENDING').length,  bar: 'bg-amber-400',   dot: 'bg-amber-400' },
+    { label: 'Rejected',  count: documents.filter((d) => d.status === 'REJECTED').length, bar: 'bg-rose-500',    dot: 'bg-rose-500' },
+  ];
 
-        {consultant ? (
-          <div className="relative">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="relative shrink-0">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 ring-2 ring-white/25 text-sm font-bold text-white">
-                  {consultant.name.slice(0, 2).toUpperCase()}
-                </div>
-                <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400" />
+  const shortcuts = [
+    { label: 'Upload',   icon: UploadSimple, href: '/documents' },
+    { label: 'Services', icon: ShoppingCart, href: '/checkout' },
+    { label: 'Courses',  icon: BookOpen,     href: '/academy' },
+    { label: 'Payments', icon: CreditCard,   href: '/payments' },
+  ];
+
+  const sessionType = (b: any) => statusLabel(b.type ?? 'Session');
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+
+      {/* Attention — below xl it is rendered at the top of the main column instead */}
+      <div className={alerts.length > 0 ? 'hidden xl:block' : 'md:col-span-2 xl:col-span-1'}>
+        <AttentionCard alerts={alerts} onNavigate={onNavigate} />
+      </div>
+
+      {/* Next session */}
+      <RailCard
+        title="Next session"
+        action={upcoming.length > 0 && (
+          <button onClick={() => onNavigate('/bookings')} className="text-xs font-bold text-primary hover:underline">View all</button>
+        )}
+      >
+        {!next ? (
+          <div className="rounded-xl border border-dashed border-border px-4 py-5 text-center">
+            <CalendarBlank className="mx-auto mb-2 h-7 w-7 text-muted-foreground/40" />
+            <p className="text-sm font-semibold text-foreground">Nothing scheduled</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Book time with your consultant.</p>
+            <button
+              onClick={() => onNavigate('/bookings')}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg gradient-hero px-3.5 py-2 text-xs font-bold text-white hover:opacity-90"
+            >
+              Book a session <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/10">
+                <span className="text-xs font-bold uppercase leading-none text-primary">
+                  {new Date(next.slot.startTime).toLocaleDateString('en-US', { month: 'short' })}
+                </span>
+                <span className="mt-0.5 text-xl font-extrabold leading-none text-primary">
+                  {new Date(next.slot.startTime).getDate()}
+                </span>
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-white">{consultant.name}</p>
-                <p className="text-xs text-white/50 mt-0.5">Case Consultant · Online</p>
+                <p className="truncate text-sm font-bold text-foreground">{sessionType(next)}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {new Date(next.slot.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  <span className="mx-1.5 text-muted-foreground/40">·</span>
+                  <span className="font-semibold text-primary">{untilLabel(next.slot.startTime)}</span>
+                </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <button
+              onClick={() => onNavigate('/bookings')}
+              className="mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-border px-3 py-2.5 text-xs font-bold text-foreground transition-colors hover:border-primary/30 hover:bg-muted/50"
+            >
+              View details <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+            {later.length > 0 && (
+              <div className="mt-3 divide-y divide-border/60 border-t border-border/60">
+                {later.map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={() => onNavigate('/bookings')}
+                    className="flex w-full items-center justify-between gap-2 py-2.5 text-left text-xs hover:text-primary"
+                  >
+                    <span className="truncate">
+                      <span className="font-semibold text-foreground">
+                        {new Date(b.slot.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                      <span className="mx-1.5 text-muted-foreground/40">·</span>
+                      <span className="text-muted-foreground">{sessionType(b)}</span>
+                    </span>
+                    <CaretRight className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </RailCard>
+
+      {/* Consultant */}
+      <RailCard title="Your consultant">
+        {consultant ? (
+          <>
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full gradient-hero text-sm font-bold text-white">
+                {consultant.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-foreground">{consultant.name}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Case Consultant</p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
               <button
                 onClick={onMessage}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20 transition-colors"
+                className="flex items-center justify-center gap-1.5 rounded-xl gradient-hero px-3 py-2.5 text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-90"
               >
                 <ChatCircle className="h-3.5 w-3.5" /> Message
               </button>
               <button
                 onClick={() => onNavigate('/bookings')}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-bold text-primary hover:bg-white/90 transition-colors shadow-sm"
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-border px-3 py-2.5 text-xs font-bold text-foreground transition-colors hover:border-primary/30 hover:bg-muted/50"
               >
                 <CalendarBlank className="h-3.5 w-3.5" /> Book
               </button>
             </div>
-          </div>
+          </>
         ) : (
-          <div className="relative rounded-xl border border-white/15 bg-white/8 p-4 text-center">
-            <p className="text-xs text-white/60">No consultant assigned yet.</p>
-            <button onClick={() => onNavigate('/bookings')} className="mt-2 text-xs font-bold text-white hover:text-white/80 underline">
+          <div className="rounded-xl border border-dashed border-border px-4 py-5 text-center">
+            <p className="text-sm font-semibold text-foreground">Not assigned yet</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">A consultant is assigned after your first consultation.</p>
+            <button onClick={() => onNavigate('/bookings')} className="mt-2.5 text-xs font-bold text-primary hover:underline">
               Book a consultation →
             </button>
           </div>
         )}
-      </div>
+      </RailCard>
 
-      {/* Case Details */}
-      {engagement && (
-        <div className="p-5">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Case Details</p>
-          <div className="space-y-3">
-            {[
-              { label: 'Reference', value: <span className="font-mono font-bold text-foreground">{formatCaseRef(engagement.id)}</span> },
-              { label: 'Status', value: <Badge variant={statusVariant(engagement.status)} className="text-[10px] uppercase tracking-wider">{statusLabel(engagement.status)}</Badge> },
-              { label: 'Last updated', value: <span className="font-semibold text-foreground">{timeAgo(engagement.updatedAt)}</span> },
-            ].map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{label}</span>
-                {value}
-              </div>
-            ))}
-            {milestones.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs text-muted-foreground">Progress</span>
-                  <span className="text-xs font-bold text-foreground">{caseProgress}% <span className="font-normal text-muted-foreground">({completedMilestones}/{milestones.length})</span></span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                  <div className="h-full rounded-full gradient-hero transition-all duration-700" style={{ width: `${caseProgress}%` }} />
-                </div>
-              </div>
-            )}
-          </div>
-          <button
-            onClick={() => onNavigate('/case')}
-            className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-border px-3 py-2.5 text-xs font-bold text-foreground hover:bg-muted/50 hover:border-primary/30 transition-all"
-          >
-            View full case <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Alerts */}
-      <div className="p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <Bell className="h-3.5 w-3.5 text-muted-foreground" />
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Alerts</p>
-          {alerts.length > 0 && (
-            <span className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
-              {alerts.length}
-            </span>
-          )}
-        </div>
-        {alerts.length === 0 ? (
-          <div className="flex items-center gap-2.5 rounded-xl bg-emerald-50 border border-emerald-100 px-3.5 py-3">
-            <Shield weight="fill" className="h-4 w-4 shrink-0 text-emerald-500" />
-            <span className="text-xs font-semibold text-emerald-800">No issues requiring attention</span>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {alerts.map((a, i) => (
-              <div key={i} className={`rounded-xl border-l-4 pl-3 pr-3 py-2.5 ${
-                a.color === 'rose'
-                  ? 'border-l-rose-500 bg-rose-50 border-t border-r border-b border-rose-100'
-                  : 'border-l-amber-500 bg-amber-50 border-t border-r border-b border-amber-100'
-              }`}>
-                <p className={`text-xs font-bold ${a.color === 'rose' ? 'text-rose-800' : 'text-amber-800'}`}>{a.text}</p>
-                <p className={`mt-0.5 text-[11px] ${a.color === 'rose' ? 'text-rose-600' : 'text-amber-600'}`}>{a.sub}</p>
-              </div>
-            ))}
-          </div>
+      {/* Documents */}
+      <RailCard
+        title="Documents"
+        action={documents.length > 0 && (
+          <span className="text-xs font-bold text-foreground">
+            {docSegments[0].count}<span className="font-medium text-muted-foreground"> / {documents.length} verified</span>
+          </span>
         )}
-      </div>
-
-      {/* Upcoming Sessions */}
-      <div className="p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Upcoming Sessions</p>
-          <button onClick={() => onNavigate('/bookings')} className="text-xs font-bold text-primary hover:underline">View all</button>
-        </div>
-        {upcoming.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-4 text-center">
-            <CalendarBlank className="mx-auto mb-2 h-7 w-7 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground">No upcoming sessions</p>
-            <button onClick={() => onNavigate('/bookings')} className="mt-1.5 text-xs font-bold text-primary hover:underline">
-              Book a session →
+      >
+        {documents.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border px-4 py-5 text-center">
+            <FileText className="mx-auto mb-2 h-7 w-7 text-muted-foreground/40" />
+            <p className="text-sm font-semibold text-foreground">No documents yet</p>
+            <button onClick={() => onNavigate('/documents')} className="mt-1.5 text-xs font-bold text-primary hover:underline">
+              Upload your first document →
             </button>
           </div>
         ) : (
-          <div className="space-y-2">
-            {upcoming.map((b) => (
-              <div key={b.id} onClick={() => onNavigate('/bookings')}
-                className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3.5 py-3 cursor-pointer hover:border-primary/30 hover:bg-muted/40 transition-all">
-                <div className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/10">
-                  <span className="text-[10px] font-bold text-primary leading-none">
-                    {b.slot?.startTime ? new Date(b.slot.startTime).toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : '—'}
-                  </span>
-                  <span className="text-base font-extrabold text-primary leading-none">
-                    {b.slot?.startTime ? new Date(b.slot.startTime).getDate() : '—'}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-foreground capitalize">{b.type?.replace(/_/g, ' ').toLowerCase()}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {b.slot?.startTime
-                      ? new Date(b.slot.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-                      : '—'}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Quick Actions */}
-      <div className="p-5">
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Quick Actions</p>
-        <div className="space-y-1.5">
-          <button onClick={() => onNavigate('/documents')}
-            className="flex w-full items-center gap-3 rounded-xl border border-border px-3.5 py-3 text-xs font-semibold text-foreground hover:border-primary/30 hover:bg-muted/40 transition-all group">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted/60 group-hover:bg-primary/10 transition-colors">
-              <UploadSimple className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+          <>
+            <div className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full">
+              {docSegments.filter((s) => s.count > 0).map((s) => (
+                <div key={s.label} className={`h-full ${s.bar}`} style={{ flexGrow: s.count, flexBasis: 0 }} />
+              ))}
             </div>
-            Upload document
-          </button>
-          {pendingPayment && (
-            <button onClick={() => onNavigate('/payments')}
-              className="flex w-full items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-all group">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-100">
-                <CreditCard className="h-3.5 w-3.5 text-rose-600" />
-              </div>
-              Pay ${Number(pendingPayment.total).toLocaleString()} now
+            <div className="mt-3 space-y-1.5">
+              {docSegments.map((s) => (
+                <div key={s.label} className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <span className={`h-2 w-2 rounded-full ${s.dot}`} /> {s.label}
+                  </span>
+                  <span className="font-bold text-foreground">{s.count}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => onNavigate('/documents')}
+              className="mt-3.5 flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+            >
+              Manage documents <CaretRight className="h-3 w-3" />
             </button>
-          )}
-          <button onClick={() => onNavigate('/bookings')}
-            className="flex w-full items-center gap-3 rounded-xl border border-border px-3.5 py-3 text-xs font-semibold text-foreground hover:border-primary/30 hover:bg-muted/40 transition-all group">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted/60 group-hover:bg-primary/10 transition-colors">
-              <CalendarBlank className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-            </div>
-            Book a session
-          </button>
-          <button onClick={() => onNavigate('/academy')}
-            className="flex w-full items-center gap-3 rounded-xl border border-border px-3.5 py-3 text-xs font-semibold text-foreground hover:border-primary/30 hover:bg-muted/40 transition-all group">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted/60 group-hover:bg-primary/10 transition-colors">
-              <BookOpen className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-            </div>
-            My courses
-          </button>
+          </>
+        )}
+      </RailCard>
+
+      {/* Shortcuts */}
+      <RailCard title="Shortcuts">
+        <div className="grid grid-cols-2 gap-2">
+          {shortcuts.map(({ label, icon: Icon, href }) => (
+            <button
+              key={label}
+              onClick={() => onNavigate(href)}
+              className="group flex flex-col items-start gap-2 rounded-xl border border-border p-3 text-left transition-all hover:border-primary/40 hover:bg-primary/5"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/60 transition-colors group-hover:bg-primary/10">
+                <Icon className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+              </span>
+              <span className="text-xs font-bold text-foreground">{label}</span>
+            </button>
+          ))}
         </div>
-      </div>
+      </RailCard>
     </div>
   );
 }
@@ -934,7 +1003,6 @@ export default function PortalDashboard() {
   const verifiedDocs = documents.filter((d) => d.status === 'VERIFIED').length;
   const rejectedDocs = documents.filter((d) => d.status === 'REJECTED').length;
   const pendingDocs  = documents.filter((d) => d.status === 'PENDING').length;
-  const pendingPayment = orders.find((o) => o.status === 'PENDING');
   const consultant = engagement?.consultant ?? null;
   const milestones = engagement?.milestones ?? [];
   const completedMilestones = milestones.filter((m: any) => !!m.completedAt).length;
@@ -951,23 +1019,28 @@ export default function PortalDashboard() {
   ];
   const onboardingComplete = onboardingSteps.every((s) => s.done);
 
-  const alerts = [
+  const alerts: RailAlert[] = [
+    ...orders.filter((o) => o.status === 'PENDING').map((o) => ({
+      text: `Payment of $${Number(o.total).toLocaleString()} due`,
+      sub: 'Complete payment to continue your pathway.',
+      tone: 'rose' as const, cta: 'Pay now', href: '/payments',
+    })),
     ...documents.filter((d) => d.status === 'REJECTED').map((d) => ({
-      text: `${d.type} was rejected`, sub: 'Contact your consultant to re-upload.', color: 'rose',
+      text: `${statusLabel(d.type)} was rejected`,
+      sub: 'Upload a corrected copy to keep your case moving.',
+      tone: 'rose' as const, cta: 'Re-upload', href: '/documents',
     })),
     ...documents.filter((d) => {
       if (!d.expiryDate) return false;
       return Math.ceil((new Date(d.expiryDate).getTime() - Date.now()) / 86400000) <= 30;
-    }).map((d) => ({
-      text: `${d.type} expiring soon`,
-      sub: `Expires ${new Date(d.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
-      color: 'amber',
-    })),
-    ...orders.filter((o) => o.status === 'PENDING').map((o) => ({
-      text: `Payment of $${Number(o.total).toLocaleString()} due`,
-      sub: 'Complete payment to continue your pathway.',
-      color: 'rose',
-    })),
+    }).map((d) => {
+      const expired = new Date(d.expiryDate).getTime() < Date.now();
+      return {
+        text: `${statusLabel(d.type)} ${expired ? 'has expired' : 'expiring soon'}`,
+        sub: `${expired ? 'Expired' : 'Expires'} ${fmtDate(d.expiryDate)}`,
+        tone: expired ? ('rose' as const) : ('amber' as const), cta: 'Renew', href: '/documents',
+      };
+    }),
   ];
 
   async function handleSignLetter() {
@@ -986,7 +1059,7 @@ export default function PortalDashboard() {
 
   return (
     <>
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-6 xl:flex-row">
         {/* ── Main content ── */}
         <div className="flex-1 min-w-0 space-y-5">
 
@@ -1004,6 +1077,13 @@ export default function PortalDashboard() {
             bookings={bookings}
             onNavigate={router.push}
           />
+
+          {/* Attention card moves here when the rail drops below the content */}
+          {alerts.length > 0 && (
+            <div className="xl:hidden">
+              <AttentionCard alerts={alerts} onNavigate={router.push} />
+            </div>
+          )}
 
           {/* Engagement switcher */}
           <EngagementSwitcher allEngagements={allEngagements} active={engagement} onSwitch={switchEngagement} />
@@ -1108,16 +1188,12 @@ export default function PortalDashboard() {
         </div>
 
         {/* ── Right rail ── */}
-        <aside className="hidden xl:block w-80 shrink-0">
-          <div className="sticky top-6 rounded-2xl border border-border bg-white shadow-md overflow-hidden">
+        <aside className="w-full shrink-0 xl:w-80">
+          <div className="xl:sticky xl:top-6 xl:-m-1 xl:max-h-[calc(100vh-3rem)] xl:overflow-y-auto xl:p-1">
             <RightRail
               consultant={consultant}
-              engagement={engagement}
               bookings={bookings}
-              milestones={milestones}
-              caseProgress={caseProgress}
-              completedMilestones={completedMilestones}
-              pendingPayment={pendingPayment}
+              documents={documents}
               alerts={alerts}
               onMessage={() => setMessageOpen(true)}
               onNavigate={router.push}
