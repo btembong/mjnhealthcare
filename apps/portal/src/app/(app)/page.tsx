@@ -71,38 +71,38 @@ function DashboardSkeleton() {
 function NextActionBanner({ engagement, documents, orders, me, onNavigate }: {
   engagement: any; documents: any[]; orders: any[]; me: any; onNavigate: (p: string) => void;
 }) {
-  const configs: { show: boolean; color: string; bg: string; border: string; icon: any; title: string; sub: string; cta: string; href: string }[] = [
+  const configs: { show: boolean; action: boolean; icon: any; title: string; sub: string; cta: string; href: string }[] = [
     {
       show: !me?.name || me.name === me.email,
-      color: 'text-amber-900', bg: 'bg-amber-50', border: 'border-amber-200',
+      action: true,
       icon: Student, title: 'Complete your profile',
       sub: 'Add your name and profession so your consultant can get started.',
       cta: 'Complete profile', href: '/settings',
     },
     {
       show: (() => { const exp = documents.filter((d) => { if (!d.expiryDate) return false; return Math.ceil((new Date(d.expiryDate).getTime() - Date.now()) / 86400000) <= 14; }); return exp.length > 0; })(),
-      color: 'text-rose-900', bg: 'bg-rose-50', border: 'border-rose-200',
+      action: true,
       icon: WarningCircle, title: 'Documents expiring within 14 days',
       sub: 'Renew and re-upload before expiry to keep your case on track.',
       cta: 'Renew now', href: '/documents',
     },
     {
       show: orders.some((o) => o.status === 'PENDING'),
-      color: 'text-rose-900', bg: 'bg-rose-50', border: 'border-rose-200',
+      action: true,
       icon: CreditCard, title: `Payment of $${Number(orders.find((o) => o.status === 'PENDING')?.total ?? 0).toLocaleString()} required`,
       sub: 'Complete to continue your licensing pathway.',
       cta: 'Pay now', href: '/payments',
     },
     {
       show: documents.some((d) => d.status === 'PENDING'),
-      color: 'text-primary', bg: 'bg-primary/5', border: 'border-primary/20',
+      action: false,
       icon: FileText, title: `${documents.filter((d) => d.status === 'PENDING').length} document(s) under review`,
       sub: 'Being verified by your consultant — no action needed.',
       cta: 'View docs', href: '/documents',
     },
     {
       show: !engagement,
-      color: 'text-primary', bg: 'bg-primary/5', border: 'border-primary/20',
+      action: false,
       icon: Sparkle, title: 'Ready to start your journey?',
       sub: 'Book a consultation — your consultant will set up your pathway.',
       cta: 'Book now', href: '/bookings',
@@ -114,19 +114,22 @@ function NextActionBanner({ engagement, documents, orders, me, onNavigate }: {
   const Icon = active.icon;
 
   return (
-    <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border ${active.border} ${active.bg} px-5 py-4`}>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-white px-5 py-4 shadow-sm">
       <div className="flex items-center gap-3">
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active.bg}`}>
-          <Icon weight="fill" className={`h-5 w-5 ${active.color}`} />
+        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+          <Icon weight="fill" className="h-5 w-5 text-primary" />
+          {active.action && (
+            <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-accent" />
+          )}
         </div>
         <div>
-          <p className={`text-sm font-bold ${active.color}`}>{active.title}</p>
-          <p className={`text-xs mt-0.5 ${active.color} opacity-70`}>{active.sub}</p>
+          <p className="text-sm font-bold text-foreground">{active.title}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{active.sub}</p>
         </div>
       </div>
       <button
         onClick={() => onNavigate(active.href)}
-        className="flex items-center gap-2 rounded-xl bg-foreground/90 px-4 py-2 text-xs font-bold text-white hover:bg-foreground transition-colors"
+        className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition-colors"
       >
         {active.cta} <ArrowRight className="h-3.5 w-3.5" />
       </button>
@@ -236,13 +239,8 @@ function HeroHeader({
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           {/* Left — avatar + greeting */}
           <div className="flex items-center gap-4">
-            <div className="relative shrink-0">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 ring-2 ring-white/30 text-xl font-extrabold text-white select-none shadow-inner">
-                {initials}
-              </div>
-              {engagement?.status === 'ACTIVE' && (
-                <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-400 shadow-sm" />
-              )}
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/20 ring-2 ring-white/30 text-xl font-extrabold text-white select-none shadow-inner">
+              {initials}
             </div>
             <div>
               <p className="text-[11px] font-bold uppercase tracking-widest text-white/50 mb-0.5">Client Portal</p>
@@ -257,10 +255,10 @@ function HeroHeader({
                     <span className="text-xs font-medium text-white/60">{formatCaseRef(engagement.id)}</span>
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
                       engagement.status === 'ACTIVE'
-                        ? 'bg-emerald-400/20 border-emerald-400/30 text-emerald-300'
+                        ? 'bg-white/20 border-white/30 text-white'
                         : 'bg-white/10 border-white/20 text-white/60'
                     }`}>
-                      {engagement.status === 'ACTIVE' && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                      {engagement.status === 'ACTIVE' && <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />}
                       {statusLabel(engagement.status)}
                     </span>
                   </>
@@ -312,7 +310,10 @@ function HeroHeader({
             onClick={() => onNavigate(stat.href)}
             className="flex flex-col items-center gap-0.5 px-4 py-3.5 text-center hover:bg-white/8 transition-colors"
           >
-            <span className={`text-xl font-extrabold ${stat.alert ? 'text-rose-300' : 'text-white'}`}>{stat.value}</span>
+            <span className="flex items-center gap-1.5 text-xl font-extrabold text-white">
+              {stat.alert && <span className="h-2 w-2 rounded-full bg-accent" />}
+              {stat.value}
+            </span>
             <span className="text-[11px] font-medium text-white/50 leading-tight">{stat.label}</span>
           </button>
         ))}
@@ -451,7 +452,7 @@ function PipelineRail({ engagement, progress, milestones, onNavigate, onMessage 
                       </span>
                     )}
                     {isDone && (
-                      <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[9px] font-bold text-emerald-700 uppercase tracking-wide">
+                      <span className="rounded-full bg-secondary/10 border border-secondary/30 px-2 py-0.5 text-[9px] font-bold text-foreground/80 uppercase tracking-wide">
                         Done
                       </span>
                     )}
@@ -509,20 +510,12 @@ function ActivityFeed({ documents, engagement, orders }: { documents: any[]; eng
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 8);
 
-  function dotColor(item: Activity) {
-    if (item.type === 'milestone') return 'bg-primary';
-    if (item.type === 'order') return 'bg-blue-400';
-    if (item.status === 'VERIFIED') return 'bg-emerald-500';
-    if (item.status === 'REJECTED') return 'bg-rose-500';
-    return 'bg-amber-400';
-  }
-
   function iconEl(item: Activity) {
     if (item.type === 'milestone') return <CheckCircle weight="fill" className="h-3.5 w-3.5 text-primary" />;
-    if (item.type === 'order') return <CreditCard className="h-3.5 w-3.5 text-blue-400" />;
-    if (item.status === 'VERIFIED') return <CheckCircle weight="fill" className="h-3.5 w-3.5 text-emerald-500" />;
-    if (item.status === 'REJECTED') return <WarningCircle weight="fill" className="h-3.5 w-3.5 text-rose-500" />;
-    return <Clock className="h-3.5 w-3.5 text-amber-400" />;
+    if (item.type === 'order') return <CreditCard className="h-3.5 w-3.5 text-primary" />;
+    if (item.status === 'VERIFIED') return <CheckCircle weight="fill" className="h-3.5 w-3.5 text-secondary" />;
+    if (item.status === 'REJECTED') return <XCircle weight="fill" className="h-3.5 w-3.5 text-rose-500" />;
+    return <Clock className="h-3.5 w-3.5 text-accent" />;
   }
 
   if (items.length === 0) {
@@ -590,11 +583,11 @@ function FinancialSummary({ orders, onNavigate }: { orders: any[]; onNavigate: (
             <span className="text-2xl font-extrabold text-foreground">${paid.toLocaleString()}</span>
             <span className="ml-1.5 text-sm text-muted-foreground">of ${total.toLocaleString()} paid</span>
           </div>
-          <span className={`text-sm font-bold ${paidPct === 100 ? 'text-emerald-600' : 'text-foreground'}`}>{paidPct}%</span>
+          <span className="text-sm font-bold text-foreground">{paidPct}%</span>
         </div>
         <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-1000 ${paidPct === 100 ? 'bg-emerald-500' : 'gradient-hero'}`}
+            className={`h-full rounded-full transition-all duration-1000 ${paidPct === 100 ? 'bg-secondary' : 'gradient-hero'}`}
             style={{ width: `${paidPct}%` }}
           />
         </div>
@@ -607,18 +600,21 @@ function FinancialSummary({ orders, onNavigate }: { orders: any[]; onNavigate: (
           { label: 'Remaining', value: remaining > 0 ? `$${remaining.toLocaleString()}` : 'Settled', sub: remaining > 0 ? 'Outstanding' : 'Nothing owed', alert: remaining > 0 },
           { label: 'Next due', value: nextDue ? `$${Number(nextDue.total).toLocaleString()}` : '—', sub: nextDue ? statusLabel(nextDue.status) : 'No pending orders', alert: !!nextDue },
         ].map((item) => (
-          <div key={item.label} className={`rounded-xl border p-3 ${item.alert ? 'border-rose-200 bg-rose-50' : 'border-border bg-muted/20'}`}>
+          <div key={item.label} className="rounded-xl border border-border bg-muted/20 p-3">
             <p className="text-[11px] font-medium text-muted-foreground mb-1">{item.label}</p>
-            <p className={`text-base font-extrabold ${item.alert ? 'text-rose-700' : 'text-foreground'}`}>{item.value}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{item.sub}</p>
+            <p className="text-base font-extrabold text-foreground">{item.value}</p>
+            <p className={`mt-0.5 flex items-center gap-1.5 text-[11px] ${item.alert ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+              {item.alert && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
+              {item.sub}
+            </p>
           </div>
         ))}
       </div>
 
       {partialPaid.length > 0 && (
-        <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3.5 py-2.5">
-          <WarningCircle weight="fill" className="h-4 w-4 shrink-0 text-amber-500" />
-          <p className="text-xs text-amber-800 font-medium">
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted/40 border border-border px-3.5 py-2.5">
+          <WarningCircle weight="fill" className="h-4 w-4 shrink-0 text-accent" />
+          <p className="text-xs text-foreground font-medium">
             {partialPaid.length} instalment{partialPaid.length > 1 ? 's' : ''} partially paid — next payment due on stage completion.
           </p>
         </div>
@@ -687,7 +683,7 @@ function MessageModal({ consultant, engagementId, onClose }: { consultant: any; 
 // ── Right Rail ────────────────────────────────────────────────────────────────
 
 type RailAlert = {
-  text: string; sub: string; tone: 'rose' | 'amber'; cta: string; href: string;
+  text: string; sub: string; critical: boolean; cta: string; href: string;
   kind: 'payment' | 'rejected' | 'expiring'; docType?: string;
 };
 
@@ -724,33 +720,32 @@ function RailCard({ title, action, children }: { title: string; action?: ReactNo
 function AttentionCard({ alerts, onNavigate }: { alerts: RailAlert[]; onNavigate: (p: string) => void }) {
   if (alerts.length === 0) {
     return (
-      <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <Shield weight="fill" className="h-4 w-4 shrink-0 text-emerald-600" />
-        <span className="text-xs font-semibold text-emerald-800">All clear — nothing needs your attention</span>
+      <div className="flex items-center gap-2.5 rounded-2xl border border-secondary/30 bg-secondary/10 px-4 py-3">
+        <Shield weight="fill" className="h-4 w-4 shrink-0 text-secondary" />
+        <span className="text-xs font-semibold text-foreground">All clear — nothing needs your attention</span>
       </div>
     );
   }
 
   return (
-    <section className="rounded-2xl border border-rose-200 bg-white p-5 shadow-sm">
+    <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
       <div className="mb-3.5 flex items-center gap-2">
-        <WarningCircle weight="fill" className="h-4 w-4 text-rose-500" />
+        <WarningCircle weight="fill" className="h-4 w-4 text-accent" />
         <h3 className="text-xs font-bold uppercase tracking-widest text-foreground">Needs attention</h3>
-        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-xs font-bold text-white">
+        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-bold text-accent-foreground">
           {alerts.length}
         </span>
       </div>
       <div className="divide-y divide-border/60">
         {alerts.map((a, i) => {
-          const rose = a.tone === 'rose';
           const Icon = alertIcon(a);
           const BadgeIcon = a.kind === 'rejected' ? XCircle : a.kind === 'expiring' ? Clock : WarningCircle;
           return (
             <div key={i} className="flex gap-3 py-3.5 first:pt-0 last:pb-0">
-              <div className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${rose ? 'bg-rose-50' : 'bg-amber-50'}`}>
-                <Icon weight="duotone" className={`h-5 w-5 ${rose ? 'text-rose-600' : 'text-amber-600'}`} />
+              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <Icon weight="duotone" className="h-5 w-5 text-primary" />
                 <span className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white">
-                  <BadgeIcon weight="fill" className={`h-4 w-4 ${rose ? 'text-rose-500' : 'text-amber-500'}`} />
+                  <BadgeIcon weight="fill" className={`h-4 w-4 ${a.critical ? 'text-rose-500' : 'text-accent'}`} />
                 </span>
               </div>
               <div className="min-w-0 flex-1">
@@ -758,8 +753,10 @@ function AttentionCard({ alerts, onNavigate }: { alerts: RailAlert[]; onNavigate
                 <p className="mt-0.5 text-xs text-muted-foreground">{a.sub}</p>
                 <button
                   onClick={() => onNavigate(a.href)}
-                  className={`mt-2.5 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-white transition-colors ${
-                    rose ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-600 hover:bg-amber-700'
+                  className={`mt-2.5 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                    i === 0
+                      ? 'bg-primary text-white hover:bg-primary/90'
+                      : 'border border-border text-foreground hover:border-primary/30 hover:bg-muted/50'
                   }`}
                 >
                   {a.cta} <ArrowRight className="h-3 w-3" />
@@ -784,9 +781,9 @@ function RightRail({ consultant, bookings, documents, alerts, onMessage, onNavig
   const later = upcoming.slice(1, 3);
 
   const docSegments = [
-    { label: 'Verified',  count: documents.filter((d) => d.status === 'VERIFIED').length, bar: 'bg-emerald-500', dot: 'bg-emerald-500' },
-    { label: 'In review', count: documents.filter((d) => d.status === 'PENDING').length,  bar: 'bg-amber-400',   dot: 'bg-amber-400' },
-    { label: 'Rejected',  count: documents.filter((d) => d.status === 'REJECTED').length, bar: 'bg-rose-500',    dot: 'bg-rose-500' },
+    { label: 'Verified',  count: documents.filter((d) => d.status === 'VERIFIED').length, bar: 'bg-secondary', dot: 'bg-secondary' },
+    { label: 'In review', count: documents.filter((d) => d.status === 'PENDING').length,  bar: 'bg-primary/30',  dot: 'bg-primary/30' },
+    { label: 'Rejected',  count: documents.filter((d) => d.status === 'REJECTED').length, bar: 'bg-accent',      dot: 'bg-accent' },
   ];
 
   const shortcuts = [
@@ -1039,12 +1036,12 @@ export default function PortalDashboard() {
     ...orders.filter((o) => o.status === 'PENDING').map((o) => ({
       text: `Payment of $${Number(o.total).toLocaleString()} due`,
       sub: 'Complete payment to continue your pathway.',
-      tone: 'rose' as const, cta: 'Pay now', href: '/payments', kind: 'payment' as const,
+      critical: false, cta: 'Pay now', href: '/payments', kind: 'payment' as const,
     })),
     ...documents.filter((d) => d.status === 'REJECTED').map((d) => ({
       text: `${statusLabel(d.type)} was rejected`,
       sub: 'Upload a corrected copy to keep your case moving.',
-      tone: 'rose' as const, cta: 'Re-upload', href: '/documents', kind: 'rejected' as const, docType: d.type,
+      critical: true, cta: 'Re-upload', href: '/documents', kind: 'rejected' as const, docType: d.type,
     })),
     ...documents.filter((d) => {
       if (!d.expiryDate) return false;
@@ -1054,7 +1051,7 @@ export default function PortalDashboard() {
       return {
         text: `${statusLabel(d.type)} ${expired ? 'has expired' : 'expiring soon'}`,
         sub: `${expired ? 'Expired' : 'Expires'} ${fmtDate(d.expiryDate)}`,
-        tone: expired ? ('rose' as const) : ('amber' as const), cta: 'Renew', href: '/documents',
+        critical: expired, cta: 'Renew', href: '/documents',
         kind: 'expiring' as const, docType: d.type,
       };
     }),
