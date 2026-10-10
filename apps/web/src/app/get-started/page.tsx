@@ -892,47 +892,42 @@ function GetStartedInner() {
                       </div>
 
                       {/* Day cells */}
-                      <div className="grid grid-cols-7 p-2 gap-1">
+                      <div className="grid grid-cols-7 p-3 gap-y-1">
                         {buildCalendarGrid(calYear, calMonth).map((cell, idx) => {
                           if (!cell) return <div key={`empty-${idx}`} />;
                           const isSelected = cell.iso === selectedDate;
                           const slotCount = availability[cell.iso];
                           const hasSlots = slotCount !== undefined ? slotCount > 0 : null;
                           const isDisabled = cell.isPast || hasSlots === false;
-                          const isUnknown = !cell.isPast && hasSlots === null;
+                          // Still loading availability for this date
+                          const isPending = !cell.isPast && hasSlots === null;
                           return (
                             <button
                               key={cell.iso}
                               type="button"
-                              onClick={() => !isDisabled && handleCalDateSelect(cell.iso, cell.isPast, hasSlots ?? true)}
+                              onClick={() => !isDisabled && !isPending && handleCalDateSelect(cell.iso, cell.isPast, hasSlots ?? true)}
                               disabled={isDisabled}
-                              className={`relative flex flex-col items-center justify-center rounded-xl py-2 text-sm font-semibold transition-all
-                                ${isSelected ? 'bg-primary text-white shadow-sm' : ''}
-                                ${!isSelected && !isDisabled ? 'hover:bg-primary/8 text-foreground cursor-pointer' : ''}
-                                ${isDisabled ? 'text-muted-foreground/40 cursor-not-allowed' : ''}
-                                ${cell.isToday && !isSelected ? 'ring-1 ring-primary/40' : ''}
+                              className={`
+                                relative flex h-9 w-full items-center justify-center rounded-full text-sm transition-all select-none
+                                ${isSelected
+                                  ? 'bg-primary font-bold text-white shadow-md'
+                                  : hasSlots === true
+                                    ? 'font-bold text-primary hover:bg-primary/10 cursor-pointer'
+                                    : isPending
+                                      ? 'font-normal text-muted-foreground/60 cursor-default animate-pulse'
+                                      : 'font-normal text-muted-foreground/35 cursor-not-allowed'}
+                                ${cell.isToday && !isSelected ? 'ring-2 ring-primary/30 ring-offset-1' : ''}
                               `}
                             >
                               {cell.day}
-                              {/* Availability dot */}
-                              <span className={`mt-0.5 h-1 w-1 rounded-full transition-all ${
-                                isSelected ? 'bg-white/60' :
-                                hasSlots === true ? 'bg-secondary' :
-                                isUnknown && !cell.isPast ? 'bg-muted-foreground/20' :
-                                'bg-transparent'
-                              }`} />
                             </button>
                           );
                         })}
                       </div>
 
-                      {/* Legend */}
-                      <div className="flex items-center gap-4 border-t border-border px-4 py-2.5">
-                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span className="h-2 w-2 rounded-full bg-secondary inline-block" />
-                          {lang === 'en' ? 'Available' : 'Disponible'}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
+                      {/* Footer: selected date label only — no legend needed */}
+                      <div className="border-t border-border px-4 py-2.5">
+                        <span className="text-xs font-medium text-muted-foreground">
                           {formatDate(selectedDate)}
                         </span>
                       </div>
