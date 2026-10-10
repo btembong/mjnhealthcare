@@ -1043,24 +1043,44 @@ function GetStartedInner() {
             {step !== 'confirmed' && (
               <div className="mt-6 space-y-4 lg:mt-0">
 
-                {/* Advisor card — dynamic based on selected slot's consultant */}
+                {/* Advisor card — reflects selected consultant or generic placeholder */}
                 <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
                   <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     {t.advisor_title}
                   </p>
                   <div className="flex items-center gap-3">
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ring-primary/20 bg-primary/10 flex items-center justify-center">
-                      <img src="/nyah-ceo.png" alt="Mbout John Nyah" className="h-full w-full object-cover object-top" />
+                      {selectedConsultant?.photoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={selectedConsultant.photoUrl} alt={selectedConsultant.name} className="h-full w-full object-cover object-top" />
+                      ) : selectedConsultant ? (
+                        <span className="text-sm font-bold text-primary">
+                          {selectedConsultant.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
+                        </span>
+                      ) : (
+                        <User className="h-6 w-6 text-primary/50" />
+                      )}
                     </div>
                     <div>
-                      <p className="font-bold text-foreground">Mbout John Nyah</p>
-                      <p className="text-xs text-muted-foreground">CEO & Founder · MJN Healthcare</p>
-                      <span className="mt-1 inline-block rounded-full border border-primary/20 bg-primary/5 px-2 py-[2px] text-xs font-semibold text-primary">
-                        MBA-HCM · BSN · RN
-                      </span>
+                      <p className="font-bold text-foreground">
+                        {selectedConsultant ? selectedConsultant.name : (lang === 'en' ? 'One of our advisors' : 'Un de nos conseillers')}
+                      </p>
+                      {selectedConsultant?.specialty ? (
+                        <p className="text-xs text-muted-foreground">{selectedConsultant.specialty}</p>
+                      ) : !selectedConsultant ? (
+                        <p className="text-xs text-muted-foreground">{lang === 'en' ? 'Choose an advisor in the next step' : 'Choisissez un conseiller à l\'étape suivante'}</p>
+                      ) : null}
                     </div>
                   </div>
-                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t.advisor_line}</p>
+                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                    {selectedConsultant
+                      ? (lang === 'en'
+                          ? `${selectedConsultant.name.split(' ')[0]} will review your profile and map the clearest path forward.`
+                          : `${selectedConsultant.name.split(' ')[0]} examinera votre profil et tracera le chemin le plus clair.`)
+                      : (lang === 'en'
+                          ? 'Your advisor will review your profile and map the fastest route to your goals.'
+                          : 'Votre conseiller examinera votre profil et tracera le chemin le plus rapide vers vos objectifs.')}
+                  </p>
                 </div>
 
                 {/* Trust stats */}
