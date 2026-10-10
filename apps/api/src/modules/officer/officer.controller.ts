@@ -117,8 +117,9 @@ class UpdateTrackingDto {
 }
 
 class EscalateDto {
+  @IsOptional()
   @IsString()
-  consultantId!: string;
+  consultantId?: string;
 
   @IsString()
   reason!: string;
@@ -273,7 +274,7 @@ export class OfficerController {
   @StaffOnly()
   @Get('officer/pending-approvals')
   getPendingApprovals(@Req() req: any) {
-    return this.svc.getPendingApprovals(req.user.id);
+    return this.svc.getPendingApprovals(req.user);
   }
 
   @ApiOperation({ summary: 'Recent officer notes across all cases (admin view)' })

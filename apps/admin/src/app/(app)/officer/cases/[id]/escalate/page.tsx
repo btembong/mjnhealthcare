@@ -17,11 +17,15 @@ export default function EscalatePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api.getConsultants(true).then(data => {
-      setConsultants(data ?? []);
-      if (data?.length > 0) setConsultantId(data[0].id);
+    Promise.allSettled([api.getConsultants(true), api.getOfficerCase(id)]).then(([rConsultants, rCase]) => {
+      const list = rConsultants.status === 'fulfilled' ? rConsultants.value ?? [] : [];
+      const assigned = rCase.status === 'fulfilled' ? rCase.value?.consultantId : undefined;
+      setConsultants(list);
+      // Default to the consultant already assigned to this case.
+      if (list.some((c: any) => c.id === assigned)) setConsultantId(assigned);
+      else if (list.length > 0) setConsultantId(list[0].id);
     });
-  }, []);
+  }, [id]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,8 +35,8 @@ export default function EscalatePage() {
       await api.escalateCase(id, consultantId, reason);
       toast.success('Case escalated to consultant');
       router.push(`/officer/cases/${id}`);
-    } catch {
-      toast.error('Failed to escalate');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to escalate');
     } finally {
       setSaving(false);
     }

@@ -5,6 +5,7 @@ import { NotificationService } from './notification.service';
 import { PdfService } from '../order/pdf.service';
 import * as T from './email-templates';
 import { findConsultantContact } from '../../common/consultant-contact';
+import { adminAlertEmail } from '../../common/admin-alert';
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -866,11 +867,7 @@ export class NotificationListener {
     message: string;
   }) {
     try {
-      const recipient = payload.consultantEmail || process.env.ADMIN_ALERT_EMAIL;
-      if (!recipient) {
-        this.logger.warn(`No consultant email or ADMIN_ALERT_EMAIL for engagement ${payload.engagementId}; client message not emailed`);
-        return;
-      }
+      const recipient = payload.consultantEmail || adminAlertEmail();
       const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
       const clientName = escapeHtml(payload.clientName);
       const preview = payload.message.length > 500 ? payload.message.slice(0, 500) + '…' : payload.message;
@@ -986,7 +983,7 @@ export class NotificationListener {
 
     // 4. Admin alert (branded)
     await this.notificationService.sendEmail(
-      process.env.ADMIN_ALERT_EMAIL ?? 'admin@mjnhealth.com',
+      adminAlertEmail(),
       `[Lead] New Free Consult Booked — ${payload.leadName}`,
       T.shell(
         T.h1('New Free Consultation Booked') +
@@ -1062,7 +1059,7 @@ export class NotificationListener {
     const expiry = new Date(payload.discountExpiry).toLocaleDateString('en-GB');
     // Notify admin to follow up
     await this.notificationService.sendEmail(
-      process.env.ADMIN_ALERT_EMAIL ?? 'admin@mjnhealth.com',
+      adminAlertEmail(),
       `[Lead] Free Consult Completed — ${payload.clientName} — Follow Up`,
       `<p>A free consultation has been marked complete. The 48-hour follow-up (with 10% discount code) has been queued.</p>
       <ul>

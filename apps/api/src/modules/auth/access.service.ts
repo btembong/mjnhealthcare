@@ -21,7 +21,7 @@ export class AccessService {
   constructor(private readonly db: DatabaseService) {}
 
   /** Engagement.consultantId holds a ConsultantProfile id; a login is matched to a profile by email. */
-  private async consultantIds(user: AuthUser): Promise<Set<string>> {
+  async consultantIds(user: AuthUser): Promise<Set<string>> {
     const ids = new Set<string>([user.id]);
     const person = await this.db.person.findUnique({ where: { id: user.id }, select: { email: true } });
     const profiles = await this.db.consultantProfile.findMany({
@@ -35,6 +35,34 @@ export class AccessService {
     });
     for (const p of profiles) ids.add(p.id);
     return ids;
+  }
+
+  /**
+   * The staff login (Person id) behind a consultant, given either a ConsultantProfile id or a Person id.
+   * Null when that consultant has no login to act with.
+   */
+  async resolveConsultantLogin(consultantId: string): Promise<string | null> {
+    const direct = await this.db.person.findUnique({ where: { id: consultantId }, select: { id: true } });
+    if (direct) return direct.id;
+    const profile = await this.db.consultantProfile.findUnique({
+      where: { id: consultantId },
+      select: { email: true, partnerUserId: true },
+    });
+    if (!profile) return null;
+    if (profile.partnerUserId) {
+      const linked = await this.db.person.findUnique({ where: { id: profile.partnerUserId }, select: { id: true } });
+      if (linked) return linked.id;
+    }
+    if (!profile.email) return null;
+    const byEmail = await this.db.person.findFirst({
+      where: {
+        email: { equals: profile.email, mode: 'insensitive' },
+        role: { in: ['CONSULTANT', 'ADMIN'] as any[] },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    return byEmail?.id ?? null;
   }
 
   /** Returns null when the user is not restricted to their own caseload. */
@@ -75,6 +103,11 @@ export class AccessService {
     if (!engagement) throw new NotFoundException('Engagement not found.');
     if (isConsultant(user)) {
       if (!engagement.consultantId || (await this.consultantIds(user)).has(engagement.consultantId)) return;
+      // A case escalated to this consultant is theirs to act on while the escalation is open.
+      const escalated = await this.db.caseEscalation.count({
+        where: { engagementId, consultantId: user.id, status: 'OPEN' },
+      });
+      if (escalated > 0) return;
     } else if (engagement.personId === user.id) {
       return;
     }

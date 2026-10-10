@@ -1,3 +1,4 @@
+import { adminAlertEmail } from '../../common/admin-alert';
 import { Process, Processor } from '@nestjs/bull';
 import { Job } from 'bull';
 import { Logger } from '@nestjs/common';
@@ -122,7 +123,7 @@ export class ConsultationReminderProcessor {
     const time = new Date(sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
 
     // Send to the consultant's own inbox when we have it; otherwise fall back to the admin alert inbox.
-    const adminInbox = process.env.ADMIN_ALERT_EMAIL ?? 'admin@mjnhealth.com';
+    const adminInbox = adminAlertEmail();
     const recipient = consultantEmail || adminInbox;
 
     // The host link requires an authenticated console session (host token is issued there),

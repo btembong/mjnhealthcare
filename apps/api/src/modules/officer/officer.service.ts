@@ -2,7 +2,10 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
+import { AccessService } from '../auth/access.service';
+import { AuthUser, isConsultant } from '../auth/access';
 import { DatabaseService } from '@mjn/database';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -11,6 +14,7 @@ export class OfficerService {
   constructor(
     private readonly db: DatabaseService,
     private readonly events: EventEmitter2,
+    private readonly access: AccessService,
   ) {}
 
   // ── Admin: create / list officers ─────────────────────────────────────────
@@ -335,13 +339,15 @@ export class OfficerService {
     });
   }
 
-  async getPendingApprovals(consultantId: string) {
+  /** Consultants see approvals for their own cases; other staff see all. */
+  async getPendingApprovals(user: AuthUser) {
+    const consultantIds = isConsultant(user) ? [...(await this.access.consultantIds(user))] : null;
     return this.db.caseNote.findMany({
       where: {
         isInternal: false,
         requiresApproval: true,
         approvedAt: null,
-        engagement: { consultantId },
+        ...(consultantIds ? { engagement: { consultantId: { in: consultantIds } } } : {}),
       },
       include: {
         author: { select: { id: true, name: true } },
@@ -594,13 +600,25 @@ export class OfficerService {
   async escalate(
     engagementId: string,
     officerId: string,
-    consultantId: string,
+    requestedConsultantId: string | undefined,
     reason: string,
   ) {
     const engagement = await this.db.engagement.findUnique({
       where: { id: engagementId },
     });
     if (!engagement) throw new NotFoundException('Engagement not found');
+
+    // The form sends a consultant profile id; the escalation is stored against that consultant's login.
+    const target = requestedConsultantId || engagement.consultantId;
+    if (!target) {
+      throw new BadRequestException('This case has no consultant assigned. Choose a consultant to escalate to.');
+    }
+    const consultantId = await this.access.resolveConsultantLogin(target);
+    if (!consultantId) {
+      throw new BadRequestException(
+        'That consultant has no staff login, so they cannot receive escalations. Choose another consultant, or ask an admin to create a login with the same email as their consultant profile.',
+      );
+    }
 
     const escalation = await this.db.caseEscalation.create({
       data: { engagementId, officerId, consultantId, reason, status: 'OPEN' },
