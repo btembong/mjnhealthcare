@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, Suspense } from 'react';
+import { useState, useCallback, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { MarketingNav } from '../../components/marketing-nav';
@@ -298,6 +298,9 @@ function GetStartedInner() {
     }
   }, []);
 
+  // Fetch consultants immediately so the sidebar preview is ready on Step 1
+  useEffect(() => { fetchConsultants(); }, [fetchConsultants]);
+
   function handleDateSelect(date: string) {
     setSelectedDate(date);
     fetchSlots(date, selectedConsultant?.id);
@@ -445,7 +448,7 @@ function GetStartedInner() {
           <div className="lg:grid lg:grid-cols-[1fr_300px] lg:gap-8">
 
             {/* ── Left: form ──────────────────────────────────────────── */}
-            <div>
+            <div className="min-w-0">
 
               {/* ── STEP 1: Details ─────────────────────────────────── */}
               {step === 'details' && (
@@ -1043,44 +1046,95 @@ function GetStartedInner() {
             {step !== 'confirmed' && (
               <div className="mt-6 space-y-4 lg:mt-0">
 
-                {/* Advisor card — reflects selected consultant or generic placeholder */}
+                {/* Advisor card — selected consultant or clickable preview list */}
                 <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
                   <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     {t.advisor_title}
                   </p>
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ring-primary/20 bg-primary/10 flex items-center justify-center">
-                      {selectedConsultant?.photoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={selectedConsultant.photoUrl} alt={selectedConsultant.name} className="h-full w-full object-cover object-top" />
-                      ) : selectedConsultant ? (
-                        <span className="text-sm font-bold text-primary">
-                          {selectedConsultant.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
-                        </span>
-                      ) : (
-                        <User className="h-6 w-6 text-primary/50" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-bold text-foreground">
-                        {selectedConsultant ? selectedConsultant.name : (lang === 'en' ? 'One of our advisors' : 'Un de nos conseillers')}
-                      </p>
-                      {selectedConsultant?.specialty ? (
-                        <p className="text-xs text-muted-foreground">{selectedConsultant.specialty}</p>
-                      ) : !selectedConsultant ? (
-                        <p className="text-xs text-muted-foreground">{lang === 'en' ? 'Choose an advisor in the next step' : 'Choisissez un conseiller à l\'étape suivante'}</p>
-                      ) : null}
-                    </div>
-                  </div>
-                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                    {selectedConsultant
-                      ? (lang === 'en'
+
+                  {selectedConsultant ? (
+                    /* Single selected card */
+                    <>
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ring-primary/20 bg-primary/10 flex items-center justify-center">
+                          {selectedConsultant.photoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={selectedConsultant.photoUrl} alt={selectedConsultant.name} className="h-full w-full object-cover object-top" />
+                          ) : (
+                            <span className="text-sm font-bold text-primary">
+                              {selectedConsultant.name.split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-bold text-foreground">{selectedConsultant.name}</p>
+                          {selectedConsultant.specialty && <p className="truncate text-xs text-muted-foreground">{selectedConsultant.specialty}</p>}
+                        </div>
+                      </div>
+                      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                        {lang === 'en'
                           ? `${selectedConsultant.name.split(' ')[0]} will review your profile and map the clearest path forward.`
-                          : `${selectedConsultant.name.split(' ')[0]} examinera votre profil et tracera le chemin le plus clair.`)
-                      : (lang === 'en'
-                          ? 'Your advisor will review your profile and map the fastest route to your goals.'
-                          : 'Votre conseiller examinera votre profil et tracera le chemin le plus rapide vers vos objectifs.')}
-                  </p>
+                          : `${selectedConsultant.name.split(' ')[0]} examinera votre profil et tracera le chemin le plus clair.`}
+                      </p>
+                    </>
+                  ) : consultantsLoading ? (
+                    /* Loading skeleton */
+                    <div className="space-y-2">
+                      {[1,2,3].map(i => (
+                        <div key={i} className="flex items-center gap-3 rounded-xl p-2">
+                          <div className="h-9 w-9 shrink-0 rounded-full bg-muted animate-pulse" />
+                          <div className="flex-1 space-y-1.5">
+                            <div className="h-3 w-24 rounded bg-muted animate-pulse" />
+                            <div className="h-2.5 w-16 rounded bg-muted animate-pulse" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : consultants.length > 0 ? (
+                    /* Clickable preview — pick and jump straight to slots */
+                    <>
+                      <div className="space-y-1">
+                        {consultants.slice(0, 3).map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => selectConsultant(c)}
+                            className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition hover:bg-primary/5 group"
+                          >
+                            <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-primary/10 ring-1 ring-primary/20 flex items-center justify-center">
+                              {c.photoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={c.photoUrl} alt={c.name} className="h-full w-full object-cover object-top" />
+                              ) : (
+                                <span className="text-xs font-bold text-primary">
+                                  {c.name.split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{c.name}</p>
+                              {c.specialty && <p className="truncate text-xs text-muted-foreground">{c.specialty}</p>}
+                            </div>
+                            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {lang === 'en' ? 'Click an advisor to book directly.' : 'Cliquez sur un conseiller pour réserver.'}
+                      </p>
+                    </>
+                  ) : (
+                    /* Fallback if no consultants loaded */
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="h-6 w-6 text-primary/50" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-foreground">{lang === 'en' ? 'One of our advisors' : 'Un de nos conseillers'}</p>
+                        <p className="text-xs text-muted-foreground">{lang === 'en' ? 'Choose in the next step' : 'Choisissez à l\'étape suivante'}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Trust stats */}
