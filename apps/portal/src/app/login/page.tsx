@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { api, setToken } from '../../lib/api';
 import {
   Envelope, ArrowRight, CircleNotch, CheckCircle, Key,
-  ArrowCounterClockwise, User, Briefcase, Globe,
+  ArrowCounterClockwise, User, Briefcase, Globe, Shield,
+  Certificate, Buildings, Stethoscope,
 } from '@mjn/ui';
 
 type Step = 'email' | 'otp' | 'done';
@@ -56,7 +57,7 @@ function OtpInput({ value, onChange }: { value: string; onChange: (v: string) =>
   }
 
   return (
-    <div className="flex gap-3 justify-center">
+    <div className="flex gap-2.5 justify-center">
       {Array.from({ length: 6 }).map((_, i) => (
         <input
           key={i}
@@ -71,10 +72,10 @@ function OtpInput({ value, onChange }: { value: string; onChange: (v: string) =>
           onFocus={(e) => e.target.select()}
           autoFocus={i === 0}
           className={[
-            'h-14 w-12 rounded-xl border-2 bg-white text-center text-xl font-bold text-foreground outline-none transition-all duration-150',
+            'h-14 w-12 rounded-2xl border-2 bg-white text-center text-2xl font-extrabold text-foreground outline-none transition-all duration-150 shadow-sm',
             value[i]
-              ? 'border-primary bg-primary/5 shadow-sm shadow-primary/20'
-              : 'border-border hover:border-muted-foreground focus:border-primary focus:shadow-sm focus:shadow-primary/20',
+              ? 'border-primary bg-primary/5 shadow-primary/20 scale-105'
+              : 'border-border hover:border-primary/40 focus:border-primary focus:shadow-md focus:shadow-primary/20 focus:scale-105',
           ].join(' ')}
         />
       ))}
@@ -106,11 +107,11 @@ function OnboardingModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl border border-border/40">
         {/* Header */}
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
+        <div className="mb-7 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl gradient-hero shadow-lg">
             <span className="text-lg font-extrabold text-white">MJN</span>
           </div>
           <h2 className="text-xl font-extrabold text-foreground">Welcome to MJN Healthcare</h2>
@@ -120,7 +121,6 @@ function OnboardingModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Full name
@@ -139,7 +139,6 @@ function OnboardingModal({
             </div>
           </div>
 
-          {/* Profession */}
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Profession
@@ -158,7 +157,6 @@ function OnboardingModal({
             </div>
           </div>
 
-          {/* Target country */}
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Target country
@@ -180,13 +178,100 @@ function OnboardingModal({
           <button
             type="submit"
             disabled={loading || !name.trim() || !profession || !country}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-primary/90 disabled:opacity-60"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl gradient-hero px-6 py-3.5 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[.98] disabled:opacity-60 shadow-md"
           >
             {loading
               ? <><CircleNotch className="h-4 w-4 animate-spin" /> Saving…</>
               : <>Continue to dashboard <ArrowRight className="h-4 w-4" /></>}
           </button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Step Progress Bar ────────────────────────────────────────────────────────
+
+function StepProgress({ current }: { current: 'email' | 'otp' | 'done' }) {
+  const steps = [
+    { key: 'email', label: 'Email' },
+    { key: 'otp',   label: 'Verify' },
+    { key: 'done',  label: 'Access' },
+  ];
+  const currentIdx = steps.findIndex((s) => s.key === current);
+
+  return (
+    <div className="mb-8 flex items-center gap-0">
+      {steps.map((step, idx) => {
+        const done    = idx < currentIdx;
+        const active  = idx === currentIdx;
+        return (
+          <div key={step.key} className="flex flex-1 items-center">
+            <div className="flex flex-col items-center gap-1">
+              <div className={[
+                'flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all duration-300',
+                done   ? 'gradient-hero text-white shadow-sm' : '',
+                active ? 'gradient-hero text-white shadow-md ring-4 ring-primary/20 scale-110' : '',
+                !done && !active ? 'bg-muted text-muted-foreground' : '',
+              ].join(' ')}>
+                {done ? <CheckCircle className="h-3.5 w-3.5" weight="fill" /> : idx + 1}
+              </div>
+              <span className={`text-[10px] font-semibold leading-none ${active ? 'text-primary' : done ? 'text-primary/60' : 'text-muted-foreground'}`}>
+                {step.label}
+              </span>
+            </div>
+            {idx < steps.length - 1 && (
+              <div className={`h-0.5 flex-1 mx-2 mb-4 rounded-full transition-all duration-500 ${done ? 'bg-primary/40' : 'bg-border'}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Left panel — pipeline preview card ──────────────────────────────────────
+
+function PipelinePreview() {
+  const stages = [
+    { label: 'Documents Submitted',  done: true  },
+    { label: 'DataFlow Verification', done: true  },
+    { label: 'DHA Exam Registration', done: false, active: true },
+    { label: 'License Issued',        done: false },
+  ];
+
+  return (
+    <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 p-5 shadow-xl">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold text-white/60 uppercase tracking-wide">Active Case</p>
+          <p className="text-sm font-bold text-white mt-0.5">UAE — DHA Nurse Pathway</p>
+        </div>
+        <span className="rounded-full bg-emerald-400/20 border border-emerald-400/30 px-2.5 py-1 text-[10px] font-bold text-emerald-300 uppercase tracking-wide">
+          Active
+        </span>
+      </div>
+      <div className="space-y-2.5 mt-4">
+        {stages.map((stage, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <div className={[
+              'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold transition-all',
+              stage.done   ? 'bg-emerald-400 border-emerald-400 text-white' : '',
+              stage.active ? 'border-white text-white bg-white/20 ring-2 ring-white/30' : '',
+              !stage.done && !stage.active ? 'border-white/20 text-white/20' : '',
+            ].join(' ')}>
+              {stage.done ? '✓' : i + 1}
+            </div>
+            <span className={`text-sm leading-none ${stage.done ? 'text-white/60 line-through' : stage.active ? 'text-white font-semibold' : 'text-white/30'}`}>
+              {stage.label}
+            </span>
+            {stage.active && (
+              <span className="ml-auto text-[10px] font-bold text-amber-300 bg-amber-300/10 border border-amber-300/20 px-2 py-0.5 rounded-full">
+                In progress
+              </span>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -238,7 +323,6 @@ export default function LoginPage() {
       if (res.isNew) {
         setTimeout(() => setShowOnboarding(true), 1200);
       } else {
-        // Fetch name for returning users
         api.getMe().then((me) => setResolvedName(me?.name ?? '')).catch(() => {});
         setTimeout(() => router.push('/'), 2000);
       }
@@ -279,195 +363,270 @@ export default function LoginPage() {
     router.push('/');
   }
 
-  const firstName = resolvedName ? resolvedName.split(' ')[0] : email.split('@')[0];
-
   return (
     <>
       {showOnboarding && (
         <OnboardingModal email={email} onComplete={handleOnboardingComplete} />
       )}
 
-      <div className="flex min-h-screen bg-muted/20">
-        {/* Left panel */}
-        <div className="gradient-hero hidden flex-col justify-between p-12 text-white lg:flex lg:w-2/5">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-              <span className="text-xs font-extrabold">MJN</span>
+      <div className="flex min-h-screen bg-slate-50">
+        {/* ── Left panel ── */}
+        <div className="gradient-hero hidden flex-col justify-between p-10 text-white lg:flex lg:w-[44%] xl:w-[42%] relative overflow-hidden">
+          {/* Decorative circles */}
+          <div className="pointer-events-none absolute -top-24 -right-24 h-80 w-80 rounded-full bg-white/5" />
+          <div className="pointer-events-none absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-white/5" />
+          <div className="pointer-events-none absolute top-1/3 -right-8 h-40 w-40 rounded-full bg-white/5" />
+
+          {/* Logo */}
+          <div className="relative flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shadow-inner border border-white/20">
+              <span className="text-xs font-extrabold text-white">MJN</span>
             </div>
-            <span className="font-bold tracking-tight">MJN Healthcare</span>
+            <div>
+              <span className="block text-sm font-bold tracking-tight">MJN Healthcare</span>
+              <span className="block text-[10px] text-white/50 leading-none">Academy & Professional Services</span>
+            </div>
           </div>
 
-          <div>
-            <h1 className="text-3xl font-extrabold leading-tight">
-              Your licensing journey,<br />managed end to end.
-            </h1>
-            <p className="mt-4 text-blue-100 leading-relaxed text-sm">
-              Track your documents, follow your licensing stages, access exam prep,
-              and stay in sync with your consultant — all in one place.
-            </p>
-            <div className="mt-8 space-y-3">
+          {/* Hero copy */}
+          <div className="relative space-y-7">
+            <div>
+              <h1 className="text-[2rem] font-extrabold leading-tight tracking-tight">
+                Your licensing journey,<br />managed end to end.
+              </h1>
+              <p className="mt-3 text-blue-100/80 leading-relaxed text-sm max-w-sm">
+                Track documents, follow licensing stages, access exam prep, and stay in sync with your consultant — all from one portal.
+              </p>
+            </div>
+
+            {/* Pipeline preview card */}
+            <PipelinePreview />
+
+            {/* Trust stats */}
+            <div className="grid grid-cols-3 gap-3">
               {[
-                'Real-time pipeline status',
-                'Secure document vault',
-                'Exam prep & AI study assistant',
-                'Direct messaging with your consultant',
-              ].map((item) => (
-                <div key={item} className="flex items-center gap-2.5 text-sm text-blue-100">
-                  <CheckCircle className="h-4 w-4 shrink-0 text-white/70" weight="fill" />
-                  {item}
+                { value: '2,400+', label: 'Professionals' },
+                { value: '14',     label: 'Countries' },
+                { value: '98%',    label: 'Satisfaction' },
+              ].map((stat) => (
+                <div key={stat.label} className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 px-3 py-2.5 text-center">
+                  <p className="text-lg font-extrabold text-white">{stat.value}</p>
+                  <p className="text-[10px] font-medium text-white/50 mt-0.5">{stat.label}</p>
                 </div>
               ))}
             </div>
+
+            {/* Testimonial */}
+            <div className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 px-4 py-3.5">
+              <p className="text-sm text-white/90 leading-relaxed italic">
+                "MJN handled everything — DataFlow, DHA exam prep, even the job offer. I was in Dubai in 7 months."
+              </p>
+              <div className="mt-2.5 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-white">
+                  AN
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-white">Aisha Nkomo</p>
+                  <p className="text-[10px] text-white/50">RN · Dubai, UAE</p>
+                </div>
+                <div className="ml-auto flex">
+                  {[0,1,2,3,4].map(i => <span key={i} className="text-amber-300 text-xs">★</span>)}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <p className="text-xs text-blue-200/70">© 2026 MJN Health Academy and Professional Services</p>
+          <p className="relative text-[11px] text-white/30">© 2026 MJN Health Academy and Professional Services</p>
         </div>
 
-        {/* Right panel */}
-        <div className="flex flex-1 items-center justify-center p-6">
-          <div className="w-full max-w-md">
+        {/* ── Right panel ── */}
+        <div className="flex flex-1 items-center justify-center p-6 relative"
+          style={{ backgroundImage: 'radial-gradient(circle, #d1d5db 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
+
+          {/* Soft white overlay so dots are very subtle */}
+          <div className="absolute inset-0 bg-slate-50/80" />
+
+          <div className="relative w-full max-w-[420px]">
             {/* Mobile logo */}
-            <div className="mb-8 flex items-center gap-2 lg:hidden">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary">
+            <div className="mb-6 flex items-center gap-2.5 lg:hidden">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-hero shadow">
                 <span className="text-xs font-bold text-white">MJN</span>
               </div>
-              <span className="font-bold text-foreground">MJN Healthcare</span>
+              <div>
+                <span className="block text-sm font-bold text-foreground">MJN Healthcare</span>
+                <span className="block text-[10px] text-muted-foreground">Portal</span>
+              </div>
             </div>
 
-            {/* ── Email step ── */}
-            {step === 'email' && (
-              <>
-                <div className="mb-8">
-                  <h2 className="text-2xl font-extrabold text-foreground">Sign in to your portal</h2>
-                  <p className="mt-1.5 text-sm text-muted-foreground">
-                    Enter your email and we'll send a one-time code — no password needed.
-                  </p>
-                </div>
+            {/* Card */}
+            <div className="rounded-3xl bg-white border border-border/60 shadow-xl shadow-slate-200/80 p-8">
 
-                <form onSubmit={handleRequestOtp} className="space-y-4">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Email address
-                    </label>
-                    <div className="relative">
-                      <Envelope className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="amara@example.com"
-                        autoFocus
-                        required
-                        className="h-11 w-full rounded-xl border border-border bg-white pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-                      />
+              {/* ── Email step ── */}
+              {step === 'email' && (
+                <>
+                  <StepProgress current="email" />
+
+                  <div className="mb-7">
+                    <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl gradient-hero shadow-md">
+                      <Envelope className="h-5 w-5 text-white" weight="fill" />
                     </div>
+                    <h2 className="text-2xl font-extrabold text-foreground leading-tight">Sign in to your portal</h2>
+                    <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
+                      Enter your email — we'll send a secure one-time code. No password needed.
+                    </p>
                   </div>
 
-                  {error && (
-                    <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3">
-                      <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
-                      <p className="text-sm text-rose-700">{error}</p>
+                  <form onSubmit={handleRequestOtp} className="space-y-4">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Email address
+                      </label>
+                      <div className="relative">
+                        <Envelope className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="amara@example.com"
+                          autoFocus
+                          required
+                          className="h-12 w-full rounded-xl border border-border bg-white pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-sm"
+                        />
+                      </div>
                     </div>
-                  )}
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-primary/90 active:scale-[.98] disabled:opacity-60"
-                  >
-                    {loading
-                      ? <><CircleNotch className="h-4 w-4 animate-spin" /> Sending code…</>
-                      : <>Send verification code <ArrowRight className="h-4 w-4" /></>}
-                  </button>
-                </form>
+                    {error && (
+                      <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3">
+                        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-rose-500" />
+                        <p className="text-sm text-rose-700">{error}</p>
+                      </div>
+                    )}
 
-                <p className="mt-6 text-center text-xs text-muted-foreground">
-                  New to MJN Healthcare?{' '}
-                  <a href="https://mjnhealthcare.com/get-started" className="font-medium text-primary hover:underline">
-                    Book a free consultation first
-                  </a>
-                </p>
-              </>
-            )}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl gradient-hero px-6 py-3.5 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[.98] disabled:opacity-60 shadow-md shadow-primary/25 mt-2"
+                    >
+                      {loading
+                        ? <><CircleNotch className="h-4 w-4 animate-spin" /> Sending code…</>
+                        : <>Send verification code <ArrowRight className="h-4 w-4" /></>}
+                    </button>
+                  </form>
 
-            {/* ── OTP step ── */}
-            {step === 'otp' && (
-              <>
-                <div className="mb-8">
-                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-                    <Key weight="duotone" className="h-6 w-6 text-primary" />
+                  {/* Trust row */}
+                  <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                    <Shield className="h-3.5 w-3.5 text-emerald-500" weight="fill" />
+                    <span>Secure one-time code · expires in 10 min</span>
                   </div>
-                  <h2 className="text-2xl font-extrabold text-foreground">Check your inbox</h2>
-                  <p className="mt-1.5 text-sm text-muted-foreground">
-                    We sent a 6-digit code to{' '}
-                    <span className="font-semibold text-foreground">{email}</span>.
-                    It expires in 10 minutes.
-                  </p>
-                </div>
 
-                <form onSubmit={handleVerifyOtp} className="space-y-6">
-                  <OtpInput value={otp} onChange={setOtp} />
+                  <div className="mt-5 pt-5 border-t border-border text-center text-xs text-muted-foreground">
+                    New to MJN Healthcare?{' '}
+                    <a href="https://mjnhealthcare.com/get-started" className="font-semibold text-primary hover:underline">
+                      Book a free consultation first →
+                    </a>
+                  </div>
+                </>
+              )}
 
-                  {error && (
-                    <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3">
-                      <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
-                      <p className="text-sm text-rose-700">{error}</p>
+              {/* ── OTP step ── */}
+              {step === 'otp' && (
+                <>
+                  <StepProgress current="otp" />
+
+                  <div className="mb-7">
+                    <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl gradient-hero shadow-md">
+                      <Key className="h-5 w-5 text-white" weight="fill" />
                     </div>
-                  )}
+                    <h2 className="text-2xl font-extrabold text-foreground leading-tight">Check your inbox</h2>
+                    <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
+                      We sent a 6-digit code to{' '}
+                      <span className="font-semibold text-foreground break-all">{email}</span>.
+                      It expires in 10 minutes.
+                    </p>
+                  </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading || otp.length !== 6}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-primary/90 active:scale-[.98] disabled:opacity-60"
-                  >
-                    {loading
-                      ? <><CircleNotch className="h-4 w-4 animate-spin" /> Verifying…</>
-                      : <>Verify & sign in <ArrowRight className="h-4 w-4" /></>}
-                  </button>
-                </form>
+                  <form onSubmit={handleVerifyOtp} className="space-y-6">
+                    <OtpInput value={otp} onChange={setOtp} />
 
-                <div className="mt-5 flex items-center justify-between text-sm">
-                  <button
-                    onClick={() => { setStep('email'); setOtp(''); setError(''); }}
-                    className="text-muted-foreground hover:text-foreground transition"
-                  >
-                    ← Different email
-                  </button>
-                  <button
-                    onClick={handleResend}
-                    disabled={resendCooldown > 0 || loading}
-                    className="flex items-center gap-1.5 font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <ArrowCounterClockwise className="h-3.5 w-3.5" />
-                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
-                  </button>
-                </div>
-              </>
-            )}
+                    {/* Progress indicator */}
+                    <div className="flex justify-center gap-1.5">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={`h-1 rounded-full transition-all duration-200 ${i < otp.length ? 'w-5 bg-primary' : 'w-3 bg-border'}`}
+                        />
+                      ))}
+                    </div>
 
-            {/* ── Done step ── */}
-            {step === 'done' && !showOnboarding && (
-              <div className="py-10 text-center">
-                <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 border-4 border-primary/20">
-                  <CheckCircle className="h-10 w-10 text-primary" weight="fill" />
-                </div>
-                <h2 className="text-2xl font-extrabold text-foreground">
-                  {isNew ? 'Welcome to MJN Healthcare!' : `Welcome back${resolvedName ? `, ${resolvedName.split(' ')[0]}` : ''}!`}
-                </h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {isNew ? 'Setting up your profile…' : 'Taking you to your dashboard…'}
-                </p>
-                <div className="mt-6 flex justify-center gap-1.5">
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce"
-                      style={{ animationDelay: `${i * 0.15}s` }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+                    {error && (
+                      <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3">
+                        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-rose-500" />
+                        <p className="text-sm text-rose-700">{error}</p>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading || otp.length !== 6}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl gradient-hero px-6 py-3.5 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[.98] disabled:opacity-60 shadow-md shadow-primary/25"
+                    >
+                      {loading
+                        ? <><CircleNotch className="h-4 w-4 animate-spin" /> Verifying…</>
+                        : <><CheckCircle className="h-4 w-4" weight="fill" /> Verify &amp; sign in</>}
+                    </button>
+                  </form>
+
+                  <div className="mt-5 flex items-center justify-between text-sm pt-4 border-t border-border">
+                    <button
+                      onClick={() => { setStep('email'); setOtp(''); setError(''); }}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition font-medium"
+                    >
+                      <ArrowRight className="h-3.5 w-3.5 rotate-180" />
+                      Different email
+                    </button>
+                    <button
+                      onClick={handleResend}
+                      disabled={resendCooldown > 0 || loading}
+                      className="flex items-center gap-1.5 font-semibold text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <ArrowCounterClockwise className="h-3.5 w-3.5" />
+                      {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ── Done step ── */}
+              {step === 'done' && !showOnboarding && (
+                <>
+                  <StepProgress current="done" />
+                  <div className="py-8 text-center">
+                    <div className="relative mx-auto mb-6 flex h-24 w-24 items-center justify-center">
+                      <div className="absolute inset-0 rounded-full gradient-hero opacity-10 animate-ping" />
+                      <div className="absolute inset-2 rounded-full gradient-hero opacity-20" />
+                      <div className="relative flex h-16 w-16 items-center justify-center rounded-full gradient-hero shadow-xl shadow-primary/30">
+                        <CheckCircle className="h-8 w-8 text-white" weight="fill" />
+                      </div>
+                    </div>
+                    <h2 className="text-2xl font-extrabold text-foreground">
+                      {isNew ? 'Welcome to MJN Healthcare!' : `Welcome back${resolvedName ? `, ${resolvedName.split(' ')[0]}` : ''}!`}
+                    </h2>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {isNew ? 'Setting up your profile…' : 'Taking you to your dashboard…'}
+                    </p>
+                    <div className="mt-6 flex justify-center gap-2">
+                      {[0, 1, 2].map((i) => (
+                        <span
+                          key={i}
+                          className="h-2 w-2 rounded-full gradient-hero animate-bounce"
+                          style={{ animationDelay: `${i * 0.18}s` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
