@@ -27,28 +27,28 @@ function OpsPreview() {
   ];
 
   return (
-    <div className="rounded-2xl bg-white/8 backdrop-blur-sm border border-white/10 overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
-        <span className="text-xs font-bold text-white/50 uppercase tracking-widest">Live Operations</span>
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+    <div className="rounded-2xl bg-white border border-border shadow-sm overflow-hidden">
+      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between bg-muted/30">
+        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Live Operations</span>
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-600">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
           Live
         </span>
       </div>
-      <div className="divide-y divide-white/5">
+      <div className="divide-y divide-border">
         {metrics.map(({ icon: Icon, label, value, delta, up }) => (
           <div key={label} className="flex items-center gap-4 px-5 py-3.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/8">
-              <Icon className="h-4 w-4 text-white/50" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted/50">
+              <Icon className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-white/40 leading-none mb-0.5">{label}</p>
-              <p className="text-lg font-extrabold text-white leading-none">{value}</p>
+              <p className="text-xs text-muted-foreground leading-none mb-0.5">{label}</p>
+              <p className="text-lg font-extrabold text-foreground leading-none">{value}</p>
             </div>
             <span className={`text-[10px] font-semibold px-2 py-1 rounded-full border ${
-              up === true  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' :
-              up === false ? 'bg-rose-500/15 text-rose-400 border-rose-500/20' :
-                             'bg-white/8 text-white/40 border-white/10'
+              up === true  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+              up === false ? 'bg-rose-50 text-rose-600 border-rose-200' :
+                             'bg-muted/50 text-muted-foreground border-border'
             }`}>{delta}</span>
           </div>
         ))}
@@ -102,35 +102,35 @@ export default function AdminLoginPage() {
       className="relative flex min-h-screen overflow-hidden"
       style={{ backgroundImage: "url('/hero-nurse.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }}
     >
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a2f52]/90 via-[#0F4C81]/80 to-[#00675f]/70" />
+      {/* Gradient overlay — lighter so hero image shows through */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a2f52]/55 via-[#0F4C81]/40 to-[#00675f]/35" />
       {/* Subtle noise texture feel */}
       <div className="absolute inset-0 opacity-[0.03]"
         style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'200\' height=\'200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")' }} />
 
       {/* ── Left panel ── */}
-      <div className="relative z-10 hidden flex-col justify-between p-10 lg:flex lg:w-[44%] xl:w-[42%]">
+      <div className="relative z-10 hidden flex-col justify-between bg-white p-10 lg:flex lg:w-[44%] xl:w-[42%]">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 border border-white/15 shadow-inner">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl gradient-hero shadow-md">
             <span className="text-xs font-extrabold text-white">MJN</span>
           </div>
           <div>
-            <span className="block text-sm font-bold text-white">MJN Healthcare</span>
-            <span className="block text-[10px] text-white/40 leading-none">Admin Console</span>
+            <span className="block text-sm font-bold text-foreground">MJN Healthcare</span>
+            <span className="block text-[10px] text-muted-foreground leading-none">Admin Console</span>
           </div>
         </div>
 
         {/* Hero */}
         <div className="space-y-7">
           <div>
-            <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 border border-white/15">
+            <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl gradient-hero shadow-lg">
               <ShieldCheck className="h-7 w-7 text-white" weight="duotone" />
             </div>
-            <h1 className="text-[2rem] font-extrabold leading-tight tracking-tight text-white">
+            <h1 className="text-[2rem] font-extrabold leading-tight tracking-tight text-foreground">
               Staff &amp; Consultant<br />Operations Center
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-white/50 max-w-sm">
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground max-w-sm">
               Manage caseloads, verify documents, review AI-drafted communications, and track all client engagements from one secured console.
             </p>
           </div>
@@ -140,10 +140,10 @@ export default function AdminLoginPage() {
 
           {/* Role access badges */}
           <div>
-            <p className="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-white/30">Access levels</p>
+            <p className="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Access levels</p>
             <div className="flex flex-wrap gap-2">
-              {Object.values(ROLE_LABELS).map(({ label, color }) => (
-                <span key={label} className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${color}`}>
+              {Object.entries(ROLE_LABELS).map(([, { label }]) => (
+                <span key={label} className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[10px] font-bold text-foreground">
                   {label}
                 </span>
               ))}
@@ -154,10 +154,10 @@ export default function AdminLoginPage() {
         {/* Footer */}
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <Lock className="h-3 w-3 text-white/30" />
-            <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wide">Restricted · Authorised staff only</span>
+            <Lock className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Restricted · Authorised staff only</span>
           </div>
-          <p className="text-[11px] text-white/20">© 2026 MJN Health Academy and Professional Services Ltd</p>
+          <p className="text-[11px] text-muted-foreground/60">© 2026 MJN Health Academy and Professional Services Ltd</p>
         </div>
       </div>
 
