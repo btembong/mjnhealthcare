@@ -1,3 +1,4 @@
+import { StaffOnly } from '../auth/access';
 import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsEmail, IsOptional, IsString } from 'class-validator';
@@ -32,7 +33,7 @@ export class LeadController {
 
   @ApiOperation({ summary: 'List all leads (admin / consultant)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Get()
   findAll(@Query('status') status?: string) {
     return this.leadService.findAll(status ? { status } : undefined);
@@ -40,7 +41,7 @@ export class LeadController {
 
   @ApiOperation({ summary: 'Update lead status / assign consultant (admin / consultant)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Patch(':id')
   updateStatus(@Param('id') id: string, @Body() dto: UpdateLeadDto) {
     return this.leadService.updateStatus(id, dto.status, dto.assignedConsultantId);
@@ -48,7 +49,7 @@ export class LeadController {
 
   @ApiOperation({ summary: 'Mark lead as converted — auto-creates Person if not exists, sends portal invite' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Patch(':id/convert')
   convert(@Param('id') id: string) {
     return this.leadService.convertToEngagement(id);

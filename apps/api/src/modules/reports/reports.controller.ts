@@ -1,3 +1,4 @@
+import { FinanceOnly } from '../auth/access';
 import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -5,6 +6,7 @@ import { ReportsService } from './reports.service';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard)
+@FinanceOnly()
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 

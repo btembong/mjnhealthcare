@@ -6,6 +6,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PersonService } from './person.service';
+import { STAFF_ROLES, isAdmin, CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 
 class UpdatePersonDto {
   @IsOptional() @IsString() name?: string;
@@ -13,18 +15,15 @@ class UpdatePersonDto {
   @IsOptional() @IsEnum(['en', 'fr']) locale?: 'en' | 'fr';
 }
 
-const STAFF_ROLES = ['ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER', 'FINANCE', 'COMPLIANCE'];
-
-function isStaff(user: { role?: string }): boolean {
-  return STAFF_ROLES.includes((user?.role ?? '').toUpperCase());
-}
-
 @ApiTags('persons')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('persons')
 export class PersonController {
-  constructor(private readonly personService: PersonService) {}
+  constructor(
+    private readonly personService: PersonService,
+    private readonly access: AccessService,
+  ) {}
 
   @Get('me')
   getMe(@Request() req: any) {
@@ -46,8 +45,14 @@ export class PersonController {
   @ApiQuery({ name: 'locale', required: false })
   @Roles(...STAFF_ROLES)
   @Get()
-  findAll(@Query('role') role?: string, @Query('locale') locale?: string) {
-    return this.personService.findAll({ role, locale });
+  async findAll(
+    @CurrentUser() user: AuthUser,
+    @Query('role') role?: string,
+    @Query('locale') locale?: string,
+  ) {
+    const persons = await this.personService.findAll({ role, locale });
+    const scope = await this.access.consultantScope(user);
+    return scope ? persons.filter((p: any) => scope.canSeePerson(p.id)) : persons;
   }
 
   // Staff management (ADMIN only)
@@ -108,16 +113,14 @@ export class PersonController {
   }
 
   @Get(':id')
-  findOne(@Request() req: any, @Param('id') id: string) {
-    if (req.user.id !== id && !isStaff(req.user)) {
-      throw new ForbiddenException('You can only view your own profile.');
-    }
+  async findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertPerson(user, id);
     return this.personService.findById(id);
   }
 
   @Patch(':id')
   update(@Request() req: any, @Param('id') id: string, @Body() dto: UpdatePersonDto) {
-    if (req.user.id !== id && (req.user.role ?? '').toUpperCase() !== 'ADMIN') {
+    if (req.user.id !== id && !isAdmin(req.user)) {
       throw new ForbiddenException('You can only edit your own profile.');
     }
     return this.personService.update(id, dto);

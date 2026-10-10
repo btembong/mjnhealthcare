@@ -1,3 +1,5 @@
+import { StaffOnly, CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -8,7 +10,10 @@ import { AcademyService } from './academy.service';
 @UseGuards(JwtAuthGuard)
 @Controller('academy')
 export class AcademyController {
-  constructor(private readonly academyService: AcademyService) {}
+  constructor(
+    private readonly academyService: AcademyService,
+    private readonly access: AccessService,
+  ) {}
 
   // ── Courses ────────────────────────────────────────────────────────────────
 
@@ -17,6 +22,7 @@ export class AcademyController {
     return this.academyService.getCourses(locale);
   }
 
+  @StaffOnly()
   @Get('courses/admin')
   getCoursesAdmin() {
     return this.academyService.getCoursesAdmin();
@@ -27,6 +33,7 @@ export class AcademyController {
     return this.academyService.getCourse(id);
   }
 
+  @StaffOnly()
   @Post('courses')
   createCourse(
     @Body() body: {
@@ -41,6 +48,7 @@ export class AcademyController {
     return this.academyService.createCourse(body);
   }
 
+  @StaffOnly()
   @Patch('courses/:id')
   updateCourse(
     @Param('id') id: string,
@@ -52,21 +60,24 @@ export class AcademyController {
   // ── Enrollments ────────────────────────────────────────────────────────────
 
   @Post('enroll')
-  enrollPerson(@Body() body: { personId: string; courseId: string }) {
+  async enrollPerson(@CurrentUser() user: AuthUser, @Body() body: { personId: string; courseId: string }) {
+    await this.access.assertPerson(user, body.personId);
     return this.academyService.enrollPerson(body.personId, body.courseId);
   }
 
   @Get('enrollments/:personId')
-  getEnrollments(@Param('personId') personId: string) {
+  async getEnrollments(@CurrentUser() user: AuthUser, @Param('personId') personId: string) {
+    await this.access.assertPerson(user, personId);
     return this.academyService.getEnrollmentsForPerson(personId);
   }
 
   @Patch('enrollments/:personId/:courseId/progress')
-  updateProgress(
+  async updateProgress(@CurrentUser() user: AuthUser, 
     @Param('personId') personId: string,
     @Param('courseId') courseId: string,
     @Body() body: { progressPct: number },
   ) {
+    await this.access.assertPerson(user, personId);
     return this.academyService.updateProgress(personId, courseId, body.progressPct);
   }
 
@@ -77,6 +88,7 @@ export class AcademyController {
     return this.academyService.getQuestionBanks(examType);
   }
 
+  @StaffOnly()
   @Post('question-banks')
   createQuestionBank(@Body() body: { courseId?: string; title: string; examType: string; locale: 'en' | 'fr' }) {
     return this.academyService.createQuestionBank(body);
@@ -87,6 +99,7 @@ export class AcademyController {
     return this.academyService.getQuestions(id);
   }
 
+  @StaffOnly()
   @Post('question-banks/:id/questions')
   createQuestion(
     @Param('id') id: string,
@@ -98,10 +111,12 @@ export class AcademyController {
   // ── Study Plans ────────────────────────────────────────────────────────────
 
   @Get('study-plan/:personId')
-  getStudyPlan(@Param('personId') personId: string) {
+  async getStudyPlan(@CurrentUser() user: AuthUser, @Param('personId') personId: string) {
+    await this.access.assertPerson(user, personId);
     return this.academyService.getStudyPlan(personId);
   }
 
+  @StaffOnly()
   @Post('study-plan/:personId')
   createStudyPlan(
     @Param('personId') personId: string,
@@ -111,32 +126,37 @@ export class AcademyController {
   }
 
   @Patch('study-plan/items/:itemId/complete')
-  markItemComplete(@Param('itemId') itemId: string) {
+  async markItemComplete(@CurrentUser() user: AuthUser, @Param('itemId') itemId: string) {
+    await this.access.assertStudyItem(user, itemId);
     return this.academyService.markStudyItemComplete(itemId);
   }
 
   // ── Practice Results ───────────────────────────────────────────────────────
 
   @Post('practice/:personId/result')
-  recordResult(
+  async recordResult(@CurrentUser() user: AuthUser, 
     @Param('personId') personId: string,
     @Body() body: { questionBankId: string; score: number; total: number; topic?: string },
   ) {
+    await this.access.assertPerson(user, personId);
     return this.academyService.recordPracticeResult(personId, body.questionBankId, body.score, body.total, body.topic);
   }
 
   @Get('practice/:personId/history')
-  getPracticeHistory(@Param('personId') personId: string) {
+  async getPracticeHistory(@CurrentUser() user: AuthUser, @Param('personId') personId: string) {
+    await this.access.assertPerson(user, personId);
     return this.academyService.getPracticeHistory(personId);
   }
 
   @Get('practice/:personId/weak-areas')
-  getWeakAreas(@Param('personId') personId: string) {
+  async getWeakAreas(@CurrentUser() user: AuthUser, @Param('personId') personId: string) {
+    await this.access.assertPerson(user, personId);
     return this.academyService.getWeakAreas(personId);
   }
 
   // ── Modules ────────────────────────────────────────────────────────────────
 
+  @StaffOnly()
   @Post('courses/:id/modules')
   createModule(
     @Param('id') courseId: string,
@@ -145,11 +165,13 @@ export class AcademyController {
     return this.academyService.createModule(courseId, body.title, body.sortOrder);
   }
 
+  @StaffOnly()
   @Patch('modules/:id')
   updateModule(@Param('id') id: string, @Body() body: { title?: string; sortOrder?: number }) {
     return this.academyService.updateModule(id, body);
   }
 
+  @StaffOnly()
   @Delete('modules/:id')
   deleteModule(@Param('id') id: string) {
     return this.academyService.deleteModule(id);
@@ -157,6 +179,7 @@ export class AcademyController {
 
   // ── Lessons ────────────────────────────────────────────────────────────────
 
+  @StaffOnly()
   @Post('modules/:id/lessons')
   createLesson(
     @Param('id') moduleId: string,
@@ -165,6 +188,7 @@ export class AcademyController {
     return this.academyService.createLesson(moduleId, body);
   }
 
+  @StaffOnly()
   @Patch('lessons/:id')
   updateLesson(
     @Param('id') id: string,
@@ -173,6 +197,7 @@ export class AcademyController {
     return this.academyService.updateLesson(id, body);
   }
 
+  @StaffOnly()
   @Delete('lessons/:id')
   deleteLesson(@Param('id') id: string) {
     return this.academyService.deleteLesson(id);
@@ -180,6 +205,7 @@ export class AcademyController {
 
   // ── Live Sessions ──────────────────────────────────────────────────────────
 
+  @StaffOnly()
   @Post('courses/:id/sessions')
   scheduleSession(
     @Param('id') courseId: string,
@@ -193,16 +219,19 @@ export class AcademyController {
     return this.academyService.getCourseLiveSessions(courseId);
   }
 
+  @StaffOnly()
   @Post('sessions/:id/start')
   startSession(@Param('id') id: string) {
     return this.academyService.startLiveSession(id);
   }
 
+  @StaffOnly()
   @Post('sessions/:id/end')
   endSession(@Param('id') id: string) {
     return this.academyService.endLiveSession(id);
   }
 
+  @StaffOnly()
   @Delete('sessions/:id')
   cancelSession(@Param('id') id: string) {
     return this.academyService.cancelLiveSession(id);
@@ -215,6 +244,7 @@ export class AcademyController {
   }
 
   // Legacy
+  @StaffOnly()
   @Post('sessions/:id/room')
   createRoom(@Param('id') id: string) {
     return this.academyService.createDailyRoom(id);

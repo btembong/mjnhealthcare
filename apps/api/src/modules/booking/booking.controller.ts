@@ -1,3 +1,5 @@
+import { StaffOnly, CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import { Controller, Get, Post, Delete, Param, Body, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { IsArray, IsString, ValidateNested } from 'class-validator';
@@ -26,7 +28,10 @@ class CreateBookingDto {
 @ApiTags('bookings')
 @Controller('bookings')
 export class BookingController {
-  constructor(private readonly bookingService: BookingService) {}
+  constructor(
+    private readonly bookingService: BookingService,
+    private readonly access: AccessService,
+  ) {}
 
   @ApiOperation({ summary: 'List consultants with free-consultation availability (public)' })
   @Get('general-consultation/consultants')
@@ -48,7 +53,7 @@ export class BookingController {
 
   @ApiOperation({ summary: 'Bulk create availability slots (admin / consultant)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Post('slots')
   createSlots(@Body() dto: CreateSlotsDto) {
     return this.bookingService.createSlots(dto);
@@ -58,13 +63,14 @@ export class BookingController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Body() dto: CreateBookingDto) {
+  async create(@CurrentUser() user: AuthUser, @Body() dto: CreateBookingDto) {
+    await this.access.assertPerson(user, dto.personId);
     return this.bookingService.createBooking(dto.personId, dto.slotId, dto.type);
   }
 
   @ApiOperation({ summary: 'Get all bookings (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Get('admin')
   findAll() {
     return this.bookingService.getAllBookings();
@@ -74,7 +80,8 @@ export class BookingController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get('person/:personId')
-  getByPerson(@Param('personId') personId: string) {
+  async getByPerson(@CurrentUser() user: AuthUser, @Param('personId') personId: string) {
+    await this.access.assertPerson(user, personId);
     return this.bookingService.getBookingsByPerson(personId);
   }
 
@@ -82,13 +89,14 @@ export class BookingController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  cancel(@Param('id') id: string) {
+  async cancel(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertBooking(user, id);
     return this.bookingService.cancelBooking(id);
   }
 
   @ApiOperation({ summary: 'Get all general-consultation slots (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Get('admin/general-consultation')
   getGeneralConsultationSlots() {
     return this.bookingService.getGeneralConsultationSlots();
@@ -96,7 +104,7 @@ export class BookingController {
 
   @ApiOperation({ summary: 'Delete an availability slot (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Delete('slots/:slotId')
   deleteSlot(@Param('slotId') slotId: string) {
     return this.bookingService.deleteSlot(slotId);

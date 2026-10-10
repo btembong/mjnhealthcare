@@ -1,3 +1,4 @@
+import { FinanceOnly } from '../auth/access';
 import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ReferralService } from './referral.service';
@@ -28,12 +29,14 @@ export class ReferralController {
   // ── Admin ──────────────────────────────────────────────────────────────────
 
   /** GET /referral/admin/codes */
+  @FinanceOnly()
   @Get('admin/codes')
   getAllCodes(@Query('page') page = '1', @Query('limit') limit = '50') {
     return this.svc.getAllCodes(Number(page), Number(limit));
   }
 
   /** PATCH /referral/admin/codes/:id/void */
+  @FinanceOnly()
   @Patch('admin/codes/:id/void')
   voidCode(@Param('id') id: string) {
     return this.svc.voidCode(id);

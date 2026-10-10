@@ -1,3 +1,5 @@
+import { CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import {
   Controller, Get, Post, Patch, Delete, Param, Body, Query,
   UseGuards, Req, HttpCode, HttpStatus,
@@ -26,7 +28,10 @@ import { Roles } from '../auth/decorators/roles.decorator';
 @ApiTags('consultations')
 @Controller('consultations')
 export class ConsultationController {
-  constructor(private readonly svc: ConsultationService) {}
+  constructor(
+    private readonly svc: ConsultationService,
+    private readonly access: AccessService,
+  ) {}
 
   // ── Public ──────────────────────────────────────────────────────────────────
 
@@ -69,8 +74,10 @@ export class ConsultationController {
     return this.svc.getBookingSummary(id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('client/:email')
-  getClientBookings(@Param('email') email: string) {
+  async getClientBookings(@CurrentUser() user: AuthUser, @Param('email') email: string) {
+    await this.access.assertOwnEmail(user, email);
     return this.svc.getClientBookings(email);
   }
 

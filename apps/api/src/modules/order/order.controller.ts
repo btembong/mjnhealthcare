@@ -1,3 +1,5 @@
+import { StaffOnly, FinanceOnly, CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import { Controller, Get, Post, Param, Body, UseGuards, Request, Ip, Res, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsArray, IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
@@ -91,11 +93,13 @@ export class OrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly pdfService: PdfService,
+    private readonly access: AccessService,
   ) {}
 
   @ApiOperation({ summary: 'Create pipeline order — FULL or INSTALLMENT payment mode' })
   @Post()
-  create(@Body() dto: CreateOrderDto) {
+  async create(@CurrentUser() user: AuthUser, @Body() dto: CreateOrderDto) {
+    await this.access.assertEngagement(user, dto.engagementId);
     return this.orderService.createOrder(
       dto.engagementId,
       dto.lines,
@@ -106,14 +110,17 @@ export class OrderController {
   }
 
   @ApiOperation({ summary: 'Set up PAY_PER_STAGE service plan — maps services to stages' })
+  @StaffOnly()
   @Post('service-plan')
-  createServicePlan(@Body() dto: CreateServicePlanDto) {
+  async createServicePlan(@CurrentUser() user: AuthUser, @Body() dto: CreateServicePlanDto) {
+    await this.access.assertEngagement(user, dto.engagementId);
     return this.orderService.createServicePlan(dto.engagementId, dto.stages);
   }
 
   @ApiOperation({ summary: 'Get the PAY_PER_STAGE service plan breakdown for an engagement' })
   @Get('service-plan/:engagementId')
-  getServicePlan(@Param('engagementId') engagementId: string) {
+  async getServicePlan(@CurrentUser() user: AuthUser, @Param('engagementId') engagementId: string) {
+    await this.access.assertEngagement(user, engagementId);
     return this.orderService.getServicePlan(engagementId);
   }
 
@@ -136,18 +143,26 @@ export class OrderController {
   }
 
   @ApiOperation({ summary: 'Get all orders (admin)' })
+  @StaffOnly()
   @Get('admin')
-  findAll() {
-    return this.orderService.getAllOrders();
+  async findAll(@CurrentUser() user: AuthUser) {
+    const orders = await this.orderService.getAllOrders();
+    const scope = await this.access.consultantScope(user);
+    if (!scope) return orders;
+    return orders.filter((o: any) =>
+      o.engagementId ? scope.canSeeEngagementId(o.engagementId) : scope.canSeePerson(o.personId),
+    );
   }
 
   @ApiOperation({ summary: 'Get order by ID' })
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  async findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertOrder(user, id);
     return this.orderService.getOrder(id);
   }
 
   @ApiOperation({ summary: 'Mark order as paid (called by payment webhook handler)' })
+  @FinanceOnly()
   @Post(':id/mark-paid')
   markPaid(@Param('id') id: string) {
     return this.orderService.markPaid(id);
@@ -155,19 +170,22 @@ export class OrderController {
 
   @ApiOperation({ summary: 'Get all orders for an engagement' })
   @Get('engagement/:engagementId')
-  findByEngagement(@Param('engagementId') engagementId: string) {
+  async findByEngagement(@CurrentUser() user: AuthUser, @Param('engagementId') engagementId: string) {
+    await this.access.assertEngagement(user, engagementId);
     return this.orderService.getOrdersByEngagement(engagementId);
   }
 
   @ApiOperation({ summary: 'Get all orders for a person (pipeline + standalone)' })
   @Get('person/:personId')
-  findByPerson(@Param('personId') personId: string) {
+  async findByPerson(@CurrentUser() user: AuthUser, @Param('personId') personId: string) {
+    await this.access.assertPerson(user, personId);
     return this.orderService.getOrdersByPerson(personId);
   }
 
   @ApiOperation({ summary: 'Download receipt PDF for an order' })
   @Get(':id/receipt/pdf')
-  async downloadReceiptPdf(@Param('id') id: string, @Res() res: Response) {
+  async downloadReceiptPdf(@CurrentUser() user: AuthUser, @Param('id') id: string, @Res() res: Response) {
+    await this.access.assertOrder(user, id);
     const order = await this.orderService.getOrder(id);
     if (!order) throw new NotFoundException('Order not found');
     const receipt = order.receipts?.[0];

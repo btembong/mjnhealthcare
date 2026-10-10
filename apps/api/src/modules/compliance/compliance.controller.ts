@@ -1,3 +1,5 @@
+import { RolesOnly, CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
@@ -21,11 +23,15 @@ class RecordPoaDto {
 @UseGuards(JwtAuthGuard)
 @Controller('compliance')
 export class ComplianceController {
-  constructor(private readonly complianceService: ComplianceService) {}
+  constructor(
+    private readonly complianceService: ComplianceService,
+    private readonly access: AccessService,
+  ) {}
 
   @ApiOperation({ summary: 'Get audit log (admin)' })
   @ApiQuery({ name: 'resourceType', required: false })
   @ApiQuery({ name: 'resourceId', required: false })
+  @RolesOnly('ADMIN', 'COMPLIANCE')
   @Get('audit-log')
   getAuditLog(
     @Query('resourceType') resourceType?: string,
@@ -36,13 +42,15 @@ export class ComplianceController {
 
   @ApiOperation({ summary: 'Record consent (privacy policy, marketing, ToS)' })
   @Post('consent')
-  recordConsent(@Body() dto: RecordConsentDto) {
+  async recordConsent(@CurrentUser() user: AuthUser, @Body() dto: RecordConsentDto) {
+    await this.access.assertPerson(user, dto.personId);
     return this.complianceService.recordConsent(dto.personId, dto.type, dto.ipAddress);
   }
 
   @ApiOperation({ summary: 'Record POA / Letter of Authorisation' })
   @Post('poa')
-  recordPoa(@Body() dto: RecordPoaDto) {
+  async recordPoa(@CurrentUser() user: AuthUser, @Body() dto: RecordPoaDto) {
+    await Promise.all([this.access.assertPerson(user, dto.personId), this.access.assertEngagement(user, dto.engagementId)]);
     return this.complianceService.recordPoa(dto.engagementId, dto.personId, dto.documentUrl);
   }
 }

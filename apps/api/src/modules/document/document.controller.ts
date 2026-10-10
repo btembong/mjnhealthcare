@@ -1,3 +1,5 @@
+import { StaffOnly, CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -12,17 +14,23 @@ export class DocumentController {
   constructor(
     private readonly documentService: DocumentService,
     private readonly complianceService: ComplianceService,
+    private readonly access: AccessService,
   ) {}
 
   @ApiOperation({ summary: 'List documents — omit status for all, or pass PENDING/VERIFIED/REJECTED' })
+  @StaffOnly()
   @Get()
-  getByStatus(@Query('status') status?: string) {
-    return this.documentService.getByStatus(status);
+  async getByStatus(@CurrentUser() user: AuthUser, @Query('status') status?: string) {
+    const docs = await this.documentService.getByStatus(status);
+    const scope = await this.access.consultantScope(user);
+    return scope ? docs.filter((d: any) => scope.canSeePerson(d.personId)) : docs;
   }
 
   @ApiOperation({ summary: 'Reject a document (shorthand)' })
+  @StaffOnly()
   @Patch(':id/reject')
-  async reject(@Param('id') id: string, @Body() body: { verifiedBy: string; rejectionReason?: string }, @Request() req: any) {
+  async reject(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { verifiedBy: string; rejectionReason?: string }, @Request() req: any) {
+    await this.access.assertDocument(user, id);
     await this.complianceService.logAuditEvent({
       actorId: req.user.id,
       action: 'document_rejected',
@@ -35,21 +43,24 @@ export class DocumentController {
 
   @ApiOperation({ summary: 'Get presigned R2 view URL for a document' })
   @Get(':id/view-url')
-  getViewUrl(@Param('id') id: string) {
+  async getViewUrl(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertDocument(user, id);
     return this.documentService.getViewUrl(id);
   }
 
   @ApiOperation({ summary: 'Get presigned R2 upload URL' })
   @Post('upload-url')
-  getUploadUrl(@Body() body: { personId: string; documentType: string; fileName: string }) {
+  async getUploadUrl(@CurrentUser() user: AuthUser, @Body() body: { personId: string; documentType: string; fileName: string }) {
+    await this.access.assertPerson(user, body.personId);
     return this.documentService.getUploadUrl(body.personId, body.documentType, body.fileName);
   }
 
   @ApiOperation({ summary: 'Confirm upload and create Document record' })
   @Post('confirm')
-  confirmUpload(
+  async confirmUpload(@CurrentUser() user: AuthUser, 
     @Body() body: { personId: string; documentType: string; key: string; expiryDate?: string },
   ) {
+    await this.access.assertPerson(user, body.personId);
     return this.documentService.confirmUpload(
       body.personId,
       body.documentType,
@@ -59,11 +70,13 @@ export class DocumentController {
   }
 
   @ApiOperation({ summary: 'Officer: send blank form to client' })
+  @StaffOnly()
   @Post('officer-send')
-  officerSend(
+  async officerSend(@CurrentUser() user: AuthUser, 
     @Body() body: { engagementId: string; officerNote?: string; key: string; documentType: string },
     @Request() req: any,
   ) {
+    await this.access.assertEngagement(user, body.engagementId);
     return this.documentService.officerSendDocument(
       body.engagementId,
       req.user.id,
@@ -86,7 +99,8 @@ export class DocumentController {
 
   @ApiOperation({ summary: 'Get officer-sent documents for an engagement' })
   @Get('officer-sent/:engagementId')
-  getOfficerSent(@Param('engagementId') engagementId: string) {
+  async getOfficerSent(@CurrentUser() user: AuthUser, @Param('engagementId') engagementId: string) {
+    await this.access.assertEngagement(user, engagementId);
     return this.documentService.getOfficerSentDocuments(engagementId);
   }
 
@@ -98,7 +112,8 @@ export class DocumentController {
 
   @ApiOperation({ summary: "List a person's documents" })
   @Get('person/:personId')
-  async getByPerson(@Param('personId') personId: string, @Request() req: any) {
+  async getByPerson(@CurrentUser() user: AuthUser, @Param('personId') personId: string, @Request() req: any) {
+    await this.access.assertPerson(user, personId);
     await this.complianceService.logAuditEvent({
       actorId: req.user.id,
       action: 'list_documents',
@@ -109,12 +124,14 @@ export class DocumentController {
   }
 
   @ApiOperation({ summary: 'Verify or reject a document (compliance team)' })
+  @StaffOnly()
   @Patch(':id/verify')
-  async verify(
+  async verify(@CurrentUser() user: AuthUser, 
     @Param('id') id: string,
     @Body() body: { verifiedBy: string; status: 'VERIFIED' | 'REJECTED'; rejectionReason?: string },
     @Request() req: any,
   ) {
+    await this.access.assertDocument(user, id);
     await this.complianceService.logAuditEvent({
       actorId: req.user.id,
       action: `document_${body.status.toLowerCase()}`,

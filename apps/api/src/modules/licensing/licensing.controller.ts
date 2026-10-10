@@ -1,3 +1,5 @@
+import { StaffOnly, AdminOnly, CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator';
@@ -30,7 +32,10 @@ class InitProgressDto {
 @UseGuards(JwtAuthGuard)
 @Controller('licensing')
 export class LicensingController {
-  constructor(private readonly licensingService: LicensingService) {}
+  constructor(
+    private readonly licensingService: LicensingService,
+    private readonly access: AccessService,
+  ) {}
 
   @ApiOperation({ summary: 'List pathways, optionally filtered by country / profession' })
   @ApiQuery({ name: 'country', required: false })
@@ -41,18 +46,21 @@ export class LicensingController {
   }
 
   @ApiOperation({ summary: 'Create a licensing pathway (admin)' })
+  @AdminOnly()
   @Post('pathways')
   createPathway(@Body() dto: CreatePathwayDto) {
     return this.licensingService.createPathway(dto);
   }
 
   @ApiOperation({ summary: 'Delete a licensing pathway (admin)' })
+  @AdminOnly()
   @Delete('pathways/:id')
   deletePathway(@Param('id') id: string) {
     return this.licensingService.deletePathway(id);
   }
 
   @ApiOperation({ summary: 'Initialise client progress on a pathway' })
+  @StaffOnly()
   @Post('progress')
   initProgress(@Body() dto: InitProgressDto) {
     return this.licensingService.initProgress(dto.personId, dto.engagementId, dto.pathwayId);
@@ -60,11 +68,13 @@ export class LicensingController {
 
   @ApiOperation({ summary: 'Get client licensing progress' })
   @Get('progress/:personId/:engagementId')
-  getProgress(@Param('personId') personId: string, @Param('engagementId') engagementId: string) {
+  async getProgress(@CurrentUser() user: AuthUser, @Param('personId') personId: string, @Param('engagementId') engagementId: string) {
+    await Promise.all([this.access.assertPerson(user, personId), this.access.assertEngagement(user, engagementId)]);
     return this.licensingService.getClientProgress(personId, engagementId);
   }
 
   @ApiOperation({ summary: 'Advance client to next stage' })
+  @StaffOnly()
   @Patch('progress/:id/advance')
   advance(@Param('id') id: string, @Body() body: { nextStageId: string }) {
     return this.licensingService.advanceStage(id, body.nextStageId);

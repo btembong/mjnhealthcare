@@ -1,3 +1,4 @@
+import { FinanceOnly } from '../auth/access';
 import { Controller, Get, Post, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreditService } from './credit.service';
@@ -31,12 +32,14 @@ export class CreditController {
   // ── Admin ──────────────────────────────────────────────────────────────────
 
   /** GET /credits/admin/wallets */
+  @FinanceOnly()
   @Get('admin/wallets')
   getAllWallets(@Query('page') page = '1', @Query('limit') limit = '50') {
     return this.svc.getAllWallets(Number(page), Number(limit));
   }
 
   /** POST /credits/admin/adjust — manually grant or deduct credits */
+  @FinanceOnly()
   @Post('admin/adjust')
   adminAdjust(@Request() req: any, @Body() body: { personId: string; amountCents: number; reason: string }) {
     return this.svc.adminAdjust(body.personId, body.amountCents, body.reason, req.user.id);

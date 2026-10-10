@@ -1,3 +1,5 @@
+import { StaffOnly, CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsString, IsOptional, IsEnum } from 'class-validator';
@@ -25,7 +27,10 @@ class UpdateApplicationStatusDto {
 @ApiTags('staffing')
 @Controller('staffing')
 export class StaffingController {
-  constructor(private readonly staffingService: StaffingService) {}
+  constructor(
+    private readonly staffingService: StaffingService,
+    private readonly access: AccessService,
+  ) {}
 
   // ── Public / Candidate ───────────────────────────────────────────────────
 
@@ -48,7 +53,8 @@ export class StaffingController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('opportunities/:id/apply')
-  apply(@Param('id') id: string, @Body() body: { personId: string }) {
+  async apply(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { personId: string }) {
+    await this.access.assertPerson(user, body.personId);
     return this.staffingService.applyToOpportunity(body.personId, id);
   }
 
@@ -56,7 +62,8 @@ export class StaffingController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get('applications/:personId')
-  getMyApplications(@Param('personId') personId: string) {
+  async getMyApplications(@CurrentUser() user: AuthUser, @Param('personId') personId: string) {
+    await this.access.assertPerson(user, personId);
     return this.staffingService.getApplicationsByPerson(personId);
   }
 
@@ -64,7 +71,7 @@ export class StaffingController {
 
   @ApiOperation({ summary: 'Create a job opportunity (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Post('admin/opportunities')
   createOpportunity(@Body() dto: CreateOpportunityDto) {
     return this.staffingService.createOpportunity(dto);
@@ -72,7 +79,7 @@ export class StaffingController {
 
   @ApiOperation({ summary: 'Update an opportunity (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Patch('admin/opportunities/:id')
   updateOpportunity(@Param('id') id: string, @Body() dto: Partial<CreateOpportunityDto>) {
     return this.staffingService.updateOpportunity(id, dto as any);
@@ -80,7 +87,7 @@ export class StaffingController {
 
   @ApiOperation({ summary: 'Delete an opportunity (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Delete('admin/opportunities/:id')
   deleteOpportunity(@Param('id') id: string) {
     return this.staffingService.deleteOpportunity(id);
@@ -88,7 +95,7 @@ export class StaffingController {
 
   @ApiOperation({ summary: 'List all applications (admin) — filterable by status and opportunity' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Get('admin/applications')
   getAllApplications(
     @Query('status') status?: string,
@@ -99,7 +106,7 @@ export class StaffingController {
 
   @ApiOperation({ summary: 'Update application status (admin) — shortlist, offer, reject, etc.' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Patch('admin/applications/:id/status')
   updateApplicationStatus(@Param('id') id: string, @Body() dto: UpdateApplicationStatusDto) {
     return this.staffingService.updateApplicationStatus(id as any, dto.status as any, dto.notes);
@@ -107,7 +114,7 @@ export class StaffingController {
 
   @ApiOperation({ summary: 'Mark candidate as deployed (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Post('admin/deploy')
   markDeployed(@Body() body: { personId: string; opportunityId: string }) {
     return this.staffingService.markDeployed(body.personId, body.opportunityId);

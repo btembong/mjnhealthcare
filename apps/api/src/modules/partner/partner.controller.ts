@@ -1,3 +1,4 @@
+import { StaffOnly, AdminOnly } from '../auth/access';
 import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -10,21 +11,25 @@ import { PartnerService } from './partner.service';
 export class PartnerController {
   constructor(private readonly partnerService: PartnerService) {}
 
+  @StaffOnly()
   @Get()
   getPartners(@Query('status') status?: string) {
     return this.partnerService.getPartners(status);
   }
 
+  @StaffOnly()
   @Post()
   create(@Body() body: { name: string; type: string; contactEmail: string }) {
     return this.partnerService.createPartner(body);
   }
 
+  @AdminOnly()
   @Patch(':id/verify')
   verify(@Param('id') id: string, @Body() body: { verifiedBy: string }) {
     return this.partnerService.verify(id, body.verifiedBy);
   }
 
+  @StaffOnly()
   @Post(':id/opportunities')
   postOpportunity(
     @Param('id') id: string,

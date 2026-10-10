@@ -1,3 +1,5 @@
+import { StaffOnly, CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsString, IsOptional, IsNumber, IsBoolean, Min } from 'class-validator';
@@ -35,7 +37,10 @@ class CreateWesApplicationDto {
 @ApiTags('student-support')
 @Controller('student-support')
 export class StudentSupportController {
-  constructor(private readonly svc: StudentSupportService) {}
+  constructor(
+    private readonly svc: StudentSupportService,
+    private readonly access: AccessService,
+  ) {}
 
   // ── Candidate-facing ─────────────────────────────────────────────────────
 
@@ -55,7 +60,8 @@ export class StudentSupportController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('internships/:id/apply')
-  applyForInternship(@Param('id') id: string, @Body() body: { personId: string }) {
+  async applyForInternship(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { personId: string }) {
+    await this.access.assertPerson(user, body.personId);
     return this.svc.applyForInternship(body.personId, id);
   }
 
@@ -63,7 +69,8 @@ export class StudentSupportController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get('internship-applications/:personId')
-  getInternshipApplications(@Param('personId') personId: string) {
+  async getInternshipApplications(@CurrentUser() user: AuthUser, @Param('personId') personId: string) {
+    await this.access.assertPerson(user, personId);
     return this.svc.getInternshipApplicationsByPerson(personId);
   }
 
@@ -77,7 +84,8 @@ export class StudentSupportController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('wes')
-  createWesApplication(@Body() dto: CreateWesApplicationDto) {
+  async createWesApplication(@CurrentUser() user: AuthUser, @Body() dto: CreateWesApplicationDto) {
+    await this.access.assertPerson(user, dto.personId);
     return this.svc.createWesApplication(dto);
   }
 
@@ -85,7 +93,8 @@ export class StudentSupportController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get('wes/:personId')
-  getWesApplications(@Param('personId') personId: string) {
+  async getWesApplications(@CurrentUser() user: AuthUser, @Param('personId') personId: string) {
+    await this.access.assertPerson(user, personId);
     return this.svc.getWesApplicationsByPerson(personId);
   }
 
@@ -93,7 +102,7 @@ export class StudentSupportController {
 
   @ApiOperation({ summary: 'Create an internship placement (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Post('admin/internships')
   createInternship(@Body() dto: CreateInternshipDto) {
     return this.svc.createInternship(dto);
@@ -101,7 +110,7 @@ export class StudentSupportController {
 
   @ApiOperation({ summary: 'Update an internship placement (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Patch('admin/internships/:id')
   updateInternship(@Param('id') id: string, @Body() dto: Partial<CreateInternshipDto>) {
     return this.svc.updateInternship(id, dto as any);
@@ -109,7 +118,7 @@ export class StudentSupportController {
 
   @ApiOperation({ summary: 'List all internship applications (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Get('admin/internship-applications')
   getAllInternshipApplications(@Query('status') status?: string) {
     return this.svc.getAllInternshipApplications({ status });
@@ -117,7 +126,7 @@ export class StudentSupportController {
 
   @ApiOperation({ summary: 'Update internship application status (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Patch('admin/internship-applications/:id/status')
   updateInternshipApplicationStatus(
     @Param('id') id: string,
@@ -128,7 +137,7 @@ export class StudentSupportController {
 
   @ApiOperation({ summary: 'Create a university program (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Post('admin/university-programs')
   createUniversityProgram(@Body() dto: CreateUniversityProgramDto) {
     return this.svc.createUniversityProgram(dto);
@@ -136,7 +145,7 @@ export class StudentSupportController {
 
   @ApiOperation({ summary: 'Update a university program (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @StaffOnly()
   @Patch('admin/university-programs/:id')
   updateUniversityProgram(@Param('id') id: string, @Body() dto: Partial<CreateUniversityProgramDto>) {
     return this.svc.updateUniversityProgram(id, dto as any);

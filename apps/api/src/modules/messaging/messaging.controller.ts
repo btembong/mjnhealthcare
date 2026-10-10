@@ -1,3 +1,5 @@
+import { CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import {
   Controller, Get, Post, Patch, Param, Body, UseGuards, Req,
 } from '@nestjs/common';
@@ -17,21 +19,26 @@ class SendMessageDto {
 @UseGuards(JwtAuthGuard)
 @Controller('messages')
 export class MessagingController {
-  constructor(private readonly messagingService: MessagingService) {}
+  constructor(
+    private readonly messagingService: MessagingService,
+    private readonly access: AccessService,
+  ) {}
 
   @ApiOperation({ summary: 'Get messages for an engagement' })
   @Get('engagement/:engagementId')
-  getMessages(@Param('engagementId') engagementId: string) {
+  async getMessages(@CurrentUser() user: AuthUser, @Param('engagementId') engagementId: string) {
+    await this.access.assertEngagement(user, engagementId);
     return this.messagingService.getMessages(engagementId);
   }
 
   @ApiOperation({ summary: 'Send a message in an engagement thread' })
   @Post('engagement/:engagementId')
-  sendMessage(
+  async sendMessage(@CurrentUser() user: AuthUser, 
     @Param('engagementId') engagementId: string,
     @Body() dto: SendMessageDto,
     @Req() req: any,
   ) {
+    await this.access.assertEngagement(user, engagementId);
     const person = req.user;
     const senderType: MessageSenderType =
       person.role === 'CANDIDATE' || person.role === 'STUDENT'
@@ -44,7 +51,8 @@ export class MessagingController {
 
   @ApiOperation({ summary: 'Mark all messages in engagement as read' })
   @Patch('engagement/:engagementId/read')
-  markRead(@Param('engagementId') engagementId: string, @Req() req: any) {
+  async markRead(@CurrentUser() user: AuthUser, @Param('engagementId') engagementId: string, @Req() req: any) {
+    await this.access.assertEngagement(user, engagementId);
     return this.messagingService.markRead(engagementId, req.user.id);
   }
 

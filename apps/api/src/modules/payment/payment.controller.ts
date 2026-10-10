@@ -1,3 +1,5 @@
+import { CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import { Controller, Post, Param, Body, Headers, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -7,15 +9,19 @@ import { PaymentService, PaymentProvider } from './payment.service';
 @ApiTags('payments')
 @Controller('payments')
 export class PaymentController {
-  constructor(private readonly paymentService: PaymentService) {}
+  constructor(
+    private readonly paymentService: PaymentService,
+    private readonly access: AccessService,
+  ) {}
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('initiate/:orderId')
-  initiate(
+  async initiate(@CurrentUser() user: AuthUser, 
     @Param('orderId') orderId: string,
     @Body() body: { phone?: string; email?: string; provider?: PaymentProvider },
   ) {
+    await this.access.assertOrder(user, orderId);
     return this.paymentService.initiatePayment(
       orderId,
       body.phone,

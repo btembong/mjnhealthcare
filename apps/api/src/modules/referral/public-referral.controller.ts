@@ -1,3 +1,4 @@
+import { FinanceOnly } from '../auth/access';
 import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PublicReferralService } from './public-referral.service';
@@ -20,18 +21,21 @@ export class PublicReferralController {
 
   // ── Admin (JWT required) ──────────────────────────────────────────────────
 
+  @FinanceOnly()
   @Get('admin/list')
   @UseGuards(JwtAuthGuard)
   list() {
     return this.service.adminList();
   }
 
+  @FinanceOnly()
   @Patch('admin/:id/mark-paid')
   @UseGuards(JwtAuthGuard)
   markPaid(@Param('id') id: string) {
     return this.service.adminMarkPaid(id);
   }
 
+  @FinanceOnly()
   @Delete('admin/:id/void')
   @UseGuards(JwtAuthGuard)
   void(@Param('id') id: string) {

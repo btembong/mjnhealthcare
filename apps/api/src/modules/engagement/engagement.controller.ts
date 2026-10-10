@@ -1,3 +1,5 @@
+import { StaffOnly, CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import { Controller, Get, Post, Patch, Param, Body, UseGuards, HttpCode, HttpStatus, Req, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -36,25 +38,32 @@ class SendMessageDto {
 @UseGuards(JwtAuthGuard)
 @Controller('engagements')
 export class EngagementController {
-  constructor(private readonly engagementService: EngagementService) {}
+  constructor(
+    private readonly engagementService: EngagementService,
+    private readonly access: AccessService,
+  ) {}
 
   @ApiOperation({ summary: 'List all engagements (admin/consultant)' })
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'CONSULTANT', 'COMPLIANCE')
   @Get()
-  findAll() {
-    return this.engagementService.findAll();
+  async findAll(@CurrentUser() user: AuthUser) {
+    const engagements = await this.engagementService.findAll();
+    const scope = await this.access.consultantScope(user);
+    return scope ? engagements.filter((e: any) => scope.canSeeEngagement(e)) : engagements;
   }
 
   @ApiOperation({ summary: 'List engagements for a client' })
   @Get('client/:personId')
-  findByClient(@Param('personId') personId: string) {
+  async findByClient(@CurrentUser() user: AuthUser, @Param('personId') personId: string) {
+    await this.access.assertPerson(user, personId);
     return this.engagementService.findByClient(personId);
   }
 
   @ApiOperation({ summary: 'Get single engagement detail' })
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  async findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertEngagement(user, id);
     return this.engagementService.findById(id);
   }
 
@@ -78,7 +87,8 @@ export class EngagementController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'CONSULTANT')
   @Post(':id/send-signature')
-  sendSignature(@Param('id') id: string) {
+  async sendSignature(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertEngagement(user, id);
     return this.engagementService.sendSignatureEmail(id);
   }
 
@@ -96,26 +106,33 @@ export class EngagementController {
   }
 
   @ApiOperation({ summary: 'Update engagement status' })
+  @StaffOnly()
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() body: { status: string }) {
+  async updateStatus(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { status: string }) {
+    await this.access.assertEngagement(user, id);
     return this.engagementService.updateStatus(id, body.status);
   }
 
   @ApiOperation({ summary: 'Add a milestone to an engagement' })
+  @StaffOnly()
   @Post(':id/milestones')
-  addMilestone(@Param('id') id: string, @Body() dto: AddMilestoneDto) {
+  async addMilestone(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: AddMilestoneDto) {
+    await this.access.assertEngagement(user, id);
     return this.engagementService.addMilestone(id, dto.label);
   }
 
   @ApiOperation({ summary: 'Complete a milestone' })
+  @StaffOnly()
   @Patch('milestones/:milestoneId/complete')
-  completeMilestone(@Param('milestoneId') milestoneId: string) {
+  async completeMilestone(@CurrentUser() user: AuthUser, @Param('milestoneId') milestoneId: string) {
+    await this.access.assertMilestone(user, milestoneId);
     return this.engagementService.completeMilestone(milestoneId);
   }
 
   @ApiOperation({ summary: 'Download signed engagement letter as PDF' })
   @Get(':id/letter-pdf')
-  async downloadLetterPdf(@Param('id') id: string, @Res() res: Response) {
+  async downloadLetterPdf(@CurrentUser() user: AuthUser, @Param('id') id: string, @Res() res: Response) {
+    await this.access.assertEngagement(user, id);
     const buffer = await this.engagementService.generateLetterPdf(id);
     res.set({
       'Content-Type': 'application/pdf',
@@ -127,7 +144,8 @@ export class EngagementController {
 
   @ApiOperation({ summary: 'Client sends a message to their consultant' })
   @Post(':id/message')
-  sendMessage(@Param('id') id: string, @Body() dto: SendMessageDto) {
+  async sendMessage(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: SendMessageDto) {
+    await this.access.assertEngagement(user, id);
     return this.engagementService.sendClientMessage(id, dto.message);
   }
 
@@ -135,11 +153,12 @@ export class EngagementController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'CONSULTANT')
   @Post(':id/send-checklist')
-  sendDocumentChecklist(
+  async sendDocumentChecklist(@CurrentUser() user: AuthUser, 
     @Param('id') id: string,
     @Body() body: { pathwayKey: string },
     @Req() req: any,
   ) {
+    await this.access.assertEngagement(user, id);
     return this.engagementService.sendDocumentChecklist(id, body.pathwayKey, req.user.id);
   }
 }

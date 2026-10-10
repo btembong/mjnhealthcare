@@ -1,3 +1,5 @@
+import { CurrentUser, AuthUser } from '../auth/access';
+import { AccessService } from '../auth/access.service';
 import {
   Controller, Get, Post, Patch, Param, Body, Query, UseGuards, Req,
 } from '@nestjs/common';
@@ -33,7 +35,10 @@ class UpdatePriorityDto {
 @UseGuards(JwtAuthGuard)
 @Controller('tickets')
 export class TicketController {
-  constructor(private readonly ticketService: TicketService) {}
+  constructor(
+    private readonly ticketService: TicketService,
+    private readonly access: AccessService,
+  ) {}
 
   @ApiOperation({ summary: 'Create a support ticket' })
   @Post()
@@ -49,13 +54,15 @@ export class TicketController {
 
   @ApiOperation({ summary: 'Get a ticket by id' })
   @Get(':id')
-  getOne(@Param('id') id: string) {
+  async getOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertTicket(user, id);
     return this.ticketService.getTicket(id);
   }
 
   @ApiOperation({ summary: 'Reply to a ticket' })
   @Post(':id/reply')
-  reply(@Param('id') id: string, @Body() dto: ReplyDto, @Req() req: any) {
+  async reply(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ReplyDto, @Req() req: any) {
+    await this.access.assertTicket(user, id);
     const person = req.user;
     const role =
       person.role === 'CANDIDATE' || person.role === 'STUDENT'

@@ -1,3 +1,4 @@
+import { FinanceOnly } from '../auth/access';
 import {
   Controller,
   Get,
@@ -15,6 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('admin/payments')
 @UseGuards(JwtAuthGuard)
+@FinanceOnly()
 export class PaymentAdminController {
   constructor(private readonly service: PaymentAdminService) {}
 

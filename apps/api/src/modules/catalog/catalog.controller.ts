@@ -1,3 +1,4 @@
+import { AdminOnly } from '../auth/access';
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import {
@@ -74,7 +75,7 @@ export class CatalogController {
 
   @ApiOperation({ summary: 'Create a service category (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @AdminOnly()
   @Post('categories')
   createCategory(@Body() dto: CreateCategoryDto) {
     return this.catalogService.createCategory(dto);
@@ -82,7 +83,7 @@ export class CatalogController {
 
   @ApiOperation({ summary: 'Create a service item with optional variants (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @AdminOnly()
   @Post('items')
   createItem(@Body() dto: CreateItemDto) {
     return this.catalogService.createItem(dto);
@@ -90,7 +91,7 @@ export class CatalogController {
 
   @ApiOperation({ summary: 'Update a service item (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @AdminOnly()
   @Patch('items/:id')
   updateItem(@Param('id') id: string, @Body() dto: UpdateItemDto) {
     return this.catalogService.updateItem(id, dto);
@@ -98,7 +99,7 @@ export class CatalogController {
 
   @ApiOperation({ summary: 'Add a variant to an existing item (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @AdminOnly()
   @Post('items/:id/variants')
   createVariant(@Param('id') id: string, @Body() dto: VariantDto) {
     return this.catalogService.createVariant(id, dto.variantKey, dto.priceUsd);
@@ -106,7 +107,7 @@ export class CatalogController {
 
   @ApiOperation({ summary: 'Delete a service item (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @AdminOnly()
   @Delete('items/:id')
   deleteItem(@Param('id') id: string) {
     return this.catalogService.deleteItem(id);
@@ -114,7 +115,7 @@ export class CatalogController {
 
   @ApiOperation({ summary: 'Delete a service category (admin)' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @AdminOnly()
   @Delete('categories/:id')
   deleteCategory(@Param('id') id: string) {
     return this.catalogService.deleteCategory(id);

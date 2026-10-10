@@ -1,3 +1,4 @@
+import { AdminOnly } from '../auth/access';
 import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
 import { BlogService } from './blog.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,23 +15,23 @@ export class BlogController {
   getBySlug(@Param('slug') slug: string) { return this.blog.getBySlug(slug); }
 
   // Admin
-  @UseGuards(JwtAuthGuard)
+  @AdminOnly()
   @Get('admin/all')
   getAll() { return this.blog.getAll(); }
 
-  @UseGuards(JwtAuthGuard)
+  @AdminOnly()
   @Get('admin/:id')
   getOne(@Param('id') id: string) { return this.blog.getOne(id); }
 
-  @UseGuards(JwtAuthGuard)
+  @AdminOnly()
   @Post()
   create(@Body() dto: any) { return this.blog.create(dto); }
 
-  @UseGuards(JwtAuthGuard)
+  @AdminOnly()
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: any) { return this.blog.update(id, dto); }
 
-  @UseGuards(JwtAuthGuard)
+  @AdminOnly()
   @Delete(':id')
   remove(@Param('id') id: string) { return this.blog.remove(id); }
 }
