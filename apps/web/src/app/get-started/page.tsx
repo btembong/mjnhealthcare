@@ -988,8 +988,8 @@ function GetStartedInner() {
                             onClick={() => setSelectedSlot(slot)}
                             className={`rounded-xl border py-3 text-center text-sm font-semibold transition-all ${
                               selectedSlot?.id === slot.id
-                                ? 'border-primary bg-primary text-white shadow-md shadow-primary/20'
-                                : 'border-border bg-white hover:border-primary/50 hover:bg-primary/5'
+                                ? 'gradient-hero border-transparent text-white shadow-md'
+                                : 'border-border bg-white hover:border-secondary/50 hover:bg-secondary/5 hover:text-secondary'
                             }`}
                           >
                             {formatTime(slot.startTime)}
@@ -1018,7 +1018,7 @@ function GetStartedInner() {
                   <button
                     onClick={handleBook}
                     disabled={loading || !selectedSlot}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-md shadow-primary/20 transition hover:-translate-y-px hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="gradient-hero flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-semibold text-white shadow-md transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {loading
                       ? <><CircleNotch className="h-4 w-4 animate-spin" /> {t.booking}</>
