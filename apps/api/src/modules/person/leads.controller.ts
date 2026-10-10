@@ -103,7 +103,7 @@ export class LeadsController {
 
     // Create the video room. Best-effort: if Daily.co is down the booking still
     // succeeds — the advisor can share a link manually as a fallback.
-    const FREE_CONSULT_MINUTES = 30;
+    const FREE_CONSULT_MINUTES = 15;
     let roomUrl = '';
     let hostUrl = '';
     try {
@@ -162,12 +162,47 @@ export class LeadsController {
     });
 
     return {
+      bookingId: booking.id,
       name: body.name.trim(),
       email: body.email.trim().toLowerCase(),
       slotStart: slot.startTime.toISOString(),
       consultant: (slot as any).consultant ?? null,
       roomUrl: roomUrl || null,
     };
+  }
+
+  // ── Public: issue a guest token so the client can enter the private room ───
+
+  @Get('free-consult/join')
+  async joinFreeConsult(
+    @Query('bookingId') bookingId: string,
+    @Query('email') email: string,
+  ) {
+    if (!bookingId || !email) throw new BadRequestException('bookingId and email are required');
+
+    const booking = await this.db.booking.findUnique({
+      where: { id: bookingId },
+      include: { lead: { select: { email: true, name: true } } },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    // Verify the requester owns this booking
+    const leadEmail = (booking as any).lead?.email ?? '';
+    if (leadEmail.toLowerCase() !== email.trim().toLowerCase()) {
+      throw new BadRequestException('Email does not match this booking');
+    }
+
+    const roomName = `mjn-consult-${bookingId}`;
+    const guestName = (booking as any).lead?.name ?? 'Guest';
+
+    try {
+      const token = await this.dailyCo.createMeetingToken(roomName, false, guestName);
+      const roomUrl = `https://mjnhealthcare.daily.co/${roomName}`;
+      return { url: `${roomUrl}?t=${token}` };
+    } catch (err) {
+      this.logger.error(`Could not issue guest token for booking ${bookingId}: ${err}`);
+      throw new BadRequestException('Could not generate join link. The session may have ended.');
+    }
   }
 
   // ── Authenticated routes ──────────────────────────────────────────────────

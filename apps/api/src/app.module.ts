@@ -42,23 +42,25 @@ import { BlogModule } from './modules/blog/blog.module';
     ScheduleModule.forRoot(),
 
     BullModule.forRootAsync({
-      useFactory: () => ({
-        redis: {
-          // UPSTASH_REDIS_URL is the REST URL (https://host) used by the OTP store;
-          // Bull needs the bare hostname. Upstash serves Redis over TLS on 6379.
-          host: (process.env.UPSTASH_REDIS_URL ?? '').replace(/^[a-z]+:\/\//i, '').replace(/[:/].*$/, ''),
-          port: Number(process.env.UPSTASH_REDIS_PORT ?? 6379),
-          password: process.env.UPSTASH_REDIS_TOKEN,
-          tls: {},
-        },
-        // Idle queues poll Redis; these intervals keep Upstash command usage low.
-        // Delayed jobs still fire on their own timers, so reminders stay on time.
-        settings: {
-          drainDelay: 60,
-          guardInterval: 60_000,
-          stalledInterval: 300_000,
-        },
-      }),
+      useFactory: () => {
+        const useLocal = !!process.env.REDIS_HOST;
+        return {
+          redis: useLocal
+            ? {
+                // Self-hosted Redis (VPS Docker container — no TLS, localhost only)
+                host: process.env.REDIS_HOST ?? '127.0.0.1',
+                port: Number(process.env.REDIS_PORT ?? 6379),
+                password: process.env.REDIS_PASSWORD || undefined,
+              }
+            : {
+                // Upstash fallback (cloud — TLS required, strip https:// scheme)
+                host: (process.env.UPSTASH_REDIS_URL ?? '').replace(/^[a-z]+:\/\//i, '').replace(/[:/].*$/, ''),
+                port: Number(process.env.UPSTASH_REDIS_PORT ?? 6379),
+                password: process.env.UPSTASH_REDIS_TOKEN,
+                tls: {},
+              },
+        };
+      },
     }),
 
     // Global providers

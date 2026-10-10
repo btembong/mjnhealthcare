@@ -70,7 +70,7 @@ const T = {
     advisor_line: "She'll review your profile and map the clearest path forward.",
     no_commitment_1: 'No commitment',
     no_commitment_2: 'No payment',
-    no_commitment_3: '30-min video call',
+    no_commitment_3: '15-min video call',
     en_fr: 'FR',
   },
   fr: {
@@ -126,7 +126,7 @@ const T = {
     advisor_line: 'Elle examinera votre profil et tracera le chemin le plus clair.',
     no_commitment_1: 'Sans engagement',
     no_commitment_2: 'Sans paiement',
-    no_commitment_3: 'Appel vidéo 30 min',
+    no_commitment_3: 'Appel vidéo 15 min',
     en_fr: 'EN',
   },
 } as const;
@@ -256,7 +256,7 @@ function GetStartedInner() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-  const [confirmed, setConfirmed] = useState<{ name: string; email: string; slotStart: string; consultant?: { name: string; photoUrl?: string; specialty?: string } | null; roomUrl?: string | null } | null>(null);
+  const [confirmed, setConfirmed] = useState<{ bookingId?: string; name: string; email: string; slotStart: string; consultant?: { name: string; photoUrl?: string; specialty?: string } | null; roomUrl?: string | null } | null>(null);
 
   // Consultant state
   const [consultants, setConsultants] = useState<Consultant[]>([]);
@@ -355,7 +355,7 @@ function GetStartedInner() {
         throw new Error(body.message ?? 'Something went wrong.');
       }
       const resJson = await res.json().catch(() => ({}));
-      setConfirmed({ name: name.trim(), email: email.trim(), slotStart: selectedSlot.startTime, consultant: resJson.consultant ?? null, roomUrl: resJson.roomUrl ?? null });
+      setConfirmed({ bookingId: resJson.bookingId ?? null, name: name.trim(), email: email.trim(), slotStart: selectedSlot.startTime, consultant: resJson.consultant ?? null, roomUrl: resJson.roomUrl ?? null });
       setStep('confirmed');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
@@ -398,7 +398,7 @@ function GetStartedInner() {
 
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-sm">
               <CalendarBlank className="h-4 w-4" />
-              {lang === 'en' ? 'Free 30-minute consultation' : 'Consultation gratuite 30 min'}
+              {lang === 'en' ? 'Free 15-minute consultation' : 'Consultation gratuite 15 min'}
             </div>
             <h1 className="mt-3 max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-white md:text-5xl">
               {t.hero}
@@ -979,10 +979,10 @@ function GetStartedInner() {
                         {apptDateWAT(confirmed.slotStart)}
                       </p>
                       <p className="text-sm font-semibold text-primary">{apptTimeWAT(confirmed.slotStart)} WAT</p>
-                      {confirmed.roomUrl ? (
+                      {confirmed.bookingId && confirmed.roomUrl ? (
                         <>
                           <a
-                            href={confirmed.roomUrl}
+                            href={`${API}/leads/free-consult/join?bookingId=${confirmed.bookingId}&email=${encodeURIComponent(confirmed.email)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90"
@@ -991,8 +991,8 @@ function GetStartedInner() {
                           </a>
                           <p className="mt-2 text-xs text-muted-foreground">
                             {lang === 'en'
-                              ? 'The room opens a few minutes before your session. This link is also in your email.'
-                              : 'La salle ouvre quelques minutes avant la session. Ce lien est aussi dans votre e-mail.'}
+                              ? 'The room opens at session time. This link is also in your confirmation email.'
+                              : 'La salle ouvre à l\'heure de la session. Ce lien est aussi dans votre e-mail de confirmation.'}
                           </p>
                         </>
                       ) : (
