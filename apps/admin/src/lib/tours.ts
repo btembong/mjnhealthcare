@@ -20,9 +20,6 @@ const PAGE_TOURS: Record<string, string> = {
   '/settings': 'admin.settings',
   '/officer': 'admin.officer.dashboard',
   '/officer/caseload': 'admin.officer.caseload',
-  '/officer/documents': 'admin.officer.documents',
-  '/officer/stages': 'admin.officer.stages',
-  '/officer/notes': 'admin.officer.notes',
   '/officer/escalations': 'admin.officer.escalations',
   '/finance': 'admin.finance',
   '/payments': 'admin.payments',
@@ -50,8 +47,6 @@ const DETAIL_TOURS: [RegExp, string][] = [
   [/^\/caseload\/[^/]+$/, 'admin.case'],
   [/^\/clients\/[^/]+$/, 'admin.client'],
   [/^\/courses\/[^/]+$/, 'admin.course'],
-  [/^\/officer\/cases\/[^/]+\/tracking$/, 'admin.officer.tracking'],
-  [/^\/officer\/cases\/[^/]+\/escalate$/, 'admin.officer.escalate'],
   [/^\/officer\/cases\/[^/]+$/, 'admin.officer.case'],
 ];
 
@@ -147,11 +142,9 @@ const TOURS: Record<string, TourDef> = {
         title: 'Welcome to your console',
         body: 'This is where you process the cases assigned to you. Here is a quick look around. Each page also has its own short guide.',
       },
-      { target: 'nav:/officer/caseload', title: 'My Caseload', body: 'The cases you are processing. Open one to work on it.' },
-      { target: 'nav:/officer/documents', title: 'Documents', body: 'Documents belonging to your assigned cases.' },
-      { target: 'nav:/officer/stages', title: 'Stage Tracker', body: 'Milestone progress across all your cases in one view.' },
-      { target: 'nav:/officer/notes', title: 'Case Notes', body: 'Every note you and others have added across your cases.' },
-      { target: 'nav:/officer/escalations', title: 'Escalations', body: 'Cases you have raised with a consultant, and how each was resolved.' },
+      { target: 'nav:/officer', title: 'My Work', body: 'Start here each day. It lists what needs you first, what is coming up this week, and what is waiting on someone else.' },
+      { target: 'nav:/officer/caseload', title: 'My Caseload', body: 'Every case assigned to you, with its stage, latest submission and next follow-up. Open one to work on it.' },
+      { target: 'nav:/officer/escalations', title: 'Escalations', body: 'Cases you have raised with a consultant, and what they decided.' },
       HELP_STEP,
     ],
   },
@@ -298,7 +291,7 @@ const TOURS: Record<string, TourDef> = {
     title: 'Pending approvals',
     steps: [
       { target: 'page-title', title: 'Officer updates awaiting sign-off', body: 'When a processing officer writes a sensitive update for a client, it waits here for you.' },
-      { title: 'Approve or reject', body: 'Read the draft. Approving releases it to the client. Rejecting stops it from being sent.' },
+      { title: 'Approve or reject', body: 'Read the draft. Approving releases it to the client. Rejecting stops it from being sent; you give a reason, and the officer sees it on the case.' },
     ],
   },
   'admin.escalations': {
@@ -334,67 +327,41 @@ const TOURS: Record<string, TourDef> = {
 
   // Processing officer
   'admin.officer.dashboard': {
-    title: 'Officer dashboard',
+    title: 'My work',
     steps: [
-      { target: 'page-title', title: 'Your day at a glance', body: 'What needs you today across your assigned cases.' },
-      { target: 'off-kpis', title: 'Your numbers', body: 'Overdue items, what is due today, and your activity this week.' },
-      { target: 'off-actions', title: 'Quick actions', body: 'Jump to your caseload, post a note, or open escalations, the stage tracker and documents.' },
-      { target: 'off-caseload', title: 'My caseload', body: 'Your cases with their current stage. Select one to work on it.' },
+      { target: 'page-title', title: 'Your day at a glance', body: 'How many open cases you hold, and how many follow-ups and returned forms are waiting for you.' },
+      { target: 'work-first', title: 'Do first', body: 'What needs you today: follow-ups that are due, forms a client has returned, and client updates a consultant did not approve. An item leaves this list once you record something on that case.' },
+      { target: 'work-coming', title: 'Coming up', body: 'Follow-up dates in the next seven days, so you can plan ahead.' },
+      { target: 'work-waiting', title: 'Waiting on others', body: 'Things you have handed on: updates with a consultant for approval, open escalations, and forms clients have not returned yet. Nothing here needs you.' },
+      { target: 'work-summary', title: 'Your numbers', body: 'Submissions on your open cases by status, and what you recorded this week.' },
     ],
   },
   'admin.officer.caseload': {
     title: 'My caseload',
     steps: [
-      { target: 'page-title', title: 'Cases assigned to you', body: 'Select a case to see its milestones, submissions, documents and notes.' },
+      { target: 'page-title', title: 'Cases assigned to you', body: 'You only see cases that are assigned to you. An admin or consultant assigns them, and you are emailed when one arrives.' },
+      { target: 'ocl-chips', title: 'Quick filters', body: 'Needs me shows cases with something for you to do. The others show cases with a follow-up due, with no submission recorded yet, or with no recent activity.' },
+      { target: 'ocl-list', skipIfMissing: true, title: 'One line per case', body: 'The stage the case has reached, its latest submission, and the next follow-up date. An orange dot marks what is due. Select a case to open it.' },
     ],
   },
   'admin.officer.case': {
     title: 'Working a case',
     steps: [
-      { target: 'page-title', title: 'This case', body: 'Everything you need to process this client is on this page.' },
-      { target: 'ocase-milestones', title: 'Milestones', body: 'The steps of this case and which are complete.' },
-      { target: 'ocase-tracking', title: 'Application tracking', body: 'Record each submission you make to a licensing body, and when to follow up.' },
-      { target: 'ocase-sendform', title: 'Send a form to the client', body: 'Send a form for the client to complete and return. It appears in their document area.' },
-      { target: 'ocase-notes', title: 'Case notes', body: 'Internal notes stay with the team. A note sent to the client can be marked as needing consultant approval first.' },
-      { title: 'When to escalate', body: 'If the case needs a consultant decision, such as a compliance issue or a client dispute, use Escalate. The consultant is notified.' },
-    ],
-  },
-  'admin.officer.tracking': {
-    title: 'Application tracking',
-    steps: [
-      { target: 'track-form', title: 'Record a submission', body: 'Add what was submitted, to which body, and when to follow up.' },
-      { target: 'track-history', title: 'Submission history', body: 'Everything recorded so far. Edit an entry when its status changes.' },
-    ],
-  },
-  'admin.officer.escalate': {
-    title: 'Escalate a case',
-    steps: [
-      { title: 'When to escalate', body: 'Use this for a compliance issue, a client dispute, or anything that needs a consultant to decide.' },
-      { title: 'Choose who and say why', body: 'The consultant on this case is selected for you. Give a clear reason; they are emailed and the case appears in their escalation inbox.' },
-    ],
-  },
-  'admin.officer.documents': {
-    title: 'Documents',
-    steps: [
-      { target: 'page-title', title: 'Documents for your cases', body: 'Documents belonging to the cases assigned to you, with the status of each.' },
-    ],
-  },
-  'admin.officer.stages': {
-    title: 'Stage tracker',
-    steps: [
-      { target: 'page-title', title: 'Progress across your cases', body: 'Milestones for every case assigned to you, so you can see which are moving and which are stuck.' },
-    ],
-  },
-  'admin.officer.notes': {
-    title: 'Case notes',
-    steps: [
-      { target: 'page-title', title: 'All your case notes', body: 'Notes across your assigned cases in one list. Notes are added from the case itself.' },
+      { target: 'page-title', title: 'This case', body: 'Everything you need to process this client is on this page. Nothing takes you away from it.' },
+      { target: 'ocase-actions', title: 'Your main actions', body: 'Record a submission to a licensing body, send the client a form to complete, or escalate to a consultant. Each opens on top of this page.' },
+      { target: 'ocase-next', title: 'Next step', body: 'The single most useful thing to do on this case right now.' },
+      { target: 'ocase-tabs', title: 'Sections', body: 'Overview shows the stages and the handover note. Submissions, Documents and Notes hold your day-to-day work. Activity is the full history. An orange dot on a tab means something there is waiting for you.' },
+      { title: 'Submissions and follow-ups', body: 'Give each submission a follow-up date. On that day the case appears under Do first until you update the submission. A submission that is approved or rejected needs no follow-up.' },
+      { title: 'Notes and client updates', body: 'An internal note stays with the team. An update for the client is emailed and sent on WhatsApp. Tick “Needs consultant approval first” for anything about eligibility, outcomes or timelines: nothing is sent until a consultant approves it.' },
+      { title: 'Marking a stage complete', body: 'On Overview, mark the current stage complete when its work is done. The client sees this in their portal, so you are asked to confirm.' },
+      { target: 'ocase-rail', title: 'Client and key facts', body: 'Contact details, who else is on the case, payments, documents, and anything waiting on someone else.' },
     ],
   },
   'admin.officer.escalations': {
-    title: 'My escalations',
+    title: 'Escalations',
     steps: [
-      { target: 'page-title', title: 'Cases you escalated', body: 'Each escalation you raised, whether it is still open, and the consultant’s resolution once given.' },
+      { target: 'page-title', title: 'Cases you escalated', body: 'Each escalation you raised and the consultant’s answer once given. To raise one, open the case and choose Escalate.' },
+      { target: 'oesc-tabs', title: 'Open and resolved', body: 'Open escalations are waiting on a consultant. Resolved ones show what was decided.' },
     ],
   },
 

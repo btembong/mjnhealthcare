@@ -12,6 +12,8 @@ export default function ApprovalsPage() {
   const [pending, setPending] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   async function load() {
     setLoading(true);
@@ -43,9 +45,11 @@ export default function ApprovalsPage() {
   async function handleReject(noteId: string) {
     setActing(noteId);
     try {
-      await api.rejectNote(noteId);
-      toast.success('Update rejected — kept as internal note');
+      await api.rejectNote(noteId, rejectReason.trim() || undefined);
+      toast.success('Update not approved. The officer will see your reason.');
       setPending(prev => prev.filter(n => n.id !== noteId));
+      setRejecting(null);
+      setRejectReason('');
     } catch {
       toast.error('Failed to reject');
     } finally {
@@ -117,10 +121,36 @@ export default function ApprovalsPage() {
                 <p className="text-sm text-foreground whitespace-pre-wrap">{note.content}</p>
               </div>
 
+              {/* Reason shown to the officer when an update is not approved */}
+              {rejecting === note.id && (
+                <div className="mb-4">
+                  <label htmlFor={`reject-${note.id}`} className="mb-1.5 block text-xs font-bold text-foreground">Why is this not approved?</label>
+                  <textarea
+                    id={`reject-${note.id}`}
+                    value={rejectReason}
+                    onChange={e => setRejectReason(e.target.value)}
+                    rows={2}
+                    autoFocus
+                    placeholder="The officer sees this on the case, so they know what to change."
+                    className="w-full resize-none rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                  <div className="mt-2 flex justify-end gap-2">
+                    <button onClick={() => { setRejecting(null); setRejectReason(''); }} className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted/50">Cancel</button>
+                    <button
+                      onClick={() => handleReject(note.id)}
+                      disabled={acting === note.id || !rejectReason.trim()}
+                      className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      Do not send
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className={`flex gap-3 ${rejecting === note.id ? 'hidden' : ''}`}>
                 <button
-                  onClick={() => handleReject(note.id)}
+                  onClick={() => { setRejecting(note.id); setRejectReason(''); }}
                   disabled={acting === note.id}
                   className="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
                 >

@@ -42,11 +42,8 @@ function useSidebarSections(
     return [
       {
         items: [
-          { label: 'Dashboard', href: '/officer', icon: ChartLineUp },
+          { label: 'My Work', href: '/officer', icon: ChartLineUp },
           { label: 'My Caseload', href: '/officer/caseload', icon: UsersThree },
-          { label: 'Documents', href: '/officer/documents', icon: FileText },
-          { label: 'Stage Tracker', href: '/officer/stages', icon: ListChecks },
-          { label: 'Case Notes', href: '/officer/notes', icon: Clipboard },
           { label: 'Escalations', href: '/officer/escalations', icon: Warning },
         ],
       },
@@ -215,7 +212,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     const financeAllowed = ['/finance', '/payments', '/reports', '/referrals', '/settings'];
 
     if (isOfficer && !pathname.startsWith('/officer') && pathname !== '/settings') {
-      router.replace('/officer/caseload');
+      router.replace('/officer');
       return;
     }
     if (isFinance && !financeAllowed.some((p) => pathname === p || pathname.startsWith(p + '/'))) {

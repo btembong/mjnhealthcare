@@ -131,8 +131,20 @@ async function findSecret() {
   for (const p of ['/reports/finance', '/admin/payments/stats', '/compliance/audit-log']) await check('consultant cannot open ' + p, consultant, p, 403);
   if (assignedEng) await check("consultant cannot open a case assigned to someone else", consultant, '/engagements/' + assignedEng, 403);
 
-  for (const p of ['/officer/my-cases', '/persons', '/documents']) await check('officer can open ' + p, officer, p, 200);
+  for (const p of ['/officer/my-cases', '/officer/my-work', '/persons', '/documents']) await check('officer can open ' + p, officer, p, 200);
   await check('officer cannot see finance reports', officer, '/reports/finance', 403);
+  // This test officer has no cases, so every real case and client must be closed to them.
+  const anyEng = engs[0]?.id;
+  if (anyEng) {
+    for (const p of ['/engagements/' + anyEng, '/officer/cases/' + anyEng, '/officer/cases/' + anyEng + '/notes', '/officer/cases/' + anyEng + '/tracking'])
+      await check('officer cannot open a case that is not theirs ' + p.replace(anyEng, ':id'), officer, p, 403);
+  }
+  if (a) await check("officer cannot open a client who is not on their cases", officer, '/documents/review-context/' + a, 403);
+  const rOfficerPeople = await call(officer, '/persons?role=CANDIDATE');
+  const leaked = Array.isArray(rOfficerPeople.json) ? rOfficerPeople.json.length : -1;
+  count += 1;
+  if (leaked !== 0) fail += 1;
+  console.log(`${leaked === 0 ? 'PASS' : 'FAIL'}  officer with no cases sees no clients in the people list  -> ${leaked} listed (expected 0)`);
 
   if (!client) console.log('SKIP  no client accounts found, client checks skipped');
   else {

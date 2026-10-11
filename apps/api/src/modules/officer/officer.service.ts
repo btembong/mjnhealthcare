@@ -6,9 +6,62 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { AccessService } from '../auth/access.service';
-import { AuthUser, isConsultant } from '../auth/access';
+import { AuthUser, isConsultant, isOfficer } from '../auth/access';
+import { EngagementOverviewService, CaseSummary } from '../engagement/engagement-overview.service';
 import { DatabaseService } from '@mjn/database';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+
+const OPEN_CASE = ['PENDING_SIGNATURE', 'ACTIVE', 'ON_HOLD'];
+// A submission in one of these states needs no more follow-up.
+const SUBMISSION_DONE = ['APPROVED', 'REJECTED'];
+// How long a declined client update stays on the officer's list if they do nothing about it.
+const DECLINED_SHOWN_DAYS = 14;
+const DAY = 86400000;
+
+export type OfficerNeed = {
+  key: 'followup' | 'form' | 'declined';
+  label: string;
+  text: string;
+  at: Date;
+  trackingId?: string;
+  documentId?: string;
+  noteId?: string;
+};
+
+export type OfficerCase = {
+  id: string;
+  status: string;
+  person: CaseSummary['person'];
+  stage: CaseSummary['stage'];
+  consultantName: string | null;
+  submission: { id: string; portal: string; status: string; referenceNumber: string | null } | null;
+  submissionCount: number;
+  nextFollowUp: { trackingId: string; portal: string; date: Date } | null;
+  followUpDue: boolean;
+  upcoming: { trackingId: string; portal: string; date: Date }[];
+  needs: OfficerNeed[];
+  waiting: { approvals: number; escalations: number; forms: number };
+  quiet: boolean;
+  lastActivityAt: Date;
+  paid: number;
+  total: number;
+  docs: CaseSummary['docs'];
+};
+
+function endOfToday() {
+  const d = new Date();
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function dueText(portal: string, date: Date) {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const days = Math.floor((start.getTime() - new Date(date).setHours(0, 0, 0, 0)) / DAY);
+  if (days <= 0) return `${portal} follow-up is due today`;
+  if (days === 1) return `${portal} follow-up was due yesterday`;
+  return `${portal} follow-up was due ${days} days ago`;
+}
 
 @Injectable()
 export class OfficerService {
@@ -16,6 +69,7 @@ export class OfficerService {
     private readonly db: DatabaseService,
     private readonly events: EventEmitter2,
     private readonly access: AccessService,
+    private readonly overview: EngagementOverviewService,
   ) {}
 
   // ── Admin: create / list officers ─────────────────────────────────────────
@@ -210,39 +264,148 @@ export class OfficerService {
 
   // ── Officer: my assigned cases ────────────────────────────────────────────
 
-  async getMyCases(officerId: string) {
-    return this.db.engagement.findMany({
-      where: { officerId },
-      include: {
-        person: {
-          select: { id: true, name: true, email: true, phone: true, profession: true },
+  /**
+   * One line per case assigned to this officer: its stage, latest submission, next follow-up,
+   * and what is waiting on the officer. An item on the "needs" list clears once the officer
+   * records something on that case (a note or a submission update) after it appeared.
+   */
+  private async officerCases(officerId: string, onlyEngagementId?: string): Promise<OfficerCase[]> {
+    let summaries = await this.overview.forOfficer(officerId);
+    if (onlyEngagementId) summaries = summaries.filter((c) => c.id === onlyEngagementId);
+    if (summaries.length === 0) return [];
+    const ids = summaries.map((c) => c.id);
+
+    const [trackings, forms, notes, escalations] = await Promise.all([
+      this.db.applicationTracking.findMany({ where: { engagementId: { in: ids } }, orderBy: { createdAt: 'desc' } }),
+      this.db.document.findMany({
+        where: { engagementId: { in: ids }, origin: 'OFFICER_SENT' },
+        select: {
+          id: true, type: true, engagementId: true,
+          linkedReturns: { select: { id: true, uploadedAt: true }, orderBy: { uploadedAt: 'desc' } },
         },
-        milestones: { orderBy: { createdAt: 'desc' }, take: 1 },
-        _count: {
-          select: { caseNotes: true },
+      }),
+      this.db.caseNote.findMany({
+        where: { engagementId: { in: ids }, authorId: officerId },
+        select: {
+          id: true, engagementId: true, createdAt: true, isInternal: true,
+          requiresApproval: true, approvedAt: true, rejectedAt: true, rejectionReason: true,
         },
-      },
-      orderBy: { updatedAt: 'desc' },
+      }),
+      this.db.caseEscalation.groupBy({
+        by: ['engagementId'],
+        where: { engagementId: { in: ids }, officerId, status: 'OPEN' },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const today = endOfToday();
+    const weekOut = new Date(today.getTime() + 7 * DAY);
+    const openEscalations = new Map(escalations.map((g) => [g.engagementId, g._count._all]));
+
+    const cases = summaries.map((c): OfficerCase => {
+      const mine = trackings.filter((t) => t.engagementId === c.id);
+      const myNotes = notes.filter((n) => n.engagementId === c.id);
+      const myForms = forms.filter((f) => f.engagementId === c.id);
+      const closed = !OPEN_CASE.includes(c.status);
+
+      const followUps = mine
+        .filter((t) => t.nextActionDate && !SUBMISSION_DONE.includes(t.status))
+        .map((t) => ({ trackingId: t.id, portal: t.portal, date: t.nextActionDate as Date }))
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      // The last time this officer recorded anything on the case.
+      const lastActed = Math.max(
+        0,
+        ...myNotes.map((n) => n.createdAt.getTime()),
+        ...mine.map((t) => t.updatedAt.getTime()),
+      );
+
+      const needs: OfficerNeed[] = [];
+      if (!closed) {
+        for (const f of followUps.filter((x) => x.date <= today)) {
+          needs.push({ key: 'followup', label: 'Follow-up due', text: dueText(f.portal, f.date), at: f.date, trackingId: f.trackingId });
+        }
+        for (const form of myForms) {
+          const returned = form.linkedReturns[0];
+          if (returned && returned.uploadedAt.getTime() > lastActed) {
+            needs.push({ key: 'form', label: 'Form returned', text: `The client returned ${form.type}`, at: returned.uploadedAt, documentId: returned.id });
+          }
+        }
+        for (const n of myNotes) {
+          if (!n.rejectedAt) continue;
+          const recent = Date.now() - n.rejectedAt.getTime() < DECLINED_SHOWN_DAYS * DAY;
+          const actedSince = myNotes.some((o) => o.id !== n.id && o.createdAt > (n.rejectedAt as Date));
+          if (recent && !actedSince) {
+            needs.push({
+              key: 'declined',
+              label: 'Update not approved',
+              text: n.rejectionReason ? `Your client update was not approved: ${n.rejectionReason}` : 'Your client update was not approved',
+              at: n.rejectedAt,
+              noteId: n.id,
+            });
+          }
+        }
+      }
+
+      const latest = mine[0] ?? null;
+      return {
+        id: c.id,
+        status: c.status,
+        person: c.person,
+        stage: c.stage,
+        consultantName: c.consultantName,
+        submission: latest ? { id: latest.id, portal: latest.portal, status: latest.status, referenceNumber: latest.referenceNumber } : null,
+        submissionCount: mine.length,
+        nextFollowUp: followUps[0] ?? null,
+        followUpDue: !closed && followUps.some((f) => f.date <= today),
+        upcoming: closed ? [] : followUps.filter((f) => f.date > today && f.date <= weekOut),
+        needs,
+        waiting: {
+          approvals: myNotes.filter((n) => !n.isInternal && n.requiresApproval && !n.approvedAt).length,
+          escalations: openEscalations.get(c.id) ?? 0,
+          forms: myForms.filter((f) => f.linkedReturns.length === 0).length,
+        },
+        quiet: c.quiet,
+        lastActivityAt: c.lastActivityAt,
+        paid: c.paid,
+        total: c.total,
+        docs: c.docs,
+      };
     });
+
+    // Cases that need the officer first, oldest need on top; then the ones that have been quiet longest.
+    const firstNeed = (c: OfficerCase) => Math.min(...c.needs.map((n) => n.at.getTime()));
+    return cases.sort((a, b) => {
+      const open = Number(!OPEN_CASE.includes(a.status)) - Number(!OPEN_CASE.includes(b.status));
+      if (open) return open;
+      if (a.needs.length && b.needs.length) return firstNeed(a) - firstNeed(b);
+      if (a.needs.length || b.needs.length) return b.needs.length ? 1 : -1;
+      return a.lastActivityAt.getTime() - b.lastActivityAt.getTime();
+    });
+  }
+
+  getMyCases(officerId: string) {
+    return this.officerCases(officerId);
   }
 
   async getCaseById(engagementId: string, officerId: string) {
     const engagement = await this.db.engagement.findUnique({
       where: { id: engagementId },
-      include: {
-        person: true,
+      select: {
+        id: true, status: true, consultantId: true, officerId: true, handoverNotes: true,
+        letterSignedAt: true, createdAt: true,
+        person: { select: { id: true, name: true, email: true, phone: true, profession: true, locale: true } },
         milestones: { orderBy: { createdAt: 'asc' } },
-        orders: {
-          include: { lineItems: true },
-          orderBy: { createdAt: 'desc' },
-        },
         officer: { select: { id: true, name: true, email: true } },
         caseNotes: {
           include: { author: { select: { id: true, name: true, role: true } } },
           orderBy: { createdAt: 'desc' },
         },
         applicationTracking: { orderBy: { createdAt: 'desc' } },
-        escalations: { orderBy: { createdAt: 'desc' } },
+        escalations: {
+          include: { consultant: { select: { name: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
 
@@ -250,7 +413,8 @@ export class OfficerService {
     if (engagement.officerId !== officerId)
       throw new ForbiddenException('Not assigned to this case');
 
-    return engagement;
+    const [work] = await this.officerCases(officerId, engagementId);
+    return { ...engagement, work: work ?? null };
   }
 
   // ── Case Notes ────────────────────────────────────────────────────────────
@@ -368,17 +532,30 @@ export class OfficerService {
     return approved;
   }
 
-  async rejectNote(noteId: string) {
+  async rejectNote(noteId: string, reason?: string) {
     const note = await this.db.caseNote.findUnique({ where: { id: noteId } });
     if (!note) throw new NotFoundException('Note not found');
-    // Rejection: make fully internal so it never reaches client
+    if (note.approvedAt) throw new BadRequestException('This update was already approved and sent.');
+    // Rejection: make fully internal so it never reaches the client, and keep why for the officer.
     return this.db.caseNote.update({
       where: { id: noteId },
-      data: { isInternal: true, requiresApproval: false },
+      data: {
+        isInternal: true,
+        requiresApproval: false,
+        rejectedAt: new Date(),
+        rejectionReason: reason?.trim() || null,
+      },
     });
   }
 
-  /** Consultants see approvals for their own cases; other staff see all. */
+  /** The case a note belongs to, for access checks. */
+  async noteEngagementId(noteId: string): Promise<string> {
+    const note = await this.db.caseNote.findUnique({ where: { id: noteId }, select: { engagementId: true } });
+    if (!note) throw new NotFoundException('Note not found');
+    return note.engagementId;
+  }
+
+  /** Consultants see approvals for their own cases, officers the ones they wrote; other staff see all. */
   async getPendingApprovals(user: AuthUser) {
     const consultantIds = isConsultant(user) ? [...(await this.access.consultantIds(user))] : null;
     return this.db.caseNote.findMany({
@@ -387,6 +564,7 @@ export class OfficerService {
         requiresApproval: true,
         approvedAt: null,
         ...(consultantIds ? { engagement: { consultantId: { in: consultantIds } } } : {}),
+        ...(isOfficer(user) ? { authorId: user.id } : {}),
       },
       include: {
         author: { select: { id: true, name: true } },
@@ -400,141 +578,72 @@ export class OfficerService {
 
   // ── Client-facing updates (approved + non-approval notes) ────────────────
 
-  async getMyDashboard(officerId: string) {
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
+  /** The officer's home screen: what to do first, what is coming, and what is with someone else. */
+  async getMyWork(officerId: string) {
+    const all = await this.officerCases(officerId);
+    const cases = all.filter((c) => OPEN_CASE.includes(c.status));
+    const ids = cases.map((c) => c.id);
+    const name = (c: OfficerCase) => c.person?.name ?? 'Client';
 
-    // All engagements assigned to this officer
-    const cases = await this.db.engagement.findMany({
-      where: { officerId },
-      include: {
-        person: { select: { id: true, name: true, email: true, profession: true } },
-        caseNotes: {
-          where: { author: { id: officerId } },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-        applicationTracking: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
-    });
+    const order: Record<OfficerNeed['key'], number> = { followup: 0, form: 1, declined: 2 };
+    const doFirst = cases
+      .flatMap((c) => c.needs.map((n) => ({ ...n, engagementId: c.id, clientName: name(c) })))
+      .sort((a, b) => order[a.key] - order[b.key] || a.at.getTime() - b.at.getTime());
 
-    // Overdue tracking entries (nextActionDate past)
-    const overdueTracking = await this.db.applicationTracking.findMany({
-      where: {
-        engagement: { officerId },
-        nextActionDate: { lte: today },
-        status: { notIn: ['APPROVED', 'REJECTED'] },
-      },
-      include: { engagement: { include: { person: { select: { name: true } } } } },
-      orderBy: { nextActionDate: 'asc' },
-    });
+    const comingUp = cases
+      .flatMap((c) => c.upcoming.map((u) => ({ ...u, engagementId: c.id, clientName: name(c) })))
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // Open escalations raised by this officer
-    const escalations = await this.db.caseEscalation.findMany({
-      where: { officerId, status: 'OPEN' },
-      include: { engagement: { include: { person: { select: { name: true } } } } },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    // Sensitive updates awaiting consultant approval
-    const pendingApprovals = await this.db.caseNote.findMany({
-      where: {
-        authorId: officerId,
-        requiresApproval: true,
-        approvedAt: null,
-        isInternal: false,
-      },
-      include: { engagement: { include: { person: { select: { name: true } } } } },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    // Recent activity (notes + tracking) across all cases
-    const recentNotes = await this.db.caseNote.findMany({
-      where: { authorId: officerId },
-      include: { engagement: { include: { person: { select: { name: true } } } } },
-      orderBy: { createdAt: 'desc' },
-      take: 8,
-    });
-
-    const recentTracking = await this.db.applicationTracking.findMany({
-      where: { engagement: { officerId } },
-      include: { engagement: { include: { person: { select: { name: true } } } } },
-      orderBy: { createdAt: 'desc' },
-      take: 8,
-    });
-
-    // Upcoming deadlines: nextActionDate in next 7 days (not overdue, not terminal)
-    const sevenDaysOut = new Date();
-    sevenDaysOut.setDate(sevenDaysOut.getDate() + 7);
-    sevenDaysOut.setHours(23, 59, 59, 999);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-
-    const upcomingDeadlines = await this.db.applicationTracking.findMany({
-      where: {
-        engagement: { officerId },
-        nextActionDate: { gte: now, lte: sevenDaysOut },
-        status: { notIn: ['APPROVED', 'REJECTED'] },
-      },
-      include: { engagement: { include: { person: { select: { name: true } } } } },
-      orderBy: { nextActionDate: 'asc' },
-    });
-
-    // This week's activity counts
+    // Monday starts the week.
     const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
     weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
 
-    const [weekNotes, weekClientUpdates, weekTracking] = await Promise.all([
-      this.db.caseNote.count({ where: { authorId: officerId, isInternal: true, createdAt: { gte: weekStart } } }),
+    const [escalations, statusGroups, weekNotes, weekClientUpdates, weekSubmissions] = await Promise.all([
+      this.db.caseEscalation.findMany({
+        where: { officerId, status: 'OPEN' },
+        select: {
+          id: true, engagementId: true, createdAt: true,
+          consultant: { select: { name: true } },
+          engagement: { select: { person: { select: { name: true } } } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.db.applicationTracking.groupBy({ by: ['status'], where: { engagementId: { in: ids } }, _count: { _all: true } }),
+      this.db.caseNote.count({ where: { authorId: officerId, isInternal: true, rejectedAt: null, createdAt: { gte: weekStart } } }),
       this.db.caseNote.count({ where: { authorId: officerId, isInternal: false, createdAt: { gte: weekStart } } }),
       this.db.applicationTracking.count({ where: { engagement: { officerId }, createdAt: { gte: weekStart } } }),
     ]);
 
-    // Pipeline breakdown: latest tracking status per case
-    const allTracking = await this.db.applicationTracking.findMany({
-      where: { engagement: { officerId } },
-      orderBy: { createdAt: 'desc' },
-    });
-    const latestPerCase = new Map<string, string>();
-    allTracking.forEach(t => { if (!latestPerCase.has(t.engagementId)) latestPerCase.set(t.engagementId, t.status); });
-    const pipeline: Record<string, number> = { SUBMITTED: 0, IN_REVIEW: 0, PENDING_DOCS: 0, RESUBMITTED: 0, APPROVED: 0, REJECTED: 0, NO_TRACKING: 0 };
-    cases.forEach(c => {
-      const status = latestPerCase.get(c.id) ?? 'NO_TRACKING';
-      if (pipeline[status] !== undefined) pipeline[status]++;
-      else pipeline['NO_TRACKING']++;
-    });
-
     return {
-      stats: {
-        totalCases: cases.length,
-        slaAlerts: overdueTracking.length,
-        openEscalations: escalations.length,
-        awaitingApproval: pendingApprovals.length,
+      counts: {
+        openCases: cases.length,
+        followUpsDue: doFirst.filter((n) => n.key === 'followup').length,
+        formsReturned: doFirst.filter((n) => n.key === 'form').length,
+        noSubmission: cases.filter((c) => c.status === 'ACTIVE' && c.submissionCount === 0).length,
+        quiet: cases.filter((c) => c.quiet).length,
       },
-      thisWeek: {
-        notes: weekNotes,
-        clientUpdates: weekClientUpdates,
-        trackingEntries: weekTracking,
+      doFirst,
+      comingUp,
+      waiting: {
+        approvals: cases.reduce((n, c) => n + c.waiting.approvals, 0),
+        formsWithClient: cases.reduce((n, c) => n + c.waiting.forms, 0),
+        escalations: escalations.map((e) => ({
+          id: e.id,
+          engagementId: e.engagementId,
+          createdAt: e.createdAt,
+          clientName: e.engagement?.person?.name ?? 'Client',
+          consultantName: e.consultant?.name ?? null,
+        })),
       },
-      pipeline,
-      cases,
-      overdueTracking,
-      upcomingDeadlines,
-      escalations,
-      pendingApprovals,
-      recentActivity: [...recentNotes.map(n => ({ ...n, _type: 'note' })), ...recentTracking.map(t => ({ ...t, _type: 'tracking' }))]
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 10),
+      submissions: Object.fromEntries(statusGroups.map((g) => [g.status, g._count._all])),
+      thisWeek: { submissions: weekSubmissions, notes: weekNotes, clientUpdates: weekClientUpdates },
     };
   }
 
-  async getRecentOfficerNotes(limit = 20) {
+  async getRecentOfficerNotes(user: AuthUser, limit = 20) {
     return this.db.caseNote.findMany({
-      where: { author: { role: 'PROCESSING_OFFICER' } },
+      where: isOfficer(user) ? { authorId: user.id } : { author: { role: 'PROCESSING_OFFICER' } },
       include: {
         author: { select: { id: true, name: true } },
         engagement: { include: { person: { select: { id: true, name: true } } } },
@@ -601,28 +710,34 @@ export class OfficerService {
   }
 
   async updateTracking(
+    engagementId: string,
     trackingId: string,
     data: {
+      portal?: string;
       referenceNumber?: string;
+      submittedAt?: string | null;
       status?: string;
       notes?: string;
-      nextActionDate?: string;
+      nextActionDate?: string | null;
     },
   ) {
     const record = await this.db.applicationTracking.findUnique({
       where: { id: trackingId },
     });
-    if (!record) throw new NotFoundException('Tracking record not found');
+    if (!record || record.engagementId !== engagementId) throw new NotFoundException('Tracking record not found');
+
+    // An empty date clears it; a missing one leaves it alone.
+    const date = (value?: string | null) => (value === undefined ? undefined : value ? new Date(value) : null);
 
     return this.db.applicationTracking.update({
       where: { id: trackingId },
       data: {
+        portal: data.portal || undefined,
         referenceNumber: data.referenceNumber,
-        status: data.status,
+        submittedAt: date(data.submittedAt),
+        status: data.status || undefined,
         notes: data.notes,
-        nextActionDate: data.nextActionDate
-          ? new Date(data.nextActionDate)
-          : undefined,
+        nextActionDate: date(data.nextActionDate),
       },
     });
   }
@@ -677,6 +792,10 @@ export class OfficerService {
   async getEscalations(officerId: string) {
     return this.db.caseEscalation.findMany({
       where: { officerId },
+      include: {
+        consultant: { select: { name: true } },
+        engagement: { select: { person: { select: { name: true } } } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

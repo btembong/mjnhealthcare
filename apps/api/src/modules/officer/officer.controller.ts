@@ -119,6 +119,14 @@ class AddTrackingDto {
 class UpdateTrackingDto {
   @IsOptional()
   @IsString()
+  portal?: string;
+
+  @IsOptional()
+  @IsString()
+  submittedAt?: string | null;
+
+  @IsOptional()
+  @IsString()
   referenceNumber?: string;
 
   @IsOptional()
@@ -131,7 +139,13 @@ class UpdateTrackingDto {
 
   @IsOptional()
   @IsString()
-  nextActionDate?: string;
+  nextActionDate?: string | null;
+}
+
+class RejectNoteDto {
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 class EscalateDto {
@@ -268,11 +282,12 @@ export class OfficerController {
   @StaffOnly()
   @Post('officer/cases/:id/notes')
   @HttpCode(HttpStatus.CREATED)
-  addNote(
+  async addNote(
     @Param('id') engagementId: string,
     @Body() dto: AddNoteDto,
     @Req() req: any,
   ) {
+    await this.access.assertEngagement(req.user, engagementId);
     return this.svc.addCaseNote(
       engagementId,
       req.user.id,
@@ -285,22 +300,26 @@ export class OfficerController {
   @ApiOperation({ summary: 'Get case notes' })
   @StaffOnly()
   @Get('officer/cases/:id/notes')
-  getNotes(@Param('id') engagementId: string) {
+  async getNotes(@CurrentUser() user: AuthUser, @Param('id') engagementId: string) {
+    await this.access.assertEngagement(user, engagementId);
     return this.svc.getCaseNotes(engagementId);
   }
 
+  // Sign-off belongs to a consultant or an admin, never to the officer who wrote the update.
   @ApiOperation({ summary: 'Approve a pending client update note' })
-  @StaffOnly()
+  @RolesOnly('ADMIN', 'CONSULTANT')
   @Patch('officer/notes/:noteId/approve')
-  approveNote(@Param('noteId') noteId: string, @Req() req: any) {
-    return this.svc.approveNote(noteId, req.user.id);
+  async approveNote(@CurrentUser() user: AuthUser, @Param('noteId') noteId: string) {
+    await this.access.assertEngagement(user, await this.svc.noteEngagementId(noteId));
+    return this.svc.approveNote(noteId, user.id);
   }
 
   @ApiOperation({ summary: 'Reject a pending client update note' })
-  @StaffOnly()
+  @RolesOnly('ADMIN', 'CONSULTANT')
   @Patch('officer/notes/:noteId/reject')
-  rejectNote(@Param('noteId') noteId: string) {
-    return this.svc.rejectNote(noteId);
+  async rejectNote(@CurrentUser() user: AuthUser, @Param('noteId') noteId: string, @Body() dto: RejectNoteDto) {
+    await this.access.assertEngagement(user, await this.svc.noteEngagementId(noteId));
+    return this.svc.rejectNote(noteId, dto?.reason);
   }
 
   @ApiOperation({ summary: 'Get pending approval notes for consultant' })
@@ -313,8 +332,8 @@ export class OfficerController {
   @ApiOperation({ summary: 'Recent officer notes across all cases (admin view)' })
   @StaffOnly()
   @Get('officer/recent-notes')
-  getRecentOfficerNotes(@Query('limit') limit?: string) {
-    return this.svc.getRecentOfficerNotes(limit ? parseInt(limit) : 20);
+  getRecentOfficerNotes(@CurrentUser() user: AuthUser, @Query('limit') limit?: string) {
+    return this.svc.getRecentOfficerNotes(user, limit ? parseInt(limit) : 20);
   }
 
   @ApiOperation({ summary: 'Client-facing updates for an engagement' })
@@ -330,28 +349,34 @@ export class OfficerController {
   @StaffOnly()
   @Post('officer/cases/:id/tracking')
   @HttpCode(HttpStatus.CREATED)
-  addTracking(
+  async addTracking(
+    @CurrentUser() user: AuthUser,
     @Param('id') engagementId: string,
     @Body() dto: AddTrackingDto,
   ) {
+    await this.access.assertEngagement(user, engagementId);
     return this.svc.addTracking(engagementId, dto);
   }
 
   @ApiOperation({ summary: 'Get tracking entries for a case' })
   @StaffOnly()
   @Get('officer/cases/:id/tracking')
-  getTracking(@Param('id') engagementId: string) {
+  async getTracking(@CurrentUser() user: AuthUser, @Param('id') engagementId: string) {
+    await this.access.assertEngagement(user, engagementId);
     return this.svc.getTracking(engagementId);
   }
 
   @ApiOperation({ summary: 'Update a tracking entry' })
   @StaffOnly()
   @Patch('officer/cases/:id/tracking/:trackingId')
-  updateTracking(
+  async updateTracking(
+    @CurrentUser() user: AuthUser,
+    @Param('id') engagementId: string,
     @Param('trackingId') trackingId: string,
     @Body() dto: UpdateTrackingDto,
   ) {
-    return this.svc.updateTracking(trackingId, dto);
+    await this.access.assertEngagement(user, engagementId);
+    return this.svc.updateTracking(engagementId, trackingId, dto);
   }
 
   // ── Escalation ────────────────────────────────────────────────────────────
@@ -360,11 +385,12 @@ export class OfficerController {
   @StaffOnly()
   @Post('officer/cases/:id/escalate')
   @HttpCode(HttpStatus.CREATED)
-  escalate(
+  async escalate(
     @Param('id') engagementId: string,
     @Body() dto: EscalateDto,
     @Req() req: any,
   ) {
+    await this.access.assertEngagement(req.user, engagementId);
     return this.svc.escalate(
       engagementId,
       req.user.id,
@@ -373,11 +399,11 @@ export class OfficerController {
     );
   }
 
-  @ApiOperation({ summary: "Officer dashboard — stats + cases + activity" })
+  @ApiOperation({ summary: "Officer home: what to do first, what is coming up, what is with others" })
   @StaffOnly()
-  @Get('officer/my-dashboard')
-  getMyDashboard(@Req() req: any) {
-    return this.svc.getMyDashboard(req.user.id);
+  @Get('officer/my-work')
+  getMyWork(@Req() req: any) {
+    return this.svc.getMyWork(req.user.id);
   }
 
   @ApiOperation({ summary: "Officer's own escalation history" })

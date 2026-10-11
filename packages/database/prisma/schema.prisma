@@ -1077,6 +1077,8 @@ model CaseNote {
   approvedAt       DateTime?
   approvedById     String?
   approvedBy       Person?    @relation("NoteApprover", fields: [approvedById], references: [id])
+  rejectedAt       DateTime?
+  rejectionReason  String?
   createdAt        DateTime   @default(now())
 
   @@map("case_notes")

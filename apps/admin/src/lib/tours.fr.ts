@@ -68,11 +68,9 @@ export const TOURS_FR: Record<string, TourDef> = {
         title: 'Bienvenue dans votre console',
         body: "C'est ici que vous traitez les dossiers qui vous sont attribués. Voici un rapide tour d'horizon. Chaque page a aussi son propre guide.",
       },
-      { target: 'nav:/officer/caseload', title: 'Mes dossiers (« My Caseload »)', body: 'Les dossiers que vous traitez. Ouvrez-en un pour y travailler.' },
-      { target: 'nav:/officer/documents', title: 'Documents', body: 'Les documents de vos dossiers.' },
-      { target: 'nav:/officer/stages', title: 'Suivi des étapes (« Stage Tracker »)', body: "L'avancement des jalons de tous vos dossiers, sur une seule vue." },
-      { target: 'nav:/officer/notes', title: 'Notes de dossier (« Case Notes »)', body: 'Toutes les notes ajoutées, par vous et par les autres, sur vos dossiers.' },
-      { target: 'nav:/officer/escalations', title: 'Escalades (« Escalations »)', body: 'Les dossiers que vous avez transmis à un consultant, et la suite donnée à chacun.' },
+      { target: 'nav:/officer', title: 'Mon travail (« My Work »)', body: "Commencez ici chaque jour. Vous y trouvez ce qui vous attend en priorité, ce qui arrive cette semaine et ce qui dépend de quelqu'un d'autre." },
+      { target: 'nav:/officer/caseload', title: 'Mes dossiers (« My Caseload »)', body: 'Tous les dossiers qui vous sont attribués, avec leur étape, leur dernier dépôt et la prochaine relance. Ouvrez-en un pour y travailler.' },
+      { target: 'nav:/officer/escalations', title: 'Escalades (« Escalations »)', body: "Les dossiers que vous avez transmis à un consultant, et ce qu'il a décidé." },
       HELP_STEP,
     ],
   },
@@ -219,7 +217,7 @@ export const TOURS_FR: Record<string, TourDef> = {
     title: 'Approbations en attente',
     steps: [
       { target: 'page-title', title: "Messages d'agents en attente d'accord", body: "Lorsqu'un agent de traitement rédige un message sensible pour un client, il attend ici votre accord." },
-      { title: 'Approuver ou refuser', body: "Lisez le projet. L'approuver le transmet au client. Le refuser empêche son envoi." },
+      { title: 'Approuver ou refuser', body: "Lisez le projet. L'approuver le transmet au client. Le refuser empêche son envoi ; vous indiquez un motif, que l'agent voit dans le dossier." },
     ],
   },
   'admin.escalations': {
@@ -255,67 +253,41 @@ export const TOURS_FR: Record<string, TourDef> = {
 
   // Agent de traitement
   'admin.officer.dashboard': {
-    title: "Tableau de bord de l'agent",
+    title: 'Mon travail',
     steps: [
-      { target: 'page-title', title: "Votre journée en un coup d'œil", body: "Ce qui vous attend aujourd'hui sur les dossiers qui vous sont attribués." },
-      { target: 'off-kpis', title: 'Vos chiffres', body: "Les éléments en retard, ce qui est dû aujourd'hui, et votre activité de la semaine." },
-      { target: 'off-actions', title: 'Actions rapides', body: "Accédez à vos dossiers, ajoutez une note, ou ouvrez les escalades, le suivi des étapes et les documents." },
-      { target: 'off-caseload', title: 'Mes dossiers', body: 'Vos dossiers et leur étape actuelle. Sélectionnez-en un pour y travailler.' },
+      { target: 'page-title', title: "Votre journée en un coup d'œil", body: 'Le nombre de dossiers ouverts que vous suivez, et le nombre de relances et de formulaires renvoyés qui vous attendent.' },
+      { target: 'work-first', title: 'À faire en premier (« Do first »)', body: "Ce qui vous attend aujourd'hui : les relances arrivées à échéance, les formulaires renvoyés par un client, et les messages au client qu'un consultant n'a pas approuvés. Un élément quitte cette liste dès que vous enregistrez quelque chose dans le dossier concerné." },
+      { target: 'work-coming', title: 'À venir (« Coming up »)', body: "Les dates de relance des sept prochains jours, pour vous organiser à l'avance." },
+      { target: 'work-waiting', title: 'En attente des autres (« Waiting on others »)', body: "Ce que vous avez transmis : les messages en attente d'accord d'un consultant, les escalades ouvertes et les formulaires que les clients n'ont pas encore renvoyés. Rien ici ne demande votre intervention." },
+      { target: 'work-summary', title: 'Vos chiffres', body: 'Les dépôts de vos dossiers ouverts par statut, et ce que vous avez enregistré cette semaine.' },
     ],
   },
   'admin.officer.caseload': {
     title: 'Mes dossiers',
     steps: [
-      { target: 'page-title', title: 'Dossiers qui vous sont attribués', body: 'Sélectionnez un dossier pour voir ses jalons, ses dépôts, ses documents et ses notes.' },
+      { target: 'page-title', title: 'Dossiers qui vous sont attribués', body: "Vous ne voyez que les dossiers qui vous sont attribués. Un administrateur ou un consultant vous les attribue, et vous recevez un e-mail à chaque nouveau dossier." },
+      { target: 'ocl-chips', title: 'Filtres rapides', body: "« Needs me » affiche les dossiers où vous avez quelque chose à faire. Les autres filtres affichent les dossiers dont une relance est due, ceux sans dépôt enregistré, et ceux sans activité récente." },
+      { target: 'ocl-list', skipIfMissing: true, title: 'Une ligne par dossier', body: "L'étape atteinte, le dernier dépôt et la date de la prochaine relance. Un point orange signale ce qui est dû. Sélectionnez un dossier pour l'ouvrir." },
     ],
   },
   'admin.officer.case': {
     title: 'Traiter un dossier',
     steps: [
-      { target: 'page-title', title: 'Ce dossier', body: 'Tout ce qu\'il vous faut pour traiter ce client se trouve sur cette page.' },
-      { target: 'ocase-milestones', title: 'Jalons', body: 'Les étapes de ce dossier et celles qui sont terminées.' },
-      { target: 'ocase-tracking', title: 'Suivi des demandes', body: "Enregistrez chaque dépôt que vous faites auprès d'un organisme de réglementation, et la date de relance." },
-      { target: 'ocase-sendform', title: 'Envoyer un formulaire au client', body: "Envoyez un formulaire que le client doit remplir et renvoyer. Il apparaît dans son espace documents." },
-      { target: 'ocase-notes', title: 'Notes de dossier', body: "Les notes internes restent dans l'équipe. Une note destinée au client peut être marquée comme nécessitant d'abord l'accord du consultant." },
-      { title: 'Quand escalader', body: "Si le dossier demande la décision d'un consultant, par exemple pour un problème de conformité ou un litige, utilisez « Escalate ». Le consultant est prévenu." },
-    ],
-  },
-  'admin.officer.tracking': {
-    title: 'Suivi des demandes',
-    steps: [
-      { target: 'track-form', title: 'Enregistrer un dépôt', body: 'Indiquez ce qui a été déposé, auprès de quel organisme, et quand relancer.' },
-      { target: 'track-history', title: 'Historique des dépôts', body: "Tout ce qui a été enregistré jusqu'ici. Modifiez une entrée lorsque son statut change." },
-    ],
-  },
-  'admin.officer.escalate': {
-    title: 'Escalader un dossier',
-    steps: [
-      { title: 'Quand escalader', body: "Utilisez cette page pour un problème de conformité, un litige avec un client, ou toute situation qui demande la décision d'un consultant." },
-      { title: 'Choisir à qui et dire pourquoi', body: "Le consultant de ce dossier est déjà sélectionné. Donnez un motif clair ; il reçoit un e-mail et le dossier apparaît dans sa boîte d'escalades." },
-    ],
-  },
-  'admin.officer.documents': {
-    title: 'Documents',
-    steps: [
-      { target: 'page-title', title: 'Documents de vos dossiers', body: 'Les documents des dossiers qui vous sont attribués, avec le statut de chacun.' },
-    ],
-  },
-  'admin.officer.stages': {
-    title: 'Suivi des étapes',
-    steps: [
-      { target: 'page-title', title: "L'avancement de vos dossiers", body: 'Les jalons de chaque dossier qui vous est attribué, pour voir ceux qui avancent et ceux qui sont bloqués.' },
-    ],
-  },
-  'admin.officer.notes': {
-    title: 'Notes de dossier',
-    steps: [
-      { target: 'page-title', title: 'Toutes vos notes de dossier', body: "Les notes de vos dossiers réunies dans une seule liste. Les notes s'ajoutent depuis le dossier lui-même." },
+      { target: 'page-title', title: 'Ce dossier', body: "Tout ce qu'il vous faut pour traiter ce client se trouve sur cette page. Rien ne vous en éloigne." },
+      { target: 'ocase-actions', title: 'Vos actions principales', body: "Enregistrez un dépôt auprès d'un organisme de réglementation, envoyez un formulaire à remplir au client, ou escaladez vers un consultant. Chaque action s'ouvre par-dessus cette page." },
+      { target: 'ocase-next', title: 'Prochaine étape (« Next step »)', body: 'La chose la plus utile à faire sur ce dossier en ce moment.' },
+      { target: 'ocase-tabs', title: 'Sections', body: "« Overview » présente les étapes et la note de passation. « Submissions », « Documents » et « Notes » regroupent votre travail quotidien. « Activity » retrace tout l'historique. Un point orange sur un onglet signale que quelque chose vous y attend." },
+      { title: 'Dépôts et relances', body: "Donnez une date de relance à chaque dépôt. Ce jour-là, le dossier apparaît dans « Do first » jusqu'à ce que vous mettiez le dépôt à jour. Un dépôt approuvé ou rejeté ne demande plus de relance." },
+      { title: 'Notes et messages au client', body: "Une note interne reste dans l'équipe. Un message au client est envoyé par e-mail et sur WhatsApp. Cochez « Needs consultant approval first » pour tout ce qui concerne l'éligibilité, les résultats ou les délais : rien n'est envoyé tant qu'un consultant n'a pas donné son accord." },
+      { title: 'Marquer une étape comme terminée', body: "Dans « Overview », marquez l'étape en cours comme terminée lorsque le travail est fait. Le client le voit dans son portail ; une confirmation vous est donc demandée." },
+      { target: 'ocase-rail', title: 'Client et informations clés', body: "Les coordonnées, les autres personnes sur le dossier, les paiements, les documents, et ce qui dépend de quelqu'un d'autre." },
     ],
   },
   'admin.officer.escalations': {
-    title: 'Mes escalades',
+    title: 'Escalades',
     steps: [
-      { target: 'page-title', title: 'Dossiers que vous avez escaladés', body: "Chaque escalade que vous avez lancée, si elle est encore ouverte, et la décision du consultant une fois rendue." },
+      { target: 'page-title', title: 'Dossiers que vous avez escaladés', body: "Chaque escalade que vous avez lancée et la réponse du consultant une fois donnée. Pour en lancer une, ouvrez le dossier et choisissez « Escalate »." },
+      { target: 'oesc-tabs', title: 'Ouvertes et résolues', body: "Les escalades ouvertes attendent un consultant. Les escalades résolues indiquent ce qui a été décidé." },
     ],
   },
 

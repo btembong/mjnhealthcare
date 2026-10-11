@@ -6,6 +6,6 @@ import { EngagementOverviewService } from './engagement-overview.service';
 @Module({
   providers: [EngagementService, EngagementOverviewService],
   controllers: [EngagementController],
-  exports: [EngagementService],
+  exports: [EngagementService, EngagementOverviewService],
 })
 export class EngagementModule {}

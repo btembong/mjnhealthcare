@@ -1,13 +1,15 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '@mjn/database';
-import { AuthUser, isConsultant, isStaff } from './access';
+import { AuthUser, isCaseScoped, isConsultant, isOfficer, isStaff } from './access';
 
 export type ConsultantScope = {
-  canSeeEngagement: (engagement: { consultantId?: string | null }) => boolean;
+  canSeeEngagement: (engagement: { consultantId?: string | null; officerId?: string | null }) => boolean;
   canSeeEngagementId: (engagementId?: string | null) => boolean;
   canSeePerson: (personId?: string | null) => boolean;
   /** People who belong only to other consultants. Use in a `notIn` filter. */
   hiddenPersonIds: string[];
+  /** Set for processing officers: the only people they may see. Use in an `in` filter. */
+  onlyPersonIds?: string[];
 };
 
 const DENIED = 'You do not have access to this record.';
@@ -16,6 +18,7 @@ const DENIED = 'You do not have access to this record.';
  * Record-level access rules.
  * - Clients (candidates, students, partners): only their own records.
  * - Consultants: cases assigned to them, plus unassigned cases and people.
+ * - Processing officers: only the cases assigned to them, and the clients on those cases.
  * - Other staff: everything.
  */
 @Injectable()
@@ -69,6 +72,7 @@ export class AccessService {
 
   /** Returns null when the user is not restricted to their own caseload. */
   async consultantScope(user: AuthUser): Promise<ConsultantScope | null> {
+    if (isOfficer(user)) return this.officerScope(user);
     if (!isConsultant(user)) return null;
     const mine = await this.consultantIds(user);
     const engagements = await this.db.engagement.findMany({
@@ -90,6 +94,22 @@ export class AccessService {
     };
   }
 
+  private async officerScope(user: AuthUser): Promise<ConsultantScope> {
+    const mine = await this.db.engagement.findMany({
+      where: { officerId: user.id },
+      select: { id: true, personId: true },
+    });
+    const engagementIds = new Set(mine.map((e) => e.id));
+    const clients = new Set(mine.map((e) => e.personId));
+    return {
+      canSeeEngagement: (e) => e.officerId === user.id,
+      canSeeEngagementId: (id) => !!id && engagementIds.has(id),
+      canSeePerson: (id) => !!id && (id === user.id || clients.has(id)),
+      hiddenPersonIds: [],
+      onlyPersonIds: [...clients],
+    };
+  }
+
   async assertPerson(user: AuthUser, personId: string): Promise<void> {
     if (personId && personId === user.id) return;
     if (!isStaff(user)) throw new ForbiddenException(DENIED);
@@ -98,13 +118,15 @@ export class AccessService {
   }
 
   async assertEngagement(user: AuthUser, engagementId: string): Promise<void> {
-    if (isStaff(user) && !isConsultant(user)) return;
+    if (isStaff(user) && !isCaseScoped(user)) return;
     const engagement = await this.db.engagement.findUnique({
       where: { id: engagementId },
-      select: { personId: true, consultantId: true },
+      select: { personId: true, consultantId: true, officerId: true },
     });
     if (!engagement) throw new NotFoundException('Engagement not found.');
-    if (isConsultant(user)) {
+    if (isOfficer(user)) {
+      if (engagement.officerId === user.id) return;
+    } else if (isConsultant(user)) {
       if (!engagement.consultantId || (await this.consultantIds(user)).has(engagement.consultantId)) return;
       // A case escalated to this consultant is theirs to act on while the escalation is open.
       const escalated = await this.db.caseEscalation.count({
@@ -118,7 +140,7 @@ export class AccessService {
   }
 
   async assertOrder(user: AuthUser, orderId: string): Promise<void> {
-    if (isStaff(user) && !isConsultant(user)) return;
+    if (isStaff(user) && !isCaseScoped(user)) return;
     const order = await this.db.order.findUnique({
       where: { id: orderId },
       select: { personId: true, engagementId: true },
@@ -130,14 +152,14 @@ export class AccessService {
   }
 
   async assertDocument(user: AuthUser, documentId: string): Promise<void> {
-    if (isStaff(user) && !isConsultant(user)) return;
+    if (isStaff(user) && !isCaseScoped(user)) return;
     const doc = await this.db.document.findUnique({ where: { id: documentId }, select: { personId: true } });
     if (!doc) throw new NotFoundException('Document not found.');
     return this.assertPerson(user, doc.personId);
   }
 
   async assertBooking(user: AuthUser, bookingId: string): Promise<void> {
-    if (isStaff(user) && !isConsultant(user)) return;
+    if (isStaff(user) && !isCaseScoped(user)) return;
     const booking = await this.db.booking.findUnique({ where: { id: bookingId }, select: { personId: true } });
     if (!booking) throw new NotFoundException('Booking not found.');
     if (booking.personId) return this.assertPerson(user, booking.personId);
@@ -152,7 +174,7 @@ export class AccessService {
   }
 
   async assertStudyItem(user: AuthUser, itemId: string): Promise<void> {
-    if (isStaff(user) && !isConsultant(user)) return;
+    if (isStaff(user) && !isCaseScoped(user)) return;
     const item = await this.db.studyPlanItem.findUnique({
       where: { id: itemId },
       select: { studyPlan: { select: { personId: true } } },
@@ -162,7 +184,7 @@ export class AccessService {
   }
 
   async assertMilestone(user: AuthUser, milestoneId: string): Promise<void> {
-    if (isStaff(user) && !isConsultant(user)) return;
+    if (isStaff(user) && !isCaseScoped(user)) return;
     const milestone = await this.db.engagementMilestone.findUnique({
       where: { id: milestoneId },
       select: { engagementId: true },

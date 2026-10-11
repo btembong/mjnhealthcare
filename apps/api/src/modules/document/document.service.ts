@@ -4,7 +4,9 @@ import { DatabaseService } from '@mjn/database';
 import { S3 } from 'aws-sdk';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
-type DocumentQuery = NonNullable<Parameters<DatabaseService['document']['findMany']>[0]>;
+/** Limits a document list to what the reader may see (see AccessService.consultantScope). */
+type PersonFilter = { hiddenPersonIds?: string[]; onlyPersonIds?: string[] };
+type DocumentQuery =NonNullable<Parameters<DatabaseService['document']['findMany']>[0]>;
 
 @Injectable()
 export class DocumentService {
@@ -90,22 +92,23 @@ export class DocumentService {
 
   // ── Review workspace ─────────────────────────────────────────────────────
 
-  private scoped(hiddenPersonIds?: string[]) {
-    return hiddenPersonIds?.length ? { personId: { notIn: hiddenPersonIds } } : {};
+  private scoped(scope?: PersonFilter | null) {
+    if (scope?.onlyPersonIds) return { personId: { in: scope.onlyPersonIds } };
+    return scope?.hiddenPersonIds?.length ? { personId: { notIn: scope.hiddenPersonIds } } : {};
   }
 
   /** Documents waiting for review, longest-waiting first. */
-  async getQueue(hiddenPersonIds?: string[]) {
+  async getQueue(scope?: PersonFilter | null) {
     return this.db.document.findMany({
-      where: { status: 'PENDING', ...this.scoped(hiddenPersonIds) },
+      where: { status: 'PENDING', ...this.scoped(scope) },
       include: { person: { select: { id: true, name: true, email: true, profession: true, locale: true } } },
       orderBy: { uploadedAt: 'asc' },
       take: 500,
     });
   }
 
-  async getCounts(hiddenPersonIds?: string[]) {
-    const scope = this.scoped(hiddenPersonIds);
+  async getCounts(filter?: PersonFilter | null) {
+    const scope = this.scoped(filter);
     const now = new Date();
     const soon = new Date(now.getTime() + 30 * 86400000);
     const live = { in: ['PENDING', 'VERIFIED'] as any[] };
@@ -128,7 +131,7 @@ export class DocumentService {
   /** One page of documents for the lookup table. */
   async search(
     params: { filter?: string; q?: string; type?: string; page?: number; pageSize?: number; sort?: string; dir?: string },
-    hiddenPersonIds?: string[],
+    scope?: PersonFilter | null,
   ) {
     const page = Math.max(1, Math.floor(Number(params.page) || 1));
     const pageSize = Math.min(100, Math.max(10, Math.floor(Number(params.pageSize) || 25)));
@@ -137,7 +140,7 @@ export class DocumentService {
     const soon = new Date(now.getTime() + 30 * 86400000);
     const live = { in: ['PENDING', 'VERIFIED'] as any[] };
 
-    const where: NonNullable<DocumentQuery['where']> = { ...this.scoped(hiddenPersonIds) };
+    const where: NonNullable<DocumentQuery['where']> = { ...this.scoped(scope) };
     switch ((params.filter ?? '').toUpperCase()) {
       case 'PENDING':
       case 'VERIFIED':
@@ -215,7 +218,7 @@ export class DocumentService {
       this.db.document.findMany({
         where: { personId },
         orderBy: { uploadedAt: 'desc' },
-        select: { id: true, type: true, status: true, expiryDate: true, uploadedAt: true },
+        select: { id: true, type: true, status: true, origin: true, expiryDate: true, uploadedAt: true },
       }),
     ]);
     if (!person) throw new NotFoundException('Person not found');

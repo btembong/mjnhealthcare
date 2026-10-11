@@ -31,7 +31,7 @@ export class DocumentController {
   @Get('queue')
   async getQueue(@CurrentUser() user: AuthUser) {
     const scope = await this.access.consultantScope(user);
-    return this.documentService.getQueue(scope?.hiddenPersonIds);
+    return this.documentService.getQueue(scope);
   }
 
   @ApiOperation({ summary: 'Document counts by status and expiry' })
@@ -39,7 +39,7 @@ export class DocumentController {
   @Get('counts')
   async getCounts(@CurrentUser() user: AuthUser) {
     const scope = await this.access.consultantScope(user);
-    return this.documentService.getCounts(scope?.hiddenPersonIds);
+    return this.documentService.getCounts(scope);
   }
 
   @ApiOperation({ summary: 'One page of documents, filtered and sorted' })
@@ -58,7 +58,7 @@ export class DocumentController {
     const scope = await this.access.consultantScope(user);
     return this.documentService.search(
       { filter, q, type, page: Number(page), pageSize: Number(pageSize), sort, dir },
-      scope?.hiddenPersonIds,
+      scope,
     );
   }
 

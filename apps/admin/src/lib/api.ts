@@ -702,7 +702,7 @@ export const api = {
 
   updateTracking: (engagementId: string, trackingId: string, data: {
     portal?: string; referenceNumber?: string; submittedAt?: string;
-    status?: string; notes?: string; nextActionDate?: string;
+    status?: string; notes?: string; nextActionDate?: string | null;
   }) =>
     request<any>(`/officer/cases/${engagementId}/tracking/${trackingId}`, {
       method: 'PATCH',
@@ -740,14 +740,14 @@ export const api = {
   getRecentOfficerNotes: (limit = 20) =>
     request<any[]>('/officer/recent-notes?limit=' + limit),
 
-  getOfficerDashboard: () =>
-    request<any>('/officer/my-dashboard'),
+  getOfficerWork: () =>
+    request<any>('/officer/my-work'),
 
   approveNote: (noteId: string) =>
     request<any>(`/officer/notes/${noteId}/approve`, { method: 'PATCH' }),
 
-  rejectNote: (noteId: string) =>
-    request<any>(`/officer/notes/${noteId}/reject`, { method: 'PATCH' }),
+  rejectNote: (noteId: string, reason?: string) =>
+    request<any>(`/officer/notes/${noteId}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
 
   setOfficerAvailability: (officerId: string, isAvailable: boolean, reassignToOfficerId?: string | null, keepCases = false) =>
     request<any>(`/admin/officers/${officerId}/availability`, {

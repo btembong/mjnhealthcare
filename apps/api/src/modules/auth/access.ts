@@ -12,6 +12,9 @@ const roleOf = (user?: AuthUser) => (user?.role ?? '').toUpperCase();
 export const isStaff = (user?: AuthUser) => STAFF_ROLES.includes(roleOf(user));
 export const isAdmin = (user?: AuthUser) => roleOf(user) === 'ADMIN';
 export const isConsultant = (user?: AuthUser) => roleOf(user) === 'CONSULTANT';
+export const isOfficer = (user?: AuthUser) => roleOf(user) === 'PROCESSING_OFFICER';
+/** Staff who only see the cases assigned to them. */
+export const isCaseScoped = (user?: AuthUser) => isConsultant(user) || isOfficer(user);
 
 /** Logged in with one of the given roles. Safe to stack on a controller that already requires a login. */
 export const RolesOnly = (...roles: string[]) =>

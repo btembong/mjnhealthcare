@@ -49,7 +49,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export class EngagementOverviewService {
   constructor(private readonly db: DatabaseService) {}
 
-  private async summarise(where: { id?: string } = {}): Promise<CaseSummary[]> {
+  private async summarise(where: { id?: string; officerId?: string } = {}): Promise<CaseSummary[]> {
     const engagements = await this.db.engagement.findMany({
       where,
       select: {
@@ -186,6 +186,11 @@ export class EngagementOverviewService {
     const [one] = await this.summarise({ id: engagementId });
     if (!one) throw new NotFoundException('Engagement not found');
     return one;
+  }
+
+  /** The cases a processing officer is working on. */
+  forOfficer(officerId: string): Promise<CaseSummary[]> {
+    return this.summarise({ officerId });
   }
 
   async overview(params: OverviewParams, scope: ConsultantScope | null) {
