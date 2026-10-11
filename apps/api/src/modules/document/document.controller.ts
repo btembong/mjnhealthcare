@@ -1,6 +1,6 @@
-import { StaffOnly, CurrentUser, AuthUser } from '../auth/access';
+import { StaffOnly, CurrentUser, AuthUser, isStaff } from '../auth/access';
 import { AccessService } from '../auth/access.service';
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ComplianceService } from '../compliance/compliance.service';
@@ -190,7 +190,21 @@ export class DocumentController {
       resourceType: 'person',
       resourceId: personId,
     });
-    return this.documentService.getByPerson(personId);
+    return isStaff(user) ? this.documentService.getByPerson(personId) : this.documentService.getForClient(personId);
+  }
+
+  @ApiOperation({ summary: 'Client: remove an own upload that has not been checked yet' })
+  @Delete(':id')
+  async removeOwn(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    const result = await this.documentService.removeOwn(id, user.id);
+    await this.complianceService.logAuditEvent({
+      actorId: user.id,
+      action: 'document_removed_by_client',
+      resourceType: 'document',
+      resourceId: id,
+      metadata: { type: result.type },
+    });
+    return { removed: true };
   }
 
   @ApiOperation({ summary: 'Verify or reject a document (compliance team)' })

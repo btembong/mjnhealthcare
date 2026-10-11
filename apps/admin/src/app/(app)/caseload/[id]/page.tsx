@@ -135,7 +135,7 @@ function Empty({ icon: Icon, text }: { icon: any; text: string }) {
 }
 
 function bestDocStatus(docs: any[], type: string): string | null {
-  const mine = docs.filter((d) => d.type === type).map((d) => d.status);
+  const mine = docs.filter((d) => d.type === type || d.neededFor === type).map((d) => d.status);
   for (const s of ['VERIFIED', 'PENDING', 'REJECTED']) if (mine.includes(s)) return s;
   return null;
 }
@@ -710,7 +710,7 @@ export default function CaseDetailPage() {
                   <div className="divide-y divide-border/70">
                     {required.map((type) => {
                       const s = bestDocStatus(documents, type);
-                      const doc = documents.find((d) => d.type === type && d.status === 'PENDING');
+                      const doc = documents.find((d) => (d.type === type || d.neededFor === type) && d.status === 'PENDING');
                       return (
                         <div key={type} className="flex items-center gap-3 py-2.5">
                           <Dot className={s ? DOC_STATUS[s].dot : 'border border-muted-foreground/50'} />
@@ -748,7 +748,7 @@ export default function CaseDetailPage() {
                         const left = d.expiryDate ? Math.ceil((new Date(d.expiryDate).getTime() - Date.now()) / 86400000) : null;
                         return (
                           <tr key={d.id}>
-                            <td className="px-5 py-3 font-semibold text-foreground">{title(d.type)}{required.includes(d.type) && <span className="ml-2 text-xs font-medium text-muted-foreground">needed for this stage</span>}</td>
+                            <td className="px-5 py-3 font-semibold text-foreground">{title(d.type)}{(d.neededFor || required.includes(d.type)) && <span className="ml-2 text-xs font-medium text-muted-foreground">needed for this stage</span>}</td>
                             <td className="px-4 py-3 text-xs text-muted-foreground">{ago(d.uploadedAt)}</td>
                             <td className="px-4 py-3 text-xs">
                               {left === null ? <span className="text-muted-foreground">—</span>

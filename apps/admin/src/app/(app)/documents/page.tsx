@@ -172,7 +172,7 @@ function Viewer({ doc, className }: { doc: any; className: string }) {
 // ── Client and stage context ──────────────────────────────────────────────────
 
 function bestStatus(docs: any[], type: string): string | null {
-  const mine = docs.filter((d) => d.type === type).map((d) => d.status);
+  const mine = docs.filter((d) => d.type === type || d.neededFor === type).map((d) => d.status);
   for (const s of ['VERIFIED', 'PENDING', 'REJECTED']) if (mine.includes(s)) return s;
   return null;
 }
@@ -181,7 +181,7 @@ function ContextStrip({ doc, ctx }: { doc: any; ctx: any | 'loading' | 'error' |
   const person = doc.person ?? {};
   const loaded = ctx && ctx !== 'loading' && ctx !== 'error' ? ctx : null;
   const required: string[] = loaded?.requiredDocTypes ?? [];
-  const needed = required.includes(doc.type);
+  const needed = required.includes(doc.type) || (loaded?.documents ?? []).some((d: any) => d.id === doc.id && d.neededFor);
 
   return (
     <div className="rounded-2xl border border-border bg-white px-4 py-3">

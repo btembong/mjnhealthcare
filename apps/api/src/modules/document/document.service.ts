@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 import { S3 } from 'aws-sdk';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { docMatches } from '../../common/doc-match';
 
 /** Limits a document list to what the reader may see (see AccessService.consultantScope). */
 type PersonFilter = { hiddenPersonIds?: string[]; onlyPersonIds?: string[] };
@@ -24,7 +25,9 @@ export class DocumentService {
   ) {}
 
   async getUploadUrl(personId: string, documentType: string, fileName: string) {
-    const key = `documents/${personId}/${documentType}/${Date.now()}-${fileName}`;
+    // The type can be a free-text requirement name, so keep the storage path to safe characters.
+    const folder = documentType.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'document';
+    const key = `documents/${personId}/${folder}/${Date.now()}-${fileName}`;
     const url = await this.s3.getSignedUrlPromise('putObject', {
       Bucket: process.env.R2_BUCKET_NAME,
       Key: key,
@@ -60,6 +63,44 @@ export class DocumentService {
       where: { personId },
       orderBy: { uploadedAt: 'desc' },
     });
+  }
+
+  /**
+   * A client's own list. The stored file address is left out: files are only ever
+   * opened through a short-lived link from the view-url route, which is logged.
+   */
+  async getForClient(personId: string) {
+    const docs = await this.db.document.findMany({
+      where: { personId },
+      select: {
+        id: true, type: true, status: true, origin: true, expiryDate: true, uploadedAt: true,
+        verifiedAt: true, rejectionReason: true, officerNote: true, engagementId: true, linkedDocumentId: true, fileUrl: true,
+      },
+      orderBy: { uploadedAt: 'desc' },
+    });
+    return docs.map(({ fileUrl, ...d }) => ({
+      ...d,
+      isImage: /\.(jpe?g|png|gif|webp)$/i.test(fileUrl ?? ''),
+      // A rejected document the client has already replaced with a newer copy.
+      superseded: d.status === 'REJECTED' && docs.some((o) =>
+        o.id !== d.id && o.origin === d.origin && o.status !== 'REJECTED' && o.uploadedAt > d.uploadedAt && docMatches(o.type, d.type)),
+    }));
+  }
+
+  /** A client can take back an upload nobody has checked yet. Anything reviewed stays on record. */
+  async removeOwn(documentId: string, personId: string) {
+    const doc = await this.db.document.findUnique({ where: { id: documentId } });
+    if (!doc) throw new NotFoundException('Document not found');
+    if (doc.personId !== personId) throw new ForbiddenException('You do not have access to this record.');
+    if (doc.status !== 'PENDING' || doc.origin !== 'CLIENT_UPLOADED') {
+      throw new BadRequestException('This document has already been checked, so it cannot be removed. Upload a new copy instead.');
+    }
+    await this.db.document.delete({ where: { id: documentId } });
+    const publicPrefix = process.env.R2_PUBLIC_URL ?? '';
+    const key = publicPrefix ? doc.fileUrl.replace(`${publicPrefix}/`, '') : doc.fileUrl;
+    // The record is gone either way; a leftover file is not reachable without it.
+    await this.s3.deleteObject({ Bucket: process.env.R2_BUCKET_NAME as string, Key: key }).promise().catch(() => undefined);
+    return { removed: true, type: doc.type };
   }
 
   async verify(documentId: string, verifiedBy: string, status: 'VERIFIED' | 'REJECTED', rejectionReason?: string) {
@@ -261,7 +302,8 @@ export class DocumentService {
       engagement: engagement ? { id: engagement.id, status: engagement.status } : null,
       stage,
       requiredDocTypes,
-      documents,
+      // Requirement names are free text; `neededFor` says which one each document satisfies.
+      documents: documents.map((d) => ({ ...d, neededFor: requiredDocTypes.find((r) => docMatches(d.type, r)) ?? null })),
     };
   }
 
@@ -309,7 +351,8 @@ export class DocumentService {
     data: { key: string; type: string },
   ) {
     const original = await this.db.document.findUnique({ where: { id: linkedDocumentId } });
-    if (!original) throw new NotFoundException('Original document not found');
+    if (!original || original.origin !== 'OFFICER_SENT') throw new NotFoundException('Original document not found');
+    if (original.personId !== personId) throw new ForbiddenException('You do not have access to this record.');
 
     const doc = await this.db.document.create({
       data: {

@@ -45,7 +45,7 @@ function Empty({ icon: Icon, text }: { icon: any; text: string }) {
 }
 
 function bestDocStatus(docs: any[], type: string): string | null {
-  const mine = docs.filter((d) => d.type === type).map((d) => d.status);
+  const mine = docs.filter((d) => d.type === type || d.neededFor === type).map((d) => d.status);
   for (const s of ['VERIFIED', 'PENDING', 'REJECTED']) if (mine.includes(s)) return s;
   return null;
 }

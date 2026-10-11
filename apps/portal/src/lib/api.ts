@@ -98,6 +98,9 @@ export const api = {
   getDocumentViewUrl: (id: string) =>
     request<{ url: string }>(`/documents/${id}/view-url`),
 
+  removeDocument: (id: string) =>
+    request<{ removed: boolean }>(`/documents/${id}`, { method: 'DELETE' }),
+
   getPendingForMeDocuments: () =>
     request<any[]>('/documents/pending-for-me'),
 

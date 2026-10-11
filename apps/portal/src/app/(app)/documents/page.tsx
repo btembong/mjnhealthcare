@@ -1,487 +1,385 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { PageHeader, Badge, Button, Skeleton } from '@mjn/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PageHeader, Button, Skeleton } from '@mjn/ui';
 import {
-  FileText, UploadSimple, CheckCircle, Clock, WarningCircle,
-  X, Eye, FilePlus, CaretDown,
-  Lock, ShieldCheck, TrendUp, CreditCard, Image, Trash, DownloadSimple,
-  PaperPlaneRight,
+  FileText, UploadSimple, CheckCircle, X, Eye, FilePlus, Lock, Trash, DownloadSimple, MagnifyingGlass,
 } from '@mjn/ui';
+import { toast } from 'sonner';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
-import { toast } from 'sonner';
 
-const DOCUMENT_TYPES = [
-  'PASSPORT_COPY',
-  'DIPLOMA_DEGREE',
-  'DIPLOMA_TRANSCRIPT',
-  'BACHELORS_DEGREE',
-  'BACHELORS_TRANSCRIPT',
-  'MASTERS_DEGREE',
-  'MASTERS_TRANSCRIPT',
-  'NURSING_LICENSE',
-  'MEDICAL_LICENSE',
-  'OTHER_LICENSE',
-  'GOOD_STANDING_CERTIFICATE',
-  'WORK_EXPERIENCE_CERTIFICATE',
-  'HIGH_SCHOOL_CERTIFICATE',
-  'ORDINARY_LEVEL_CERTIFICATE',
-  'BIRTH_CERTIFICATE',
-  'PHOTO_ID',
-  'BANK_STATEMENT',
-  'PERSONAL_STATEMENT',
-  'REFERENCE_LETTER',
-  'OTHER',
-];
+// ── Wording (the page follows the client's preferred language) ────────────────
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+type Locale = 'en' | 'fr';
+
+const TEXT = {
+  en: {
+    title: 'My documents',
+    summary: (ready: number, total: number) => `${ready} of ${total} ready`,
+    checking: (n: number) => `${n} being checked`,
+    toReplace: (n: number) => `${n} to replace`,
+    secure: 'Stored securely',
+    noneYet: 'Upload your credentials here. Our team checks each one.',
+    upload: 'Upload document',
+    uploadShort: 'Upload',
+    neededNow: 'Needed now',
+    readyOf: (a: number, b: number) => `${a} of ${b} ready`,
+    notUploaded: 'Not uploaded',
+    forms: 'Forms to complete',
+    formsHelp: 'Download each form, complete it, then return it here.',
+    from: 'Received',
+    downloadForm: 'Download form',
+    returnForm: 'Return completed',
+    returning: 'Sending…',
+    returned: 'Form returned. Your team has been notified.',
+    returnFailed: 'The form was not returned. Please try again.',
+    status: { VERIFIED: 'Ready', PENDING: 'Being checked', REJECTED: 'To replace', REPLACED: 'Replaced', PENDING_CLIENT: 'With you' } as Record<string, string>,
+    filters: { ALL: 'All', REPLACE: 'To replace', CHECKING: 'Being checked', READY: 'Ready', EXPIRING: 'Expiring' },
+    search: 'Search documents',
+    cols: ['Document', 'Status', 'Uploaded', 'Expires'],
+    returnedForm: 'returned form',
+    expired: 'Expired',
+    daysLeft: (n: number) => (n === 1 ? '1 day left' : `${n} days left`),
+    view: 'View',
+    download: 'Download',
+    reupload: 'Re-upload',
+    renew: 'Renew',
+    remove: 'Remove',
+    emptyTitle: 'No documents yet',
+    emptyBody: 'Upload your credentials to get started. Our team checks each document and tells you if anything needs replacing.',
+    emptyFilter: 'No documents match this view.',
+    removeTitle: 'Remove this document?',
+    removeBody: 'It has not been checked yet, so it will be deleted. You can upload a new copy at any time.',
+    cancel: 'Cancel',
+    removed: 'Document removed.',
+    removeFailed: 'The document could not be removed.',
+    linkFailed: 'The document could not be opened. Please try again.',
+    loadingPreview: 'Opening securely…',
+    noPreview: 'This document cannot be shown here.',
+    openTab: 'Open in a new tab',
+    close: 'Close',
+    drawer: {
+      title: 'Upload documents',
+      sub: 'PDF, JPG or PNG · up to 20 MB each',
+      drop: 'Drop files here or choose files',
+      dropSub: 'You can add several at once',
+      what: 'What is this document?',
+      choose: 'Choose…',
+      needed: 'Needed now',
+      other: 'Other documents',
+      expiry: 'Expiry date (if it has one)',
+      tips: 'For a clear copy: all four corners visible, no glare, every word readable.',
+      uploading: (p: number) => `Uploading… ${p}%`,
+      saving: 'Saving…',
+      done: 'Uploaded. Our team will check it.',
+      uploadN: (n: number) => (n === 1 ? 'Upload 1 file' : `Upload ${n} files`),
+      working: 'Uploading…',
+      pickType: 'Say what each file is before uploading.',
+      tooBig: (n: string) => `${n} is larger than 20 MB.`,
+      badType: (n: string) => `${n} is not a PDF, JPG or PNG.`,
+      remove: 'Remove file',
+    },
+    types: {
+      PASSPORT_COPY: 'Passport', DIPLOMA_DEGREE: 'Diploma certificate', DIPLOMA_TRANSCRIPT: 'Diploma transcript', BACHELORS_DEGREE: 'Bachelor’s degree',
+      BACHELORS_TRANSCRIPT: 'Bachelor’s transcript', MASTERS_DEGREE: 'Master’s degree', MASTERS_TRANSCRIPT: 'Master’s transcript', NURSING_LICENSE: 'Nursing licence',
+      MEDICAL_LICENSE: 'Medical licence', OTHER_LICENSE: 'Other professional licence', GOOD_STANDING_CERTIFICATE: 'Good standing certificate',
+      WORK_EXPERIENCE_CERTIFICATE: 'Work experience certificate', HIGH_SCHOOL_CERTIFICATE: 'High school certificate', ORDINARY_LEVEL_CERTIFICATE: 'Ordinary level certificate',
+      BIRTH_CERTIFICATE: 'Birth certificate', PHOTO_ID: 'Photo ID', BANK_STATEMENT: 'Bank statement', PERSONAL_STATEMENT: 'Personal statement',
+      REFERENCE_LETTER: 'Reference letter', OTHER: 'Other document',
+    } as Record<string, string>,
+  },
+  fr: {
+    title: 'Mes documents',
+    summary: (ready: number, total: number) => `${ready} sur ${total} prêts`,
+    checking: (n: number) => `${n} en vérification`,
+    toReplace: (n: number) => `${n} à remplacer`,
+    secure: 'Conservés en sécurité',
+    noneYet: 'Déposez vos justificatifs ici. Notre équipe vérifie chacun d’eux.',
+    upload: 'Déposer un document',
+    uploadShort: 'Déposer',
+    neededNow: 'À fournir maintenant',
+    readyOf: (a: number, b: number) => `${a} sur ${b} prêts`,
+    notUploaded: 'Non déposé',
+    forms: 'Formulaires à remplir',
+    formsHelp: 'Téléchargez chaque formulaire, remplissez-le, puis renvoyez-le ici.',
+    from: 'Reçu le',
+    downloadForm: 'Télécharger',
+    returnForm: 'Renvoyer rempli',
+    returning: 'Envoi…',
+    returned: 'Formulaire renvoyé. Votre équipe a été prévenue.',
+    returnFailed: 'Le formulaire n’a pas été renvoyé. Veuillez réessayer.',
+    status: { VERIFIED: 'Prêt', PENDING: 'En vérification', REJECTED: 'À remplacer', REPLACED: 'Remplacé', PENDING_CLIENT: 'Chez vous' } as Record<string, string>,
+    filters: { ALL: 'Tous', REPLACE: 'À remplacer', CHECKING: 'En vérification', READY: 'Prêts', EXPIRING: 'Expirent bientôt' },
+    search: 'Rechercher un document',
+    cols: ['Document', 'Statut', 'Déposé le', 'Expire'],
+    returnedForm: 'formulaire renvoyé',
+    expired: 'Expiré',
+    daysLeft: (n: number) => (n === 1 ? '1 jour restant' : `${n} jours restants`),
+    view: 'Voir',
+    download: 'Télécharger',
+    reupload: 'Redéposer',
+    renew: 'Renouveler',
+    remove: 'Retirer',
+    emptyTitle: 'Aucun document pour le moment',
+    emptyBody: 'Déposez vos justificatifs pour commencer. Notre équipe vérifie chaque document et vous prévient s’il faut en remplacer un.',
+    emptyFilter: 'Aucun document ne correspond à cette vue.',
+    removeTitle: 'Retirer ce document ?',
+    removeBody: 'Il n’a pas encore été vérifié : il sera supprimé. Vous pourrez en déposer une nouvelle copie à tout moment.',
+    cancel: 'Annuler',
+    removed: 'Document retiré.',
+    removeFailed: 'Le document n’a pas pu être retiré.',
+    linkFailed: 'Le document n’a pas pu être ouvert. Veuillez réessayer.',
+    loadingPreview: 'Ouverture sécurisée…',
+    noPreview: 'Ce document ne peut pas être affiché ici.',
+    openTab: 'Ouvrir dans un nouvel onglet',
+    close: 'Fermer',
+    drawer: {
+      title: 'Déposer des documents',
+      sub: 'PDF, JPG ou PNG · 20 Mo maximum par fichier',
+      drop: 'Glissez vos fichiers ici ou choisissez-les',
+      dropSub: 'Vous pouvez en ajouter plusieurs à la fois',
+      what: 'De quel document s’agit-il ?',
+      choose: 'Choisir…',
+      needed: 'À fournir maintenant',
+      other: 'Autres documents',
+      expiry: 'Date d’expiration (s’il y en a une)',
+      tips: 'Pour une copie nette : les quatre coins visibles, sans reflet, tout le texte lisible.',
+      uploading: (p: number) => `Envoi… ${p} %`,
+      saving: 'Enregistrement…',
+      done: 'Déposé. Notre équipe va le vérifier.',
+      uploadN: (n: number) => (n === 1 ? 'Déposer 1 fichier' : `Déposer ${n} fichiers`),
+      working: 'Envoi…',
+      pickType: 'Indiquez de quel document il s’agit pour chaque fichier.',
+      tooBig: (n: string) => `${n} dépasse 20 Mo.`,
+      badType: (n: string) => `${n} n’est pas un PDF, JPG ou PNG.`,
+      remove: 'Retirer le fichier',
+    },
+    types: {
+      PASSPORT_COPY: 'Passeport', DIPLOMA_DEGREE: 'Diplôme', DIPLOMA_TRANSCRIPT: 'Relevé de notes du diplôme', BACHELORS_DEGREE: 'Licence (diplôme)',
+      BACHELORS_TRANSCRIPT: 'Relevé de notes de licence', MASTERS_DEGREE: 'Master (diplôme)', MASTERS_TRANSCRIPT: 'Relevé de notes de master', NURSING_LICENSE: 'Autorisation d’exercer (infirmier)',
+      MEDICAL_LICENSE: 'Autorisation d’exercer (médecin)', OTHER_LICENSE: 'Autre autorisation d’exercer', GOOD_STANDING_CERTIFICATE: 'Certificat de bonne conduite professionnelle',
+      WORK_EXPERIENCE_CERTIFICATE: 'Attestation d’expérience professionnelle', HIGH_SCHOOL_CERTIFICATE: 'Diplôme de fin d’études secondaires', ORDINARY_LEVEL_CERTIFICATE: 'Certificat Ordinary Level',
+      BIRTH_CERTIFICATE: 'Acte de naissance', PHOTO_ID: 'Pièce d’identité avec photo', BANK_STATEMENT: 'Relevé bancaire', PERSONAL_STATEMENT: 'Lettre de motivation',
+      REFERENCE_LETTER: 'Lettre de recommandation', OTHER: 'Autre document',
+    } as Record<string, string>,
+  },
+};
+type Text = (typeof TEXT)['en'];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const DOCUMENT_TYPES = Object.keys(TEXT.en.types);
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
 const ALLOWED_EXT = /\.(pdf|jpg|jpeg|png)$/i;
+const DOT: Record<string, string> = {
+  VERIFIED: 'bg-secondary', PENDING: 'bg-primary/40', REJECTED: 'bg-rose-500', REPLACED: 'bg-muted-foreground/40', PENDING_CLIENT: 'bg-accent',
+};
 
-function DocumentsSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div><Skeleton className="h-7 w-44 mb-2" /><Skeleton className="h-4 w-80" /></div>
-      <div className="flex gap-6 items-start">
-        <div className="flex-1 min-w-0 space-y-6">
-          <div className="grid gap-4 sm:grid-cols-3">
-            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
-          </div>
-          <Skeleton className="h-64 rounded-2xl" />
-        </div>
-        <div className="hidden xl:block w-[280px] shrink-0 space-y-4">
-          <Skeleton className="h-36 rounded-2xl" />
-          <Skeleton className="h-44 rounded-2xl" />
-        </div>
-      </div>
-    </div>
-  );
+const card = 'rounded-2xl border border-border bg-white shadow-sm';
+const heading = 'text-xs font-bold uppercase tracking-widest text-muted-foreground';
+const btnPrimary = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-primary/90 disabled:opacity-40';
+const btnOutline = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-bold text-foreground transition-colors hover:bg-muted/60 disabled:opacity-40';
+const iconBtn = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground';
+const field = 'h-10 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+
+function Dot({ className }: { className: string }) {
+  return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${className}`} />;
 }
 
-function statusIcon(status: string) {
-  if (status === 'VERIFIED') return <CheckCircle weight="fill" className="h-4 w-4 text-primary" />;
-  if (status === 'REJECTED') return <WarningCircle className="h-4 w-4 text-rose-500" />;
-  return <Clock className="h-4 w-4 text-amber-500" />;
+/** Fixed codes get a proper name; names written by the team are shown as written. */
+function typeLabel(type: string | undefined | null, t: Text) {
+  if (!type) return '';
+  if (t.types[type]) return t.types[type];
+  if (/^[A-Z0-9_]+$/.test(type)) return type.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+  return type.replace(/-return$/, '');
+}
+function daysUntil(date: string) {
+  return Math.ceil((new Date(date).getTime() - Date.now()) / 86400000);
+}
+function shownStatus(doc: any) {
+  return doc.superseded ? 'REPLACED' : doc.status;
+}
+function isLive(doc: any) {
+  return doc.status === 'VERIFIED' || doc.status === 'PENDING';
 }
 
-function badgeVariant(status: string): 'success' | 'destructive' | 'warning' | 'outline' {
-  if (status === 'VERIFIED') return 'success';
-  if (status === 'REJECTED') return 'destructive';
-  return 'warning';
-}
+// ── Upload panel ──────────────────────────────────────────────────────────────
 
-function formatType(type: string) {
-  return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function isImageFile(fileName: string) {
-  return /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
-}
-
-type UploadState = 'idle' | 'uploading' | 'confirming' | 'done' | 'error';
-
+type UploadState = 'idle' | 'uploading' | 'saving' | 'done' | 'error';
 interface QueuedFile {
-  id: string;
-  file: File;
-  documentType: string;
-  expiryDate: string;
-  state: UploadState;
-  progress: number;
-  error: string;
-  previewObjectUrl: string | null; // blob URL for images
+  id: string; file: File; documentType: string; expiryDate: string;
+  state: UploadState; progress: number; error: string; preview: string | null;
 }
-
-function validate(file: File): string | null {
-  if (file.size > MAX_FILE_SIZE) return `${file.name} exceeds 20 MB limit.`;
-  if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXT.test(file.name)) {
-    return `${file.name} is not a supported type (PDF, JPG, PNG).`;
-  }
-  return null;
-}
-
-// ── Right Sidebar ──────────────────────────────────────────────────────────────
-
-function DocumentsSidebar({
-  onUpload, stageRequiredDocs, documents, stageName, router,
-}: {
-  onUpload: () => void;
-  stageRequiredDocs: string[];
-  documents: any[];
-  stageName: string;
-  router: ReturnType<typeof useRouter>;
-}) {
-  const stageVerified = stageRequiredDocs.filter(
-    (dt) => documents.find((d) => d.type === dt)?.status === 'VERIFIED'
-  ).length;
-  const stagePct = stageRequiredDocs.length > 0
-    ? Math.round((stageVerified / stageRequiredDocs.length) * 100)
-    : 0;
-
-  return (
-    <div className="hidden xl:block w-[280px] shrink-0 sticky top-6 self-start space-y-4">
-      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Upload</p>
-        <button
-          onClick={onUpload}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary/90 transition-colors active:scale-[0.98]"
-        >
-          <UploadSimple className="h-4 w-4" /> Upload Document
-        </button>
-        <p className="mt-2.5 text-center text-xs text-muted-foreground">PDF, JPG, PNG · max 20 MB</p>
-        <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-          <Lock className="h-3 w-3" /> Encrypted at rest
-        </div>
-      </div>
-
-      {stageRequiredDocs.length > 0 && (
-        <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Stage Requirements</p>
-          {stageName && <p className="text-xs font-medium text-foreground mb-3">{stageName}</p>}
-          <div className="space-y-2">
-            {stageRequiredDocs.slice(0, 7).map((docType) => {
-              const uploaded = documents.find((d) => d.type === docType);
-              const isVerified = uploaded?.status === 'VERIFIED';
-              const isPending = uploaded?.status === 'PENDING';
-              const isRejected = uploaded?.status === 'REJECTED';
-              return (
-                <div key={docType} className="flex items-center gap-2">
-                  {isVerified ? (
-                    <CheckCircle weight="fill" className="h-3.5 w-3.5 shrink-0 text-primary" />
-                  ) : isRejected ? (
-                    <WarningCircle className="h-3.5 w-3.5 shrink-0 text-rose-500" />
-                  ) : isPending ? (
-                    <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                  ) : (
-                    <div className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-border" />
-                  )}
-                  <span className={`text-xs truncate ${isVerified ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                    {formatType(docType)}
-                  </span>
-                </div>
-              );
-            })}
-            {stageRequiredDocs.length > 7 && (
-              <p className="text-xs text-muted-foreground pl-5">+{stageRequiredDocs.length - 7} more</p>
-            )}
-          </div>
-          <div className="mt-3 pt-3 border-t border-border">
-            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-              <div className="h-1.5 rounded-full bg-primary transition-all duration-700" style={{ width: `${stagePct}%` }} />
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">{stageVerified}/{stageRequiredDocs.length} verified</p>
-          </div>
-        </div>
-      )}
-
-      <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Vault Security</p>
-        <div className="space-y-2.5">
-          <div className="flex items-center gap-2.5">
-            <Lock className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-xs text-muted-foreground">AES-256 encryption at rest</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-xs text-muted-foreground">Cloudflare R2 secure storage</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <CheckCircle weight="fill" className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-xs text-muted-foreground">Consultant-reviewed</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <Eye className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-xs text-muted-foreground">Audit-logged access</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Quick Links</p>
-        <div className="space-y-1.5">
-          <button
-            onClick={() => router.push('/case')}
-            className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <TrendUp className="h-4 w-4 text-primary shrink-0" /> My case
-          </button>
-          <button
-            onClick={() => router.push('/payments')}
-            className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <CreditCard className="h-4 w-4 text-primary shrink-0" /> Payments
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Upload Drawer ──────────────────────────────────────────────────────────────
 
 function UploadDrawer({
-  open, onClose, personId, onUploaded, defaultType,
+  open, onClose, personId, onUploaded, presetType, needed, t,
 }: {
-  open: boolean;
-  onClose: () => void;
-  personId: string;
-  onUploaded: () => void;
-  defaultType: string;
+  open: boolean; onClose: () => void; personId: string; onUploaded: () => Promise<void> | void;
+  presetType: string; needed: string[]; t: Text;
 }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const d = t.drawer;
+  const inputRef = useRef<HTMLInputElement>(null);
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  // Reset queue when drawer opens
-  useEffect(() => {
-    if (open) setQueue([]);
-  }, [open]);
+  useEffect(() => { if (open) setQueue([]); }, [open]);
+
+  const patch = (id: string, change: Partial<QueuedFile>) => setQueue((q) => q.map((f) => (f.id === id ? { ...f, ...change } : f)));
 
   function addFiles(files: FileList | File[]) {
-    const arr = Array.from(files);
-    const valid: QueuedFile[] = [];
-    for (const file of arr) {
-      const err = validate(file);
-      if (err) { toast.error(err); continue; }
-      valid.push({
-        id: `${file.name}-${Date.now()}-${Math.random()}`,
-        file,
-        documentType: defaultType,
-        expiryDate: '',
-        state: 'idle',
-        progress: 0,
-        error: '',
-        previewObjectUrl: isImageFile(file.name) ? URL.createObjectURL(file) : null,
+    const next: QueuedFile[] = [];
+    for (const file of Array.from(files)) {
+      if (file.size > MAX_FILE_SIZE) { toast.error(d.tooBig(file.name)); continue; }
+      if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXT.test(file.name)) { toast.error(d.badType(file.name)); continue; }
+      next.push({
+        id: `${file.name}-${Date.now()}-${Math.random()}`, file,
+        // Only pre-filled when the client came from a specific document's button.
+        documentType: presetType, expiryDate: '', state: 'idle', progress: 0, error: '',
+        preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
       });
     }
-    setQueue((q) => [...q, ...valid]);
-  }
-
-  function handleFileDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragOver(false);
-    addFiles(e.dataTransfer.files);
-  }
-
-  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files) addFiles(e.target.files);
-    e.target.value = '';
+    setQueue((q) => [...q, ...next]);
   }
 
   function removeFile(id: string) {
     setQueue((q) => {
       const item = q.find((f) => f.id === id);
-      if (item?.previewObjectUrl) URL.revokeObjectURL(item.previewObjectUrl);
+      if (item?.preview) URL.revokeObjectURL(item.preview);
       return q.filter((f) => f.id !== id);
     });
   }
 
-  function updateField(id: string, field: 'documentType' | 'expiryDate', value: string) {
-    setQueue((q) => q.map((f) => f.id === id ? { ...f, [field]: value } : f));
-  }
-
-  async function uploadFile(item: QueuedFile): Promise<void> {
-    setQueue((q) => q.map((f) => f.id === item.id ? { ...f, state: 'uploading', progress: 0, error: '' } : f));
+  async function uploadOne(item: QueuedFile): Promise<boolean> {
+    patch(item.id, { state: 'uploading', progress: 0, error: '' });
     try {
       const { url, key } = await api.getUploadUrl(personId, item.documentType, item.file.name);
-
-      // XHR for real upload progress
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', url);
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 75); // 0–75%
-            setQueue((q) => q.map((f) => f.id === item.id ? { ...f, progress: pct } : f));
-          }
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else reject(new Error(`Storage upload failed (${xhr.status})`));
-        };
-        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable) patch(item.id, { progress: Math.round((e.loaded / e.total) * 90) }); };
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed (${xhr.status})`)));
+        xhr.onerror = () => reject(new Error('Network error'));
         xhr.send(item.file);
       });
-
-      setQueue((q) => q.map((f) => f.id === item.id ? { ...f, state: 'confirming', progress: 80 } : f));
+      patch(item.id, { state: 'saving', progress: 95 });
       await api.confirmUpload(personId, item.documentType, key, item.expiryDate || undefined);
-      setQueue((q) => q.map((f) => f.id === item.id ? { ...f, state: 'done', progress: 100 } : f));
-      if (item.previewObjectUrl) URL.revokeObjectURL(item.previewObjectUrl);
+      patch(item.id, { state: 'done', progress: 100 });
+      return true;
     } catch (err: any) {
-      setQueue((q) => q.map((f) => f.id === item.id ? { ...f, state: 'error', error: err.message } : f));
+      patch(item.id, { state: 'error', error: err.message ?? 'Upload failed' });
+      return false;
     }
   }
+
+  const waiting = queue.filter((f) => f.state === 'idle' || f.state === 'error');
+  const untyped = waiting.some((f) => !f.documentType);
+  const allDone = queue.length > 0 && queue.every((f) => f.state === 'done');
 
   async function uploadAll() {
-    const pending = queue.filter((f) => f.state === 'idle' || f.state === 'error');
-    if (!pending.length) return;
-    setUploading(true);
-    for (const item of pending) {
-      await uploadFile(item);
-    }
-    setUploading(false);
-    const doneCount = queue.filter((f) => f.state === 'done').length + pending.filter((f) => f.state !== 'error').length;
-    if (doneCount > 0) {
-      await onUploaded();
-      setTimeout(onClose, 1500);
-    }
+    if (!waiting.length || untyped) return;
+    setBusy(true);
+    let ok = 0;
+    for (const item of waiting) if (await uploadOne(item)) ok += 1;
+    setBusy(false);
+    if (ok > 0) await onUploaded();
+    if (ok === waiting.length) setTimeout(onClose, 1200);
   }
 
-  const pendingCount = queue.filter((f) => f.state === 'idle' || f.state === 'error').length;
-  const allDone = queue.length > 0 && queue.every((f) => f.state === 'done');
+  const neededOpen = needed.filter((n) => !DOCUMENT_TYPES.includes(n));
+  const presetExtra = presetType && !needed.includes(presetType) && !DOCUMENT_TYPES.includes(presetType) ? presetType : '';
 
   return (
     <>
-      {/* Backdrop */}
-      {open && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
-          onClick={onClose}
-        />
-      )}
-
-      {/* Slide-over panel */}
-      <div className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-2xl transition-transform duration-300 ${open ? 'translate-x-0' : 'translate-x-full'}`}>
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      {open && <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />}
+      <div role="dialog" aria-modal="true" aria-label={d.title} aria-hidden={!open} className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-2xl transition-transform duration-300 ${open ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
-            <h2 className="font-semibold text-foreground">Upload Documents</h2>
-            <p className="text-xs text-muted-foreground">PDF, JPG, PNG · max 20 MB each</p>
+            <h2 className="font-bold text-foreground">{d.title}</h2>
+            <p className="text-xs text-muted-foreground">{d.sub}</p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-muted/60 transition-colors">
-            <X className="h-4 w-4 text-muted-foreground" />
-          </button>
+          <button onClick={onClose} aria-label={t.close} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/60"><X className="h-5 w-5" /></button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* Drop zone */}
-          <div
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          <button
+            type="button"
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
-            onDrop={handleFileDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-8 transition-colors ${
-              dragOver ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50 hover:bg-muted/30'
-            }`}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); addFiles(e.dataTransfer.files); }}
+            onClick={() => inputRef.current?.click()}
+            className={`flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed py-8 transition-colors ${dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/30'}`}
           >
             <UploadSimple className="mb-2 h-7 w-7 text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground">Drop files or click to browse</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">Select multiple files at once</p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
-              multiple
-              className="hidden"
-              onChange={handleFileInput}
-            />
-          </div>
+            <span className="text-sm font-semibold text-foreground">{d.drop}</span>
+            <span className="mt-0.5 text-xs text-muted-foreground">{d.dropSub}</span>
+          </button>
+          <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" multiple className="hidden" onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }} />
 
-          {/* File queue */}
-          {queue.length > 0 && (
-            <div className="space-y-3">
-              {queue.map((item) => (
-                <div key={item.id} className="rounded-xl border border-border bg-white p-4 space-y-3">
-                  {/* File preview + name row */}
-                  <div className="flex items-center gap-3">
-                    {item.previewObjectUrl ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={item.previewObjectUrl}
-                        alt="preview"
-                        className="h-12 w-12 shrink-0 rounded-lg object-cover border border-border"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 shrink-0 flex items-center justify-center rounded-lg bg-muted/50 border border-border">
-                        <FileText className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{item.file.name}</p>
-                      <p className="text-xs text-muted-foreground">{(item.file.size / 1024 / 1024).toFixed(2)} MB</p>
-                    </div>
-                    {item.state === 'idle' || item.state === 'error' ? (
-                      <button onClick={() => removeFile(item.id)} className="rounded p-1 hover:bg-muted/60 shrink-0">
-                        <Trash className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                    ) : item.state === 'done' ? (
-                      <CheckCircle weight="fill" className="h-5 w-5 text-primary shrink-0" />
-                    ) : null}
+          {queue.map((item) => {
+            const editable = item.state === 'idle' || item.state === 'error';
+            return (
+              <div key={item.id} className="space-y-3 rounded-xl border border-border p-4">
+                <div className="flex items-center gap-3">
+                  {item.preview
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    ? <img src={item.preview} alt="" className="h-12 w-12 shrink-0 rounded-lg border border-border object-cover" />
+                    : <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/50"><FileText className="h-5 w-5 text-muted-foreground" /></span>}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">{item.file.name}</p>
+                    <p className="text-xs text-muted-foreground">{(item.file.size / 1024 / 1024).toFixed(1)} MB</p>
                   </div>
-
-                  {/* Type + expiry selectors */}
-                  {(item.state === 'idle' || item.state === 'error') && (
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Document type</label>
-                        <div className="relative">
-                          <select
-                            value={item.documentType}
-                            onChange={(e) => updateField(item.id, 'documentType', e.target.value)}
-                            className="h-9 w-full appearance-none rounded-lg border border-border bg-white pl-2.5 pr-7 text-xs outline-none focus:ring-2 focus:ring-primary/20"
-                          >
-                            {DOCUMENT_TYPES.map((t) => (
-                              <option key={t} value={t}>{formatType(t)}</option>
-                            ))}
-                          </select>
-                          <CaretDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Expiry <span className="font-normal">(if any)</span></label>
-                        <input
-                          type="date"
-                          value={item.expiryDate}
-                          onChange={(e) => updateField(item.id, 'expiryDate', e.target.value)}
-                          className="h-9 w-full rounded-lg border border-border bg-white px-2.5 text-xs outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Progress bar */}
-                  {(item.state === 'uploading' || item.state === 'confirming') && (
-                    <div>
-                      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-1.5 rounded-full bg-primary transition-all duration-300"
-                          style={{ width: `${item.progress}%` }}
-                        />
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {item.state === 'confirming' ? 'Confirming…' : `Uploading… ${item.progress}%`}
-                      </p>
-                    </div>
-                  )}
-
-                  {item.state === 'done' && (
-                    <p className="text-xs font-medium text-primary">Uploaded — pending review.</p>
-                  )}
-
-                  {item.state === 'error' && (
-                    <p className="text-xs text-rose-600">{item.error}</p>
-                  )}
+                  {editable && !busy && <button onClick={() => removeFile(item.id)} aria-label={d.remove} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/60"><Trash className="h-4 w-4" /></button>}
+                  {item.state === 'done' && <CheckCircle weight="fill" className="h-5 w-5 shrink-0 text-secondary" />}
                 </div>
-              ))}
-            </div>
-          )}
+
+                {editable && (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-foreground">
+                      {d.what}
+                      <select value={item.documentType} onChange={(e) => patch(item.id, { documentType: e.target.value })} className={`${field} mt-1 font-normal ${item.documentType ? '' : 'border-accent'}`}>
+                        <option value="">{d.choose}</option>
+                        {(neededOpen.length > 0 || presetExtra) && (
+                          <optgroup label={d.needed}>
+                            {presetExtra && <option value={presetExtra}>{typeLabel(presetExtra, t)}</option>}
+                            {neededOpen.map((n) => <option key={n} value={n}>{typeLabel(n, t)}</option>)}
+                          </optgroup>
+                        )}
+                        <optgroup label={d.other}>
+                          {DOCUMENT_TYPES.map((code) => <option key={code} value={code}>{t.types[code]}</option>)}
+                        </optgroup>
+                      </select>
+                    </label>
+                    <label className="block text-xs font-bold text-foreground">
+                      {d.expiry}
+                      <input type="date" value={item.expiryDate} onChange={(e) => patch(item.id, { expiryDate: e.target.value })} className={`${field} mt-1 font-normal`} />
+                    </label>
+                  </div>
+                )}
+
+                {(item.state === 'uploading' || item.state === 'saving') && (
+                  <div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted"><div className="h-1.5 rounded-full bg-primary transition-all duration-300" style={{ width: `${item.progress}%` }} /></div>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.state === 'saving' ? d.saving : d.uploading(item.progress)}</p>
+                  </div>
+                )}
+                {item.state === 'done' && <p className="text-xs font-semibold text-foreground">{d.done}</p>}
+                {item.state === 'error' && <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground"><Dot className="bg-rose-500" /> {item.error}</p>}
+              </div>
+            );
+          })}
+
+          <p className="rounded-xl bg-muted/50 px-3.5 py-2.5 text-xs text-muted-foreground">{d.tips}</p>
         </div>
 
-        {/* Footer */}
         {queue.length > 0 && !allDone && (
-          <div className="border-t border-border px-6 py-4 bg-white">
-            <Button
-              className="w-full"
-              onClick={uploadAll}
-              disabled={uploading || pendingCount === 0}
-            >
-              {uploading
-                ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> Uploading…</>
-                : <><UploadSimple className="h-4 w-4" /> Upload {pendingCount} file{pendingCount !== 1 ? 's' : ''}</>}
-            </Button>
+          <div className="border-t border-border px-5 py-4">
+            {untyped && <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground"><Dot className="bg-accent" /> {d.pickType}</p>}
+            <button onClick={uploadAll} disabled={busy || waiting.length === 0 || untyped} className={`${btnPrimary} w-full py-2.5 text-sm`}>
+              <UploadSimple className="h-4 w-4" /> {busy ? d.working : d.uploadN(waiting.length)}
+            </button>
           </div>
         )}
       </div>
@@ -489,541 +387,334 @@ function UploadDrawer({
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+const FILTERS = ['ALL', 'REPLACE', 'CHECKING', 'READY', 'EXPIRING'] as const;
+type Filter = (typeof FILTERS)[number];
 
 export default function DocumentsPage() {
-  const router = useRouter();
   const { me, documents, engagement, loading, refresh } = useUser();
+  const locale: Locale = me?.locale === 'fr' ? 'fr' : 'en';
+  const t = TEXT[locale];
+  const day = (date?: string | null) => (date ? new Date(date).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
-  const [stageRequiredDocs, setStageRequiredDocs] = useState<string[]>([]);
-  const [stageName, setStageName] = useState<string>('');
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerDefaultType, setDrawerDefaultType] = useState(DOCUMENT_TYPES[0]);
+  const [caseView, setCaseView] = useState<any>(null);
+  const [forms, setForms] = useState<any[]>([]);
+  const [drawer, setDrawer] = useState<{ type: string } | null>(null);
+  const [filter, setFilter] = useState<Filter>('ALL');
+  const [q, setQ] = useState('');
+  const [preview, setPreview] = useState<{ doc: any; url: string; loading: boolean } | null>(null);
+  const [removing, setRemoving] = useState<any | null>(null);
+  const [busyId, setBusyId] = useState('');
+  const returnRef = useRef<HTMLInputElement>(null);
+  const returnFor = useRef<any>(null);
+  const eid: string | undefined = engagement?.id;
 
-  // Preview state
-  const [previewDoc, setPreviewDoc] = useState<any | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>('');
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const loadExtras = useCallback(() => {
+    if (eid) api.getCaseView(eid).then(setCaseView).catch(() => {});
+    api.getPendingForMeDocuments().then((l) => setForms(l ?? [])).catch(() => {});
+  }, [eid]);
 
-  // Officer-sent pending forms
-  const [pendingForms, setPendingForms] = useState<any[]>([]);
-  const [returningId, setReturningId] = useState<string | null>(null);
-  const returnFileRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (me) loadExtras(); }, [me, loadExtras]);
 
-  useEffect(() => {
-    if (me && engagement) {
-      api.getProgress(me.id, engagement.id).then((progress: any) => {
-        if (progress?.currentStage) {
-          setStageName(progress.currentStage.label ?? '');
-          setStageRequiredDocs(progress.currentStage.requiredDocuments ?? []);
-        }
-      }).catch(() => {});
-    }
-    if (me) {
-      api.getPendingForMeDocuments().then(setPendingForms).catch(() => {});
-    }
-  }, [me, engagement]);
+  const reload = useCallback(async () => { await refresh(); loadExtras(); }, [refresh, loadExtras]);
 
-  async function handleReturnForm(formId: string, file: File, docType: string) {
-    if (!me) return;
-    setReturningId(formId);
-    try {
-      const { url, key } = await api.getUploadUrl(me.id, `${docType}-return`, file.name);
-      await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
-      await api.clientReturnDocument(formId, key, `${docType}-return`);
-      toast.success('Form returned to your officer — they will be notified');
-      setPendingForms(f => f.filter(d => d.id !== formId));
-      refresh();
-    } catch {
-      toast.error('Failed to return form. Please try again.');
-    } finally {
-      setReturningId(null);
-    }
+  // The client's own documents. Blank forms sent by the team are listed separately.
+  const own = useMemo(() => (documents ?? []).filter((d: any) => d.origin !== 'OFFICER_SENT'), [documents]);
+  const expiring = (d: any) => isLive(d) && !!d.expiryDate && daysUntil(d.expiryDate) <= 30;
+  const MATCH: Record<Filter, (d: any) => boolean> = {
+    ALL: () => true,
+    REPLACE: (d) => shownStatus(d) === 'REJECTED',
+    CHECKING: (d) => d.status === 'PENDING',
+    READY: (d) => d.status === 'VERIFIED',
+    EXPIRING: expiring,
+  };
+  const counts = Object.fromEntries(FILTERS.map((f) => [f, own.filter(MATCH[f]).length])) as Record<Filter, number>;
+  const ORDER: Record<string, number> = { REJECTED: 0, PENDING: 1, VERIFIED: 2, REPLACED: 3 };
+  const shown = own
+    .filter(MATCH[filter])
+    .filter((d: any) => !q.trim() || typeLabel(d.type, t).toLowerCase().includes(q.trim().toLowerCase()))
+    .sort((a: any, b: any) => (ORDER[shownStatus(a)] ?? 9) - (ORDER[shownStatus(b)] ?? 9) || new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+
+  const required: any[] = caseView?.requiredDocs ?? [];
+  const requiredReady = required.filter((r) => r.status === 'VERIFIED').length;
+  const stillNeeded = required.filter((r) => r.status !== 'VERIFIED').map((r) => r.type as string);
+
+  async function secureUrl(doc: any) {
+    const { url } = await api.getDocumentViewUrl(doc.id);
+    return url;
   }
-
-  function openDrawer(type?: string) {
-    setDrawerDefaultType(type ?? DOCUMENT_TYPES[0]);
-    setDrawerOpen(true);
-  }
-
   async function openPreview(doc: any) {
-    setPreviewDoc(doc);
-    setPreviewUrl('');
-    setPreviewLoading(true);
+    setPreview({ doc, url: '', loading: true });
+    try { setPreview({ doc, url: await secureUrl(doc), loading: false }); } catch { setPreview({ doc, url: '', loading: false }); }
+  }
+  async function download(doc: any) {
+    // Opened before the request so the browser does not treat it as a pop-up.
+    const win = window.open('about:blank', '_blank');
+    if (win) win.opener = null;
     try {
-      const { url } = await api.getDocumentViewUrl(doc.id);
-      setPreviewUrl(url);
+      const url = await secureUrl(doc);
+      if (win) win.location.href = url; else window.location.href = url;
     } catch {
-      setPreviewUrl(doc.fileUrl); // fallback to direct URL
+      win?.close();
+      toast.error(t.linkFailed);
+    }
+  }
+  async function confirmRemove() {
+    if (!removing) return;
+    setBusyId(removing.id);
+    try {
+      await api.removeDocument(removing.id);
+      toast.success(t.removed);
+      setRemoving(null);
+      await reload();
+    } catch (e: any) {
+      toast.error(e.message ?? t.removeFailed);
     } finally {
-      setPreviewLoading(false);
+      setBusyId('');
+    }
+  }
+  async function returnForm(form: any, file: File) {
+    if (!me) return;
+    setBusyId(form.id);
+    try {
+      const { url, key } = await api.getUploadUrl(me.id, `${form.type}-return`, file.name);
+      const put = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+      if (!put.ok) throw new Error('upload');
+      await api.clientReturnDocument(form.id, key, `${form.type}-return`);
+      toast.success(t.returned);
+      await reload();
+    } catch {
+      toast.error(t.returnFailed);
+    } finally {
+      setBusyId('');
     }
   }
 
-  // Filter pills
-  const [filterPill, setFilterPill] = useState<'ALL' | 'ACTION' | 'PENDING' | 'VERIFIED'>('ALL');
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-14 rounded-2xl" />
+        <Skeleton className="h-44 rounded-2xl" />
+        <Skeleton className="h-72 rounded-2xl" />
+      </div>
+    );
+  }
 
-  // Sort + filter
-  const STATUS_ORDER: Record<string, number> = { REJECTED: 0, PENDING: 1, VERIFIED: 2 };
-  const filteredByPill = documents.filter((d) => {
-    if (filterPill === 'ACTION') return d.status === 'REJECTED';
-    if (filterPill === 'PENDING') return d.status === 'PENDING';
-    if (filterPill === 'VERIFIED') return d.status === 'VERIFIED';
-    return true;
-  });
-  const sortedDocuments = [...filteredByPill].sort(
-    (a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3)
+  const ready = own.filter((d: any) => d.status === 'VERIFIED').length;
+  const subtitle = own.length === 0
+    ? t.noneYet
+    : [t.summary(ready, own.length), counts.CHECKING > 0 && t.checking(counts.CHECKING), counts.REPLACE > 0 && t.toReplace(counts.REPLACE)].filter(Boolean).join(' · ');
+
+  const rowActions = (doc: any) => {
+    const status = shownStatus(doc);
+    return (
+      <>
+        <button onClick={() => openPreview(doc)} aria-label={t.view} title={t.view} className={iconBtn}><Eye className="h-4 w-4" /></button>
+        <button onClick={() => download(doc)} aria-label={t.download} title={t.download} className={iconBtn}><DownloadSimple className="h-4 w-4" /></button>
+        {status === 'REJECTED' && <button onClick={() => setDrawer({ type: doc.type })} className={btnPrimary}>{t.reupload}</button>}
+        {status !== 'REJECTED' && expiring(doc) && <button onClick={() => setDrawer({ type: doc.type })} className={btnOutline}>{t.renew}</button>}
+        {doc.status === 'PENDING' && doc.origin === 'CLIENT_UPLOADED' && <button onClick={() => setRemoving(doc)} className={btnOutline}>{t.remove}</button>}
+      </>
+    );
+  };
+  const expiryCell = (doc: any) => {
+    if (!doc.expiryDate) return <span className="text-muted-foreground">—</span>;
+    const left = daysUntil(doc.expiryDate);
+    if (!isLive(doc) || left > 30) return <span className="text-muted-foreground">{day(doc.expiryDate)}</span>;
+    return <span className="inline-flex items-center gap-1.5 font-semibold text-foreground"><Dot className={left <= 0 ? 'bg-rose-500' : 'bg-accent'} /> {left <= 0 ? t.expired : t.daysLeft(left)}</span>;
+  };
+  const statusCell = (doc: any) => {
+    const s = shownStatus(doc);
+    return <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-semibold text-foreground"><Dot className={DOT[s] ?? 'bg-muted'} /> {t.status[s] ?? s}</span>;
+  };
+  const nameCell = (doc: any) => (
+    <>
+      <p className="font-semibold text-foreground">{typeLabel(doc.type, t)}{doc.origin === 'CLIENT_RETURN' && <span className="ml-2 text-xs font-medium text-muted-foreground">{t.returnedForm}</span>}</p>
+      {shownStatus(doc) === 'REJECTED' && doc.rejectionReason && <p className="mt-0.5 text-xs text-muted-foreground">“{doc.rejectionReason}”</p>}
+    </>
   );
 
-  // Category grouping
-  const CATEGORIES: { label: string; types: string[] }[] = [
-    { label: 'Identity', types: ['PASSPORT_COPY', 'BIRTH_CERTIFICATE', 'PHOTO_ID', 'ORDINARY_LEVEL_CERTIFICATE'] },
-    { label: 'Academic', types: ['HIGH_SCHOOL_CERTIFICATE', 'DIPLOMA_DEGREE', 'DIPLOMA_TRANSCRIPT', 'BACHELORS_DEGREE', 'BACHELORS_TRANSCRIPT', 'MASTERS_DEGREE', 'MASTERS_TRANSCRIPT'] },
-    { label: 'Professional', types: ['NURSING_LICENSE', 'MEDICAL_LICENSE', 'OTHER_LICENSE', 'GOOD_STANDING_CERTIFICATE', 'WORK_EXPERIENCE_CERTIFICATE'] },
-    { label: 'Other', types: ['BANK_STATEMENT', 'PERSONAL_STATEMENT', 'REFERENCE_LETTER', 'OTHER'] },
-  ];
-  function getCategoryDocs(types: string[]) {
-    return sortedDocuments.filter((d) => types.includes(d.type));
-  }
-  function getUncategorised() {
-    const allCategorised = CATEGORIES.flatMap((c) => c.types);
-    return sortedDocuments.filter((d) => !allCategorised.includes(d.type));
-  }
-
-  async function handleDownload(doc: any) {
-    try {
-      const { url } = await api.getDocumentViewUrl(doc.id);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${doc.type}_${doc.id}`;
-      a.target = '_blank';
-      a.click();
-    } catch {
-      toast.error('Could not get download link. Try again.');
-    }
-  }
-
-  const verified = documents.filter((d) => d.status === 'VERIFIED').length;
-  const pending = documents.filter((d) => d.status === 'PENDING').length;
-  const rejected = documents.filter((d) => d.status === 'REJECTED').length;
-  const expiringDocs = documents.filter((d) => {
-    if (!d.expiryDate) return false;
-    const daysLeft = Math.ceil((new Date(d.expiryDate).getTime() - Date.now()) / 86400000);
-    return daysLeft <= 30;
-  });
-
-  if (loading) return <DocumentsSkeleton />;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
-        title="Document Vault"
-        subtitle="Upload and manage your credentials. All files are encrypted at rest."
-        actions={
-          <Button size="sm" onClick={() => openDrawer()}>
-            <FilePlus className="h-4 w-4" /> Upload Document
-          </Button>
-        }
+        title={t.title}
+        subtitle={subtitle}
+        actions={<Button size="sm" onClick={() => setDrawer({ type: '' })}><FilePlus className="h-4 w-4" /> {t.upload}</Button>}
       />
+      <p className="-mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"><Lock className="h-3.5 w-3.5" /> {t.secure}</p>
 
-      {/* Officer-sent forms — action required */}
-      {pendingForms.length > 0 && (
-        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 space-y-3">
-          <div className="flex items-center gap-2 mb-1">
-            <PaperPlaneRight className="h-4 w-4 text-primary" />
-            <p className="text-sm font-bold text-foreground">
-              {pendingForms.length} form{pendingForms.length > 1 ? 's' : ''} to complete &amp; return
-            </p>
+      {/* Needed now */}
+      {required.length > 0 && (
+        <section data-tour="docs-checklist" className={card}>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3.5">
+            <h2 className={heading}>{t.neededNow}{caseView?.stage?.current ? <span className="normal-case tracking-normal text-foreground"> · {caseView.stage.current}</span> : null}</h2>
+            <span className="text-xs font-semibold text-muted-foreground">{t.readyOf(requiredReady, required.length)}</span>
           </div>
-          <p className="text-xs text-muted-foreground -mt-2">Your processing officer has sent blank forms that need to be completed and returned.</p>
-          <input ref={returnFileRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              const formId = returnFileRef.current?.dataset.formId;
-              const docType = returnFileRef.current?.dataset.docType;
-              if (file && formId && docType) {
-                await handleReturnForm(formId, file, docType);
-              }
-              e.target.value = '';
-            }}
-          />
-          <div className="space-y-2">
-            {pendingForms.map((form: any) => (
-              <div key={form.id} className="flex items-start gap-3 rounded-xl border border-primary/20 bg-white px-4 py-3">
-                <FileText className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+          <ul className="divide-y divide-border/70">
+            {required.map((r) => (
+              <li key={r.type} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3">
+                <Dot className={r.status ? DOT[r.status] : 'border border-muted-foreground/50'} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">{form.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</p>
-                  {form.officerNote && <p className="text-xs text-muted-foreground mt-0.5">{form.officerNote}</p>}
-                  <p className="text-xs text-muted-foreground mt-0.5">Received {new Date(form.uploadedAt).toLocaleDateString()}</p>
+                  <p className="text-sm font-semibold text-foreground">{typeLabel(r.type, t)}</p>
+                  {r.status === 'REJECTED' && r.reason && <p className="text-xs text-muted-foreground">“{r.reason}”</p>}
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={() => openPreview(form)}
-                    className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-muted transition-colors"
-                  >
-                    <DownloadSimple className="h-3.5 w-3.5" /> Download
+                <span className="text-xs text-muted-foreground">{r.status ? t.status[r.status] : t.notUploaded}</span>
+                {(!r.status || r.status === 'REJECTED') && (
+                  <button onClick={() => setDrawer({ type: r.type })} className={r.status ? btnPrimary : btnOutline}>
+                    <UploadSimple className="h-3.5 w-3.5" /> {r.status ? t.reupload : t.uploadShort}
                   </button>
-                  <button
-                    disabled={returningId === form.id}
-                    onClick={() => {
-                      if (returnFileRef.current) {
-                        returnFileRef.current.dataset.formId = form.id;
-                        returnFileRef.current.dataset.docType = form.type;
-                        returnFileRef.current.click();
-                      }
-                    }}
-                    className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                  >
-                    <UploadSimple className="h-3.5 w-3.5" /> {returningId === form.id ? 'Uploading…' : 'Return Completed'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Expiry alert banner */}
-      {expiringDocs.length > 0 && (
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3.5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-100">
-              <WarningCircle weight="fill" className="h-4 w-4 text-rose-700" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-rose-900">
-                {expiringDocs.length} document{expiringDocs.length > 1 ? 's' : ''} expiring within 30 days
-              </p>
-              <p className="text-xs text-rose-700">
-                {expiringDocs.map((d: any) => formatType(d.type)).join(', ')} — renew and re-upload to keep your case on track.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex gap-6 items-start">
-        {/* ── Main column ────────────────────────────────────────────── */}
-        <div className="flex-1 min-w-0 space-y-6">
-
-          {/* Stage-required docs checklist */}
-          {stageRequiredDocs.length > 0 && (
-            <div data-tour="docs-checklist" className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10">
-                  <CheckCircle weight="fill" className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Required for current stage{stageName ? `: ${stageName}` : ''}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">Upload all required documents to advance your pathway</p>
-                </div>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {stageRequiredDocs.map((docType) => {
-                  const uploaded = documents.find((d) => d.type === docType);
-                  const isVerified = uploaded?.status === 'VERIFIED';
-                  const isPending = uploaded?.status === 'PENDING';
-                  const isRejected = uploaded?.status === 'REJECTED';
-                  return (
-                    <div
-                      key={docType}
-                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${
-                        isVerified ? 'border-primary/20 bg-primary/5'
-                        : isRejected ? 'border-rose-200 bg-rose-50'
-                        : isPending ? 'border-amber-200 bg-amber-50'
-                        : 'border-border bg-muted/20'
-                      }`}
-                    >
-                      {isVerified ? (
-                        <CheckCircle weight="fill" className="h-4 w-4 shrink-0 text-primary" />
-                      ) : isRejected ? (
-                        <WarningCircle className="h-4 w-4 shrink-0 text-rose-500" />
-                      ) : isPending ? (
-                        <Clock className="h-4 w-4 shrink-0 text-amber-500" />
-                      ) : (
-                        <div className="h-4 w-4 shrink-0 rounded-full border-2 border-border" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-semibold ${
-                          isVerified ? 'text-primary' : isRejected ? 'text-rose-800' : isPending ? 'text-amber-800' : 'text-foreground'
-                        }`}>
-                          {formatType(docType)}
-                        </p>
-                        <p className={`text-xs ${
-                          isVerified ? 'text-primary/70' : isRejected ? 'text-rose-600' : isPending ? 'text-amber-600' : 'text-muted-foreground'
-                        }`}>
-                          {isVerified ? 'Verified' : isRejected ? 'Rejected — re-upload' : isPending ? 'Under review' : 'Not yet uploaded'}
-                        </p>
-                      </div>
-                      {(!uploaded || isRejected) && (
-                        <button
-                          onClick={() => openDrawer(docType)}
-                          className={`shrink-0 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                            isRejected
-                              ? 'border-rose-300 bg-white text-rose-700 hover:bg-rose-50'
-                              : 'border-border bg-white text-foreground hover:bg-muted/50'
-                          }`}
-                        >
-                          {isRejected ? 'Re-upload' : 'Upload'}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Summary stat cards */}
-          <div data-tour="docs-stats" className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-border bg-white p-4 shadow-sm flex items-center gap-3">
-              <div className="rounded-xl bg-primary/10 p-2.5">
-                <CheckCircle weight="fill" className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{verified}</p>
-                <p className="text-xs text-muted-foreground">Verified</p>
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-white p-4 shadow-sm flex items-center gap-3">
-              <div className="rounded-xl bg-muted/60 p-2.5">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{pending}</p>
-                <p className="text-xs text-muted-foreground">Under Review</p>
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-white p-4 shadow-sm flex items-center gap-3">
-              <div className="rounded-xl bg-rose-100 p-2.5">
-                <WarningCircle className="h-5 w-5 text-rose-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{rejected}</p>
-                <p className="text-xs text-muted-foreground">Action Required</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Filter pills */}
-          <div data-tour="docs-filters" className="flex items-center gap-2 flex-wrap">
-            {([
-              { key: 'ALL', label: 'All', count: documents.length },
-              { key: 'ACTION', label: 'Needs Action', count: documents.filter((d) => d.status === 'REJECTED').length },
-              { key: 'PENDING', label: 'Under Review', count: documents.filter((d) => d.status === 'PENDING').length },
-              { key: 'VERIFIED', label: 'Verified', count: documents.filter((d) => d.status === 'VERIFIED').length },
-            ] as const).map((p) => (
-              <button key={p.key} onClick={() => setFilterPill(p.key)}
-                className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                  filterPill === p.key
-                    ? p.key === 'ACTION' ? 'border-rose-300 bg-rose-50 text-rose-700'
-                      : p.key === 'PENDING' ? 'border-amber-300 bg-amber-50 text-amber-700'
-                      : p.key === 'VERIFIED' ? 'border-primary/30 bg-primary/5 text-primary'
-                      : 'border-border bg-foreground text-background'
-                    : 'border-border bg-white text-muted-foreground hover:text-foreground hover:bg-muted/40'
-                }`}>
-                {p.label}
-                {p.count > 0 && (
-                  <span className={`rounded-full px-1.5 py-0.5 text-xs ${filterPill === p.key ? 'bg-white/40' : 'bg-muted'}`}>
-                    {p.count}
-                  </span>
                 )}
-              </button>
+              </li>
             ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Forms to complete */}
+      {forms.length > 0 && (
+        <section data-tour="docs-forms" className={card}>
+          <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
+            <div>
+              <h2 className={heading}>{t.forms}</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">{t.formsHelp}</p>
+            </div>
+            <span className="rounded-full bg-accent px-2 text-xs font-bold text-accent-foreground">{forms.length}</span>
           </div>
+          <input
+            ref={returnRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+            onChange={(e) => { const file = e.target.files?.[0]; if (file && returnFor.current) returnForm(returnFor.current, file); e.target.value = ''; }}
+          />
+          <ul className="divide-y divide-border/70">
+            {forms.map((form) => (
+              <li key={form.id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-foreground"><FileText className="h-4 w-4" /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-foreground">{typeLabel(form.type, t)}</p>
+                  {form.officerNote && <p className="text-sm text-muted-foreground">“{form.officerNote}”</p>}
+                  <p className="text-xs text-muted-foreground">{t.from} {day(form.uploadedAt)}</p>
+                </div>
+                <button onClick={() => download(form)} className={btnOutline}><DownloadSimple className="h-3.5 w-3.5" /> {t.downloadForm}</button>
+                <button disabled={busyId === form.id} onClick={() => { returnFor.current = form; returnRef.current?.click(); }} className={btnPrimary}>
+                  <UploadSimple className="h-3.5 w-3.5" /> {busyId === form.id ? t.returning : t.returnForm}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-          {/* Documents — grouped by category */}
-          {sortedDocuments.length === 0 ? (
-            <div className="rounded-2xl border border-border bg-white shadow-sm flex flex-col items-center justify-center py-16 text-center">
-              <div className="mb-4 rounded-2xl bg-muted/50 p-6">
-                <UploadSimple className="h-10 w-10 text-muted-foreground" />
-              </div>
-              <h4 className="font-semibold text-foreground">
-                {filterPill === 'ALL' ? 'No documents yet' : `No ${filterPill === 'ACTION' ? 'rejected' : filterPill.toLowerCase()} documents`}
-              </h4>
-              <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                {filterPill === 'ALL' ? 'Upload your credentials to get started. Your consultant will review each document.' : 'Try switching to a different filter.'}
-              </p>
-              {filterPill === 'ALL' && (
-                <Button size="sm" className="mt-4" onClick={() => openDrawer()}>
-                  <FilePlus className="h-4 w-4" /> Upload your first document
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {[...CATEGORIES, { label: 'Uncategorised', types: [] as string[] }].map((cat) => {
-                const catDocs = cat.label === 'Uncategorised' ? getUncategorised() : getCategoryDocs(cat.types);
-                if (catDocs.length === 0) return null;
-                return (
-                  <div key={cat.label} className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between border-b border-border px-6 py-3.5 bg-muted/20">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold text-foreground">{cat.label}</h3>
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground font-medium">{catDocs.length}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span className="text-emerald-600 font-medium">{catDocs.filter((d) => d.status === 'VERIFIED').length} verified</span>
-                        {catDocs.filter((d) => d.status === 'REJECTED').length > 0 && (
-                          <span className="text-rose-600 font-medium">· {catDocs.filter((d) => d.status === 'REJECTED').length} rejected</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="divide-y divide-border">
-                      {catDocs.map((doc) => {
-                        const isImage = isImageFile(doc.fileUrl ?? '');
-                        const daysLeft = doc.expiryDate ? Math.ceil((new Date(doc.expiryDate).getTime() - Date.now()) / 86400000) : null;
-                        const isExpired = daysLeft !== null && daysLeft <= 0;
-                        const isUrgent = daysLeft !== null && daysLeft > 0 && daysLeft <= 14;
-                        const isWarning = daysLeft !== null && daysLeft > 14 && daysLeft <= 30;
-                        return (
-                          <div key={doc.id}>
-                            {/* Rejection callout */}
-                            {doc.status === 'REJECTED' && doc.rejectionReason && (
-                              <div className="flex items-start gap-3 bg-rose-50 border-b border-rose-100 px-6 py-3">
-                                <WarningCircle weight="fill" className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-semibold text-rose-800">Rejected — action required</p>
-                                  <p className="text-xs text-rose-700 mt-0.5">{doc.rejectionReason}</p>
-                                </div>
-                                <Button size="sm" variant="outline"
-                                  className="h-7 text-xs shrink-0 border-rose-300 text-rose-700 hover:bg-rose-100"
-                                  onClick={() => openDrawer(doc.type)}>
-                                  Re-upload
-                                </Button>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-4 px-6 py-4">
-                              {/* Icon */}
-                              <div className="shrink-0">
-                                {isImage ? (
-                                  /* eslint-disable-next-line @next/next/no-img-element */
-                                  <img src={doc.fileUrl} alt={doc.type}
-                                    className="h-10 w-10 rounded-lg object-cover border border-border"
-                                    onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                      (e.currentTarget.nextSibling as HTMLElement | null)?.removeAttribute('hidden');
-                                    }} />
-                                ) : null}
-                                <div className={`rounded-lg bg-muted/50 p-2.5 ${isImage ? 'hidden' : ''}`}>
-                                  {statusIcon(doc.status)}
-                                </div>
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-foreground">{formatType(doc.type)}</p>
-                                <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                  <span>Uploaded {new Date(doc.uploadedAt ?? doc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                  {doc.expiryDate && (
-                                    <>
-                                      <span>·</span>
-                                      {(isExpired || isUrgent || isWarning) ? (
-                                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${isExpired || isUrgent ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                                          <WarningCircle className="h-3 w-3" />
-                                          {isExpired ? 'Expired' : `Expires in ${daysLeft}d`}
-                                        </span>
-                                      ) : (
-                                        <span>Expires {new Date(doc.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                      )}
-                                    </>
-                                  )}
-                                  {doc.verifiedAt && (
-                                    <><span>·</span><span className="text-emerald-600">Verified {new Date(doc.verifiedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span></>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 shrink-0">
-                                <Badge variant={badgeVariant(doc.status)} className="text-xs">{doc.status}</Badge>
-                                {doc.fileUrl && (
-                                  <>
-                                    <button onClick={() => openPreview(doc)}
-                                      className="rounded-lg border border-border p-1.5 hover:bg-muted/60 transition-colors" title="Preview">
-                                      {isImage ? <Image className="h-3.5 w-3.5 text-muted-foreground" /> : <Eye className="h-3.5 w-3.5 text-muted-foreground" />}
-                                    </button>
-                                    <button onClick={() => handleDownload(doc)}
-                                      className="rounded-lg border border-border p-1.5 hover:bg-muted/60 transition-colors" title="Download">
-                                      <DownloadSimple className="h-3.5 w-3.5 text-muted-foreground" />
-                                    </button>
-                                  </>
-                                )}
-                                {doc.status === 'REJECTED' && (
-                                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openDrawer(doc.type)}>
-                                    Re-upload
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      {/* All documents */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div data-tour="docs-filters" className="flex flex-wrap gap-1.5">
+          {FILTERS.filter((f) => f === 'ALL' || f === filter || counts[f] > 0).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              aria-pressed={filter === f}
+              className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${filter === f ? 'border-primary bg-primary text-white' : 'border-border bg-white text-foreground hover:bg-muted/60'}`}
+            >
+              {t.filters[f]} <span className={filter === f ? 'text-white/70' : 'text-muted-foreground'}>{counts[f]}</span>
+            </button>
+          ))}
         </div>
-
-        {/* ── Right sidebar ──────────────────────────────────────────── */}
-        <DocumentsSidebar
-          onUpload={() => openDrawer()}
-          stageRequiredDocs={stageRequiredDocs}
-          documents={documents}
-          stageName={stageName}
-          router={router}
-        />
+        {own.length > 5 && (
+          <div className="relative ml-auto w-full sm:w-60">
+            <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input aria-label={t.search} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.search} className={`${field} h-9 pl-9`} />
+          </div>
+        )}
       </div>
 
-      {/* Upload drawer */}
+      {own.length === 0 ? (
+        <div className={`${card} flex flex-col items-center px-6 py-14 text-center`}>
+          <UploadSimple className="mb-3 h-10 w-10 text-muted-foreground/40" />
+          <h2 className="font-bold text-foreground">{t.emptyTitle}</h2>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t.emptyBody}</p>
+          <button onClick={() => setDrawer({ type: '' })} className={`${btnPrimary} mt-4`}><FilePlus className="h-4 w-4" /> {t.upload}</button>
+        </div>
+      ) : shown.length === 0 ? (
+        <div className={`${card} px-6 py-10 text-center text-sm text-muted-foreground`}>{t.emptyFilter}</div>
+      ) : (
+        <div data-tour="docs-list" className={`${card} overflow-hidden`}>
+          {/* Wider screens: a table */}
+          <table className="hidden w-full text-sm md:table">
+            <thead className="border-b border-border bg-muted/40 text-left text-xs font-semibold text-muted-foreground">
+              <tr>{t.cols.map((c) => <th key={c} className="px-5 py-2.5 font-semibold">{c}</th>)}<th className="px-5 py-2.5" /></tr>
+            </thead>
+            <tbody className="divide-y divide-border/70">
+              {shown.map((doc: any) => (
+                <tr key={doc.id} className={doc.superseded ? 'opacity-60' : ''}>
+                  <td className="px-5 py-3">{nameCell(doc)}</td>
+                  <td className="px-5 py-3 text-xs">{statusCell(doc)}</td>
+                  <td className="px-5 py-3 text-xs text-muted-foreground">{day(doc.uploadedAt)}</td>
+                  <td className="px-5 py-3 text-xs">{expiryCell(doc)}</td>
+                  <td className="px-5 py-3"><div className="flex items-center justify-end gap-2">{rowActions(doc)}</div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {/* Phone: one card per document */}
+          <ul className="divide-y divide-border/70 md:hidden">
+            {shown.map((doc: any) => (
+              <li key={doc.id} className={`space-y-2 px-4 py-3.5 ${doc.superseded ? 'opacity-60' : ''}`}>
+                <div className="text-sm">{nameCell(doc)}</div>
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">{statusCell(doc)} <span className="text-muted-foreground">{day(doc.uploadedAt)}</span> {doc.expiryDate && expiryCell(doc)}</p>
+                <div className="flex flex-wrap items-center gap-2">{rowActions(doc)}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {me && (
         <UploadDrawer
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
+          open={!!drawer}
+          onClose={() => setDrawer(null)}
           personId={me.id}
-          onUploaded={refresh}
-          defaultType={drawerDefaultType}
+          onUploaded={reload}
+          presetType={drawer?.type ?? ''}
+          needed={stillNeeded}
+          t={t}
         />
       )}
 
-      {/* Document preview modal */}
-      {previewDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="flex w-full max-w-3xl flex-col rounded-2xl border border-border bg-white shadow-2xl overflow-hidden" style={{ maxHeight: '90vh' }}>
-            <div className="flex items-center justify-between border-b border-border px-5 py-3">
-              <div>
-                <p className="font-semibold text-foreground text-sm">{formatType(previewDoc.type)}</p>
-                <p className="text-xs text-muted-foreground">Uploaded {previewDoc.uploadedAt ? new Date(previewDoc.uploadedAt).toLocaleString() : '—'}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {previewUrl && (
-                  <a href={previewUrl} target="_blank" rel="noopener noreferrer"
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors">
-                    Open in new tab
-                  </a>
-                )}
-                <button onClick={() => { setPreviewDoc(null); setPreviewUrl(''); }} className="rounded-lg p-1.5 hover:bg-muted/60 transition-colors">
-                  <X className="h-4 w-4 text-muted-foreground" />
-                </button>
+      {/* Remove */}
+      {removing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setRemoving(null)}>
+          <div role="dialog" aria-modal="true" aria-label={t.removeTitle} className="w-full max-w-sm rounded-2xl border border-border bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-base font-bold text-foreground">{t.removeTitle}</h2>
+            <p className="mt-2 rounded-xl bg-muted/50 px-4 py-2.5 text-sm font-semibold text-foreground">{typeLabel(removing.type, t)}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{t.removeBody}</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setRemoving(null)} className={btnOutline}>{t.cancel}</button>
+              <button onClick={confirmRemove} disabled={busyId === removing.id} className={btnPrimary}>{t.remove}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview */}
+      {preview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3" onClick={() => setPreview(null)}>
+          <div role="dialog" aria-modal="true" aria-label={typeLabel(preview.doc.type, t)} className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
+              <p className="min-w-0 truncate text-sm font-bold text-foreground">{typeLabel(preview.doc.type, t)}</p>
+              <div className="flex shrink-0 items-center gap-2">
+                {preview.url && <a href={preview.url} target="_blank" rel="noopener noreferrer" className={btnOutline}>{t.openTab}</a>}
+                <button onClick={() => setPreview(null)} aria-label={t.close} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/60"><X className="h-5 w-5" /></button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto bg-muted/30 p-2 flex items-center justify-center" style={{ minHeight: '400px' }}>
-              {previewLoading ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  <p className="text-xs text-muted-foreground">Loading secure preview…</p>
-                </div>
-              ) : previewUrl ? (
-                isImageFile(previewDoc.fileUrl) ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={previewUrl} alt={previewDoc.type} className="mx-auto max-h-[70vh] rounded-xl object-contain shadow" />
-                ) : (
-                  <iframe src={previewUrl} className="h-[70vh] w-full rounded-xl border-0" title={previewDoc.type} />
-                )
+            <div className="flex min-h-[50vh] flex-1 items-center justify-center overflow-auto bg-muted/30 p-2">
+              {preview.loading ? (
+                <p className="text-sm text-muted-foreground">{t.loadingPreview}</p>
+              ) : !preview.url ? (
+                <p className="text-sm text-muted-foreground">{t.noPreview}</p>
+              ) : preview.doc.isImage ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={preview.url} alt={typeLabel(preview.doc.type, t)} className="mx-auto max-h-[78vh] rounded-xl object-contain" />
               ) : (
-                <p className="text-sm text-muted-foreground">Unable to load preview.</p>
+                <iframe src={preview.url} className="h-[78vh] w-full rounded-xl border-0" title={typeLabel(preview.doc.type, t)} />
               )}
             </div>
           </div>

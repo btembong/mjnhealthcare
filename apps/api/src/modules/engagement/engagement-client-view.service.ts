@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '@mjn/database';
 import { findConsultantContact } from '../../common/consultant-contact';
+import { docMatches, requirementState } from '../../common/doc-match';
 
 export type ClientTask =
   | { key: 'letter' }
@@ -8,8 +9,6 @@ export type ClientTask =
   | { key: 'form'; docType: string; note: string | null }
   | { key: 'payment'; amount: number }
   | { key: 'upload'; docType: string };
-
-const DOC_RANK = ['VERIFIED', 'PENDING', 'REJECTED'];
 
 /**
  * Everything the client's "My case" page shows, in one answer and with nothing internal in it:
@@ -66,11 +65,8 @@ export class EngagementClientViewService {
     ]);
 
     const closed = engagement.status === 'COMPLETED' || engagement.status === 'TERMINATED';
-    const own = documents.filter((d) => d.origin !== 'OFFICER_SENT');
-    const best = (type: string) => {
-      const statuses = own.filter((d) => d.type === type).map((d) => d.status as string);
-      return DOC_RANK.find((s) => statuses.includes(s)) ?? null;
-    };
+    const own = documents.filter((d) => d.origin === 'CLIENT_UPLOADED');
+    const best = (type: string) => requirementState(own, type).status;
 
     // Stages
     const stages = engagement.milestones;
@@ -81,10 +77,10 @@ export class EngagementClientViewService {
       ? (currentIndex > 0 ? stages[currentIndex - 1].completedAt : null) ?? engagement.letterSignedAt ?? engagement.createdAt
       : null;
 
-    const requiredDocs = (progress?.currentStage?.requiredDocs ?? []).map((type) => {
-      const status = best(type);
-      const rejected = status === 'REJECTED' ? own.find((d) => d.type === type && d.status === 'REJECTED') : null;
-      return { type, status, reason: rejected?.rejectionReason ?? null };
+    const requirements = progress?.currentStage?.requiredDocs ?? [];
+    const requiredDocs = requirements.map((type) => {
+      const { status, doc } = requirementState(own, type);
+      return { type, status, reason: status === 'REJECTED' ? doc?.rejectionReason ?? null : null };
     });
 
     // Money
@@ -107,9 +103,12 @@ export class EngagementClientViewService {
       if (!engagement.letterSignedAt && engagement.letterUrl) tasks.push({ key: 'letter' });
       const seen = new Set<string>();
       for (const d of own) {
-        if (d.status !== 'REJECTED' || seen.has(d.type) || best(d.type) !== 'REJECTED') continue;
-        seen.add(d.type);
-        tasks.push({ key: 'replace', docType: d.type, reason: d.rejectionReason });
+        if (d.status !== 'REJECTED') continue;
+        // Shown under the stage requirement's name when it answers one, so the upload lands in the right place.
+        const name = requirements.find((r) => docMatches(d.type, r)) ?? d.type;
+        if (seen.has(name) || best(name) !== 'REJECTED') continue;
+        seen.add(name);
+        tasks.push({ key: 'replace', docType: name, reason: d.rejectionReason });
       }
       for (const d of documents) {
         if (d.origin === 'OFFICER_SENT' && d.status === 'PENDING_CLIENT' && d.engagementId === engagement.id) {
