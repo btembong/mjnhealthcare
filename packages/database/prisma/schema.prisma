@@ -652,6 +652,8 @@ model Booking {
   slot      BookingSlot   @relation(fields: [slotId], references: [id])
   type      String
   status    BookingStatus @default(CONFIRMED)
+  noShowAt     DateTime? // free consultation the person did not attend
+  cancelReason String?
   createdAt DateTime      @default(now())
 
   @@map("bookings")

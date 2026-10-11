@@ -64,6 +64,7 @@ function useSidebarSections(
           { label: 'My Caseload', href: '/caseload', icon: UsersThree },
           { label: 'Messages', href: '/messages', icon: ChatCircle },
           { label: 'Sessions', href: '/sessions', icon: VideoCamera },
+          { label: 'Free Consultations', href: '/free-slots', icon: CalendarBlank },
           { label: 'Documents', href: '/documents', icon: FileText, badge: counts.pendingDocs > 0 ? String(counts.pendingDocs) : undefined },
           { label: 'AI Drafts', href: '/drafts', icon: Robot, badge: counts.pendingDrafts > 0 ? String(counts.pendingDrafts) : undefined },
           { label: 'Approvals', href: '/approvals', icon: CheckCircle },
@@ -140,7 +141,7 @@ function useSidebarSections(
       title: 'Operations',
       items: [
         { label: 'Leads', href: '/leads', icon: UsersFour, badge: counts.leads > 0 ? String(counts.leads) : undefined },
-        { label: 'Free Consult Slots', href: '/free-slots', icon: CalendarBlank },
+        { label: 'Free Consultations', href: '/free-slots', icon: CalendarBlank },
         { label: 'Sessions', href: '/sessions', icon: VideoCamera },
         { label: 'Consultants', href: '/consultants', icon: Briefcase },
         { label: 'Jobs', href: '/jobs', icon: Briefcase },

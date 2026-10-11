@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Post, Param, Body, Query,
+  Controller, Get, Patch, Post, Param, Body, Query, Redirect,
   UseGuards, NotFoundException, BadRequestException, HttpCode, Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
@@ -11,6 +11,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { DailyCoService } from '../consultation/daily-co.service';
+import { freeConsultGuestLink } from '../booking/free-consult.service';
 
 @ApiTags('leads')
 @Controller('leads')
@@ -108,7 +109,9 @@ export class LeadsController {
     let hostUrl = '';
     try {
       const room = await this.dailyCo.createRoom(booking.id, slot.startTime, FREE_CONSULT_MINUTES);
-      roomUrl = room.url;
+      // The room is private, so the bare room address lets nobody in. Emails and reminders
+      // carry the guest link instead, which issues an entry pass when it is opened.
+      roomUrl = freeConsultGuestLink(booking.id, body.email.trim().toLowerCase());
       const consultantName = (slot as any).consultant?.name ?? 'Advisor';
       const hostToken = await this.dailyCo.createMeetingToken(room.name, true, consultantName);
       hostUrl = `${room.url}?t=${hostToken}`;
@@ -119,6 +122,7 @@ export class LeadsController {
     // Schedule reminders for both client and consultant
     const slotMs = slot.startTime.getTime();
     const reminderJobData = {
+      bookingId: booking.id,
       leadName: body.name.trim(),
       leadEmail: body.email.trim().toLowerCase(),
       leadPhone: body.phone,
@@ -174,6 +178,7 @@ export class LeadsController {
   // ── Public: issue a guest token so the client can enter the private room ───
 
   @Get('free-consult/join')
+  @Redirect()
   async joinFreeConsult(
     @Query('bookingId') bookingId: string,
     @Query('email') email: string,
@@ -185,6 +190,7 @@ export class LeadsController {
       include: { lead: { select: { email: true, name: true } } },
     });
     if (!booking) throw new NotFoundException('Booking not found');
+    if (booking.status === 'CANCELLED') throw new BadRequestException('This consultation was cancelled.');
 
     // Verify the requester owns this booking
     const leadEmail = (booking as any).lead?.email ?? '';
@@ -198,7 +204,7 @@ export class LeadsController {
     try {
       const token = await this.dailyCo.createMeetingToken(roomName, false, guestName);
       const roomUrl = `https://mjnhealthcare.daily.co/${roomName}`;
-      return { url: `${roomUrl}?t=${token}` };
+      return { url: `${roomUrl}?t=${token}`, statusCode: 302 };
     } catch (err) {
       this.logger.error(`Could not issue guest token for booking ${bookingId}: ${err}`);
       throw new BadRequestException('Could not generate join link. The session may have ended.');

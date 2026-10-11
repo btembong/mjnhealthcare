@@ -1305,6 +1305,175 @@ export class NotificationListener {
     this.logger.log(`Free consult reminder (${payload.timeLabel}) sent for ${payload.leadEmail}`);
   }
 
+  // ── Free consultation moved or cancelled by staff ──────────────────────────
+
+  private freeConsultWhen(iso: string, french: boolean) {
+    return new Date(iso).toLocaleString(french ? 'fr-FR' : 'en-GB', {
+      timeZone: 'Africa/Douala', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+  }
+
+  @OnEvent('free_consult.moved')
+  async onFreeConsultMoved(payload: {
+    bookingId: string; name: string; email: string; phone?: string | null; locale: string;
+    oldStart: string; newStart: string; roomUrl?: string; hostUrl?: string;
+    consultantName?: string | null; consultantEmail?: string | null;
+    previousConsultantName?: string | null; previousConsultantEmail?: string | null;
+  }) {
+    const fr = payload.locale === 'fr';
+    const when = this.freeConsultWhen(payload.newStart, fr);
+    const was = this.freeConsultWhen(payload.oldStart, fr);
+    const name = escapeHtml(payload.name);
+    const advisor = payload.consultantName ? escapeHtml(payload.consultantName) : '';
+
+    if (payload.email) {
+      const html = fr
+        ? T.shell(
+            T.p(`Bonjour <strong>${name}</strong>,`) +
+            T.label('Consultation gratuite') +
+            T.h1('Votre consultation a une nouvelle heure') +
+            T.p('Notre équipe a déplacé votre consultation gratuite. Voici la nouvelle heure :') +
+            T.infoTable([
+              ...(advisor ? [T.row('Conseiller', `<strong>${advisor}</strong>`)] : []),
+              T.row('Nouvelle heure', `<strong>${when} (heure de Douala)</strong>`),
+              T.row('Ancienne heure', was, true),
+            ]) +
+            (payload.roomUrl ? T.btn('Rejoindre la séance', payload.roomUrl) : '') +
+            T.pSmall("Cette heure ne vous convient pas ? Répondez à cet e-mail et nous en trouverons une autre."),
+            'Vous recevez cet e-mail car vous avez réservé une consultation gratuite avec MJN Healthcare.',
+          )
+        : T.shell(
+            T.greeting(payload.name) +
+            T.label('Free consultation') +
+            T.h1('Your consultation has a new time') +
+            T.p('Our team has moved your free consultation. Here is the new time:') +
+            T.infoTable([
+              ...(advisor ? [T.row('Advisor', `<strong>${advisor}</strong>`)] : []),
+              T.row('New time', `<strong>${when} (Douala time)</strong>`),
+              T.row('Was', was, true),
+            ]) +
+            (payload.roomUrl ? T.btn('Join session', payload.roomUrl) : '') +
+            T.pSmall('If this time does not suit you, reply to this email and we will find another.'),
+          );
+      await this.notificationService.sendEmail(
+        payload.email,
+        fr ? 'Votre consultation gratuite a été déplacée' : 'Your free consultation has been moved',
+        html, payload.name, undefined, 'team',
+      );
+    }
+    if (payload.phone) {
+      await this.notificationService.sendWhatsApp(
+        payload.phone,
+        fr
+          ? `Bonjour ${payload.name}, votre consultation gratuite MJN Healthcare a été déplacée au ${when} (heure de Douala). Les détails sont dans votre e-mail.`
+          : `Hi ${payload.name}, your free MJN Healthcare consultation has been moved to ${when} (Douala time). The details are in your email.`,
+        { essential: true },
+      );
+    }
+
+    const whenEn = this.freeConsultWhen(payload.newStart, false);
+    const wasEn = this.freeConsultWhen(payload.oldStart, false);
+    if (payload.consultantEmail) {
+      await this.notificationService.sendEmail(
+        payload.consultantEmail,
+        `[Free consult moved] ${payload.name} — ${whenEn}`,
+        T.shell(
+          T.label('Free consultation') +
+          T.h1('A free consultation was moved') +
+          T.infoTable([
+            T.row('Person', name),
+            T.row('Email', escapeHtml(payload.email)),
+            ...(payload.phone ? [T.row('Phone / WhatsApp', escapeHtml(payload.phone))] : []),
+            T.row('New time', `<strong>${whenEn} (Douala time)</strong>`),
+            T.row('Was', wasEn, true),
+          ]) +
+          (payload.hostUrl ? T.btn('Join as host', payload.hostUrl) : T.btn('Open free consultations', `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/free-slots`)),
+        ),
+      );
+    }
+    if (payload.previousConsultantEmail && payload.previousConsultantEmail !== payload.consultantEmail) {
+      await this.notificationService.sendEmail(
+        payload.previousConsultantEmail,
+        `[Free consult moved away] ${payload.name} — ${wasEn}`,
+        T.shell(
+          T.label('Free consultation') +
+          T.h1('A free consultation is no longer with you') +
+          T.p(`The consultation with <strong>${name}</strong> on ${wasEn} (Douala time) was moved to ${advisor || 'another consultant'}. That time is open again for someone else to book.`),
+        ),
+      );
+    }
+    this.logger.log(`Free consult moved notifications sent for booking ${payload.bookingId}`);
+  }
+
+  @OnEvent('free_consult.cancelled')
+  async onFreeConsultCancelled(payload: {
+    bookingId: string; name: string; email: string; phone?: string | null; locale: string;
+    slotStart: string; reason: string;
+    consultantName?: string | null; consultantEmail?: string | null; byEmail?: string | null;
+  }) {
+    const fr = payload.locale === 'fr';
+    const when = this.freeConsultWhen(payload.slotStart, fr);
+    const name = escapeHtml(payload.name);
+    const reason = escapeHtml(payload.reason);
+    const rebook = `${process.env.WEB_URL ?? 'http://localhost:3001'}/get-started`;
+
+    if (payload.email) {
+      const html = fr
+        ? T.shell(
+            T.p(`Bonjour <strong>${name}</strong>,`) +
+            T.label('Consultation gratuite') +
+            T.h1('Votre consultation a été annulée') +
+            T.p(`Nous sommes désolés : votre consultation gratuite du <strong>${when}</strong> (heure de Douala) n'aura pas lieu.`) +
+            T.infoTable([T.row('Motif', reason, true)]) +
+            T.p('Vous pouvez choisir une autre heure quand vous le souhaitez. La consultation reste gratuite.') +
+            T.btn('Choisir une autre heure', rebook),
+            'Vous recevez cet e-mail car vous avez réservé une consultation gratuite avec MJN Healthcare.',
+          )
+        : T.shell(
+            T.greeting(payload.name) +
+            T.label('Free consultation') +
+            T.h1('Your consultation has been cancelled') +
+            T.p(`We are sorry — your free consultation on <strong>${when}</strong> (Douala time) will not go ahead.`) +
+            T.infoTable([T.row('Reason', reason, true)]) +
+            T.p('You are welcome to choose another time whenever suits you. The consultation is still free.') +
+            T.btn('Choose another time', rebook),
+          );
+      await this.notificationService.sendEmail(
+        payload.email,
+        fr ? 'Votre consultation gratuite a été annulée' : 'Your free consultation has been cancelled',
+        html, payload.name, undefined, 'team',
+      );
+    }
+    if (payload.phone) {
+      await this.notificationService.sendWhatsApp(
+        payload.phone,
+        fr
+          ? `Bonjour ${payload.name}, votre consultation gratuite MJN Healthcare du ${when} a été annulée. Vous pouvez choisir une autre heure ici : ${rebook}`
+          : `Hi ${payload.name}, your free MJN Healthcare consultation on ${when} has been cancelled. You can choose another time here: ${rebook}`,
+        { essential: true },
+      );
+    }
+    // Tell the consultant, unless they are the one who cancelled it.
+    if (payload.consultantEmail && payload.consultantEmail.toLowerCase() !== (payload.byEmail ?? '').toLowerCase()) {
+      const whenEn = this.freeConsultWhen(payload.slotStart, false);
+      await this.notificationService.sendEmail(
+        payload.consultantEmail,
+        `[Free consult cancelled] ${payload.name} — ${whenEn}`,
+        T.shell(
+          T.label('Free consultation') +
+          T.h1('A free consultation was cancelled') +
+          T.infoTable([
+            T.row('Person', name),
+            T.row('When', `${whenEn} (Douala time)`),
+            T.row('Reason', reason, true),
+          ]) +
+          T.pSmall('The person has been told and invited to choose another time.'),
+        ),
+      );
+    }
+    this.logger.log(`Free consult cancelled notifications sent for booking ${payload.bookingId}`);
+  }
+
   @OnEvent('lead.free_consult_done')
   async onFreeConsultDone(payload: {
     bookingId: string; clientName: string; clientEmail: string; clientPhone: string;

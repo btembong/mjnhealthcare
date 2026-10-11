@@ -363,11 +363,13 @@ export const TOURS_FR: Record<string, TourDef> = {
     ],
   },
   'admin.freeslots': {
-    title: 'Créneaux de consultation gratuite',
+    title: 'Consultations gratuites',
     steps: [
-      { target: 'page-header', title: 'Horaires de consultation gratuite', body: 'Ce sont les horaires que les visiteurs peuvent réserver sur la page « get-started » du site.' },
-      { target: 'slots-form', title: 'Ajouter des créneaux', body: 'Choisissez le consultant, la date et les heures.' },
-      { target: 'slots-list', title: 'Créneaux actuels', body: 'Les horaires encore disponibles et ceux qui sont réservés.' },
+      { target: 'page-header', title: 'Consultations gratuites', body: "Toutes les personnes qui ont réservé une consultation gratuite sur le site, et les horaires encore ouverts à la réservation. Toutes les heures sont à l'heure de Douala." },
+      { target: 'fc-tabs', title: 'Deux sections', body: '« Bookings » affiche les personnes qui ont réservé. « Availability » sert à ajouter et retirer les horaires proposés.' },
+      { target: 'fc-filters', title: 'Trouver une réservation', body: "« Upcoming » montre ce qui arrive. « Needs an outcome » liste les consultations passées pour lesquelles vous devez indiquer si la personne est venue. « Past » conserve l'historique." },
+      { title: 'Pendant et après', body: "« Join as host » ouvre la salle vidéo ici, à partir de 15 minutes avant le début. Ensuite, choisissez « Attended » ou « Did not attend ». « Manage » permet de déplacer une réservation vers un autre horaire ouvert ou de l'annuler — la personne est prévenue par e-mail dans les deux cas." },
+      { title: 'Ajouter des horaires', body: "Dans « Availability », « Add times » permet de choisir les jours de la semaine, les heures et le nombre de semaines à répéter. Les horaires déjà existants, ou qui chevauchent une séance payante, sont ignorés et vous en êtes informé avant d'enregistrer." },
     ],
   },
   'admin.consultants': {

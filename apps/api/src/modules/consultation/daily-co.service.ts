@@ -55,6 +55,24 @@ export class DailyCoService {
     return res.json() as Promise<DailyRoom>;
   }
 
+  /**
+   * Makes sure the room for a booking exists and stays open until after the given start time.
+   * Used when a session moves, or when the room was never created at booking time.
+   */
+  async ensureRoom(bookingId: string, startAt: Date, durationMinutes: number): Promise<DailyRoom> {
+    if (!this.apiKey) {
+      throw new Error('DAILY_CO_API_KEY is not configured');
+    }
+    const exp = Math.floor(startAt.getTime() / 1000) + (durationMinutes + 45) * 60;
+    const res = await fetch(`${this.baseUrl}/rooms/mjn-consult-${bookingId}`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ properties: { exp } }),
+    });
+    if (res.ok) return res.json() as Promise<DailyRoom>;
+    return this.createRoom(bookingId, startAt, durationMinutes);
+  }
+
   async deleteRoom(roomName: string): Promise<void> {
     await fetch(`${this.baseUrl}/rooms/${roomName}`, {
       method: 'DELETE',

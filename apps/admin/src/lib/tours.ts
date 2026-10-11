@@ -437,11 +437,13 @@ const TOURS: Record<string, TourDef> = {
     ],
   },
   'admin.freeslots': {
-    title: 'Free consultation slots',
+    title: 'Free consultations',
     steps: [
-      { target: 'page-header', title: 'Free consultation times', body: 'These are the times visitors can book on the website’s get-started page.' },
-      { target: 'slots-form', title: 'Add slots', body: 'Choose the consultant, the date and the times.' },
-      { target: 'slots-list', title: 'Current slots', body: 'Which times are still available and which are booked.' },
+      { target: 'page-header', title: 'Free consultations', body: 'Everyone who has booked a free consultation on the website, and the times still open for booking. All times here are Douala time.' },
+      { target: 'fc-tabs', title: 'Two sections', body: 'Bookings shows the people who have booked. Availability is where you add and remove the times they can choose from.' },
+      { target: 'fc-filters', title: 'Find a booking', body: 'Upcoming is what is ahead. Needs an outcome lists consultations that have passed and are waiting for you to say whether the person came. Past keeps the history.' },
+      { title: 'During and after', body: 'Join as host opens the video room here, from 15 minutes before the start. Afterwards choose Attended or Did not attend. Manage lets you move a booking to another open time or cancel it — the person is emailed either way.' },
+      { title: 'Adding times', body: 'In Availability, Add times lets you choose the days of the week, the times and how many weeks to repeat. Times that already exist, or that clash with a paid session, are skipped and you are told before you save.' },
     ],
   },
   'admin.consultants': {

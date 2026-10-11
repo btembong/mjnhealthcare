@@ -209,14 +209,43 @@ export const api = {
     request<any>(`/leads/${id}/convert`, { method: 'POST', body: JSON.stringify({ sendInviteEmail: true }) }),
 
   // ── Free consultation slots (general-consultation BookingModule) ─────────
-  getGeneralConsultationSlots: () =>
-    request<any[]>('/bookings/admin/general-consultation'),
+  // ── Free consultations ────────────────────────────────────────────────────
+  getFreeConsultOverview: () =>
+    request<{ canManageAll: boolean; consultants: { id: string; name: string; specialty: string }[]; openTimes: { id: string; start: string; consultantId: string | null }[]; bookings: any[] }>(
+      '/bookings/free-consult/overview',
+    ),
 
-  createFreeConsultationSlots: (slots: { date: string; startTime: string; endTime: string }[], consultantId: string) =>
-    request<any>('/bookings/slots', { method: 'POST', body: JSON.stringify({ resourceId: 'general-consultation', consultantId, slots }) }),
+  getFreeConsultWeek: (consultantId: string, from: string) =>
+    request<{ slots: { id: string; start: string; end: string; booked: boolean; bookingId: string | null; bookedBy: string | null }[]; busy: { start: string; end: string; kind: 'session' | 'blocked' }[] }>(
+      `/bookings/free-consult/week?consultantId=${encodeURIComponent(consultantId)}&from=${from}`,
+    ),
 
-  deleteFreeConsultationSlot: (slotId: string) =>
-    request<any>(`/bookings/slots/${slotId}`, { method: 'DELETE' }),
+  previewFreeConsultSlots: (input: { consultantId: string; startDate: string; weeks: number; weekdays: number[]; times: string[] }) =>
+    request<{ adding: number; skipped: { existing: number; clash: number; past: number } }>(
+      '/bookings/free-consult/slots/preview', { method: 'POST', body: JSON.stringify(input) },
+    ),
+
+  createFreeConsultSlots: (input: { consultantId: string; startDate: string; weeks: number; weekdays: number[]; times: string[] }) =>
+    request<{ added: number; skipped: { existing: number; clash: number; past: number } }>(
+      '/bookings/free-consult/slots', { method: 'POST', body: JSON.stringify(input) },
+    ),
+
+  removeFreeConsultSlot: (slotId: string) =>
+    request<any>(`/bookings/free-consult/slots/${slotId}`, { method: 'DELETE' }),
+
+  joinFreeConsult: (bookingId: string) =>
+    request<{ roomUrl: string | null; token: string | null; clientName: string; message: string | null }>(
+      `/bookings/free-consult/${bookingId}/join`,
+    ),
+
+  setFreeConsultOutcome: (bookingId: string, attended: boolean) =>
+    request<any>(`/bookings/free-consult/${bookingId}/outcome`, { method: 'POST', body: JSON.stringify({ attended }) }),
+
+  cancelFreeConsult: (bookingId: string, reason: string, reopen: boolean) =>
+    request<any>(`/bookings/free-consult/${bookingId}/cancel`, { method: 'POST', body: JSON.stringify({ reason, reopen }) }),
+
+  moveFreeConsult: (bookingId: string, slotId: string) =>
+    request<any>(`/bookings/free-consult/${bookingId}/move`, { method: 'POST', body: JSON.stringify({ slotId }) }),
 
   // ── Catalog (admin) ───────────────────────────────────────────────────────
   getCatalogCategories: () => request<any[]>('/catalog/categories'),
