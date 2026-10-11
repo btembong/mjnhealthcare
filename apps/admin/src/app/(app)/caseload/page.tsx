@@ -1,475 +1,224 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { PageHeader, Skeleton } from '@mjn/ui';
 import {
-  MagnifyingGlass, CaretUp, CaretDown, CaretUpDown, Plus,
-  Rows, Kanban, CalendarBlank, CheckSquare, Export, UserPlus,
-  X as XIcon,
+  MagnifyingGlass, Plus, Rows, Kanban, CheckSquare, Export, UserPlus, CaretLeft, CaretRight,
+  CheckCircle, X as XIcon,
 } from '@mjn/ui';
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  flexRender,
-  createColumnHelper,
-  type SortingState,
-} from '@tanstack/react-table';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';
 
-function statusLabel(s: string) {
-  return s?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) ?? '—';
-}
+// ── Types and helpers ─────────────────────────────────────────────────────────
 
-// SLA thresholds (days stuck in status before escalating)
-const SLA_THRESHOLDS: Record<string, { red: number; amber: number }> = {
-  PENDING_SIGNATURE: { red: 7,  amber: 3  },
-  ACTIVE:            { red: 90, amber: 60 },
-  ON_HOLD:           { red: 30, amber: 14 },
-};
-
-function getSLA(eng: Engagement): { label: string; color: string; dot: string } | null {
-  if (!eng.createdAt || !SLA_THRESHOLDS[eng.status]) return null;
-  const days = Math.floor((Date.now() - new Date(eng.createdAt).getTime()) / 86_400_000);
-  const t = SLA_THRESHOLDS[eng.status];
-  if (days >= t.red) return {
-    label: `${days}d — Overdue`,
-    color: 'bg-rose-100 text-rose-700 border-rose-200',
-    dot: 'bg-rose-500 animate-pulse',
-  };
-  if (days >= t.amber) return {
-    label: `${days}d — At risk`,
-    color: 'bg-amber-100 text-amber-700 border-amber-200',
-    dot: 'bg-amber-400',
-  };
-  return {
-    label: `${days}d — On track`,
-    color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    dot: 'bg-emerald-500',
-  };
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  ACTIVE: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  PENDING_SIGNATURE: 'bg-amber-100 text-amber-700 border-amber-200',
-  COMPLETED: 'bg-blue-100 text-blue-700 border-blue-200',
-  ON_HOLD: 'bg-orange-100 text-orange-700 border-orange-200',
-  TERMINATED: 'bg-rose-100 text-rose-700 border-rose-200',
-};
-
-type Engagement = {
+type Need = { key: string; label: string; side: 'us' | 'client' };
+type CaseRow = {
   id: string;
+  personId: string;
   status: string;
-  paymentMode?: string;
-  consultantId?: string;
-  consultantName?: string | null;
-  consultantEmail?: string | null;
-  createdAt?: string;
-  person?: { name?: string; email?: string; profession?: string };
+  createdAt: string;
+  person: { name?: string | null; email?: string | null; profession?: string | null } | null;
+  consultantId: string | null;
+  consultantName: string | null;
+  officerName: string | null;
+  stage: { done: number; total: number; current: string | null };
+  needs: Need[];
+  lane: 'us' | 'client' | 'progress' | 'hold' | 'closed';
+  quiet: boolean;
+  lastActivityAt: string;
+};
+type Overview = {
+  items: CaseRow[]; total: number; page: number; pageSize: number;
+  counts: { all: number; attention: number; unassigned: number; signature: number; hold: number };
+  consultants: { id: string; name: string }[];
 };
 
-const col = createColumnHelper<Engagement>();
+const STATUS: Record<string, { label: string; dot: string }> = {
+  PENDING_SIGNATURE: { label: 'Awaiting signature', dot: 'bg-accent' },
+  ACTIVE:            { label: 'Active',             dot: 'bg-secondary' },
+  ON_HOLD:           { label: 'On hold',            dot: 'bg-muted-foreground/50' },
+  COMPLETED:         { label: 'Completed',          dot: 'bg-primary' },
+  TERMINATED:        { label: 'Terminated',         dot: 'bg-rose-500' },
+};
 
-const columns = [
-  col.accessor((row) => row.person?.name ?? '', {
-    id: 'client',
-    header: 'Client',
-    cell: (info) => (
-      <div>
-        <p className="font-medium text-foreground text-sm">{info.row.original.person?.name ?? '—'}</p>
-        <p className="text-[11px] text-muted-foreground">{info.row.original.person?.email ?? info.row.original.id}</p>
-      </div>
-    ),
-  }),
-  col.accessor((row) => row.person?.profession ?? '', {
-    id: 'profession',
-    header: 'Profession',
-    cell: (info) => <span className="text-sm text-muted-foreground capitalize">{info.getValue() || '—'}</span>,
-  }),
-  col.accessor('status', {
-    header: 'Status',
-    cell: (info) => (
-      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide border ${STATUS_STYLES[info.getValue()] ?? 'bg-muted text-muted-foreground border-border'}`}>
-        {statusLabel(info.getValue())}
-      </span>
-    ),
-  }),
-  col.accessor((row) => row.consultantName ?? row.consultantId ?? '', {
-    id: 'consultant',
-    header: 'Consultant',
-    cell: (info) => (
-      <span className="text-xs text-muted-foreground">
-        {info.row.original.consultantName ?? (info.row.original.consultantId ? '—' : '—')}
-      </span>
-    ),
-  }),
-  col.accessor('paymentMode', {
-    header: 'Payment mode',
-    cell: (info) => <span className="text-xs text-muted-foreground">{info.getValue() ?? '—'}</span>,
-  }),
-  col.accessor('createdAt', {
-    header: 'Created',
-    cell: (info) => (
-      <span className="text-xs text-muted-foreground">
-        {info.getValue() ? new Date(info.getValue()!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-      </span>
-    ),
-    sortingFn: 'datetime',
-  }),
-  col.display({
-    id: 'sla',
-    header: 'SLA',
-    cell: (info) => {
-      const sla = getSLA(info.row.original);
-      if (!sla) return <span className="text-xs text-muted-foreground/40">—</span>;
-      return (
-        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sla.color}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${sla.dot}`} />
-          {sla.label}
-        </span>
-      );
-    },
-  }),
+const CHIPS: { key: string; label: string; count: keyof Overview['counts'] }[] = [
+  { key: 'attention', label: 'Needs attention', count: 'attention' },
+  { key: 'unassigned', label: 'Unassigned', count: 'unassigned' },
+  { key: 'signature', label: 'Awaiting signature', count: 'signature' },
+  { key: 'hold', label: 'On hold', count: 'hold' },
+  { key: 'all', label: 'All', count: 'all' },
 ];
 
-function SortIcon({ state }: { state: false | 'asc' | 'desc' }) {
-  if (state === 'asc') return <CaretUp className="h-3 w-3" />;
-  if (state === 'desc') return <CaretDown className="h-3 w-3" />;
-  return <CaretUpDown className="h-3 w-3 text-muted-foreground/40" />;
+const LANES: { key: CaseRow['lane']; label: string; hint: string }[] = [
+  { key: 'us', label: 'Waiting on us', hint: 'Your team’s work' },
+  { key: 'client', label: 'Waiting on client', hint: 'Chase if it goes quiet' },
+  { key: 'progress', label: 'In progress', hint: 'Nothing blocking' },
+  { key: 'hold', label: 'On hold', hint: 'Paused' },
+];
+
+// Which part of the case a "needs" chip opens.
+const NEED_TAB: Record<string, string> = {
+  documents: 'documents', replace: 'documents', message: 'messages', payment: 'payments', escalation: 'activity',
+};
+
+const PAGE_SIZE = 25;
+
+function ago(date: string) {
+  const days = Math.floor((Date.now() - new Date(date).getTime()) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 60) return `${days} days ago`;
+  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-const KANBAN_COLUMNS = [
-  { key: 'PENDING_SIGNATURE', label: 'Pending Signature', dot: 'bg-amber-400' },
-  { key: 'ACTIVE',            label: 'Active',            dot: 'bg-emerald-500' },
-  { key: 'ON_HOLD',           label: 'On Hold',           dot: 'bg-slate-400' },
-  { key: 'COMPLETED',         label: 'Completed',         dot: 'bg-slate-500' },
-  { key: 'TERMINATED',        label: 'Terminated',        dot: 'bg-slate-400' },
-];
+function title(s?: string | null) {
+  return (s ?? '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
-function KanbanCard({ eng, onClick }: { eng: Engagement; onClick: () => void }) {
-  const sla = getSLA(eng);
-  const initials = (eng.person?.name ?? '??').slice(0, 2).toUpperCase();
-  const consultantInitials = eng.consultantName ? eng.consultantName.slice(0, 2).toUpperCase() : null;
-  const shortId = eng.id.slice(0, 8).toUpperCase();
-  const created = eng.createdAt
-    ? new Date(eng.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    : null;
-
-  const urgencyBorder =
-    sla?.label.includes('Overdue') ? 'border-l-rose-400' :
-    sla?.label.includes('risk') ? 'border-l-amber-300' :
-    'border-l-transparent';
-
+function StageBar({ stage }: { stage: CaseRow['stage'] }) {
+  if (stage.total === 0) return <p className="text-xs text-muted-foreground">No stages set up</p>;
+  const pct = Math.round((stage.done / stage.total) * 100);
   return (
-    <div
-      onClick={onClick}
-      className={`group cursor-pointer rounded-xl border border-slate-200 border-l-4 bg-white p-3.5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-slate-300 transition-all duration-150 ${urgencyBorder}`}
-    >
-      {/* Client row */}
-      <div className="flex items-start gap-2.5 mb-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary ring-2 ring-primary/10">
-          {initials}
+    <div className="min-w-0">
+      <div className="flex items-center gap-2">
+        <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full gradient-hero" style={{ width: `${pct}%` }} />
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-slate-800 leading-tight">
-            {eng.person?.name ?? '—'}
-          </p>
-          <p className="truncate text-[11px] text-slate-500 mt-0.5">
-            {eng.person?.email ?? `#${shortId}`}
-          </p>
-        </div>
+        <span className="whitespace-nowrap text-xs font-semibold text-foreground">{stage.done} of {stage.total}</span>
       </div>
-
-      {/* Tags row */}
-      <div className="flex flex-wrap items-center gap-1.5 mb-3">
-        {eng.person?.profession && (
-          <span className="rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-semibold text-primary capitalize">
-            {eng.person.profession}
-          </span>
-        )}
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 font-mono text-[10px] text-slate-500">
-          #{shortId}
-        </span>
-        {eng.paymentMode && (
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 capitalize">
-            {eng.paymentMode.toLowerCase()}
-          </span>
-        )}
-      </div>
-
-      {/* Consultant row */}
-      <div className="flex items-center justify-between mb-2.5">
-        {consultantInitials ? (
-          <div className="flex items-center gap-1.5">
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[9px] font-bold text-slate-600">
-              {consultantInitials}
-            </div>
-            <span className="text-[11px] text-slate-500 font-medium truncate max-w-[120px]">
-              {eng.consultantName}
-            </span>
-          </div>
-        ) : (
-          <span className="text-[11px] text-slate-400 italic">Unassigned</span>
-        )}
-        {created && (
-          <div className="flex items-center gap-1 text-[10px] text-slate-400">
-            <CalendarBlank className="h-3 w-3" />
-            {created}
-          </div>
-        )}
-      </div>
-
-      {/* SLA badge */}
-      {sla && (
-        <div className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sla.color}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${sla.dot}`} />
-          {sla.label}
-        </div>
-      )}
+      <p className="mt-0.5 truncate text-xs text-muted-foreground">{stage.current ?? 'All stages complete'}</p>
     </div>
   );
 }
 
-function KanbanView({ engagements, onCardClick }: { engagements: Engagement[]; onCardClick: (id: string) => void }) {
-  const byStatus = useMemo(() => {
-    const map: Record<string, Engagement[]> = {};
-    for (const col of KANBAN_COLUMNS) map[col.key] = [];
-    for (const eng of engagements) {
-      if (map[eng.status]) map[eng.status].push(eng);
-    }
-    return map;
-  }, [engagements]);
-
-  const totalOverdue = useMemo(() =>
-    engagements.filter((e) => getSLA(e)?.label.includes('Overdue')).length,
-    [engagements],
-  );
-  const totalAtRisk = useMemo(() =>
-    engagements.filter((e) => getSLA(e)?.label.includes('risk')).length,
-    [engagements],
-  );
-
+function Needs({ row, onOpen }: { row: CaseRow; onOpen: (tab?: string) => void }) {
+  if (row.needs.length === 0) {
+    return <span className="text-xs text-muted-foreground">{row.lane === 'closed' ? '—' : 'Nothing waiting'}</span>;
+  }
   return (
-    <div className="space-y-4">
-      {/* Board summary strip */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 shadow-sm">
-          <span className="text-xs text-slate-500 font-medium">Total</span>
-          <span className="text-sm font-bold text-slate-800">{engagements.length}</span>
-        </div>
-        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 shadow-sm">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span className="text-xs text-emerald-700 font-medium">Active</span>
-          <span className="text-sm font-bold text-emerald-800">{(byStatus['ACTIVE'] ?? []).length}</span>
-        </div>
-        {totalOverdue > 0 && (
-          <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 shadow-sm">
-            <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
-            <span className="text-xs text-rose-700 font-medium">Overdue SLA</span>
-            <span className="text-sm font-bold text-rose-800">{totalOverdue}</span>
-          </div>
-        )}
-        {totalAtRisk > 0 && (
-          <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 shadow-sm">
-            <span className="h-2 w-2 rounded-full bg-amber-400" />
-            <span className="text-xs text-amber-700 font-medium">At Risk</span>
-            <span className="text-sm font-bold text-amber-800">{totalAtRisk}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Board */}
-      <div className="flex gap-3 overflow-x-auto pb-4">
-        {KANBAN_COLUMNS.map((col) => {
-          const cards = byStatus[col.key] ?? [];
-          const colOverdue = cards.filter((e) => getSLA(e)?.label.includes('Overdue')).length;
-          const colAtRisk = cards.filter((e) => getSLA(e)?.label.includes('risk')).length;
-
-          return (
-            <div key={col.key} className="flex w-[280px] shrink-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm">
-              {/* Column header */}
-              <div className="px-4 pt-3.5 pb-3 bg-white border-b border-slate-100">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className={`h-2 w-2 rounded-full ${col.dot}`} />
-                    <span className="text-sm font-semibold text-slate-700">{col.label}</span>
-                  </div>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-500">
-                    {cards.length}
-                  </span>
-                </div>
-                {/* SLA summary */}
-                {(colOverdue > 0 || colAtRisk > 0) && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {colOverdue > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-200 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-                        {colOverdue} overdue
-                      </span>
-                    )}
-                    {colAtRisk > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                        {colAtRisk} at risk
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Cards */}
-              <div className="flex flex-col gap-2 p-3 overflow-y-auto" style={{ maxHeight: 580 }}>
-                {cards.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 py-10 gap-2">
-                    <span className="text-2xl font-black text-slate-300">—</span>
-                    <p className="text-xs font-medium text-slate-400">No cases</p>
-                  </div>
-                ) : (
-                  // Overdue first, then at-risk, then on-track
-                  [...cards]
-                    .sort((a, b) => {
-                      const order = (e: Engagement) =>
-                        getSLA(e)?.label.includes('Overdue') ? 0 :
-                        getSLA(e)?.label.includes('risk') ? 1 : 2;
-                      return order(a) - order(b);
-                    })
-                    .map((eng) => (
-                      <KanbanCard key={eng.id} eng={eng} onClick={() => onCardClick(eng.id)} />
-                    ))
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <div className="flex flex-col items-start gap-1">
+      {row.needs.slice(0, 3).map((n) => (
+        <button
+          key={n.key + n.label}
+          onClick={(e) => { e.stopPropagation(); onOpen(NEED_TAB[n.key]); }}
+          className="inline-flex items-center gap-1.5 text-left text-xs font-semibold text-foreground hover:text-primary hover:underline"
+          title={n.side === 'us' ? 'Waiting on your team' : 'Waiting on the client'}
+        >
+          <span className={`h-2 w-2 shrink-0 rounded-full ${n.side === 'us' ? 'bg-accent' : 'bg-primary/40'}`} />
+          {n.label}
+        </button>
+      ))}
+      {row.needs.length > 3 && <span className="text-xs text-muted-foreground">+{row.needs.length - 3} more</span>}
     </div>
   );
 }
+
+function Activity({ row }: { row: CaseRow }) {
+  return (
+    <div className="min-w-0">
+      <p className="flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-foreground" title={row.quiet ? 'No recorded activity for a while' : undefined}>
+        {row.quiet && <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />}
+        {ago(row.lastActivityAt)}
+      </p>
+      <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.consultantName ?? 'Unassigned'}</p>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CaseloadPage() {
   const router = useRouter();
   const { me } = useAdmin();
   const isConsultant = (me?.role as string)?.toUpperCase() === 'CONSULTANT';
 
-  const [engagements, setEngagements] = useState<Engagement[]>([]);
+  const [view, setView] = useState<'list' | 'board'>('list');
+  const [chip, setChip] = useState('attention');
+  const [status, setStatus] = useState('');
+  const [consultant, setConsultant] = useState('');
+  const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
-  const [globalFilter, setGlobalFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [consultantFilter, setConsultantFilter] = useState('ALL');
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
-  const [view, setView] = useState<'table' | 'kanban'>('table');
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [bulkAssignId, setBulkAssignId] = useState('');
   const [bulkWorking, setBulkWorking] = useState(false);
 
-  const [consultants, setConsultants] = useState<any[]>([]);
-
   useEffect(() => {
-    api.getAllEngagements()
-      .then(setEngagements)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-    api.getConsultants(true).then(setConsultants).catch(() => {});
+    try { if (localStorage.getItem('mjn_caseload_view') === 'board') setView('board'); } catch { /* ignore */ }
   }, []);
+  useEffect(() => { const t = setTimeout(() => setQ(search), 300); return () => clearTimeout(t); }, [search]);
+  useEffect(() => { setPage(1); }, [chip, status, consultant, q, view]);
+  useEffect(() => {
+    if (!isConsultant) api.getConsultants(true).then((list) => setProfiles(list ?? [])).catch(() => {});
+  }, [isConsultant]);
 
-  const consultantOptions = useMemo(() => {
-    const seen = new Set<string>();
-    const opts: { label: string; email: string }[] = [];
-    for (const e of engagements) {
-      if (e.consultantEmail && !seen.has(e.consultantEmail)) {
-        seen.add(e.consultantEmail);
-        opts.push({ label: e.consultantName ?? e.consultantEmail, email: e.consultantEmail });
-      }
-    }
-    return opts.sort((a, b) => a.label.localeCompare(b.label));
-  }, [engagements]);
+  const load = useCallback(() => {
+    setLoading(true);
+    api.getCaseloadOverview(
+      view === 'board'
+        ? { view: 'board', consultant, q }
+        : { chip, status, consultant, q, page, pageSize: PAGE_SIZE },
+    )
+      .then(setData)
+      .catch((e: any) => toast.error(e.message ?? 'Could not load the caseload.'))
+      .finally(() => setLoading(false));
+  }, [view, chip, status, consultant, q, page]);
 
-  const filtered = useMemo(() => {
-    let result = engagements;
-    // Consultants only see their own cases — not overridable
-    if (isConsultant && me?.email) {
-      result = result.filter((e) => e.consultantEmail === me.email);
-    } else {
-      if (consultantFilter !== 'ALL') {
-        if (consultantFilter === 'UNASSIGNED') {
-          result = result.filter((e) => !e.consultantEmail);
-        } else {
-          result = result.filter((e) => e.consultantEmail === consultantFilter);
-        }
-      }
-    }
-    if (statusFilter !== 'ALL') result = result.filter((e) => e.status === statusFilter);
-    return result;
-  }, [engagements, statusFilter, consultantFilter, isConsultant, me?.email]);
+  useEffect(() => { load(); }, [load]);
 
-  const table = useReactTable({
-    data: filtered,
-    columns,
-    state: { globalFilter, sorting },
-    onGlobalFilterChange: setGlobalFilter,
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 20 } },
-    globalFilterFn: (row, _colId, value) => {
-      const q = String(value).toLowerCase();
-      return (
-        (row.original.person?.name ?? '').toLowerCase().includes(q) ||
-        (row.original.person?.email ?? '').toLowerCase().includes(q) ||
-        row.original.id.toLowerCase().includes(q)
-      );
-    },
-  });
+  function changeView(next: 'list' | 'board') {
+    setView(next);
+    try { localStorage.setItem('mjn_caseload_view', next); } catch { /* ignore */ }
+  }
 
-  function toggleSelect(id: string) {
+  const open = (id: string, tab?: string) => router.push(`/caseload/${id}${tab ? `?tab=${tab}` : ''}`);
+
+  const rows = data?.items ?? [];
+  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
+
+  function toggle(id: string) {
+    setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  }
+  function toggleAll() {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (allSelected) rows.forEach((r) => next.delete(r.id)); else rows.forEach((r) => next.add(r.id));
       return next;
     });
   }
 
-  function toggleSelectAll() {
-    const visibleIds = table.getRowModel().rows.map((r) => r.original.id);
-    setSelected((prev) => {
-      if (visibleIds.every((id) => prev.has(id))) {
-        const next = new Set(prev);
-        visibleIds.forEach((id) => next.delete(id));
-        return next;
-      }
-      return new Set([...prev, ...visibleIds]);
-    });
-  }
-
-  async function handleBulkAssign() {
+  async function bulkAssign() {
     if (!bulkAssignId || selected.size === 0) return;
     setBulkWorking(true);
     try {
       await Promise.all([...selected].map((id) => api.assignConsultant(id, bulkAssignId)));
-      const updated = await api.getAllEngagements();
-      setEngagements(updated);
-      setSelected(new Set());
-      setBulkAssignId('');
-    } catch (e: any) { alert(e.message); } finally { setBulkWorking(false); }
+      toast.success(`${selected.size} case${selected.size !== 1 ? 's' : ''} assigned.`);
+      setSelected(new Set()); setBulkAssignId('');
+      load();
+    } catch (e: any) {
+      toast.error(e.message ?? 'Could not assign.');
+    } finally {
+      setBulkWorking(false);
+    }
   }
 
-  function handleBulkExport() {
-    const rows = filtered.filter((e) => selected.has(e.id));
-    const csv = [
-      'ID,Client,Email,Profession,Status,Consultant,Created',
-      ...rows.map((e) => [
-        e.id, e.person?.name ?? '', e.person?.email ?? '',
-        e.person?.profession ?? '', e.status,
-        e.consultantName ?? '', e.createdAt ?? '',
-      ].join(',')),
-    ].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+  function exportCsv() {
+    const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [
+      ['Case', 'Client', 'Email', 'Profession', 'Status', 'Stage', 'Waiting on', 'Consultant', 'Last activity'].map(cell).join(','),
+      ...rows.filter((r) => selected.has(r.id)).map((r) => [
+        r.id, r.person?.name, r.person?.email, r.person?.profession, STATUS[r.status]?.label ?? r.status,
+        r.stage.total ? `${r.stage.done} of ${r.stage.total}${r.stage.current ? ` - ${r.stage.current}` : ''}` : '',
+        r.needs.map((n) => n.label).join('; '), r.consultantName, new Date(r.lastActivityAt).toISOString().slice(0, 10),
+      ].map(cell).join(',')),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `caseload-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -477,223 +226,215 @@ export default function CaseloadPage() {
     setSelected(new Set());
   }
 
-  return (
-    <div className="space-y-5">
-        <PageHeader
-          title="Caseload"
-          subtitle={isConsultant ? `${filtered.length} case${filtered.length !== 1 ? 's' : ''} assigned to you` : `${engagements.length} total engagements`}
-          actions={
-            <button
-              onClick={() => router.push('/caseload/new')}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-[#00A896] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
-            >
-              <Plus className="h-4 w-4" /> New engagement
-            </button>
-          }
-        />
+  const counts = data?.counts;
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  const filtering = !!(q || status || consultant);
 
-        {/* Filters + view toggle */}
-        <div data-tour="caseload-filters" className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[200px]">
-            <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={globalFilter ?? ''}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder="Search by name, email or ID…"
-              className="h-10 w-full rounded-xl border border-border bg-white pl-9 pr-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary"
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Caseload"
+        subtitle={counts
+          ? `${counts.all} case${counts.all !== 1 ? 's' : ''} · ${counts.attention} need attention · ${counts.unassigned} unassigned`
+          : 'Loading cases…'}
+        actions={
+          <button
+            onClick={() => router.push('/caseload/new')}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary/90"
           >
-            <option value="ALL">All statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="PENDING_SIGNATURE">Pending signature</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="ON_HOLD">On hold</option>
-            <option value="TERMINATED">Terminated</option>
+            <Plus className="h-4 w-4" /> New engagement
+          </button>
+        }
+      />
+
+      {/* Quick filters */}
+      {view === 'list' && (
+        <div data-tour="caseload-chips" className="flex flex-wrap gap-1.5">
+          {CHIPS.map((c) => (
+            <button
+              key={c.key}
+              onClick={() => setChip(c.key)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${chip === c.key ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-white text-muted-foreground hover:text-foreground'}`}
+            >
+              {c.label}
+              {counts && <span className="ml-1.5 tabular-nums opacity-70">{counts[c.count]}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Search, filters, view */}
+      <div data-tour="caseload-filters" className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[200px] flex-1">
+          <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            id="caseload-search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search client or case reference"
+            className="h-10 w-full rounded-xl border border-border bg-white pl-9 pr-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+        {!isConsultant && (
+          <select id="caseload-consultant" value={consultant} onChange={(e) => setConsultant(e.target.value)} className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary">
+            <option value="">All consultants</option>
+            <option value="UNASSIGNED">Unassigned</option>
+            {(data?.consultants ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          {!isConsultant && (
-            <select
-              value={consultantFilter}
-              onChange={(e) => setConsultantFilter(e.target.value)}
-              className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary"
+        )}
+        {view === 'list' && (
+          <select id="caseload-status" value={status} onChange={(e) => setStatus(e.target.value)} className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary">
+            <option value="">All statuses</option>
+            {Object.entries(STATUS).map(([key, s]) => <option key={key} value={key}>{s.label}</option>)}
+          </select>
+        )}
+        <div className="flex overflow-hidden rounded-xl border border-border bg-white">
+          {([['list', 'List', Rows], ['board', 'Board', Kanban]] as const).map(([key, label, Icon]) => (
+            <button
+              key={key}
+              onClick={() => changeView(key)}
+              className={`flex h-10 items-center gap-1.5 px-3 text-sm font-semibold transition-colors ${view === key ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}`}
             >
-              <option value="ALL">All consultants</option>
-              <option value="UNASSIGNED">Unassigned</option>
-              {consultantOptions.map((opt) => (
-                <option key={opt.email} value={opt.email}>{opt.label}</option>
-              ))}
-            </select>
+              <Icon className="h-4 w-4" /> <span className="hidden sm:inline">{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading && !data ? (
+        <div className="space-y-2">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
+      ) : view === 'board' ? (
+        /* ── Board: grouped by who the case is waiting on ── */
+        <div data-tour="caseload-table" className={`flex gap-3 overflow-x-auto pb-3 ${loading ? 'opacity-60' : ''}`}>
+          {LANES.map((lane) => {
+            const cards = rows.filter((r) => r.lane === lane.key);
+            return (
+              <div key={lane.key} className="flex w-[270px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-muted/30">
+                <div className="border-b border-border bg-white px-4 py-3">
+                  <p className="flex items-center justify-between text-sm font-bold text-foreground">
+                    {lane.label}
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold tabular-nums text-muted-foreground">{cards.length}</span>
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{lane.hint}</p>
+                </div>
+                <div className="flex max-h-[62vh] flex-col gap-2 overflow-y-auto p-2.5">
+                  {cards.length === 0 && <p className="py-8 text-center text-xs text-muted-foreground">No cases</p>}
+                  {cards.map((r) => (
+                    <div
+                      key={r.id}
+                      onClick={() => open(r.id)}
+                      className="cursor-pointer rounded-xl border border-border bg-white p-3 transition-shadow hover:shadow-md"
+                    >
+                      <p className="truncate text-sm font-bold text-foreground">{r.person?.name ?? 'Unknown client'}</p>
+                      <p className="mb-2 truncate text-xs text-muted-foreground">{title(r.person?.profession) || 'Profession not set'}</p>
+                      <StageBar stage={r.stage} />
+                      {r.needs.length > 0 && <div className="mt-2"><Needs row={r} onOpen={(tab) => open(r.id, tab)} /></div>}
+                      <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border/70 pt-2 text-xs text-muted-foreground">
+                        <span className="truncate">{r.consultantName ?? 'Unassigned'}</span>
+                        <span className="flex shrink-0 items-center gap-1.5 font-semibold text-foreground">
+                          {r.quiet && <span className="h-2 w-2 rounded-full bg-accent" />}{ago(r.lastActivityAt)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-white p-12 text-center">
+          {chip === 'attention' && !filtering ? (
+            <>
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary/10">
+                <CheckCircle className="h-6 w-6 text-secondary" weight="fill" />
+              </div>
+              <h3 className="font-bold text-foreground">Nothing needs attention</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Every open case is moving and has nothing waiting.</p>
+              <button onClick={() => setChip('all')} className="mt-4 text-sm font-bold text-primary hover:underline">Show all cases</button>
+            </>
+          ) : (
+            <>
+              <h3 className="font-bold text-foreground">No cases match</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Try a different filter or search.</p>
+            </>
           )}
-          {/* View toggle */}
-          <div className="flex items-center rounded-xl border border-border bg-white overflow-hidden">
-            <button
-              onClick={() => setView('table')}
-              className={`flex items-center gap-1.5 px-3 h-10 text-sm font-medium transition-colors ${view === 'table' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
-              title="Table view"
-            >
-              <Rows className="h-4 w-4" />
-              <span className="hidden sm:inline">Table</span>
-            </button>
-            <button
-              onClick={() => setView('kanban')}
-              className={`flex items-center gap-1.5 px-3 h-10 text-sm font-medium transition-colors ${view === 'kanban' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
-              title="Kanban view"
-            >
-              <Kanban className="h-4 w-4" />
-              <span className="hidden sm:inline">Kanban</span>
-            </button>
+        </div>
+      ) : (
+        /* ── List ── */
+        <div data-tour="caseload-table" className="overflow-hidden rounded-2xl border border-border bg-white">
+          {selected.size > 0 && (
+            <div className="flex flex-wrap items-center gap-3 border-b border-border bg-primary/5 px-4 py-2.5">
+              <span className="flex items-center gap-2 text-sm font-bold text-primary"><CheckSquare className="h-4 w-4" /> {selected.size} selected</span>
+              {!isConsultant && (
+                <span className="flex items-center gap-2">
+                  <select id="bulk-consultant" value={bulkAssignId} onChange={(e) => setBulkAssignId(e.target.value)} className="h-8 rounded-lg border border-border bg-white px-2 text-xs outline-none focus:border-primary">
+                    <option value="">Assign consultant…</option>
+                    {profiles.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <button onClick={bulkAssign} disabled={!bulkAssignId || bulkWorking} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-primary/90 disabled:opacity-40">
+                    <UserPlus className="h-3.5 w-3.5" /> {bulkWorking ? 'Assigning…' : 'Assign'}
+                  </button>
+                </span>
+              )}
+              <button onClick={exportCsv} className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold text-foreground hover:bg-muted/50">
+                <Export className="h-3.5 w-3.5" /> Export CSV
+              </button>
+              <button onClick={() => setSelected(new Set())} className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                <XIcon className="h-3.5 w-3.5" /> Clear
+              </button>
+            </div>
+          )}
+
+          <div className={`overflow-x-auto ${loading ? 'opacity-60' : ''}`}>
+            <table className="w-full min-w-[46rem] text-sm">
+              <thead className="border-b border-border bg-muted/40">
+                <tr className="text-left text-xs font-semibold text-muted-foreground">
+                  <th className="w-10 px-4 py-3">
+                    <input type="checkbox" aria-label="Select all on this page" className="rounded border-border accent-primary" checked={allSelected} onChange={toggleAll} />
+                  </th>
+                  <th className="px-4 py-3">Client</th>
+                  <th className="px-4 py-3">Stage</th>
+                  <th className="px-4 py-3">Needs</th>
+                  <th className="px-4 py-3">Last activity</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/70">
+                {rows.map((r) => (
+                  <tr key={r.id} onClick={() => open(r.id)} className={`cursor-pointer align-top transition-colors hover:bg-muted/30 ${selected.has(r.id) ? 'bg-primary/5' : ''}`}>
+                    <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" aria-label={`Select ${r.person?.name ?? 'case'}`} className="rounded border-border accent-primary" checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <p className="font-semibold text-foreground">{r.person?.name ?? 'Unknown client'}</p>
+                      <p className="text-xs text-muted-foreground">{title(r.person?.profession) || r.person?.email || '—'}</p>
+                    </td>
+                    <td className="px-4 py-3.5"><StageBar stage={r.stage} /></td>
+                    <td className="px-4 py-3.5"><Needs row={r} onOpen={(tab) => open(r.id, tab)} /></td>
+                    <td className="px-4 py-3.5"><Activity row={r} /></td>
+                    <td className="px-4 py-3.5">
+                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-foreground">
+                        <span className={`h-2 w-2 rounded-full ${STATUS[r.status]?.dot ?? 'bg-muted-foreground/40'}`} />
+                        {STATUS[r.status]?.label ?? title(r.status)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
+            <span>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, data?.total ?? 0)} of {data?.total ?? 0}</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} aria-label="Previous page" className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted disabled:opacity-30"><CaretLeft className="h-4 w-4" /></button>
+              <span className="px-1 font-semibold text-foreground">Page {page} of {totalPages}</span>
+              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} aria-label="Next page" className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted disabled:opacity-30"><CaretRight className="h-4 w-4" /></button>
+            </div>
           </div>
         </div>
-
-        {loading ? (
-          <div className="space-y-2">
-            {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}
-          </div>
-        ) : view === 'kanban' ? (
-          <KanbanView engagements={filtered} onCardClick={(id) => router.push('/caseload/' + id)} />
-        ) : table.getRowModel().rows.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-white p-10 text-center">
-            <p className="text-sm text-muted-foreground">No engagements match your filters.</p>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-border bg-white overflow-hidden shadow-sm">
-            {/* Bulk action bar */}
-            {selected.size > 0 && (
-              <div className="flex items-center gap-3 border-b border-border bg-primary/5 px-4 py-2.5 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <CheckSquare className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold text-primary">{selected.size} selected</span>
-                </div>
-                <div className="flex items-center gap-2 flex-1 flex-wrap">
-                  {!isConsultant && (
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={bulkAssignId}
-                        onChange={(e) => setBulkAssignId(e.target.value)}
-                        className="h-8 rounded-lg border border-border bg-white px-2 text-xs outline-none focus:border-primary"
-                      >
-                        <option value="">Assign consultant…</option>
-                        {consultants.map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={handleBulkAssign}
-                        disabled={!bulkAssignId || bulkWorking}
-                        className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-40 transition-colors"
-                      >
-                        <UserPlus className="h-3.5 w-3.5" />
-                        {bulkWorking ? 'Assigning…' : 'Assign'}
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    onClick={handleBulkExport}
-                    className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors"
-                  >
-                    <Export className="h-3.5 w-3.5" />
-                    Export CSV
-                  </button>
-                  <button
-                    onClick={() => setSelected(new Set())}
-                    className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <XIcon className="h-3.5 w-3.5" /> Clear
-                  </button>
-                </div>
-              </div>
-            )}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 border-b border-border">
-                  {table.getHeaderGroups().map((hg) => (
-                    <tr key={hg.id} className="text-left text-xs text-muted-foreground">
-                      <th className="w-10 px-4 py-3">
-                        <input
-                          type="checkbox"
-                          className="rounded border-border accent-primary"
-                          checked={table.getRowModel().rows.length > 0 && table.getRowModel().rows.every((r) => selected.has(r.original.id))}
-                          onChange={toggleSelectAll}
-                        />
-                      </th>
-                      {hg.headers.map((header) => (
-                        <th
-                          key={header.id}
-                          className="px-4 py-3 font-medium select-none"
-                          style={{ width: header.getSize() }}
-                        >
-                          {header.isPlaceholder ? null : (
-                            <button
-                              className={`flex items-center gap-1 ${header.column.getCanSort() ? 'cursor-pointer hover:text-foreground' : ''}`}
-                              onClick={header.column.getToggleSortingHandler()}
-                            >
-                              {flexRender(header.column.columnDef.header, header.getContext())}
-                              {header.column.getCanSort() && (
-                                <SortIcon state={header.column.getIsSorted()} />
-                              )}
-                            </button>
-                          )}
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {table.getRowModel().rows.map((row) => (
-                    <tr
-                      key={row.id}
-                      className={`hover:bg-muted/20 transition-colors cursor-pointer ${selected.has(row.original.id) ? 'bg-primary/5' : ''}`}
-                    >
-                      <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); toggleSelect(row.original.id); }}>
-                        <input
-                          type="checkbox"
-                          className="rounded border-border accent-primary"
-                          checked={selected.has(row.original.id)}
-                          onChange={() => toggleSelect(row.original.id)}
-                        />
-                      </td>
-                      {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="px-4 py-3" onClick={() => router.push('/caseload/' + row.original.id)}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between border-t border-border px-4 py-3">
-              <p className="text-xs text-muted-foreground">
-                Showing {table.getRowModel().rows.length} of {filtered.length} engagements
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  Previous
-                </button>
-                <span className="text-xs text-muted-foreground">
-                  Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-                </span>
-                <button
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+      )}
     </div>
   );
 }

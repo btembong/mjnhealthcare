@@ -1,6 +1,6 @@
 import { StaffOnly, CurrentUser, AuthUser } from '../auth/access';
 import { AccessService } from '../auth/access.service';
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, HttpCode, HttpStatus, Req, Res } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards, HttpCode, HttpStatus, Req, Res, BadRequestException } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsString, IsOptional } from 'class-validator';
@@ -8,6 +8,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { EngagementService } from './engagement.service';
+import { EngagementOverviewService } from './engagement-overview.service';
+
+const STATUSES = ['PENDING_SIGNATURE', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'TERMINATED'];
 
 class CreateEngagementDto {
   @IsString()
@@ -40,6 +43,7 @@ class SendMessageDto {
 export class EngagementController {
   constructor(
     private readonly engagementService: EngagementService,
+    private readonly overviewService: EngagementOverviewService,
     private readonly access: AccessService,
   ) {}
 
@@ -51,6 +55,27 @@ export class EngagementController {
     const engagements = await this.engagementService.findAll();
     const scope = await this.access.consultantScope(user);
     return scope ? engagements.filter((e: any) => scope.canSeeEngagement(e)) : engagements;
+  }
+
+  // Declared before ':id' so 'overview' is not read as an engagement id.
+  @ApiOperation({ summary: 'Caseload: each case with its stage, what it is waiting on and last activity' })
+  @StaffOnly()
+  @Get('overview')
+  async overview(
+    @CurrentUser() user: AuthUser,
+    @Query('chip') chip?: string,
+    @Query('status') status?: string,
+    @Query('consultant') consultant?: string,
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('view') view?: string,
+  ) {
+    const scope = await this.access.consultantScope(user);
+    return this.overviewService.overview(
+      { chip, status, consultant, q, page: Number(page), pageSize: Number(pageSize), view },
+      scope,
+    );
   }
 
   @ApiOperation({ summary: 'List engagements for a client' })
@@ -65,6 +90,14 @@ export class EngagementController {
   async findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     await this.access.assertEngagement(user, id);
     return this.engagementService.findById(id);
+  }
+
+  @ApiOperation({ summary: 'One case: stage, what it is waiting on and last activity' })
+  @StaffOnly()
+  @Get(':id/summary')
+  async summary(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertEngagement(user, id);
+    return this.overviewService.summary(id);
   }
 
   @ApiOperation({ summary: 'Create engagement and assign consultant' })
@@ -108,9 +141,10 @@ export class EngagementController {
   @ApiOperation({ summary: 'Update engagement status' })
   @StaffOnly()
   @Patch(':id/status')
-  async updateStatus(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { status: string }) {
+  async updateStatus(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { status: string; reason?: string }) {
     await this.access.assertEngagement(user, id);
-    return this.engagementService.updateStatus(id, body.status);
+    if (!STATUSES.includes(body.status)) throw new BadRequestException('Unknown status.');
+    return this.engagementService.updateStatus(id, body.status, user.id, body.reason);
   }
 
   @ApiOperation({ summary: 'Add a milestone to an engagement' })

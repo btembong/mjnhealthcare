@@ -462,6 +462,18 @@ export const api = {
 
   // ── Engagements (admin) ───────────────────────────────────────────────────
   getEngagementById: (id: string) => request<any>(`/engagements/${id}`),
+
+  getCaseloadOverview: (params: { chip?: string; status?: string; consultant?: string; q?: string; page?: number; pageSize?: number; view?: string }) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') qs.set(k, String(v)); });
+    return request<{
+      items: any[]; total: number; page: number; pageSize: number;
+      counts: { all: number; attention: number; unassigned: number; signature: number; hold: number };
+      consultants: { id: string; name: string }[];
+    }>(`/engagements/overview?${qs.toString()}`);
+  },
+
+  getEngagementSummary: (id: string) => request<any>(`/engagements/${id}/summary`),
   getClientEngagements: (personId: string) => request<any[]>(`/engagements/client/${personId}`),
   sendDocumentChecklist: (engagementId: string, pathwayKey: string) =>
     request<any>(`/engagements/${engagementId}/send-checklist`, { method: 'POST', body: JSON.stringify({ pathwayKey }) }),
@@ -478,10 +490,10 @@ export const api = {
   sendEngagementLetter: (engagementId: string) =>
     request<any>(`/engagements/${engagementId}/send-signature`, { method: 'POST' }),
 
-  updateEngagementStatus: (engagementId: string, status: string) =>
+  updateEngagementStatus: (engagementId: string, status: string, reason?: string) =>
     request<any>(`/engagements/${engagementId}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, reason }),
     }),
 
   addMilestone: (engagementId: string, label: string) =>

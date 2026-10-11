@@ -469,6 +469,15 @@ export default function DocumentsPage() {
 
   useEffect(() => { loadQueue(); loadCounts(); }, [loadQueue, loadCounts]);
 
+  // A link from a case can name the document to open first.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('doc');
+    if (!wanted || !queue.some((d) => d.id === wanted)) return;
+    setMode('review');
+    setSelectedId(wanted);
+    window.history.replaceState(null, '', window.location.pathname);
+  }, [queue]);
+
   // Queue grouped by client; both the groups and the documents inside are longest-waiting first.
   const groups = useMemo(() => {
     const q = queueSearch.trim().toLowerCase();

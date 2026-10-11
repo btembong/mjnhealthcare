@@ -1,34 +1,39 @@
 'use client';
 
-import { useEffect, useRef, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useParams } from 'next/navigation';
+import Link from 'next/link';
+import { toast } from 'sonner';
 import { Skeleton } from '@mjn/ui';
 import {
-  ArrowLeft, User, Envelope, Phone, Globe, CheckCircle,
-  Clock, CircleNotch, WarningCircle, CurrencyDollar,
-  Seal, Signature, Flag, Check,
-  CaretDown, X, Plus, BookOpen, Trash,
-  Chat, PaperPlaneRight, ArrowDown, ChatCircle,
-  Paperclip, FileText, UploadSimple, Image as ImageIcon,
-  FilePdf, FileDoc, Link as LinkIcon,
-  Note, ArrowSquareUpRight, Warning, Lock,
+  ArrowLeft, Envelope, Phone, Globe, CheckCircle, CircleNotch, DotsThree, X, Plus, Trash,
+  PaperPlaneRight, Paperclip, FileText, UploadSimple, Note, Sparkle, Lock, Warning, ArrowDown,
+  ChatCircle, Check, ArrowSquareOut, CurrencyDollar, Flag, BookOpen, Clock,
 } from '@mjn/ui';
 import { api } from '../../../../lib/api';
 import { useAdmin } from '../../../../contexts/admin-context';
-import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 
-const STATUS_STYLES: Record<string, string> = {
-  ACTIVE:             'bg-primary/10 text-primary border-primary/20',
-  PENDING_SIGNATURE:  'bg-amber-100 text-amber-700 border-amber-200',
-  COMPLETED:          'bg-muted text-muted-foreground border-border',
-  ON_HOLD:            'bg-orange-100 text-orange-700 border-orange-200',
-  TERMINATED:         'bg-rose-100 text-rose-700 border-rose-200',
+// ── Constants and helpers ─────────────────────────────────────────────────────
+
+const STATUS: Record<string, { label: string; dot: string }> = {
+  PENDING_SIGNATURE: { label: 'Awaiting signature', dot: 'bg-accent' },
+  ACTIVE:            { label: 'Active',             dot: 'bg-secondary' },
+  ON_HOLD:           { label: 'On hold',            dot: 'bg-muted-foreground/50' },
+  COMPLETED:         { label: 'Completed',          dot: 'bg-primary' },
+  TERMINATED:        { label: 'Terminated',         dot: 'bg-rose-500' },
 };
 
-const ORDER_STATUS_STYLES: Record<string, string> = {
-  PAID:           'bg-primary/10 text-primary border-primary/20',
-  PENDING:        'bg-amber-100 text-amber-700 border-amber-200',
-  PARTIALLY_PAID: 'bg-orange-100 text-orange-700 border-orange-200',
+const DOC_STATUS: Record<string, { label: string; dot: string }> = {
+  PENDING:        { label: 'Waiting for review', dot: 'bg-accent' },
+  VERIFIED:       { label: 'Verified',           dot: 'bg-secondary' },
+  REJECTED:       { label: 'Rejected',           dot: 'bg-rose-500' },
+  PENDING_CLIENT: { label: 'With client',        dot: 'bg-primary/40' },
+};
+
+const ORDER_STATUS: Record<string, { label: string; dot: string }> = {
+  PAID:           { label: 'Paid',      dot: 'bg-secondary' },
+  PENDING:        { label: 'Due',       dot: 'bg-accent' },
+  PARTIALLY_PAID: { label: 'Part paid', dot: 'bg-accent' },
 };
 
 const QUICK_REPLIES = [
@@ -39,1441 +44,1004 @@ const QUICK_REPLIES = [
   'We are awaiting your payment to proceed.',
 ];
 
-const DOC_REQUEST_TEMPLATES = [
+const DOC_REQUESTS = [
   { label: 'Passport', text: 'Please upload a clear copy of your international passport (biographic page) to your document vault.' },
-  { label: 'Nursing License', text: 'Please upload your current nursing license/registration certificate to your document vault.' },
-  { label: 'Educational Certificate', text: 'Please upload your nursing/medical school certificate and transcripts to your document vault.' },
-  { label: 'Experience Letter', text: 'Please upload an official work experience letter from your current/previous employer to your document vault.' },
-  { label: 'DataFlow Verification', text: 'To proceed with your DataFlow verification, please upload all required credentials to your document vault and confirm your profession type.' },
+  { label: 'Nursing licence', text: 'Please upload your current nursing licence or registration certificate to your document vault.' },
+  { label: 'Educational certificate', text: 'Please upload your nursing or medical school certificate and transcripts to your document vault.' },
+  { label: 'Experience letter', text: 'Please upload an official work experience letter from your current or previous employer to your document vault.' },
+  { label: 'DataFlow verification', text: 'To proceed with your DataFlow verification, please upload all required credentials to your document vault and confirm your profession type.' },
 ];
 
-function statusLabel(s: string) {
-  return s?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ?? '—';
+const CHECKLISTS: { group: string; options: [string, string][] }[] = [
+  { group: 'UAE', options: [['UAE_DATAFLOW_NURSE', 'UAE DataFlow — Nurse'], ['UAE_DATAFLOW_PHYSICIAN', 'UAE DataFlow — Physician'], ['UAE_DHA', 'UAE DHA (Dubai Health Authority)'], ['UAE_MOH_DOH', 'UAE MOH / DOH']] },
+  { group: 'United Kingdom', options: [['UK_NMC', 'UK NMC Registration']] },
+  { group: 'United States', options: [['US_NCLEX_CGFNS', 'US NCLEX-RN / CGFNS']] },
+  { group: 'Ireland', options: [['IRELAND_NMBI', 'Ireland NMBI Registration']] },
+];
+
+const TABS = ['overview', 'documents', 'payments', 'messages', 'activity', 'study'] as const;
+type Tab = (typeof TABS)[number];
+const TAB_LABEL: Record<Tab, string> = {
+  overview: 'Overview', documents: 'Documents', payments: 'Payments', messages: 'Messages', activity: 'Activity', study: 'Study plan',
+};
+
+function title(s?: string | null) {
+  return (s ?? '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+function day(date?: string | null) {
+  return date ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+}
+function ago(date?: string | null) {
+  if (!date) return '—';
+  const days = Math.floor((Date.now() - new Date(date).getTime()) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 60) return `${days} days ago`;
+  return day(date);
+}
+function caseRef(id: string) {
+  return `ENG-${id.slice(-6).toUpperCase()}`;
+}
+function money(n: number) {
+  return `$${Number(n ?? 0).toLocaleString('en-US')}`;
+}
+function Dot({ className }: { className: string }) {
+  return <span className={`h-2 w-2 shrink-0 rounded-full ${className}`} />;
 }
 
-function dateSeparatorLabel(date: Date): string {
-  if (isToday(date)) return 'Today';
-  if (isYesterday(date)) return 'Yesterday';
-  return format(date, 'MMMM d, yyyy');
-}
+const card = 'rounded-2xl border border-border bg-white';
+const btnPrimary = 'inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-primary/90 disabled:opacity-40';
+const btnOutline = 'inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-bold text-foreground transition-colors hover:bg-muted/60 disabled:opacity-40';
+const field = 'w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
-function DetailSkeleton() {
+// ── Small building blocks ─────────────────────────────────────────────────────
+
+function Modal({ title: heading, sub, onClose, children, wide }: { title: string; sub?: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   return (
-    <div className="space-y-5">
-      <Skeleton className="h-8 w-40 rounded-xl" />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <Skeleton className="h-64 rounded-2xl" />
-        <Skeleton className="lg:col-span-2 h-64 rounded-2xl" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={heading} className={`w-full ${wide ? 'max-w-xl' : 'max-w-md'} rounded-2xl border border-border bg-white p-6 shadow-xl`} onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-foreground">{heading}</h2>
+            {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
+          </div>
+          <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+        </div>
+        {children}
       </div>
-      <Skeleton className="h-48 rounded-2xl" />
-      <Skeleton className="h-48 rounded-2xl" />
     </div>
   );
 }
 
-function docTypeIcon(type: string) {
-  if (/pdf/i.test(type)) return <FilePdf className="h-4 w-4 text-rose-500" />;
-  if (/doc/i.test(type)) return <FileDoc className="h-4 w-4 text-blue-500" />;
-  if (/image|jpg|jpeg|png/i.test(type)) return <ImageIcon className="h-4 w-4 text-emerald-500" />;
-  return <FileText className="h-4 w-4 text-muted-foreground" />;
+function Section({ title: heading, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{heading}</h3>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
 }
 
-export default function CaseDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const { me } = useAdmin();
-  const role = (me?.role as string)?.toUpperCase() ?? 'ADMIN';
+function Empty({ icon: Icon, text }: { icon: any; text: string }) {
+  return (
+    <div className="flex flex-col items-center py-10 text-center">
+      <Icon className="mb-2 h-8 w-8 text-muted-foreground/30" />
+      <p className="text-sm text-muted-foreground">{text}</p>
+    </div>
+  );
+}
 
-  const [engagement, setEngagement] = useState<any>(null);
-  const [consultants, setConsultants] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+function bestDocStatus(docs: any[], type: string): string | null {
+  const mine = docs.filter((d) => d.type === type).map((d) => d.status);
+  for (const s of ['VERIFIED', 'PENDING', 'REJECTED']) if (mine.includes(s)) return s;
+  return null;
+}
 
-  // Assign consultant
-  const [assigning, setAssigning] = useState(false);
-  const [selectedConsultant, setSelectedConsultant] = useState('');
+// ── Chat ──────────────────────────────────────────────────────────────────────
 
-  // Status update
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
-
-  // Add milestone
-  const [showMilestoneInput, setShowMilestoneInput] = useState(false);
-  const [milestoneLabel, setMilestoneLabel] = useState('');
-  const [addingMilestone, setAddingMilestone] = useState(false);
-
-  // Send letter
-  const [sendingLetter, setSendingLetter] = useState(false);
-
-  // Document checklist
-  const [checklistOpen, setChecklistOpen] = useState(false);
-  const [checklistPathway, setChecklistPathway] = useState('UAE_DATAFLOW_NURSE');
-  const [sendingChecklist, setSendingChecklist] = useState(false);
-
-  // Study plan
-  const [studyPlan, setStudyPlan] = useState<any>(null);
-  const [showPlanForm, setShowPlanForm] = useState(false);
-  const [planItems, setPlanItems] = useState<{ topic: string; dueDate: string }[]>([{ topic: '', dueDate: '' }]);
-  const [savingPlan, setSavingPlan] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-
-  // Officer Activity
-  const [officerActivity, setOfficerActivity] = useState<any>(null);
-  const [activityLoading, setActivityLoading] = useState(false);
-  const [activityLoaded, setActivityLoaded] = useState(false);
-  const [activityOpen, setActivityOpen] = useState(false);
-
-  // AI tools
-  const [aiDraft, setAiDraft] = useState<{ draftId: string; draft: string } | null>(null);
-  const [draftingUpdate, setDraftingUpdate] = useState(false);
-  const [summaryText, setSummaryText] = useState('');
-  const [summarising, setSummarising] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
-
-  // Messages
+function Chat({
+  eid, personName, staffName, documents, inject, onSent,
+}: {
+  eid: string; personName: string; staffName: string; documents: any[];
+  inject: { text: string; id: number } | null; onSent: () => void;
+}) {
   const [messages, setMessages] = useState<any[]>([]);
-  const [msgLoading, setMsgLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [compose, setCompose] = useState('');
   const [sending, setSending] = useState(false);
+  const [attach, setAttach] = useState<null | 'refer' | 'request'>(null);
   const [atBottom, setAtBottom] = useState(true);
   const [newBanner, setNewBanner] = useState(false);
-
-  // Attachment panel
-  const [attachOpen, setAttachOpen] = useState(false);
-  const [attachTab, setAttachTab] = useState<'vault' | 'request'>('vault');
-  const [personDocs, setPersonDocs] = useState<any[]>([]);
-  const [loadingDocs, setLoadingDocs] = useState(false);
-
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const composeRef = useRef<HTMLTextAreaElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const prevMsgCount = useRef(0);
+  const count = useRef(0);
+  const bottomState = useRef(true);
+  bottomState.current = atBottom;
 
-  useEffect(() => { load(); }, [id]);
+  const toBottom = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  const load = useCallback(async (silent = false) => {
+    try {
+      const list = (await api.getEngagementMessages(eid)) ?? [];
+      if (silent && list.length > count.current) {
+        if (bottomState.current) setTimeout(toBottom, 50); else setNewBanner(true);
+      }
+      count.current = list.length;
+      setMessages(list);
+      if (!silent) setTimeout(toBottom, 100);
+    } catch { /* keep what is on screen */ } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [eid]);
 
   useEffect(() => {
-    if (!id) return;
-    loadMessages();
-    pollRef.current = setInterval(() => loadMessages(true), 20_000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [id]);
+    load();
+    const timer = setInterval(() => load(true), 20_000);
+    return () => clearInterval(timer);
+  }, [load]);
 
-  async function load() {
-    setLoading(true);
-    try {
-      const [engRes, cons] = await Promise.allSettled([
-        api.getEngagementById(id),
-        api.getConsultants(true),
-      ]);
+  useEffect(() => {
+    if (inject) { setCompose(inject.text); composeRef.current?.focus(); }
+  }, [inject]);
 
-      let engValue: any = null;
-      if (engRes.status === 'fulfilled') {
-        engValue = engRes.value;
-      } else {
-        // `id` might be a person ID (e.g. navigating from leads page) — try client lookup
-        try {
-          const clientEngs = await api.getClientEngagements(id);
-          const active = (clientEngs ?? []).find((e: any) => e.status === 'ACTIVE') ?? clientEngs?.[0] ?? null;
-          engValue = active;
-          if (!active) setError('No engagement found for this client yet.');
-        } catch {
-          setError('Failed to load case.');
-        }
-      }
-
-      if (engValue) {
-        setEngagement(engValue);
-        const personId = engValue?.person?.id;
-        if (personId) {
-          api.getStudyPlan(personId).then((plan) => setStudyPlan(plan)).catch(() => {});
-        }
-      }
-      if (cons.status === 'fulfilled') setConsultants(cons.value ?? []);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function loadMessages(silent = false) {
-    if (!silent) setMsgLoading(true);
-    try {
-      const msgs = await api.getEngagementMessages(id);
-      const list = msgs ?? [];
-      if (silent && list.length > prevMsgCount.current) {
-        if (atBottom) {
-          setTimeout(scrollToBottom, 50);
-        } else {
-          setNewBanner(true);
-        }
-      }
-      prevMsgCount.current = list.length;
-      setMessages(list);
-      if (!silent) setTimeout(scrollToBottom, 100);
-    } catch {} finally {
-      if (!silent) setMsgLoading(false);
-    }
-  }
-
-  async function loadPersonDocs(personId: string) {
-    setLoadingDocs(true);
-    try {
-      const docs = await api.getDocumentsByPerson(personId);
-      setPersonDocs(docs ?? []);
-    } catch {} finally {
-      setLoadingDocs(false);
-    }
-  }
-
-  function scrollToBottom() {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }
-
-  function handleScroll() {
+  function onScroll() {
     const el = scrollRef.current;
     if (!el) return;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    setAtBottom(nearBottom);
-    if (nearBottom) setNewBanner(false);
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    setAtBottom(near);
+    if (near) setNewBanner(false);
   }
 
-  function autoResize(el: HTMLTextAreaElement) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-  }
-
-  async function handleSendMessage(text?: string) {
-    const content = (text ?? compose).trim();
+  async function send() {
+    const content = compose.trim();
     if (!content || sending) return;
     setSending(true);
-    setCompose('');
-    setAttachOpen(false);
-    if (composeRef.current) {
-      composeRef.current.style.height = 'auto';
-    }
     try {
-      await api.sendEngagementMessage(id, content);
-      await loadMessages(true);
-      setTimeout(scrollToBottom, 50);
-    } catch {} finally {
+      await api.sendEngagementMessage(eid, content);
+      setCompose(''); setAttach(null);
+      await load(true);
+      setTimeout(toBottom, 50);
+      onSent();
+    } catch (e: any) {
+      toast.error(e.message ?? 'The message was not sent.');
+    } finally {
       setSending(false);
     }
   }
 
-  function handleAttachFromVault(doc: any) {
-    const docName = doc.type?.replace(/_/g, ' ') ?? 'Document';
-    const msg = `[Document shared: ${docName}]${doc.fileUrl ? `\n${doc.fileUrl}` : ''}`;
-    setCompose(msg);
-    setAttachOpen(false);
-    composeRef.current?.focus();
-  }
+  const rows = useMemo(() => messages.map((msg, i) => {
+    const prev = messages[i - 1];
+    const next = messages[i + 1];
+    const d = new Date(msg.createdAt);
+    const newDay = !prev || new Date(prev.createdAt).toDateString() !== d.toDateString();
+    const today = new Date().toDateString() === d.toDateString();
+    return {
+      msg,
+      dayLabel: newDay ? (today ? 'Today' : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })) : '',
+      last: !next || next.senderType !== msg.senderType || next.senderId !== msg.senderId,
+    };
+  }), [messages]);
 
-  function handleRequestTemplate(template: { label: string; text: string }) {
-    setCompose(template.text);
-    setAttachOpen(false);
-    composeRef.current?.focus();
-  }
+  return (
+    <div data-tour="case-messages" className={`${card} flex h-[calc(100vh-22rem)] min-h-[28rem] flex-col overflow-hidden`}>
+      <div ref={scrollRef} onScroll={onScroll} className="relative min-h-0 flex-1 space-y-0.5 overflow-y-auto bg-muted/40 px-4 py-4">
+        {loading ? (
+          <div className="flex h-full items-center justify-center"><CircleNotch className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+        ) : messages.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <ChatCircle className="mb-3 h-10 w-10 text-muted-foreground/30" weight="fill" />
+            <p className="text-sm font-semibold text-foreground">No messages yet</p>
+            <p className="mt-1 text-xs text-muted-foreground">Start the conversation with {personName} below.</p>
+          </div>
+        ) : (
+          <>
+            {rows.map(({ msg, dayLabel, last }) => {
+              const staff = msg.senderType !== 'CLIENT';
+              return (
+                <div key={msg.id}>
+                  {dayLabel && (
+                    <div className="my-3 flex justify-center">
+                      <span className="rounded-full border border-border/60 bg-white px-3 py-1 text-xs font-medium text-muted-foreground">{dayLabel}</span>
+                    </div>
+                  )}
+                  <div className={`mb-0.5 flex items-end gap-1.5 ${staff ? 'flex-row-reverse' : ''}`}>
+                    <div className="h-7 w-7 shrink-0">
+                      {last && (
+                        <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white ${staff ? 'bg-primary' : 'bg-secondary'}`}>
+                          {(staff ? (msg.sender?.name ?? staffName) : personName).slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className={`max-w-[72%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${staff ? 'rounded-br-sm bg-primary text-white' : 'rounded-bl-sm border border-border/60 bg-white text-foreground'}`}>
+                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                      {last && (
+                        <p className={`mt-1 flex items-center gap-1 text-[11px] ${staff ? 'justify-end text-white/60' : 'text-muted-foreground'}`}>
+                          {new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          {staff && (msg.readAt ? <CheckCircle className="h-3 w-3" weight="fill" /> : <Check className="h-3 w-3" />)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={bottomRef} />
+          </>
+        )}
+        {newBanner && (
+          <div className="sticky bottom-2 flex justify-center">
+            <button onClick={() => { toBottom(); setNewBanner(false); }} className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-white shadow-lg">
+              <ArrowDown className="h-3.5 w-3.5" /> New messages
+            </button>
+          </div>
+        )}
+      </div>
 
-  async function handleSavePlan() {
-    const personId = engagement?.person?.id;
-    if (!personId) return;
-    const validItems = planItems.filter((i) => i.topic.trim());
-    if (!validItems.length) return;
-    setSavingPlan(true);
+      <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-border/70 bg-white px-4 py-2">
+        {QUICK_REPLIES.map((text) => (
+          <button key={text} onClick={() => { setCompose(text); composeRef.current?.focus(); }} className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1 text-xs text-foreground hover:border-primary/40 hover:bg-muted/60">
+            {text}
+          </button>
+        ))}
+      </div>
+
+      {attach && (
+        <div className="shrink-0 border-t border-border bg-white">
+          <div className="flex border-b border-border">
+            {([['refer', 'Refer to a document on file', FileText], ['request', 'Request a document', UploadSimple]] as const).map(([key, label, Icon]) => (
+              <button key={key} onClick={() => setAttach(key)} className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-xs font-bold ${attach === key ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+                <Icon className="h-3.5 w-3.5" /> {label}
+              </button>
+            ))}
+          </div>
+          <div className="max-h-40 divide-y divide-border/60 overflow-y-auto">
+            {attach === 'refer' && (documents.length === 0
+              ? <p className="py-5 text-center text-xs text-muted-foreground">This client has no documents on file.</p>
+              : documents.map((d) => (
+                <button
+                  key={d.id}
+                  // The message names the document; it never carries a link to the file itself.
+                  onClick={() => { setCompose(`Regarding your document on file: ${title(d.type)} (uploaded ${day(d.uploadedAt)}).\n`); setAttach(null); composeRef.current?.focus(); }}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40"
+                >
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">{title(d.type)}</span>
+                  <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"><Dot className={DOC_STATUS[d.status]?.dot ?? 'bg-muted'} /> {DOC_STATUS[d.status]?.label ?? title(d.status)}</span>
+                </button>
+              )))}
+            {attach === 'request' && DOC_REQUESTS.map((t) => (
+              <button key={t.label} onClick={() => { setCompose(t.text); setAttach(null); composeRef.current?.focus(); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40">
+                <UploadSimple className="h-4 w-4 shrink-0 text-primary" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-bold text-foreground">{t.label}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{t.text}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex shrink-0 items-end gap-2 border-t border-border bg-white px-4 py-3">
+        <button
+          onClick={() => setAttach((v) => (v ? null : 'request'))}
+          aria-label="Request or refer to a document"
+          title="Request or refer to a document"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${attach ? 'bg-primary text-white' : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+        >
+          <Paperclip className="h-4 w-4" />
+        </button>
+        <textarea
+          ref={composeRef}
+          id="case-compose"
+          value={compose}
+          onChange={(e) => setCompose(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder={`Message ${personName}. Enter to send, Shift+Enter for a new line.`}
+          rows={compose.split('\n').length > 2 || compose.length > 160 ? 3 : 1}
+          className="max-h-32 min-h-10 flex-1 resize-none rounded-2xl border border-border bg-muted/40 px-4 py-2.5 text-sm leading-relaxed outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+        />
+        <button onClick={send} disabled={!compose.trim() || sending} aria-label="Send" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 disabled:opacity-40">
+          {sending ? <CircleNotch className="h-4 w-4 animate-spin" /> : <PaperPlaneRight className="h-4 w-4" weight="fill" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function CaseDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { me } = useAdmin();
+  const role = (me?.role as string)?.toUpperCase() ?? '';
+  const isAdmin = role === 'ADMIN';
+  const canAssignOfficer = isAdmin || role === 'CONSULTANT';
+  const staffName = me?.name || me?.email || 'Staff';
+
+  const [engagement, setEngagement] = useState<any>(null);
+  const [summary, setSummary] = useState<any>(null);
+  const [ctx, setCtx] = useState<any>(null);
+  const [consultants, setConsultants] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [tab, setTabState] = useState<Tab>('overview');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [busy, setBusy] = useState('');
+
+  // Dialogs
+  const [dialog, setDialog] = useState<null | 'checklist' | 'status' | 'consultant' | 'officer' | 'summary'>(null);
+  const [checklist, setChecklist] = useState('UAE_DATAFLOW_NURSE');
+  const [newStatus, setNewStatus] = useState('');
+  const [reason, setReason] = useState('');
+  const [pickConsultant, setPickConsultant] = useState('');
+  const [officers, setOfficers] = useState<any[]>([]);
+  const [pickOfficer, setPickOfficer] = useState('');
+  const [completing, setCompleting] = useState<any | null>(null);
+  const [summaryText, setSummaryText] = useState('');
+  const [aiDraft, setAiDraft] = useState<{ draftId: string; draft: string } | null>(null);
+  const [inject, setInject] = useState<{ text: string; id: number } | null>(null);
+
+  // Stages
+  const [stageLabel, setStageLabel] = useState('');
+  const [addingStage, setAddingStage] = useState(false);
+
+  // Activity and study plan
+  const [activity, setActivity] = useState<any>(null);
+  const [activityFilter, setActivityFilter] = useState('all');
+  const [studyPlan, setStudyPlan] = useState<any>(null);
+  const [planItems, setPlanItems] = useState<{ topic: string; dueDate: string }[] | null>(null);
+
+  const eid: string | undefined = engagement?.id;
+  const person = engagement?.person ?? {};
+
+  const setTab = useCallback((next: Tab) => {
+    setTabState(next);
+    try { window.history.replaceState(null, '', `${window.location.pathname}${next === 'overview' ? '' : `?tab=${next}`}`); } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('tab') as Tab | null;
+    if (wanted && TABS.includes(wanted)) setTabState(wanted);
+  }, []);
+
+  const refreshSummary = useCallback(async (engagementId: string, personId?: string) => {
+    const [s, c] = await Promise.allSettled([
+      api.getEngagementSummary(engagementId),
+      personId ? api.getDocumentReviewContext(personId) : Promise.resolve(null),
+    ]);
+    if (s.status === 'fulfilled') setSummary(s.value);
+    if (c.status === 'fulfilled' && c.value) setCtx(c.value);
+  }, []);
+
+  const load = useCallback(async () => {
     try {
-      const created = await api.createStudyPlan(
-        personId,
-        validItems.map((i) => ({ topic: i.topic.trim(), dueDate: i.dueDate || undefined })),
-      );
-      setStudyPlan(created);
-      setShowPlanForm(false);
-      setPlanItems([{ topic: '', dueDate: '' }]);
-    } catch (e: any) { setError(e.message); } finally { setSavingPlan(false); }
-  }
+      let eng: any = null;
+      try {
+        eng = await api.getEngagementById(id);
+      } catch {
+        // The link may carry a client id (for example from the leads page): open that client's case.
+        const list = await api.getClientEngagements(id).catch(() => []);
+        eng = (list ?? []).find((e: any) => e.status === 'ACTIVE') ?? list?.[0] ?? null;
+        if (eng) eng = await api.getEngagementById(eng.id);
+      }
+      if (!eng) { setError('No case was found. It may not exist, or you may not have access to it.'); return; }
+      setEngagement(eng);
+      await refreshSummary(eng.id, eng.person?.id);
+      if (eng.person?.id) api.getStudyPlan(eng.person.id).then(setStudyPlan).catch(() => {});
+    } finally {
+      setLoading(false);
+    }
+  }, [id, refreshSummary]);
 
-  async function handleAssign() {
-    if (!selectedConsultant) return;
-    setAssigning(true);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { api.getConsultants(true).then((l) => setConsultants(l ?? [])).catch(() => {}); }, []);
+
+  useEffect(() => {
+    if (tab === 'activity' && eid && !activity) api.getOfficerActivity(eid).then(setActivity).catch(() => setActivity({ timeline: [] }));
+  }, [tab, eid, activity]);
+
+  async function run(key: string, action: () => Promise<any>, done?: string) {
+    setBusy(key);
     try {
-      await api.assignConsultant(id, selectedConsultant);
-      await load();
-      setSelectedConsultant('');
-    } catch (e: any) { setError(e.message); } finally { setAssigning(false); }
-  }
-
-  async function handleStatusUpdate() {
-    if (!newStatus) return;
-    setUpdatingStatus(true);
-    try {
-      await api.updateEngagementStatus(id, newStatus);
-      setEngagement((prev: any) => ({ ...prev, status: newStatus }));
-      setNewStatus('');
-    } catch (e: any) { setError(e.message); } finally { setUpdatingStatus(false); }
-  }
-
-  async function handleAddMilestone() {
-    if (!milestoneLabel.trim()) return;
-    setAddingMilestone(true);
-    try {
-      const m = await api.addMilestone(id, milestoneLabel.trim());
-      setEngagement((prev: any) => ({ ...prev, milestones: [...(prev.milestones ?? []), m] }));
-      setMilestoneLabel('');
-      setShowMilestoneInput(false);
-    } catch (e: any) { setError(e.message); } finally { setAddingMilestone(false); }
-  }
-
-  async function handleCompleteMilestone(milestoneId: string) {
-    try {
-      await api.completeMilestone(milestoneId);
-      setEngagement((prev: any) => ({
-        ...prev,
-        milestones: prev.milestones.map((m: any) =>
-          m.id === milestoneId ? { ...m, completedAt: new Date().toISOString() } : m,
-        ),
-      }));
-    } catch (e: any) { setError(e.message); }
-  }
-
-  async function handleSendLetter() {
-    setSendingLetter(true);
-    try {
-      await api.sendEngagementLetter(id);
-      await load();
-    } catch (e: any) { setError(e.message); } finally { setSendingLetter(false); }
-  }
-
-  // Group messages: date separators + consecutive sender grouping
-  const groupedMessages = useMemo(() => {
-    return messages.map((msg, i) => {
-      const prev = messages[i - 1];
-      const next = messages[i + 1];
-      const msgDate = new Date(msg.createdAt);
-      const prevDate = prev ? new Date(prev.createdAt) : null;
-
-      const showDateSep = !prev || format(msgDate, 'yyyy-MM-dd') !== format(prevDate!, 'yyyy-MM-dd');
-      const dateLabel = showDateSep ? dateSeparatorLabel(msgDate) : '';
-
-      const isLastInGroup = !next || next.senderType !== msg.senderType || next.senderId !== msg.senderId;
-
-      return { msg, showDateSep, dateLabel, isLastInGroup };
-    });
-  }, [messages]);
-
-  async function loadOfficerActivity() {
-    if (activityLoaded) return;
-    setActivityLoading(true);
-    try {
-      const data = await api.getOfficerActivity(id);
-      setOfficerActivity(data);
-      setActivityLoaded(true);
-    } catch {} finally {
-      setActivityLoading(false);
+      await action();
+      if (done) toast.success(done);
+      return true;
+    } catch (e: any) {
+      toast.error(e.message ?? 'That did not work. Please try again.');
+      return false;
+    } finally {
+      setBusy('');
     }
   }
 
-  async function handleDraftUpdate() {
-    setDraftingUpdate(true);
-    try {
-      const result = await api.draftClientUpdate(id);
-      setAiDraft(result);
-    } catch (e: any) { setError(e.message); } finally { setDraftingUpdate(false); }
+  const reload = () => load();
+
+  async function sendLetter() {
+    if (eid) await run('letter', () => api.sendEngagementLetter(eid).then(reload), 'Engagement letter sent to the client.');
+  }
+  async function sendChecklist() {
+    if (!eid) return;
+    if (await run('checklist', () => api.sendDocumentChecklist(eid, checklist), 'Checklist sent by email and posted in the chat.')) setDialog(null);
+  }
+  async function changeStatus() {
+    if (!eid || !newStatus) return;
+    if (await run('status', () => api.updateEngagementStatus(eid, newStatus, reason.trim() || undefined).then(reload), 'Status updated.')) {
+      setDialog(null); setNewStatus(''); setReason(''); setActivity(null);
+    }
+  }
+  async function assignConsultant() {
+    if (!eid || !pickConsultant) return;
+    if (await run('consultant', () => api.assignConsultant(eid, pickConsultant).then(reload), 'Consultant assigned.')) { setDialog(null); setPickConsultant(''); }
+  }
+  async function assignOfficer() {
+    if (!eid) return;
+    if (await run('officer', () => api.assignOfficer(eid, pickOfficer || null).then(reload), pickOfficer ? 'Officer assigned.' : 'Officer removed.')) setDialog(null);
+  }
+  async function completeStage() {
+    if (!completing) return;
+    if (await run('stage', () => api.completeMilestone(completing.id).then(reload), 'Stage marked complete.')) setCompleting(null);
+  }
+  async function addStage() {
+    if (!eid || !stageLabel.trim()) return;
+    if (await run('addStage', () => api.addMilestone(eid, stageLabel.trim()).then(reload))) { setStageLabel(''); setAddingStage(false); }
+  }
+  async function summarise() {
+    if (!eid) return;
+    setMenuOpen(false); setSummaryText(''); setDialog('summary');
+    await run('summary', async () => { setSummaryText((await api.summariseCase(eid)).summary ?? ''); });
+  }
+  async function draftUpdate() {
+    if (!eid) return;
+    setMenuOpen(false);
+    await run('draft', async () => { setAiDraft(await api.draftClientUpdate(eid)); });
+  }
+  async function savePlan() {
+    const items = (planItems ?? []).filter((i) => i.topic.trim());
+    if (!person.id || items.length === 0) return;
+    if (await run('plan', async () => {
+      setStudyPlan(await api.createStudyPlan(person.id, items.map((i) => ({ topic: i.topic.trim(), dueDate: i.dueDate || undefined }))));
+    }, 'Study plan saved.')) setPlanItems(null);
   }
 
-  async function handleSummariseCase() {
-    setSummarising(true);
-    setShowSummary(true);
-    try {
-      const result = await api.summariseCase(id);
-      setSummaryText(result.summary);
-    } catch (e: any) { setSummaryText('Failed to generate summary.'); } finally { setSummarising(false); }
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-16 rounded-2xl" />
+        <Skeleton className="h-14 rounded-2xl" />
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+          <Skeleton className="h-96 rounded-2xl" />
+          <Skeleton className="h-96 rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
+  if (!engagement || !eid) {
+    return (
+      <div className={`${card} p-10 text-center`}>
+        <h3 className="font-bold text-foreground">Case not found</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{error || 'This case could not be loaded.'}</p>
+        <Link href="/caseload" className="mt-4 inline-block text-sm font-bold text-primary hover:underline">Back to caseload</Link>
+      </div>
+    );
   }
 
-  async function handleSendChecklist() {
-    setSendingChecklist(true);
-    try {
-      await api.sendDocumentChecklist(id, checklistPathway);
-      setChecklistOpen(false);
-      await loadMessages();
-    } catch (e: any) { setError(e.message); } finally { setSendingChecklist(false); }
-  }
-
-  if (loading) return <DetailSkeleton />;
-  if (!engagement) return (
-    <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
-      {error || 'Case not found.'}
-    </div>
-  );
-
-  const person = engagement.person ?? {};
   const milestones: any[] = engagement.milestones ?? [];
   const orders: any[] = engagement.orders ?? [];
-  const totalPaid = orders.filter((o: any) => o.status === 'PAID').reduce((s: number, o: any) => s + Number(o.total ?? 0), 0);
-  const totalPending = orders.filter((o: any) => o.status !== 'PAID').reduce((s: number, o: any) => s + Number(o.total ?? 0), 0);
+  const documents: any[] = ctx?.documents ?? [];
+  const required: string[] = ctx?.requiredDocTypes ?? [];
+  const done = milestones.filter((m) => m.completedAt).length;
+  const currentStage = milestones.find((m) => !m.completedAt) ?? null;
+  const paid = summary?.paid ?? 0;
+  const total = summary?.total ?? 0;
+  const needs: { key: string; label: string }[] = summary?.needs ?? [];
+  const closed = engagement.status === 'COMPLETED' || engagement.status === 'TERMINATED';
+  const consultantName = summary?.consultantName ?? consultants.find((c) => c.id === engagement.consultantId)?.name ?? null;
+  const pendingDocs = documents.filter((d) => d.status === 'PENDING');
+  const firstPendingDoc = pendingDocs[0];
 
-  const isStaffSender = (msg: any) => msg.senderType === 'STAFF' || msg.senderType === 'ADMIN';
+  // The single most useful thing to do next on this case.
+  const first = needs[0];
+  const nextStep: { text: string; action?: { label: string; run: () => void } } | null =
+    closed ? { text: `This case is ${STATUS[engagement.status].label.toLowerCase()}.` }
+    : !first ? null
+    : first.key === 'escalation' ? { text: 'This case has an open escalation from a processing officer.', action: { label: 'See activity', run: () => setTab('activity') } }
+    : first.key === 'message' ? { text: `${person.name ?? 'The client'} is waiting for a reply.`, action: { label: 'Reply', run: () => setTab('messages') } }
+    : first.key === 'documents' ? { text: `${pendingDocs.length || ''} document${pendingDocs.length === 1 ? ' is' : 's are'} waiting for review.`.trim(), action: { label: 'Review documents', run: () => setTab('documents') } }
+    : first.key === 'consultant' ? { text: 'No consultant is assigned to this case.', action: isAdmin ? { label: 'Assign consultant', run: () => setDialog('consultant') } : undefined }
+    : first.key === 'letter' ? { text: 'The engagement letter is not signed. The client cannot pay until it is.', action: isAdmin ? { label: 'Send letter', run: sendLetter } : undefined }
+    : first.key === 'payment' ? { text: `${first.label}.`, action: { label: 'View payments', run: () => setTab('payments') } }
+    : { text: `The client needs to replace ${first.label.replace(' to replace', '')}.`, action: { label: 'View documents', run: () => setTab('documents') } };
+
+  const tabBadge: Partial<Record<Tab, ReactNode>> = {
+    documents: pendingDocs.length > 0 ? <span className="ml-1.5 rounded-full bg-accent px-1.5 text-xs font-bold text-accent-foreground">{pendingDocs.length}</span> : null,
+    messages: needs.some((n) => n.key === 'message') ? <Dot className="ml-1.5 inline-block bg-accent" /> : null,
+  };
+
+  // One merged history for the Activity tab.
+  type Entry = { id: string; kind: string; at: Date; label: string; sub?: string; internal?: boolean };
+  const entries: Entry[] = [
+    { id: 'opened', kind: 'stages', at: new Date(engagement.createdAt), label: 'Case opened' },
+    ...(engagement.letterSignedAt ? [{ id: 'letter', kind: 'stages', at: new Date(engagement.letterSignedAt), label: 'Engagement letter signed' }] : []),
+    ...milestones.filter((m) => m.completedAt).map((m) => ({ id: `m${m.id}`, kind: 'stages', at: new Date(m.completedAt), label: `Stage completed · ${m.label}` })),
+    ...orders.map((o) => ({ id: `o${o.id}`, kind: 'payments', at: new Date(o.createdAt), label: `Order ${o.status === 'PAID' ? 'paid' : 'created'} · ${money(o.total)}` })),
+    ...documents.map((d) => ({ id: `d${d.id}`, kind: 'documents', at: new Date(d.uploadedAt), label: `${title(d.type)} uploaded`, sub: DOC_STATUS[d.status]?.label })),
+    ...((activity?.timeline ?? []) as any[]).map((t: any, i: number): Entry => t.type === 'note'
+      ? { id: `n${t.data.id ?? i}`, kind: 'notes', at: new Date(t.ts), label: `Note · ${t.data.author?.name ?? 'Staff'}`, sub: t.data.content, internal: t.data.isInternal }
+      : t.type === 'tracking'
+        ? { id: `t${t.data.id ?? i}`, kind: 'submissions', at: new Date(t.ts), label: `Submission · ${t.data.portal} · ${title(t.data.status)}`, sub: [t.data.referenceNumber && `Ref ${t.data.referenceNumber}`, t.data.notes].filter(Boolean).join(' · ') }
+        : { id: `e${t.data.id ?? i}`, kind: 'escalations', at: new Date(t.ts), label: `Escalation · ${title(t.data.status)}`, sub: [t.data.reason, t.data.resolution && `Resolution: ${t.data.resolution}`].filter(Boolean).join(' · ') }),
+  ].sort((a, b) => b.at.getTime() - a.at.getTime());
+  const shownEntries = activityFilter === 'all' ? entries : entries.filter((e) => e.kind === activityFilter);
 
   return (
-    <div className="space-y-5">
-      {/* Back + header */}
-      <div data-tour="case-header" className="flex items-center gap-3">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors shadow-sm"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back
-        </button>
-        <div>
-          <h1 data-tour="page-title" className="text-xl font-bold text-foreground">{person.name ?? 'Case Detail'}</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Engagement · {id.slice(0, 8)}…</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <button
-            onClick={handleDraftUpdate}
-            disabled={draftingUpdate}
-            className="flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-colors"
-          >
-            <Note className="h-3.5 w-3.5" /> {draftingUpdate ? 'Drafting…' : 'AI Draft'}
-          </button>
-          <button
-            onClick={handleSummariseCase}
-            disabled={summarising}
-            className="flex items-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-100 disabled:opacity-50 transition-colors"
-          >
-            <ArrowSquareUpRight className="h-3.5 w-3.5" /> {summarising ? 'Summarising…' : 'AI Summary'}
-          </button>
-          <button
-            onClick={() => setChecklistOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors"
-          >
-            <FileText className="h-3.5 w-3.5" /> Send Checklist
-          </button>
-          <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${STATUS_STYLES[engagement.status] ?? 'bg-muted text-muted-foreground border-border'}`}>
-            {statusLabel(engagement.status)}
-          </span>
-        </div>
-      </div>
-
-      {/* Document checklist modal */}
-      {checklistOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-white shadow-xl p-6 space-y-5 mx-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-bold text-foreground">Send Document Checklist</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Sends a formatted email to the client and posts it in the portal chat.</p>
-              </div>
-              <button onClick={() => setChecklistOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground">Select pathway / regulatory body</label>
-              <select
-                value={checklistPathway}
-                onChange={(e) => setChecklistPathway(e.target.value)}
-                className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30"
-              >
-                <optgroup label="UAE">
-                  <option value="UAE_DATAFLOW_NURSE">UAE DataFlow — Nurse</option>
-                  <option value="UAE_DATAFLOW_PHYSICIAN">UAE DataFlow — Physician</option>
-                  <option value="UAE_DHA">UAE DHA (Dubai Health Authority)</option>
-                  <option value="UAE_MOH_DOH">UAE MOH / DOH</option>
-                </optgroup>
-                <optgroup label="United Kingdom">
-                  <option value="UK_NMC">UK NMC Registration</option>
-                </optgroup>
-                <optgroup label="United States">
-                  <option value="US_NCLEX_CGFNS">US NCLEX-RN / CGFNS</option>
-                </optgroup>
-                <optgroup label="Ireland">
-                  <option value="IRELAND_NMBI">Ireland NMBI Registration</option>
-                </optgroup>
-              </select>
-            </div>
-            <div className="flex gap-3 pt-1">
-              <button
-                onClick={() => setChecklistOpen(false)}
-                className="flex-1 rounded-xl border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSendChecklist}
-                disabled={sendingChecklist}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {sendingChecklist ? <CircleNotch className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-                {sendingChecklist ? 'Sending…' : 'Send checklist'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* AI Draft modal */}
-      {aiDraft && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-2xl border border-border bg-white shadow-xl p-6 space-y-5 mx-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-bold text-foreground">AI Draft — Client Update</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">AI-generated based on live case data. Review before sending.</p>
-              </div>
-              <button onClick={() => setAiDraft(null)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="rounded-xl border border-violet-100 bg-violet-50 p-4 text-sm text-foreground leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto">
-              {aiDraft.draft}
-            </div>
-            <div className="flex gap-3 pt-1">
-              <button
-                onClick={() => { setCompose(aiDraft.draft); setAiDraft(null); composeRef.current?.focus(); }}
-                className="flex-1 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
-              >
-                Copy to compose
-              </button>
-              <button
-                onClick={async () => {
-                  try { await api.approveDraft(aiDraft.draftId, me?.name ?? me?.email ?? 'admin'); } catch {}
-                  setAiDraft(null);
-                }}
-                className="flex-1 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition-colors"
-              >
-                Approve draft
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* AI Summary modal */}
-      {showSummary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-2xl border border-border bg-white shadow-xl p-6 space-y-5 mx-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-bold text-foreground">AI Case Summary</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Quick-read brief generated from case history.</p>
-              </div>
-              <button onClick={() => setShowSummary(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            {summarising ? (
-              <div className="flex items-center gap-3 py-8 justify-center">
-                <CircleNotch className="h-5 w-5 animate-spin text-teal-600" />
-                <span className="text-sm text-muted-foreground">Generating summary…</span>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-teal-100 bg-teal-50 p-4 text-sm text-foreground leading-relaxed whitespace-pre-wrap max-h-80 overflow-y-auto">
-                {summaryText || 'No summary available.'}
-              </div>
-            )}
-            <div className="flex justify-end pt-1">
-              <button
-                onClick={() => setShowSummary(false)}
-                className="rounded-xl border border-border px-5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          <WarningCircle className="h-4 w-4 shrink-0" /> {error}
-        </div>
-      )}
-
-      {/* 3-column grid: profile | engagement detail | financial */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-        {/* Client profile */}
-        <div data-tour="case-profile" className="rounded-2xl border border-border bg-white shadow-sm p-5 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-lg font-bold text-white">
-              {(person.name ?? 'UN').slice(0, 2).toUpperCase()}
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">{person.name ?? '—'}</p>
-              <p className="text-xs text-muted-foreground capitalize">{person.profession ?? 'Unknown profession'}</p>
-            </div>
-          </div>
-
-          <div className="space-y-2.5 text-sm">
-            {person.email && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Envelope className="h-4 w-4 shrink-0" />
-                <a href={`mailto:${person.email}`} className="hover:text-primary truncate">{person.email}</a>
-              </div>
-            )}
-            {person.phone && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="h-4 w-4 shrink-0" />
-                <span>{person.phone}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Globe className="h-4 w-4 shrink-0" />
-              <span>{person.locale === 'fr' ? 'French' : 'English'}</span>
-            </div>
-            {person.createdAt && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <User className="h-4 w-4 shrink-0" />
-                <span>Member since {format(new Date(person.createdAt), 'MMM yyyy')}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Engagement detail */}
-        <div data-tour="case-engagement" className="lg:col-span-2 rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-          <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center justify-between">
-            <p className="font-semibold text-foreground text-sm">Engagement</p>
-            <span className="text-xs text-muted-foreground">
-              Created {engagement.createdAt ? formatDistanceToNow(new Date(engagement.createdAt), { addSuffix: true }) : '—'}
+    <div className="space-y-4">
+      {/* Header */}
+      <div data-tour="case-header" className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link href="/caseload" className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-3.5 w-3.5" /> Caseload
+          </Link>
+          <h1 data-tour="page-title" className="mt-1 truncate text-xl font-bold text-foreground">{person.name ?? 'Case'}</h1>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            {person.profession && <span>{title(person.profession)}</span>}
+            <span className="font-mono">{caseRef(eid)}</span>
+            <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+              <Dot className={STATUS[engagement.status]?.dot ?? 'bg-muted'} /> {STATUS[engagement.status]?.label ?? title(engagement.status)}
             </span>
-          </div>
-          <div className="p-5 space-y-4">
-
-            {/* Engagement letter status */}
-            <div className="flex items-start gap-3 rounded-xl border border-border p-4">
-              {engagement.letterSignedAt ? (
-                <>
-                  <Seal className="h-5 w-5 text-primary shrink-0 mt-0.5" weight="fill" />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Engagement letter signed</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Signed {format(new Date(engagement.letterSignedAt), 'MMM d, yyyy')}
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Signature className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-amber-800">Engagement letter pending</p>
-                    <p className="text-xs text-amber-700 mt-0.5">Client has not yet signed the engagement letter.</p>
-                  </div>
-                  {role === 'ADMIN' && (
-                    <button
-                      onClick={handleSendLetter}
-                      disabled={sendingLetter}
-                      className="flex items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
-                    >
-                      {sendingLetter ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Signature className="h-3.5 w-3.5" />}
-                      Send letter
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Assigned consultant */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Assigned consultant</p>
-                {engagement.consultantId ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                      {(consultants.find((c) => c.id === engagement.consultantId)?.name ?? 'CN').slice(0, 2).toUpperCase()}
-                    </div>
-                    <p className="text-sm font-medium text-foreground">
-                      {consultants.find((c) => c.id === engagement.consultantId)?.name ?? engagement.consultantId}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Unassigned</p>
-                )}
-              </div>
-
-              {role === 'ADMIN' && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                    {engagement.consultantId ? 'Reassign' : 'Assign'} consultant
-                  </p>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <select
-                        value={selectedConsultant}
-                        onChange={(e) => setSelectedConsultant(e.target.value)}
-                        className="h-9 w-full appearance-none rounded-xl border border-border bg-white pl-3 pr-7 text-sm outline-none focus:border-primary"
-                      >
-                        <option value="">Select consultant…</option>
-                        {consultants.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name ?? c.id}</option>
-                        ))}
-                      </select>
-                      <CaretDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    </div>
-                    <button
-                      onClick={handleAssign}
-                      disabled={!selectedConsultant || assigning}
-                      className="flex items-center gap-1 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-40 transition-colors"
-                    >
-                      {assigning ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Status update (admin only) */}
-            {role === 'ADMIN' && (
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Update status</p>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <select
-                      value={newStatus}
-                      onChange={(e) => setNewStatus(e.target.value)}
-                      className="h-9 w-full appearance-none rounded-xl border border-border bg-white pl-3 pr-7 text-sm outline-none focus:border-primary"
-                    >
-                      <option value="">Select new status…</option>
-                      {['ACTIVE', 'ON_HOLD', 'COMPLETED', 'TERMINATED'].map((s) => (
-                        <option key={s} value={s}>{statusLabel(s)}</option>
-                      ))}
-                    </select>
-                    <CaretDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  </div>
-                  <button
-                    onClick={handleStatusUpdate}
-                    disabled={!newStatus || updatingStatus}
-                    className="flex items-center gap-1 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-40 transition-colors"
-                  >
-                    {updatingStatus ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Flag className="h-3.5 w-3.5" />}
-                    Update
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          </p>
         </div>
-      </div>
-
-      {/* Milestones */}
-      <div data-tour="case-milestones" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center justify-between">
-          <p className="font-semibold text-foreground text-sm">Milestones</p>
-          <button
-            onClick={() => setShowMilestoneInput((v) => !v)}
-            className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add
-          </button>
-        </div>
-
-        {showMilestoneInput && (
-          <div className="flex gap-2 border-b border-border px-5 py-3">
-            <input
-              value={milestoneLabel}
-              onChange={(e) => setMilestoneLabel(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddMilestone()}
-              placeholder="Milestone label (e.g. DataFlow submitted)"
-              className="flex-1 h-9 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            />
-            <button
-              onClick={handleAddMilestone}
-              disabled={addingMilestone || !milestoneLabel.trim()}
-              className="flex items-center gap-1 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-40 transition-colors"
-            >
-              {addingMilestone ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-            </button>
-            <button onClick={() => { setShowMilestoneInput(false); setMilestoneLabel(''); }} className="rounded-xl p-2 hover:bg-muted/60">
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          </div>
-        )}
-
-        {milestones.length === 0 && !showMilestoneInput ? (
-          <div className="flex flex-col items-center py-8 text-center">
-            <Flag className="h-8 w-8 text-muted-foreground/30 mb-2" />
-            <p className="text-sm text-muted-foreground">No milestones yet. Add one to track case progress.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {milestones.map((m: any) => (
-              <div key={m.id} className="flex items-center gap-3 px-5 py-3.5">
-                <button
-                  onClick={() => !m.completedAt && handleCompleteMilestone(m.id)}
-                  disabled={!!m.completedAt}
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all ${
-                    m.completedAt
-                      ? 'border-primary bg-primary cursor-default'
-                      : 'border-border bg-white hover:border-primary/50 cursor-pointer'
-                  }`}
-                >
-                  {m.completedAt && (
-                    <svg viewBox="0 0 12 12" className="h-3 w-3 text-white" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${m.completedAt ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                    {m.label}
-                  </p>
-                  {m.completedAt && (
-                    <p className="text-xs text-muted-foreground">
-                      Completed {formatDistanceToNow(new Date(m.completedAt), { addSuffix: true })}
-                    </p>
-                  )}
-                </div>
-                {!m.completedAt && <Clock className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
-                {m.completedAt && <CheckCircle className="h-4 w-4 text-primary shrink-0" weight="fill" />}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Orders / payments */}
-      <div data-tour="case-orders" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center justify-between">
-          <p className="font-semibold text-foreground text-sm">Payments</p>
-          <div className="flex items-center gap-4 text-xs">
-            <span className="text-muted-foreground">Paid: <span className="font-bold text-primary">${totalPaid.toLocaleString()}</span></span>
-            {totalPending > 0 && <span className="text-muted-foreground">Pending: <span className="font-bold text-amber-600">${totalPending.toLocaleString()}</span></span>}
-          </div>
-        </div>
-
-        {orders.length === 0 ? (
-          <div className="flex flex-col items-center py-8 text-center">
-            <CurrencyDollar className="h-8 w-8 text-muted-foreground/30 mb-2" />
-            <p className="text-sm text-muted-foreground">No orders yet for this engagement.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {orders.map((order: any) => (
-              <div key={order.id} className="px-5 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${ORDER_STATUS_STYLES[order.status] ?? 'bg-muted text-muted-foreground border-border'}`}>
-                        {statusLabel(order.status)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{order.paymentMode?.replace(/_/g, ' ')}</span>
-                    </div>
-                    <div className="space-y-0.5">
-                      {(order.lineItems ?? []).map((li: any) => (
-                        <p key={li.id} className="text-xs text-muted-foreground">
-                          · {li.serviceItem?.name ?? 'Service'} — ${Number(li.priceCharged).toLocaleString()}
-                        </p>
-                      ))}
-                    </div>
-                    {order.installmentSchedules?.length > 0 && (
-                      <div className="mt-2 space-y-0.5">
-                        {order.installmentSchedules.map((inst: any) => (
-                          <p key={inst.id} className="text-xs text-muted-foreground">
-                            Instalment #{inst.installmentNo}: ${Number(inst.amount).toLocaleString()} ·{' '}
-                            <span className={inst.status === 'PAID' ? 'text-primary' : 'text-amber-600'}>{inst.status}</span>
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-lg font-bold text-foreground">${Number(order.total).toLocaleString()}</p>
-                    {order.receipts?.length > 0 && (
-                      <p className="text-xs text-primary mt-0.5">{order.receipts.length} receipt{order.receipts.length > 1 ? 's' : ''}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Study Plan */}
-      <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center justify-between">
-          <p className="font-semibold text-foreground text-sm">Study Plan</p>
-          <button
-            onClick={() => { setShowPlanForm((v) => !v); setPlanItems([{ topic: '', dueDate: '' }]); }}
-            className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" /> {studyPlan?.items?.length ? 'New plan' : 'Create plan'}
-          </button>
-        </div>
-
-        {showPlanForm && (
-          <div className="border-b border-border p-5 space-y-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Plan items</p>
-            <div className="space-y-2">
-              {planItems.map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <input
-                    value={item.topic}
-                    onChange={(e) => setPlanItems((prev) => prev.map((p, i) => i === idx ? { ...p, topic: e.target.value } : p))}
-                    placeholder="Topic (e.g. Pharmacology fundamentals)"
-                    className="flex-1 h-9 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  />
-                  <input
-                    type="date"
-                    value={item.dueDate}
-                    onChange={(e) => setPlanItems((prev) => prev.map((p, i) => i === idx ? { ...p, dueDate: e.target.value } : p))}
-                    className="h-9 w-36 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  />
-                  {planItems.length > 1 && (
-                    <button
-                      onClick={() => setPlanItems((prev) => prev.filter((_, i) => i !== idx))}
-                      className="rounded-xl p-2 hover:bg-rose-50 text-muted-foreground hover:text-rose-600 transition-colors"
-                    >
-                      <Trash className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => setPlanItems((prev) => [...prev, { topic: '', dueDate: '' }])}
-                className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-              >
-                <Plus className="h-3 w-3" /> Add item
-              </button>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { setShowPlanForm(false); setPlanItems([{ topic: '', dueDate: '' }]); }}
-                  className="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted/50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSavePlan}
-                  disabled={savingPlan || !planItems.some((i) => i.topic.trim())}
-                  className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-40 transition-colors"
-                >
-                  {savingPlan ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                  Save plan
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {studyPlan?.items?.length > 0 ? (
-          <div className="divide-y divide-border">
-            {(studyPlan.items as any[]).map((item: any) => (
-              <div key={item.id} className="flex items-center gap-3 px-5 py-3.5">
-                <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${item.completedAt ? 'border-primary bg-primary' : 'border-border bg-white'}`}>
-                  {item.completedAt && (
-                    <svg viewBox="0 0 12 12" className="h-3 w-3 text-white" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${item.completedAt ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                    {item.topic}
-                  </p>
-                  {item.dueDate && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Due {format(new Date(item.dueDate), 'MMM d, yyyy')}
-                    </p>
-                  )}
-                </div>
-                {item.completedAt
-                  ? <CheckCircle className="h-4 w-4 text-primary shrink-0" weight="fill" />
-                  : <Clock className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
-              </div>
-            ))}
-          </div>
-        ) : !showPlanForm ? (
-          <div className="flex flex-col items-center py-8 text-center">
-            <BookOpen className="h-8 w-8 text-muted-foreground/30 mb-2" />
-            <p className="text-sm text-muted-foreground">No study plan yet. Create one to guide this client's exam prep.</p>
-          </div>
-        ) : null}
-      </div>
-
-      {/* ── Activity Timeline ─────────────────────────────────────────────────── */}
-      {(() => {
-        type TimelineItem = {
-          id: string;
-          type: 'milestone' | 'order' | 'message' | 'status' | 'note';
-          label: string;
-          sub?: string;
-          at: Date;
-          icon: React.ElementType;
-          color: string;
-          dot: string;
-        };
-        const items: TimelineItem[] = [];
-
-        // Milestones
-        for (const m of milestones) {
-          items.push({
-            id: `ms-${m.id}`,
-            type: 'milestone',
-            label: m.completedAt ? `Milestone completed: ${m.label}` : `Milestone added: ${m.label}`,
-            at: new Date(m.completedAt ?? m.createdAt ?? Date.now()),
-            icon: Flag,
-            color: m.completedAt ? 'text-emerald-600' : 'text-primary',
-            dot: m.completedAt ? 'bg-emerald-500' : 'bg-primary',
-          });
-        }
-
-        // Orders
-        for (const o of orders) {
-          items.push({
-            id: `ord-${o.id}`,
-            type: 'order',
-            label: `Order ${o.status === 'PAID' ? 'paid' : 'created'} — $${Number(o.total ?? 0).toLocaleString()}`,
-            at: new Date(o.createdAt ?? Date.now()),
-            icon: CurrencyDollar,
-            color: o.status === 'PAID' ? 'text-emerald-600' : 'text-amber-600',
-            dot: o.status === 'PAID' ? 'bg-emerald-500' : 'bg-amber-400',
-          });
-        }
-
-        // Messages (last 10 only)
-        for (const msg of messages.slice(-10)) {
-          const isStaff = isStaffSender(msg);
-          items.push({
-            id: `msg-${msg.id}`,
-            type: 'message',
-            label: isStaff ? 'Message sent to client' : 'Message received from client',
-            sub: (msg.content ?? '').slice(0, 80) + ((msg.content ?? '').length > 80 ? '…' : ''),
-            at: new Date(msg.createdAt),
-            icon: Chat,
-            color: isStaff ? 'text-primary' : 'text-muted-foreground',
-            dot: isStaff ? 'bg-primary' : 'bg-muted-foreground/60',
-          });
-        }
-
-        // Case notes (if any)
-        for (const n of (engagement.caseNotes ?? [])) {
-          items.push({
-            id: `note-${n.id}`,
-            type: 'note',
-            label: n.isInternal ? 'Internal note added' : 'Case note sent to client',
-            sub: (n.content ?? '').slice(0, 80),
-            at: new Date(n.createdAt ?? Date.now()),
-            icon: Note,
-            color: 'text-violet-600',
-            dot: 'bg-violet-500',
-          });
-        }
-
-        const sorted = items.sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 30);
-
-        return (
-          <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-border bg-muted/20 px-5 py-3.5">
-              <p className="font-semibold text-foreground text-sm">Activity Timeline</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Unified feed — milestones, orders, messages, notes</p>
-            </div>
-            {sorted.length === 0 ? (
-              <div className="py-10 text-center">
-                <Clock className="mx-auto mb-2 h-8 w-8 text-muted-foreground/20" />
-                <p className="text-sm text-muted-foreground">No activity yet on this case.</p>
-              </div>
-            ) : (
-              <div className="relative px-5 py-4">
-                {/* Vertical line */}
-                <div className="absolute left-[2.35rem] top-0 bottom-0 w-px bg-border" />
-                <div className="space-y-4">
-                  {sorted.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <div key={item.id} className="flex items-start gap-3 relative">
-                        <div className={`relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-2 ring-white ${item.dot}`}>
-                          <Icon className="h-3 w-3 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0 pt-0.5">
-                          <p className={`text-xs font-semibold ${item.color}`}>{item.label}</p>
-                          {item.sub && (
-                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{item.sub}</p>
-                          )}
-                          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                            {format(item.at, 'MMM d, yyyy · h:mm a')}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* ── Officer Activity ───────────────────────────────────────────────────── */}
-      <div data-tour="case-officer" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-        <button
-          onClick={() => {
-            const next = !activityOpen;
-            setActivityOpen(next);
-            if (next) loadOfficerActivity();
-          }}
-          className="w-full flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/20 hover:bg-muted/40 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Note className="h-4 w-4 text-primary" />
-            <p className="font-semibold text-foreground text-sm">Officer Activity</p>
-            {officerActivity?.slaAlert && (
-              <span className="flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">
-                <Warning className="h-3 w-3" /> SLA alert
-              </span>
-            )}
-          </div>
-          <CaretDown className={`h-4 w-4 text-muted-foreground transition-transform ${activityOpen ? 'rotate-180' : ''}`} />
-        </button>
-
-        {activityOpen && (
-          <div className="p-5">
-            {activityLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <CircleNotch className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : !officerActivity || officerActivity.timeline?.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">No officer activity yet for this case.</p>
-            ) : (
-              <>
-                {officerActivity.slaAlert && (
-                  <div className="mb-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                    <Warning className="h-4 w-4 shrink-0" />
-                    No tracking update in {officerActivity.daysSinceUpdate} days — SLA threshold exceeded.
-                  </div>
-                )}
-                <div className="space-y-3">
-                  {(officerActivity.timeline as any[]).map((item: any, i: number) => {
-                    if (item.type === 'note') {
-                      const n = item.data;
-                      return (
-                        <div key={n.id ?? i} className={`rounded-xl px-4 py-3 text-xs ${n.isInternal ? 'bg-muted/50 border border-border' : 'bg-teal-50 border border-teal-200'}`}>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <Note className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="font-semibold text-foreground">{n.author?.name ?? 'Officer'}</span>
-                            {!n.isInternal && (
-                              <span className="rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700">Sent to client</span>
-                            )}
-                            {n.isInternal && (
-                              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground flex items-center gap-0.5">
-                                <Lock className="h-2.5 w-2.5" /> Internal
-                              </span>
-                            )}
-                            <span className="ml-auto text-muted-foreground">{new Date(item.ts).toLocaleDateString()}</span>
-                          </div>
-                          <p className="text-foreground">{n.content}</p>
-                        </div>
-                      );
-                    }
-                    if (item.type === 'tracking') {
-                      const t = item.data;
-                      return (
-                        <div key={t.id ?? i} className="rounded-xl border border-border bg-blue-50/50 px-4 py-3 text-xs">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <ArrowSquareUpRight className="h-3.5 w-3.5 text-primary" />
-                            <span className="font-semibold text-foreground">{t.portal}</span>
-                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary font-medium">{t.status}</span>
-                            <span className="ml-auto text-muted-foreground">{new Date(item.ts).toLocaleDateString()}</span>
-                          </div>
-                          {t.referenceNumber && <p className="text-muted-foreground">Ref: {t.referenceNumber}</p>}
-                          {t.notes && <p className="text-muted-foreground mt-0.5">{t.notes}</p>}
-                        </div>
-                      );
-                    }
-                    if (item.type === 'escalation') {
-                      const e = item.data;
-                      return (
-                        <div key={e.id ?? i} className={`rounded-xl border px-4 py-3 text-xs ${e.status === 'RESOLVED' ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <Warning className={`h-3.5 w-3.5 ${e.status === 'RESOLVED' ? 'text-emerald-600' : 'text-rose-600'}`} />
-                            <span className="font-semibold text-foreground">Escalation</span>
-                            <span className={`rounded-full px-2 py-0.5 font-medium ${e.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                              {e.status}
-                            </span>
-                            <span className="ml-auto text-muted-foreground">{new Date(item.ts).toLocaleDateString()}</span>
-                          </div>
-                          <p className="text-foreground">{e.reason}</p>
-                          {e.resolution && <p className="text-emerald-700 mt-1">Resolution: {e.resolution}</p>}
-                        </div>
-                      );
-                    }
-                    return null;
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Messages (WhatsApp-style) ─────────────────────────────────────────── */}
-      <div data-tour="case-messages" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden flex flex-col" style={{ height: 580 }}>
-
-        {/* Chat header */}
-        <div className="shrink-0 flex items-center gap-3 border-b border-border bg-[#0F4C81] px-5 py-3.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-bold text-white">
-            {(person.name ?? 'CL').slice(0, 2).toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-white text-sm leading-tight">{person.name ?? 'Client'}</p>
-            <p className="text-xs text-white/60">
-              {person.profession ? person.profession.replace(/_/g, ' ') : 'Engagement client'} · auto-refreshes every 20s
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span className="text-xs text-white/70">Active</span>
-            {msgLoading && <CircleNotch className="h-3.5 w-3.5 animate-spin text-white/60 ml-2" />}
-          </div>
-        </div>
-
-        {/* Messages scroll area */}
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="relative flex-1 overflow-y-auto px-4 py-4 space-y-0.5"
-          style={{ background: '#f0f2f5' }}
-        >
-          {messages.length === 0 && !msgLoading ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <ChatCircle className="h-12 w-12 text-muted-foreground/20 mb-3" weight="fill" />
-              <p className="text-sm font-medium text-muted-foreground">No messages yet</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Start the conversation with {person.name ?? 'this client'} below</p>
-            </div>
-          ) : (
+        <div className="relative flex items-center gap-2">
+          <button onClick={() => setTab('messages')} className={btnPrimary}><Envelope className="h-4 w-4" /> Message</button>
+          <button onClick={() => setDialog('checklist')} className={btnOutline}><FileText className="h-4 w-4" /> Send checklist</button>
+          <button onClick={() => setMenuOpen((v) => !v)} aria-label="More actions" aria-expanded={menuOpen} className={`${btnOutline} px-2.5`}><DotsThree className="h-4 w-4" /></button>
+          {menuOpen && (
             <>
-              {groupedMessages.map((item, gi) => {
-                const { msg, showDateSep, dateLabel, isLastInGroup } = item;
-                const staff = isStaffSender(msg);
-
-                return (
-                  <div key={msg.id ?? gi}>
-                    {/* Date separator */}
-                    {showDateSep && (
-                      <div className="flex items-center justify-center my-3">
-                        <span className="rounded-full bg-white/90 border border-border/40 px-3 py-1 text-[11px] text-muted-foreground font-medium shadow-sm">
-                          {dateLabel}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Bubble row */}
-                    <div className={`flex items-end gap-1.5 mb-0.5 ${staff ? 'flex-row-reverse' : 'flex-row'}`}>
-
-                      {/* Avatar — only on last bubble in a group */}
-                      <div className="h-7 w-7 shrink-0">
-                        {isLastInGroup ? (
-                          <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold ${
-                            staff ? 'bg-primary text-white' : 'bg-[#00A896] text-white'
-                          }`}>
-                            {staff
-                              ? (me?.name ?? 'A').slice(0, 1).toUpperCase()
-                              : (person.name ?? 'C').slice(0, 1).toUpperCase()
-                            }
-                          </div>
-                        ) : null}
-                      </div>
-
-                      {/* Bubble */}
-                      <div
-                        className={`relative max-w-[68%] px-3.5 py-2 text-sm leading-relaxed shadow-sm ${
-                          staff
-                            ? 'bg-[#0F4C81] text-white rounded-2xl rounded-br-sm'
-                            : 'bg-white text-foreground rounded-2xl rounded-bl-sm'
-                        } ${!isLastInGroup ? (staff ? 'rounded-br-2xl' : 'rounded-bl-2xl') : ''}`}
-                      >
-                        {/* Check if it's a document reference */}
-                        {msg.content?.startsWith('[Document shared:') ? (
-                          <div className="flex items-start gap-2">
-                            <FileText className={`h-4 w-4 shrink-0 mt-0.5 ${staff ? 'text-white/70' : 'text-primary'}`} />
-                            <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                          </div>
-                        ) : (
-                          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                        )}
-
-                        {/* Timestamp + read receipts (last in group only) */}
-                        {isLastInGroup && (
-                          <div className={`flex items-center gap-1 mt-1 ${staff ? 'justify-end' : 'justify-start'}`}>
-                            <span className={`text-[10px] ${staff ? 'text-white/50' : 'text-muted-foreground/50'}`}>
-                              {format(new Date(msg.createdAt), 'HH:mm')}
-                            </span>
-                            {staff && (
-                              msg.readAt
-                                ? <CheckCircle className="h-3 w-3 text-white/60" weight="fill" />
-                                : <Check className="h-3 w-3 text-white/40" />
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={bottomRef} />
-            </>
-          )}
-
-          {/* New messages banner */}
-          {newBanner && (
-            <div className="sticky bottom-3 flex justify-center">
-              <button
-                onClick={() => { scrollToBottom(); setNewBanner(false); }}
-                className="flex items-center gap-1.5 rounded-full bg-primary/90 px-4 py-1.5 text-xs font-semibold text-white shadow-lg hover:bg-primary transition-colors"
-              >
-                <ArrowDown className="h-3.5 w-3.5" /> New messages
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Scroll-to-bottom FAB */}
-        {!atBottom && !newBanner && (
-          <div className="relative">
-            <button
-              onClick={scrollToBottom}
-              className="absolute bottom-2 right-4 -translate-y-full flex h-8 w-8 items-center justify-center rounded-full bg-white border border-border shadow-md hover:bg-muted/50 transition-all z-10"
-            >
-              <ArrowDown className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
-        )}
-
-        {/* Quick replies */}
-        {messages.length > 0 && (
-          <div className="shrink-0 flex gap-2 overflow-x-auto px-4 py-2 border-t border-border/60 bg-white scrollbar-hide">
-            {QUICK_REPLIES.map((qr) => (
-              <button
-                key={qr}
-                onClick={() => { setCompose(qr); composeRef.current?.focus(); }}
-                className="whitespace-nowrap shrink-0 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-foreground hover:bg-muted/80 hover:border-primary/40 transition-colors"
-              >
-                {qr}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Attachment panel */}
-        {attachOpen && (
-          <div className="shrink-0 border-t border-border bg-white">
-            {/* Tab switcher */}
-            <div className="flex border-b border-border">
-              <button
-                onClick={() => { setAttachTab('vault'); if (person.id) loadPersonDocs(person.id); }}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold transition-colors ${
-                  attachTab === 'vault' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <FileText className="h-3.5 w-3.5" /> Attach from vault
-              </button>
-              <button
-                onClick={() => setAttachTab('request')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold transition-colors ${
-                  attachTab === 'request' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <UploadSimple className="h-3.5 w-3.5" /> Request upload
-              </button>
-            </div>
-
-            {/* Vault tab */}
-            {attachTab === 'vault' && (
-              <div className="max-h-40 overflow-y-auto divide-y divide-border/60">
-                {loadingDocs ? (
-                  <div className="flex items-center justify-center py-6">
-                    <CircleNotch className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : personDocs.length === 0 ? (
-                  <p className="py-5 text-center text-xs text-muted-foreground">No documents in vault for this client.</p>
-                ) : (
-                  personDocs.map((doc) => (
-                    <button
-                      key={doc.id}
-                      onClick={() => handleAttachFromVault(doc)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
-                    >
-                      {docTypeIcon(doc.type ?? '')}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate">{doc.type?.replace(/_/g, ' ') ?? 'Document'}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {doc.status} · {doc.uploadedAt ? format(new Date(doc.uploadedAt), 'MMM d, yyyy') : '—'}
-                        </p>
-                      </div>
-                      <LinkIcon className="h-3.5 w-3.5 text-primary shrink-0" />
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Request upload tab */}
-            {attachTab === 'request' && (
-              <div className="max-h-40 overflow-y-auto divide-y divide-border/60">
-                {DOC_REQUEST_TEMPLATES.map((tmpl) => (
-                  <button
-                    key={tmpl.label}
-                    onClick={() => handleRequestTemplate(tmpl)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
-                  >
-                    <UploadSimple className="h-4 w-4 text-primary shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-foreground">{tmpl.label}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{tmpl.text}</p>
-                    </div>
+              <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-full z-40 mt-2 w-56 overflow-hidden rounded-xl border border-border bg-white py-1 shadow-xl">
+                {[
+                  { label: 'AI summary of this case', icon: Sparkle, show: true, run: summarise },
+                  { label: busy === 'draft' ? 'Drafting…' : 'AI draft update for client', icon: Note, show: true, run: draftUpdate },
+                  { label: engagement.consultantId ? 'Reassign consultant' : 'Assign consultant', icon: Flag, show: isAdmin, run: () => { setMenuOpen(false); setDialog('consultant'); } },
+                  { label: engagement.officerId ? 'Change officer' : 'Assign officer', icon: Flag, show: canAssignOfficer, run: () => { setMenuOpen(false); setPickOfficer(engagement.officerId ?? ''); setDialog('officer'); api.listOfficers().then((l) => setOfficers(l ?? [])).catch(() => {}); } },
+                  { label: 'Change status', icon: Flag, show: isAdmin, run: () => { setMenuOpen(false); setNewStatus(''); setReason(''); setDialog('status'); } },
+                ].filter((i) => i.show).map((item) => (
+                  <button key={item.label} onClick={item.run} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-foreground hover:bg-muted/60">
+                    <item.icon className="h-4 w-4 text-muted-foreground" /> {item.label}
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Compose bar */}
-        <div className="shrink-0 flex items-end gap-2 border-t border-border bg-white px-4 py-3">
-          {/* Attach button */}
-          <button
-            onClick={() => {
-              setAttachOpen((v) => !v);
-              if (!attachOpen && attachTab === 'vault' && person.id) loadPersonDocs(person.id);
-            }}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${
-              attachOpen ? 'bg-primary text-white' : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-            title="Attach document or request upload"
-          >
-            <Paperclip className="h-4 w-4" />
-          </button>
-
-          {/* Textarea */}
-          <div className="relative flex-1">
-            <textarea
-              ref={composeRef}
-              value={compose}
-              onChange={(e) => { setCompose(e.target.value); autoResize(e.target); }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
-              }}
-              placeholder={`Message ${person.name ?? 'client'}… (Enter to send, Shift+Enter for newline)`}
-              rows={1}
-              className="w-full resize-none rounded-full border border-border bg-[#f0f2f5] px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 max-h-[120px] leading-relaxed pr-16"
-            />
-            {compose.length > 300 && (
-              <span className={`absolute bottom-2.5 right-3 text-[10px] ${compose.length > 1000 ? 'text-rose-500' : 'text-muted-foreground/60'}`}>
-                {compose.length}/1000
-              </span>
-            )}
-          </div>
-
-          {/* Send button */}
-          <button
-            onClick={() => handleSendMessage()}
-            disabled={!compose.trim() || sending}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 disabled:opacity-40 transition-colors shadow-sm"
-          >
-            {sending ? <CircleNotch className="h-4 w-4 animate-spin" /> : <PaperPlaneRight className="h-4 w-4" weight="fill" />}
-          </button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Next step */}
+      <div data-tour="case-next" className={`${card} flex flex-wrap items-center justify-between gap-3 px-5 py-3.5`}>
+        {nextStep ? (
+          <>
+            <p className="flex min-w-0 items-center gap-2.5 text-sm text-foreground">
+              <span className="shrink-0 text-xs font-bold uppercase tracking-widest text-muted-foreground">Next step</span>
+              {!closed && <Dot className="bg-accent" />}
+              <span className="font-semibold">{nextStep.text}</span>
+            </p>
+            {nextStep.action && (
+              <button onClick={nextStep.action.run} disabled={busy === 'letter'} className={btnPrimary}>
+                {busy === 'letter' && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} {nextStep.action.label}
+              </button>
+            )}
+          </>
+        ) : (
+          <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <CheckCircle className="h-4 w-4 text-secondary" weight="fill" />
+            {summary?.quiet ? `Nothing is waiting, but there has been no recorded activity since ${ago(summary.lastActivityAt)}.` : 'Nothing is waiting on this case.'}
+          </p>
+        )}
+      </div>
+
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+        {/* Main column */}
+        <div className="min-w-0 space-y-4">
+          <div data-tour="case-tabs" className="flex gap-1 overflow-x-auto border-b border-border">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`-mb-px flex shrink-0 items-center whitespace-nowrap border-b-2 px-3.5 py-2.5 text-sm font-semibold transition-colors ${tab === t ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+              >
+                {TAB_LABEL[t]}{tabBadge[t]}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Overview ── */}
+          {tab === 'overview' && (
+            <div className={`${card} space-y-6 p-5`}>
+              <Section
+                title="Stages"
+                action={milestones.length > 0 ? <span className="text-xs font-semibold text-muted-foreground">{currentStage ? `Stage ${done + 1} of ${milestones.length}` : `All ${milestones.length} complete`}</span> : undefined}
+              >
+                {milestones.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No stages yet. Add the steps of this case so the client can follow their progress.</p>
+                ) : (
+                  <>
+                    <div className="mb-4 flex gap-1">
+                      {milestones.map((m) => (
+                        <div key={m.id} title={m.label} className={`h-2 flex-1 rounded-full ${m.completedAt ? 'gradient-hero' : m.id === currentStage?.id ? 'bg-primary/30' : 'bg-muted'}`} />
+                      ))}
+                    </div>
+                    <div className="divide-y divide-border/70">
+                      {milestones.map((m) => {
+                        const isCurrent = m.id === currentStage?.id;
+                        return (
+                          <div key={m.id} className="flex items-center gap-3 py-2.5">
+                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${m.completedAt ? 'bg-secondary text-white' : isCurrent ? 'border-2 border-primary' : 'border-2 border-border'}`}>
+                              {m.completedAt && <Check className="h-3 w-3" />}
+                            </span>
+                            <span className={`min-w-0 flex-1 truncate text-sm ${m.completedAt ? 'text-muted-foreground' : isCurrent ? 'font-bold text-foreground' : 'text-foreground'}`}>{m.label}</span>
+                            {m.completedAt
+                              ? <span className="shrink-0 text-xs text-muted-foreground">{day(m.completedAt)}</span>
+                              : isCurrent && !closed
+                                ? <button onClick={() => setCompleting(m)} className={btnOutline}>Mark complete</button>
+                                : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+                {!closed && (addingStage ? (
+                  <div className="mt-3 flex gap-2">
+                    <input id="new-stage" value={stageLabel} onChange={(e) => setStageLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStage()} placeholder="Stage name, for example DataFlow submitted" className={field} autoFocus />
+                    <button onClick={addStage} disabled={!stageLabel.trim() || busy === 'addStage'} className={btnPrimary}>Add</button>
+                    <button onClick={() => { setAddingStage(false); setStageLabel(''); }} className={btnOutline}>Cancel</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setAddingStage(true)} className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"><Plus className="h-3.5 w-3.5" /> Add stage</button>
+                ))}
+              </Section>
+
+              {required.length > 0 && (
+                <Section title={`This stage needs${ctx?.stage?.label ? ` · ${ctx.stage.label}` : ''}`}>
+                  <div className="divide-y divide-border/70">
+                    {required.map((type) => {
+                      const s = bestDocStatus(documents, type);
+                      const doc = documents.find((d) => d.type === type && d.status === 'PENDING');
+                      return (
+                        <div key={type} className="flex items-center gap-3 py-2.5">
+                          <Dot className={s ? DOC_STATUS[s].dot : 'border border-muted-foreground/50'} />
+                          <span className="min-w-0 flex-1 truncate text-sm text-foreground">{title(type)}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">{s ? DOC_STATUS[s].label : 'Not uploaded'}</span>
+                          {doc && <Link href={`/documents?doc=${doc.id}`} className={btnOutline}>Review</Link>}
+                          {!s && <button onClick={() => { setInject({ text: `Please upload your ${title(type).toLowerCase()} to your document vault.`, id: Date.now() }); setTab('messages'); }} className={btnOutline}>Request</button>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Section>
+              )}
+            </div>
+          )}
+
+          {/* ── Documents ── */}
+          {tab === 'documents' && (
+            <div className={`${card} overflow-hidden`}>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3.5">
+                <p className="text-sm font-semibold text-foreground">
+                  {documents.filter((d) => d.status === 'VERIFIED').length} of {documents.length} verified
+                  <span className="ml-2 font-normal text-muted-foreground">{pendingDocs.length} waiting · {documents.filter((d) => d.status === 'REJECTED').length} rejected</span>
+                </p>
+                {firstPendingDoc && <Link href={`/documents?doc=${firstPendingDoc.id}`} className={btnPrimary}>Review waiting documents</Link>}
+              </div>
+              {documents.length === 0 ? <Empty icon={FileText} text="This client has not uploaded any documents yet." /> : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[34rem] text-sm">
+                    <thead className="border-b border-border bg-muted/40 text-left text-xs font-semibold text-muted-foreground">
+                      <tr><th className="px-5 py-2.5">Document</th><th className="px-4 py-2.5">Uploaded</th><th className="px-4 py-2.5">Expiry</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5" /></tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/70">
+                      {documents.map((d) => {
+                        const left = d.expiryDate ? Math.ceil((new Date(d.expiryDate).getTime() - Date.now()) / 86400000) : null;
+                        return (
+                          <tr key={d.id}>
+                            <td className="px-5 py-3 font-semibold text-foreground">{title(d.type)}{required.includes(d.type) && <span className="ml-2 text-xs font-medium text-muted-foreground">needed for this stage</span>}</td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">{ago(d.uploadedAt)}</td>
+                            <td className="px-4 py-3 text-xs">
+                              {left === null ? <span className="text-muted-foreground">—</span>
+                                : left < 0 ? <span className="inline-flex items-center gap-1.5 font-semibold text-foreground"><Dot className="bg-rose-500" /> Expired</span>
+                                : left <= 30 ? <span className="inline-flex items-center gap-1.5 font-semibold text-foreground"><Dot className="bg-accent" /> {left} days left</span>
+                                : <span className="text-muted-foreground">{day(d.expiryDate)}</span>}
+                            </td>
+                            <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-foreground"><Dot className={DOC_STATUS[d.status]?.dot ?? 'bg-muted'} /> {DOC_STATUS[d.status]?.label ?? title(d.status)}</span></td>
+                            <td className="px-4 py-3 text-right">{d.status === 'PENDING' && <Link href={`/documents?doc=${d.id}`} className={btnOutline}>Review</Link>}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2 border-t border-border px-5 py-3">
+                <button onClick={() => setTab('messages')} className={btnOutline}><UploadSimple className="h-3.5 w-3.5" /> Request a document</button>
+                <button onClick={() => setDialog('checklist')} className={btnOutline}><FileText className="h-3.5 w-3.5" /> Send document checklist</button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Payments ── */}
+          {tab === 'payments' && (
+            <div className={`${card} overflow-hidden`}>
+              <div className="border-b border-border px-5 py-4">
+                <div className="mb-2 flex items-end justify-between">
+                  <p className="text-sm text-muted-foreground"><span className="text-xl font-extrabold text-foreground">{money(paid)}</span> paid of {money(total)}</p>
+                  <span className="text-sm font-bold text-foreground">{total > 0 ? Math.round((paid / total) * 100) : 0}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div className={`h-full rounded-full ${total > 0 && paid >= total ? 'bg-secondary' : 'gradient-hero'}`} style={{ width: `${total > 0 ? Math.min(100, (paid / total) * 100) : 0}%` }} />
+                </div>
+              </div>
+              {orders.length === 0 ? <Empty icon={CurrencyDollar} text="No orders yet for this case." /> : (
+                <div className="divide-y divide-border/70">
+                  {orders.map((o) => (
+                    <div key={o.id} className="px-5 py-4">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-xs text-muted-foreground">Order · {day(o.createdAt)}{o.paymentMode ? ` · ${title(o.paymentMode)}` : ''}</p>
+                        <p className="flex items-center gap-3">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground"><Dot className={ORDER_STATUS[o.status]?.dot ?? 'bg-muted'} /> {ORDER_STATUS[o.status]?.label ?? title(o.status)}</span>
+                          <span className="text-base font-extrabold text-foreground">{money(o.total)}</span>
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        {(o.lineItems ?? []).map((li: any) => (
+                          <p key={li.id} className="flex justify-between gap-3 text-sm text-foreground"><span className="min-w-0 truncate">{li.serviceItem?.name ?? 'Service'}</span><span className="shrink-0 tabular-nums text-muted-foreground">{money(li.priceCharged)}</span></p>
+                        ))}
+                        {(o.installmentSchedules ?? []).map((inst: any) => (
+                          <p key={inst.id} className="flex justify-between gap-3 text-xs text-muted-foreground">
+                            <span>Instalment {inst.installmentNo}</span>
+                            <span className="inline-flex items-center gap-1.5"><Dot className={inst.status === 'PAID' ? 'bg-secondary' : 'bg-accent'} /> {title(inst.status)} · {money(inst.amount)}</span>
+                          </p>
+                        ))}
+                      </div>
+                      {o.receipts?.length > 0 && <p className="mt-2 text-xs text-muted-foreground">{o.receipts.length} receipt{o.receipts.length !== 1 ? 's' : ''} issued</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Messages ── */}
+          {tab === 'messages' && (
+            <div className="space-y-2">
+              <Chat eid={eid} personName={person.name ?? 'the client'} staffName={staffName} documents={documents} inject={inject} onSent={() => refreshSummary(eid, person.id)} />
+              <p className="flex flex-wrap items-center gap-2 px-1 text-xs text-muted-foreground">
+                <button onClick={draftUpdate} disabled={busy === 'draft'} className={btnOutline}>
+                  {busy === 'draft' ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Sparkle className="h-3.5 w-3.5" />} Draft with AI
+                </button>
+                An AI draft is only a starting point. Read and edit it before you send; you are responsible for what the client receives.
+              </p>
+            </div>
+          )}
+
+          {/* ── Activity ── */}
+          {tab === 'activity' && (
+            <div className={`${card} p-5`}>
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {[['all', 'All'], ['stages', 'Stages'], ['documents', 'Documents'], ['payments', 'Payments'], ['notes', 'Notes'], ['submissions', 'Submissions'], ['escalations', 'Escalations']].map(([key, label]) => (
+                  <button key={key} onClick={() => setActivityFilter(key)} className={`rounded-full border px-3 py-1 text-xs font-semibold ${activityFilter === key ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>{label}</button>
+                ))}
+              </div>
+              {!activity && <p className="mb-3 flex items-center gap-2 text-xs text-muted-foreground"><CircleNotch className="h-3.5 w-3.5 animate-spin" /> Loading notes, submissions and escalations…</p>}
+              {activity?.slaAlert && (
+                <p className="mb-4 flex items-center gap-2 rounded-xl bg-accent/15 px-3.5 py-2.5 text-xs font-semibold text-foreground">
+                  <Warning className="h-4 w-4 shrink-0" /> No submission update has been recorded for {activity.daysSinceUpdate} days.
+                </p>
+              )}
+              {shownEntries.length === 0 ? <Empty icon={Clock} text="Nothing recorded here yet." /> : (
+                <ol className="space-y-4">
+                  {shownEntries.map((e) => (
+                    <li key={e.id} className="flex gap-3">
+                      <Dot className={`mt-1.5 ${e.kind === 'escalations' ? 'bg-accent' : e.kind === 'stages' ? 'bg-secondary' : 'bg-primary/40'}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-foreground">
+                          {e.label}
+                          {e.internal && <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground"><Lock className="h-3 w-3" /> internal</span>}
+                        </p>
+                        {e.sub && <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{e.sub}</p>}
+                        <p className="mt-0.5 text-xs text-muted-foreground">{day(e.at.toISOString())}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
+
+          {/* ── Study plan ── */}
+          {tab === 'study' && (
+            <div className={`${card} p-5`}>
+              <Section title="Study plan" action={!planItems ? <button onClick={() => setPlanItems([{ topic: '', dueDate: '' }])} className={btnOutline}><Plus className="h-3.5 w-3.5" /> {studyPlan?.items?.length ? 'New plan' : 'Create plan'}</button> : undefined}>
+                {planItems && (
+                  <div className="mb-4 space-y-2 rounded-xl border border-border p-3">
+                    {planItems.map((item, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input aria-label={`Topic ${i + 1}`} value={item.topic} onChange={(e) => setPlanItems((p) => (p ?? []).map((x, j) => (j === i ? { ...x, topic: e.target.value } : x)))} placeholder="Topic, for example Pharmacology fundamentals" className={field} />
+                        <input aria-label={`Due date ${i + 1}`} type="date" value={item.dueDate} onChange={(e) => setPlanItems((p) => (p ?? []).map((x, j) => (j === i ? { ...x, dueDate: e.target.value } : x)))} className={`${field} w-40`} />
+                        {planItems.length > 1 && <button onClick={() => setPlanItems((p) => (p ?? []).filter((_, j) => j !== i))} aria-label="Remove topic" className="rounded-lg p-2 text-muted-foreground hover:bg-muted"><Trash className="h-3.5 w-3.5" /></button>}
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-1">
+                      <button onClick={() => setPlanItems((p) => [...(p ?? []), { topic: '', dueDate: '' }])} className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"><Plus className="h-3 w-3" /> Add topic</button>
+                      <span className="flex gap-2">
+                        <button onClick={() => setPlanItems(null)} className={btnOutline}>Cancel</button>
+                        <button onClick={savePlan} disabled={busy === 'plan' || !planItems.some((i) => i.topic.trim())} className={btnPrimary}>Save plan</button>
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {studyPlan?.items?.length > 0 ? (
+                  <div className="divide-y divide-border/70">
+                    {(studyPlan.items as any[]).map((item) => (
+                      <div key={item.id} className="flex items-center gap-3 py-2.5">
+                        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${item.completed || item.completedAt ? 'bg-secondary text-white' : 'border-2 border-border'}`}>{(item.completed || item.completedAt) && <Check className="h-3 w-3" />}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm text-foreground">{item.topic}</span>
+                        {item.dueDate && <span className="shrink-0 text-xs text-muted-foreground">Due {day(item.dueDate)}</span>}
+                      </div>
+                    ))}
+                  </div>
+                ) : !planItems && <Empty icon={BookOpen} text="No study plan yet. Create one to guide this client's exam preparation." />}
+              </Section>
+            </div>
+          )}
+        </div>
+
+        {/* Side panel */}
+        <aside data-tour="case-rail" className={`${card} divide-y divide-border/70`}>
+          <div className="p-4">
+            <h3 className="mb-2.5 text-xs font-bold uppercase tracking-widest text-muted-foreground">Client</h3>
+            <div className="space-y-2 text-sm text-foreground">
+              {person.email && <p className="flex items-center gap-2"><Envelope className="h-4 w-4 shrink-0 text-muted-foreground" /><span className="min-w-0 select-all truncate">{person.email}</span></p>}
+              {person.phone && <p className="flex items-center gap-2"><Phone className="h-4 w-4 shrink-0 text-muted-foreground" /><span className="select-all">{person.phone}</span></p>}
+              <p className="flex items-center gap-2"><Globe className="h-4 w-4 shrink-0 text-muted-foreground" />{person.locale === 'fr' ? 'French' : 'English'}</p>
+            </div>
+            {person.id && <Link href={`/clients/${person.id}`} className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">Open client profile <ArrowSquareOut className="h-3.5 w-3.5" /></Link>}
+          </div>
+          <div className="p-4">
+            <h3 className="mb-2.5 text-xs font-bold uppercase tracking-widest text-muted-foreground">Team</h3>
+            {[['Consultant', consultantName], ['Officer', summary?.officerName ?? null]].map(([label, name]) => (
+              <p key={label as string} className="flex items-center justify-between gap-3 py-1 text-sm">
+                <span className="text-muted-foreground">{label}</span>
+                <span className={`truncate ${name ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{name ?? 'Not assigned'}</span>
+              </p>
+            ))}
+          </div>
+          <div className="p-4">
+            <h3 className="mb-2.5 text-xs font-bold uppercase tracking-widest text-muted-foreground">Key facts</h3>
+            {[
+              ['Letter', engagement.letterSignedAt ? `Signed ${day(engagement.letterSignedAt)}` : 'Not signed'],
+              ['Paid', `${money(paid)} of ${money(total)}`],
+              ['Documents', `${documents.filter((d) => d.status === 'VERIFIED').length} of ${documents.length} verified`],
+              ['Last activity', ago(summary?.lastActivityAt)],
+              ['Opened', day(engagement.createdAt)],
+            ].map(([label, value]) => (
+              <p key={label} className="flex items-center justify-between gap-3 py-1 text-sm">
+                <span className="text-muted-foreground">{label}</span>
+                <span className="text-right font-semibold text-foreground">{value}</span>
+              </p>
+            ))}
+          </div>
+        </aside>
+      </div>
+
+      {/* ── Dialogs ── */}
+      {dialog === 'checklist' && (
+        <Modal title="Send document checklist" sub="Emails the checklist to the client and posts it in the chat." onClose={() => setDialog(null)}>
+          <label htmlFor="checklist-pathway" className="mb-1.5 block text-xs font-bold text-foreground">Pathway or regulatory body</label>
+          <select id="checklist-pathway" value={checklist} onChange={(e) => setChecklist(e.target.value)} className={field}>
+            {CHECKLISTS.map((g) => (
+              <optgroup key={g.group} label={g.group}>{g.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</optgroup>
+            ))}
+          </select>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setDialog(null)} className={btnOutline}>Cancel</button>
+            <button onClick={sendChecklist} disabled={busy === 'checklist'} className={btnPrimary}>{busy === 'checklist' && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} Send checklist</button>
+          </div>
+        </Modal>
+      )}
+
+      {dialog === 'status' && (
+        <Modal title="Change case status" sub="The client sees the status of their case in their portal." onClose={() => setDialog(null)}>
+          <label htmlFor="status-new" className="mb-1.5 block text-xs font-bold text-foreground">New status</label>
+          <select id="status-new" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className={field}>
+            <option value="">Select a status…</option>
+            {['ACTIVE', 'ON_HOLD', 'COMPLETED', 'TERMINATED'].filter((s) => s !== engagement.status).map((s) => <option key={s} value={s}>{STATUS[s].label}</option>)}
+          </select>
+          <label htmlFor="status-reason" className="mb-1.5 mt-4 block text-xs font-bold text-foreground">
+            Reason {['ON_HOLD', 'TERMINATED'].includes(newStatus) ? '(required)' : '(optional)'}
+          </label>
+          <textarea id="status-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} placeholder="Kept on the case as an internal note." className={`${field} resize-none`} />
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setDialog(null)} className={btnOutline}>Cancel</button>
+            <button onClick={changeStatus} disabled={!newStatus || busy === 'status' || (['ON_HOLD', 'TERMINATED'].includes(newStatus) && !reason.trim())} className={btnPrimary}>
+              {busy === 'status' && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} Change status
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {dialog === 'consultant' && (
+        <Modal title={engagement.consultantId ? 'Reassign consultant' : 'Assign consultant'} sub="The consultant will see this case in their caseload." onClose={() => setDialog(null)}>
+          <label htmlFor="pick-consultant" className="mb-1.5 block text-xs font-bold text-foreground">Consultant</label>
+          <select id="pick-consultant" value={pickConsultant} onChange={(e) => setPickConsultant(e.target.value)} className={field}>
+            <option value="">Select a consultant…</option>
+            {consultants.map((c) => <option key={c.id} value={c.id}>{c.name ?? c.id}</option>)}
+          </select>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setDialog(null)} className={btnOutline}>Cancel</button>
+            <button onClick={assignConsultant} disabled={!pickConsultant || busy === 'consultant'} className={btnPrimary}>Assign</button>
+          </div>
+        </Modal>
+      )}
+
+      {dialog === 'officer' && (
+        <Modal title={engagement.officerId ? 'Change processing officer' : 'Assign processing officer'} sub="The officer is notified and the case appears in their caseload." onClose={() => setDialog(null)}>
+          <label htmlFor="pick-officer" className="mb-1.5 block text-xs font-bold text-foreground">Processing officer</label>
+          <select id="pick-officer" value={pickOfficer} onChange={(e) => setPickOfficer(e.target.value)} className={field}>
+            <option value="">No officer</option>
+            {officers.filter((o) => o.isActive !== false).map((o) => <option key={o.id} value={o.id}>{o.name ?? o.email}</option>)}
+          </select>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setDialog(null)} className={btnOutline}>Cancel</button>
+            <button onClick={assignOfficer} disabled={busy === 'officer' || pickOfficer === (engagement.officerId ?? '')} className={btnPrimary}>Save</button>
+          </div>
+        </Modal>
+      )}
+
+      {completing && (
+        <Modal title="Mark this stage complete?" sub="The client sees this in their portal. It cannot be undone from here." onClose={() => setCompleting(null)}>
+          <p className="rounded-xl bg-muted/50 px-4 py-3 text-sm font-semibold text-foreground">{completing.label}</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setCompleting(null)} className={btnOutline}>Cancel</button>
+            <button onClick={completeStage} disabled={busy === 'stage'} className={btnPrimary}>{busy === 'stage' && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} Mark complete</button>
+          </div>
+        </Modal>
+      )}
+
+      {dialog === 'summary' && (
+        <Modal title="AI summary of this case" sub="A quick brief generated from the case history. Check details against the case before relying on it." onClose={() => setDialog(null)} wide>
+          {busy === 'summary' ? (
+            <p className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground"><CircleNotch className="h-5 w-5 animate-spin" /> Generating summary…</p>
+          ) : (
+            <div className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-xl bg-muted/50 p-4 text-sm leading-relaxed text-foreground">{summaryText || 'No summary is available.'}</div>
+          )}
+          <div className="mt-5 flex justify-end"><button onClick={() => setDialog(null)} className={btnOutline}>Close</button></div>
+        </Modal>
+      )}
+
+      {aiDraft && (
+        <Modal title="AI draft update for the client" sub="Generated from the case data. Nothing is sent until you send it yourself." onClose={() => setAiDraft(null)} wide>
+          <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl bg-muted/50 p-4 text-sm leading-relaxed text-foreground">{aiDraft.draft}</div>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setAiDraft(null)} className={btnOutline}>Discard</button>
+            <button
+              onClick={() => {
+                // Record that a person took this draft forward, then let them edit it before sending.
+                api.approveDraft(aiDraft.draftId, staffName).catch(() => {});
+                setInject({ text: aiDraft.draft, id: Date.now() });
+                setAiDraft(null);
+                setTab('messages');
+              }}
+              className={btnPrimary}
+            >
+              Edit in the message box
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

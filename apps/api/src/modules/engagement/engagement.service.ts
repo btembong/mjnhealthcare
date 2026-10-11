@@ -306,11 +306,23 @@ export class EngagementService {
     return engagement;
   }
 
-  async updateStatus(engagementId: string, status: string) {
+  async updateStatus(engagementId: string, status: string, changedById?: string, reason?: string) {
     const engagement = await this.db.engagement.update({
       where: { id: engagementId },
       data: { status: status as any },
     });
+    // Keep the reason on the case as an internal note, so the history explains the change.
+    const why = reason?.trim();
+    if (changedById && why) {
+      await this.db.caseNote.create({
+        data: {
+          engagementId,
+          authorId: changedById,
+          content: `Status changed to ${status.replace(/_/g, ' ').toLowerCase()}. Reason: ${why}`,
+          isInternal: true,
+        },
+      });
+    }
     this.events.emit('engagement.status_changed', { engagementId, status });
     return engagement;
   }
