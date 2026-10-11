@@ -26,6 +26,17 @@ export type VerifiedPayment = {
 export class PaymentLookupError extends Error {}
 
 const TRANZAK_FAILED = ['FAILED', 'CANCELLED', 'CANCELED', 'EXPIRED', 'REJECTED', 'REVERSED'];
+/** No single question to a provider may hold things up for longer than this. */
+const LOOKUP_TIMEOUT_MS = 12000;
+/** A failure other than "expired" or "cancelled" might be retried by the payer on the provider's page. */
+const RETRY_WINDOW_MS = 2 * 60 * 60 * 1000;
+/** After this long with no final answer, nothing more will happen on a payment. */
+const STALE_MS = 3 * 24 * 60 * 60 * 1000;
+
+/** Recorded as "what the provider said" when a payment is paid but is not for the order or booking it sits on. */
+export const PAID_ELSEWHERE = 'paid, but for a different order';
+/** Recorded on a consultation booking that was paid for after it had been cancelled. */
+export const PAID_AFTER_CANCEL = 'paid after the booking was cancelled';
 const logger = new Logger('PaymentVerifier');
 
 export const providerOfRef = (ref: string): 'tranzak' | 'stripe' => (ref.startsWith('cs_') ? 'stripe' : 'tranzak');
@@ -33,7 +44,7 @@ export const providerOfRef = (ref: string): 'tranzak' | 'stripe' => (ref.startsW
 let stripeClient: Stripe | null = null;
 function stripe(): Stripe {
   if (!process.env.STRIPE_SECRET_KEY) throw new PaymentLookupError('Stripe is not set up on this server.');
-  stripeClient ??= new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-09-30.endive' as any });
+  stripeClient ??= new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-09-30.endive' as any, timeout: LOOKUP_TIMEOUT_MS, maxNetworkRetries: 1 });
   return stripeClient;
 }
 
@@ -52,6 +63,7 @@ export const paymentVerifier = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appId: process.env.TRANZAK_APP_ID, appKey: process.env.TRANZAK_APP_KEY }),
+        signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
       });
       const token = ((await authRes.json()) as any)?.data?.token;
       if (!token) throw new Error('no token');
@@ -59,6 +71,7 @@ export const paymentVerifier = {
       // for every payment, which is why lookups used to come back empty.
       const res = await fetch(`${baseUrl}/xp021/v1/request/details?requestId=${encodeURIComponent(requestId)}`, {
         headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
       });
       data = await res.json();
     } catch (err) {
@@ -107,6 +120,24 @@ export const paymentVerifier = {
     };
   },
 };
+
+/**
+ * True when a payment attempt is over and no money was taken, so it is safe to stop waiting for it.
+ *
+ * "Expired" and "cancelled" cannot come back. Any other failure (a wrong PIN, not enough balance)
+ * might be retried by the payer on the provider's own page, so it is given two hours first.
+ * An attempt with no final answer after three days is over too.
+ */
+export function isOver(verified: VerifiedPayment, startedAt: Date, now = Date.now()): boolean {
+  if (verified.paid) return false;
+  const age = now - startedAt.getTime();
+  if (verified.failed) {
+    if (verified.provider === 'stripe' || /EXPIRED|CANCEL/i.test(verified.status ?? '')) return true;
+    return age > RETRY_WINDOW_MS;
+  }
+  // Stripe's "complete" without "paid" means a slow payment method is still settling: leave it alone.
+  return age > STALE_MS && verified.status !== 'complete';
+}
 
 /**
  * True when the provider's record is for this order or booking. Tranzak order references are

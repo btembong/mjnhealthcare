@@ -12,7 +12,16 @@ import { useAdmin } from '../../../contexts/admin-context';
 
 type State = 'waiting' | 'checking' | 'paid' | 'part_refunded' | 'refunded' | 'cancelled';
 type Kind = 'order' | 'consultation';
-type Attempt = { provider: string; ref: string; at: string };
+type Attempt = {
+  provider: string; ref: string; at: string;
+  /** PENDING = no final answer yet · SUCCESS = the one that paid · FAILED = over, no money taken. */
+  status?: 'PENDING' | 'SUCCESS' | 'FAILED';
+  checkedAt?: string | null;
+  /** What the provider last said, in its own words. */
+  said?: string | null;
+};
+/** What the server records when a provider reports a payment that belongs to something else. */
+const PAID_ELSEWHERE = 'paid, but for a different order';
 type Row = {
   id: string; kind: Kind; state: State; status: string; clientName: string; clientEmail: string; clientPhone: string | null;
   personId: string | null; amount: number; refund: number; summary: string; createdAt: string; startedAt: string | null; paidAt: string | null;
@@ -43,7 +52,11 @@ const TABS = [
   ['all', 'All', []],
 ] as const;
 type Tab = (typeof TABS)[number][0];
-const ACTION: Record<string, string> = { recorded_paid: 'Recorded as paid', cancelled: 'Cancelled', refunded: 'Refund recorded' };
+const ACTION: Record<string, string> = {
+  recorded_paid: 'Recorded as paid', cancelled: 'Cancelled', refunded: 'Refund recorded',
+  confirmed_auto: 'Confirmed as paid', auto_cancelled: 'Cancelled: the payment did not go through',
+  paid_after_cancel: 'Paid after it was cancelled — full refund owed',
+};
 
 const card = 'rounded-2xl border border-border bg-white shadow-sm';
 const heading = 'text-xs font-bold uppercase tracking-widest text-muted-foreground';
@@ -72,10 +85,35 @@ function ago(iso: string, now: number) {
 }
 /** The one line under the status that says when. */
 function when(r: Row, now: number) {
-  if (r.state === 'checking' && r.startedAt) return `Payment started ${ago(r.startedAt, now)}, no answer`;
-  if (r.state === 'waiting') return r.startedAt ? `Payment started ${ago(r.startedAt, now)}` : `Created ${day(r.createdAt)}, not started`;
+  const last = r.attempts[0];
+  const provider = last?.provider === 'stripe' ? 'Stripe' : 'Tranzak';
+  if (r.state === 'checking') {
+    if (!last) return 'No payment reference was stored, so it cannot be checked automatically';
+    if (last.said === PAID_ELSEWHERE) return `${provider} reports a payment that belongs to a different order`;
+    return last.checkedAt
+      ? `${provider} last answered ${ago(last.checkedAt, now)} and cannot be reached since`
+      : `Payment started ${ago(last.at, now)}, not checked yet`;
+  }
+  if (r.state === 'waiting') {
+    if (!last) return `Created ${day(r.createdAt)}, payment not started`;
+    if (last.status === 'FAILED') return `Last attempt on ${day(last.at)} did not go through`;
+    return last.checkedAt
+      ? `${provider} says not paid yet · checked ${ago(last.checkedAt, now)}`
+      : `Payment started ${ago(last.at, now)}`;
+  }
   if (r.state === 'cancelled') return `Created ${day(r.createdAt)}`;
   return r.paidAt ? `Paid ${day(r.paidAt)}` : day(r.createdAt);
+}
+/** The line under the title: is the automatic check running? */
+function autoCheckLine(stats: any, now: number) {
+  const auto = stats?.autoCheck;
+  if (!auto) return '';
+  if (!auto.enabled) return 'Automatic checking is switched off on this server.';
+  const last = auto.lastRun?.at;
+  const stuck = auto.lastRun?.stoppedEarly ? ' The payment provider could not be reached on that run.' : '';
+  return last
+    ? `Unpaid payments are checked with Tranzak and Stripe every ${auto.everyMinutes} minutes. Last check ${ago(last, now)}.${stuck}`
+    : `Unpaid payments are checked with Tranzak and Stripe every ${auto.everyMinutes} minutes. The first check runs shortly after the server starts.`;
 }
 function Dot({ className }: { className: string }) {
   return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${className}`} />;
@@ -181,7 +219,7 @@ export default function PaymentsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Payments"
-        subtitle="Orders and paid consultations. Amounts in US dollars."
+        subtitle={`Orders and paid consultations. Amounts in US dollars. ${autoCheckLine(stats, now)}`.trim()}
         actions={<button onClick={exportCsv} disabled={exporting || !rows} className={btnOutline}>{exporting ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <DownloadSimple className="h-3.5 w-3.5" />} Export this list</button>}
       />
 
@@ -201,7 +239,7 @@ export default function PaymentsPage() {
             <button onClick={() => setTab('checking')} className={`${card} p-4 text-left transition-colors hover:bg-muted/30`}>
               <p className={heading}>Need checking</p>
               <p className="mt-1 flex items-center gap-2 text-2xl font-bold text-foreground">{stats.checkingCount > 0 && <Dot className="bg-accent" />}{stats.checkingCount}</p>
-              <p className="text-xs text-muted-foreground">The client started paying and we never heard back.</p>
+              <p className="text-xs text-muted-foreground">Unpaid, and the automatic check could not settle it.</p>
             </button>
           </>
         )}
@@ -241,7 +279,7 @@ export default function PaymentsPage() {
             <p className="text-sm font-bold text-foreground">
               {filtering ? 'No payments match.' : tab === 'checking' ? 'Nothing needs checking.' : tab === 'waiting' ? 'Nothing is waiting to be paid.' : 'No payments here yet.'}
             </p>
-            {tab === 'checking' && !filtering && <p className="mt-1 text-sm text-muted-foreground">A payment appears here when a client started paying more than 15 minutes ago and it was never confirmed.</p>}
+            {tab === 'checking' && !filtering && <p className="mt-1 text-sm text-muted-foreground">The system checks unpaid payments with Tranzak and Stripe by itself. One appears here only when that check cannot settle it: the provider has not answered for a while, or the payment has no reference to check.</p>}
           </div>
         ) : (
           <ul className={`${card} divide-y divide-border overflow-hidden`}>
@@ -413,6 +451,12 @@ function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: 
                         <div className="min-w-0">
                           <p className="text-sm text-foreground">{dayTime(a.at)} · {a.provider === 'tranzak' ? 'Tranzak' : 'Stripe (card)'}</p>
                           <p className="truncate font-mono text-xs text-muted-foreground">{a.ref}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {a.status === 'SUCCESS' ? 'This is the payment that went through.'
+                              : a.status === 'FAILED' ? `Did not go through${a.said ? `: ${a.said.toLowerCase()}` : ''}. No money was taken.`
+                              : a.checkedAt ? `${providerName(a.provider)} last said: ${(a.said ?? 'nothing').toLowerCase()} · checked ${dayTime(a.checkedAt)}`
+                              : 'Not checked with the provider yet.'}
+                          </p>
                         </div>
                         <button onClick={() => check(a.ref)} disabled={!!busy} className={btnOutline}>{busy === 'check' + a.ref ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <ArrowClockwise className="h-3.5 w-3.5" />} Check with {providerName(a.provider)}</button>
                       </div>

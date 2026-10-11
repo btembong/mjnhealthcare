@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
-import { paymentVerifier, belongsTo } from '../../common/payment-verifier';
+import { paymentVerifier, belongsTo, isOver, PAID_ELSEWHERE, PAID_AFTER_CANCEL } from '../../common/payment-verifier';
+
+export type BookingPaymentStatus = 'confirmed' | 'pending' | 'failed' | 'paid_after_cancel' | 'ignored';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bull';
@@ -135,11 +137,13 @@ export class ConsultationService {
   async cancelPreview(bookingId: string, clientEmail: string) {
     const booking = await this.db.consultationBooking.findUnique({ where: { id: bookingId }, include: { slot: true } });
     if (!booking || !sameEmail(booking.clientEmail, clientEmail)) throw new NotFoundException('Booking not found');
+    // A booking that is still waiting for payment has nothing to refund.
+    const paid = booking.status !== 'AWAITING_PAYMENT';
     const refund = this.refundService.calculate(Number(booking.amountPaid), booking.slot.startAt);
     return {
-      amountPaid: Number(booking.amountPaid),
-      refundAmount: refund.refundAmount,
-      refundPercent: refund.refundPercent,
+      amountPaid: paid ? Number(booking.amountPaid) : 0,
+      refundAmount: paid ? refund.refundAmount : 0,
+      refundPercent: paid ? refund.refundPercent : 0,
       canCancel: ['CONFIRMED', 'AWAITING_PAYMENT'].includes(booking.status),
     };
   }
@@ -596,7 +600,22 @@ export class ConsultationService {
 
   // ── Webhook: payment confirmed ──────────────────────────────────────────────
 
-  async handlePaymentConfirmed(bookingId: string) {
+  private readonly confirming = new Map<string, Promise<void>>();
+
+  /**
+   * Confirms a paid booking: video room, confirmation email, reminders.
+   * Two callers arriving together (a provider notice and the page the client returns to) share
+   * one run. Without that, the second would fail to create the room and wipe the first one's link.
+   */
+  handlePaymentConfirmed(bookingId: string): Promise<void> {
+    const running = this.confirming.get(bookingId);
+    if (running) return running;
+    const run = this.confirmPaidOnce(bookingId).finally(() => this.confirming.delete(bookingId));
+    this.confirming.set(bookingId, run);
+    return run;
+  }
+
+  private async confirmPaidOnce(bookingId: string): Promise<void> {
     const booking = await this.db.consultationBooking.findUnique({
       where: { id: bookingId },
       include: { slot: true, consultant: true },
@@ -621,7 +640,7 @@ export class ConsultationService {
 
     await this.db.consultationBooking.update({
       where: { id: bookingId },
-      data: { status: 'CONFIRMED', dailyRoomUrl, dailyRoomName },
+      data: { status: 'CONFIRMED', dailyRoomUrl, dailyRoomName, paidAt: booking.paidAt ?? new Date(), paymentClosedAt: new Date() },
     });
 
     const sessionStart = booking.slot.startAt.toISOString();
@@ -722,22 +741,39 @@ export class ConsultationService {
   }
 
   private readonly lastVerified = new Map<string, number>();
+  private readonly verifying = new Map<string, Promise<BookingPaymentStatus>>();
 
   /**
-   * Asks the payment provider about a booking that is still waiting for payment.
-   * Paid → the booking is confirmed (room, email, reminders). Finished without payment → the
-   * booking is cancelled and its time released. Anything else → left as it is.
+   * Asks the payment provider about a booking's payment and acts on the answer.
    *
-   * Safe for anyone to trigger: it can only confirm a payment the provider reports as paid for
-   * this booking. If the provider cannot be reached the error is passed on.
+   * Waiting for payment:  paid → confirmed (room, email, reminders) · over without payment → the
+   * booking is cancelled and its time released · anything else → left alone, with a note of what
+   * the provider said.
+   * Cancelled while unpaid (only looked at when `force` is set): if the money has arrived after
+   * all, it is recorded with a full refund owed and the team is alerted.
+   *
+   * Safe for anyone to trigger: it can only act on what the provider reports for this booking's own
+   * payment reference. Callers arriving together share one lookup. If the provider cannot be
+   * reached the error is passed on.
    */
-  async verifyBookingPayment(bookingId: string, force = false): Promise<'confirmed' | 'pending' | 'failed' | 'ignored'> {
+  verifyBookingPayment(bookingId: string, force = false): Promise<BookingPaymentStatus> {
+    const running = this.verifying.get(bookingId);
+    if (running) return running;
+    const run = this.verifyBookingPaymentOnce(bookingId, force).finally(() => this.verifying.delete(bookingId));
+    this.verifying.set(bookingId, run);
+    return run;
+  }
+
+  private async verifyBookingPaymentOnce(bookingId: string, force: boolean): Promise<BookingPaymentStatus> {
     const booking = await this.db.consultationBooking.findUnique({
       where: { id: bookingId },
       include: { slot: { include: { consultant: { select: { name: true, priceUsd: true } } } } },
     });
-    if (!booking || booking.status !== 'AWAITING_PAYMENT') return 'ignored';
-    if (!booking.paymentRef) return 'pending';
+    if (!booking) return 'ignored';
+    const waiting = booking.status === 'AWAITING_PAYMENT';
+    const cancelledUnpaid = booking.status === 'CANCELLED' && !booking.paidAt && !booking.paymentClosedAt;
+    if (!waiting && !(cancelledUnpaid && force)) return 'ignored';
+    if (!booking.paymentRef) return waiting ? 'pending' : 'ignored';
 
     // Not more than once every few seconds per booking, however often the page asks.
     const last = this.lastVerified.get(bookingId) ?? 0;
@@ -746,23 +782,75 @@ export class ConsultationService {
     if (this.lastVerified.size > 5000) this.lastVerified.clear();
 
     const verified = await paymentVerifier.verify(booking.paymentRef);
-    if (verified.paid) {
-      if (!belongsTo(verified, bookingId)) {
-        this.logger.error(`${verified.provider} payment ${booking.paymentRef} is paid but belongs to ${verified.ourRef}, not booking ${bookingId}`);
-        return 'pending';
+    const ours = belongsTo(verified, bookingId);
+    const over = !verified.paid && isOver(verified, booking.createdAt);
+    const said = verified.paid && !ours ? PAID_ELSEWHERE : verified.status ?? 'no record';
+    if (verified.paid && !ours) {
+      this.logger.error(`${verified.provider} payment ${booking.paymentRef} is paid but belongs to ${verified.ourRef}, not booking ${bookingId}`);
+    }
+    const system = (action: string, metadata: Record<string, unknown>) =>
+      this.db.auditLog.create({ data: { actorId: 'system', action, resourceType: 'ConsultationBooking', resourceId: bookingId, metadata: metadata as any } });
+
+    // ── Cancelled while unpaid ──
+    if (!waiting) {
+      if (!(verified.paid && ours)) {
+        await this.db.consultationBooking.update({
+          where: { id: bookingId },
+          data: { paymentCheckedAt: new Date(), paymentProviderStatus: said, ...(over ? { paymentClosedAt: new Date() } : {}) },
+        });
+        return 'ignored';
       }
+      // The client paid after the booking was cancelled and its time given up. The money is real, so
+      // it is recorded — as received, with the whole amount owed back — and people are told.
+      const amount = Number(booking.amountPaid);
+      await this.db.consultationBooking.update({
+        where: { id: bookingId },
+        data: {
+          paidAt: new Date(), refundAmount: amount, refundedAt: new Date(),
+          paymentCheckedAt: new Date(), paymentProviderStatus: PAID_AFTER_CANCEL, paymentClosedAt: new Date(),
+        },
+      });
+      await system('payment.paid_after_cancel', { via: verified.provider, ref: booking.paymentRef, amount });
+      this.logger.warn(`Booking ${bookingId} was paid by ${verified.provider} after it had been cancelled; a refund of ${amount} is owed`);
+      this.events.emit('consultation.paid_after_cancel', {
+        bookingId,
+        clientName: booking.clientName ?? 'Client',
+        clientEmail: booking.clientEmail ?? '',
+        consultantName: booking.slot?.consultant?.name ?? '—',
+        sessionStart: booking.slot?.startAt?.toISOString() ?? '',
+        amountUsd: amount,
+        provider: verified.provider,
+        paymentRef: booking.paymentRef,
+      });
+      return 'paid_after_cancel';
+    }
+
+    // ── Waiting for payment ──
+    if (verified.paid && ours) {
       this.logger.log(`Booking ${bookingId} confirmed as paid by ${verified.provider}`);
+      await this.db.consultationBooking.update({ where: { id: bookingId }, data: { paymentCheckedAt: new Date(), paymentProviderStatus: verified.status ?? 'paid' } });
       await this.handlePaymentConfirmed(bookingId);
+      await system('payment.confirmed_auto', { via: verified.provider, ref: booking.paymentRef });
       return 'confirmed';
     }
-    if (!verified.failed) return 'pending';
+    if (!over) {
+      await this.db.consultationBooking.update({ where: { id: bookingId }, data: { paymentCheckedAt: new Date(), paymentProviderStatus: said } });
+      return 'pending';
+    }
 
-    // The provider says this payment ended without money being taken: close the booking, free the time.
+    // The provider says this payment is over and no money was taken: close the booking, free the time.
+    const stillAhead = !!booking.slot?.startAt && booking.slot.startAt.getTime() > Date.now();
     await this.db.$transaction([
-      this.db.consultationBooking.update({ where: { id: bookingId }, data: { status: 'CANCELLED' } }),
-      this.db.consultationSlot.update({ where: { id: booking.slotId }, data: { status: 'AVAILABLE', reservedUntil: null, reservedBy: null } }),
+      this.db.consultationBooking.update({
+        where: { id: bookingId },
+        data: { status: 'CANCELLED', paymentCheckedAt: new Date(), paymentProviderStatus: said, paymentClosedAt: new Date() },
+      }),
+      ...(stillAhead
+        ? [this.db.consultationSlot.update({ where: { id: booking.slotId }, data: { status: 'AVAILABLE', reservedUntil: null, reservedBy: null } })]
+        : []),
     ]);
-    this.logger.warn(`${verified.provider} payment ${verified.status} for booking ${bookingId}`);
+    await system('payment.auto_cancelled', { via: verified.provider, reason: said });
+    this.logger.warn(`${verified.provider} payment ${said} for booking ${bookingId}; booking cancelled`);
     this.events.emit('consultation.payment_failed', {
       bookingId,
       clientName: booking.clientName ?? 'Unknown',
@@ -770,7 +858,7 @@ export class ConsultationService {
       clientPhone: booking.clientPhone ?? '',
       consultantName: booking.slot?.consultant?.name ?? '—',
       amountUsd: Number(booking.slot?.consultant?.priceUsd ?? 0),
-      failReason: verified.status ?? 'FAILED',
+      failReason: said,
       sessionStart: booking.slot?.startAt?.toISOString() ?? '',
     });
     return 'failed';
@@ -869,12 +957,17 @@ export class ConsultationService {
       throw new BadRequestException('Booking cannot be cancelled');
     }
 
-    const refund = this.refundService.calculate(Number(booking.amountPaid), booking.slot.startAt);
+    // A booking that is still waiting for payment has nothing to refund. It used to be given the
+    // refund its price would have earned, and the client was emailed that money was on its way.
+    const unpaid = booking.status === 'AWAITING_PAYMENT';
+    const refund = unpaid
+      ? { refundAmount: 0, refundPercent: 0, reason: 'Cancelled before any payment was made' }
+      : this.refundService.calculate(Number(booking.amountPaid), booking.slot.startAt);
 
     await this.db.$transaction([
       this.db.consultationBooking.update({
         where: { id: bookingId },
-        data: { status: 'CANCELLED', refundAmount: refund.refundAmount, refundedAt: new Date() },
+        data: { status: 'CANCELLED', ...(unpaid ? {} : { refundAmount: refund.refundAmount, refundedAt: new Date() }) },
       }),
       this.db.consultationSlot.update({
         where: { id: booking.slotId },
@@ -890,6 +983,8 @@ export class ConsultationService {
       refundAmount: refund.refundAmount,
       refundPercent: refund.refundPercent,
       reason: refund.reason,
+      unpaid,
+      byClient: true,
     });
 
     return { refundAmount: refund.refundAmount, refundPercent: refund.refundPercent };

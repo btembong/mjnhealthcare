@@ -307,7 +307,23 @@ export class OrderService {
 
   // ── Mark paid ─────────────────────────────────────────────────────────────
 
-  async markPaid(orderId: string): Promise<any> {
+  private readonly marking = new Map<string, Promise<any>>();
+
+  /**
+   * Marks an order paid and does everything that follows from it: receipt, email, plan stages.
+   * Two callers arriving together (a provider notice and the page the client returns to) share
+   * one run, so there is never a second receipt or a second email. `attemptRef` names the payment
+   * attempt that went through, when it is known.
+   */
+  markPaid(orderId: string, attemptRef?: string): Promise<any> {
+    const running = this.marking.get(orderId);
+    if (running) return running;
+    const run = this.markPaidOnce(orderId, attemptRef).finally(() => this.marking.delete(orderId));
+    this.marking.set(orderId, run);
+    return run;
+  }
+
+  private async markPaidOnce(orderId: string, attemptRef?: string): Promise<any> {
     // The payment provider can tell us about the same payment more than once. An order that is
     // already paid and has its receipt is left alone: no second receipt, no second email.
     const already: any = await (this.db.order as any).findUnique({
@@ -353,8 +369,12 @@ export class OrderService {
 
     const receipt = await this.db.receipt.create({ data: { orderId, snapshot } });
 
-    // The newest payment attempt is the one that went through.
-    const attempt = await this.db.paymentAttempt.findFirst({ where: { orderId }, orderBy: { createdAt: 'desc' }, select: { id: true } });
+    // The attempt that went through; when nobody can say which, the newest.
+    const attempt = await this.db.paymentAttempt.findFirst({
+      where: attemptRef ? { orderId, providerRef: attemptRef } : { orderId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
     if (attempt) await this.db.paymentAttempt.update({ where: { id: attempt.id }, data: { status: 'SUCCESS' } });
 
     this.events.emit('payment.completed', {
@@ -444,7 +464,7 @@ export class OrderService {
           },
         },
         receipts: { select: { id: true, issuedAt: true }, orderBy: { issuedAt: 'desc' }, take: 1 },
-        paymentAttempts: { select: { createdAt: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+        paymentAttempts: { select: { createdAt: true, status: true }, orderBy: { createdAt: 'desc' }, take: 1 },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -475,9 +495,12 @@ export class OrderService {
         refundedAt: o.refundedAt ?? null,
         // An unpaid order the client can cancel themselves: one they created, not one a stage raised.
         canCancel: o.status === 'PENDING' && !o.stageId,
+        // 'failed': the provider says the last attempt ended and no money was taken.
         // 'confirming': a payment was started in the last 15 minutes and we have not heard back yet.
-        // 'unconfirmed': one was started longer ago and never confirmed.
-        payment: o.status !== 'PENDING' || minutes === null ? 'none' : minutes < PAYMENT_CONFIRM_MINUTES ? 'confirming' : 'unconfirmed',
+        // 'unconfirmed': one was started longer ago and the provider has still not given a final answer.
+        payment: o.status !== 'PENDING' || minutes === null ? 'none'
+          : o.paymentAttempts[0]?.status === 'FAILED' ? 'failed'
+          : minutes < PAYMENT_CONFIRM_MINUTES ? 'confirming' : 'unconfirmed',
         paymentStartedAt: o.status === 'PENDING' ? attempt ?? null : null,
       };
     });

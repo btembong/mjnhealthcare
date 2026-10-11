@@ -3,13 +3,14 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 import { OrderService } from '../order/order.service';
 import { ConsultationService } from '../consultation/consultation.service';
-import { paymentVerifier, belongsTo, providerOfRef, PaymentLookupError } from '../../common/payment-verifier';
+import { paymentVerifier, belongsTo, providerOfRef, PaymentLookupError, PAID_ELSEWHERE } from '../../common/payment-verifier';
 
 export type PaymentKind = 'order' | 'consultation';
 /**
  * Where a payment stands, in the words the Payments page uses:
- * waiting = nothing paid yet · checking = the client started paying a while ago and we never heard back ·
- * paid · part_refunded · refunded · cancelled (never paid).
+ * waiting = nothing paid yet, and nothing for staff to do · checking = unpaid, and the automatic
+ * check could not settle it, so a person needs to look · paid · part_refunded · refunded ·
+ * cancelled (never paid).
  */
 export type PaymentState = 'waiting' | 'checking' | 'paid' | 'part_refunded' | 'refunded' | 'cancelled';
 
@@ -28,14 +29,29 @@ export interface PaymentRow {
   createdAt: Date;
   startedAt: Date | null;
   paidAt: Date | null;
-  attempts: { provider: string; ref: string; at: Date }[];
+  attempts: PaymentAttemptInfo[];
 }
+
+/** One try at paying: who it went through, and what that provider last told us about it. */
+export type PaymentAttemptInfo = {
+  provider: string;
+  ref: string;
+  at: Date;
+  /** PENDING = no final answer yet · SUCCESS = this is the one that paid · FAILED = over, no money taken. */
+  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  checkedAt: Date | null;
+  said: string | null;
+};
 
 type Filters = { search?: string; kind?: string; state?: string; dateFrom?: string; dateTo?: string };
 type Actor = { id: string };
 
-/** A started payment with no answer after this long needs a person to look at it. */
+/** A payment this young is simply in progress. */
 const CHECK_AFTER_MINUTES = 15;
+/** The automatic check runs every ten minutes. Unchecked for this long means it is not getting through. */
+const AUTO_CHECK_FRESH_MINUTES = 30;
+/** A booking with no payment reference cannot be checked automatically; after this long someone should look. */
+const NO_REFERENCE_MINUTES = 60;
 const PAID_BOOKING = ['CONFIRMED', 'COMPLETED', 'NO_SHOW'];
 
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -177,7 +193,7 @@ export class PaymentAdminService {
       where: { resourceType: kind === 'order' ? 'Order' : 'ConsultationBooking', resourceId: id, action: { startsWith: 'payment.' } },
       orderBy: { createdAt: 'desc' },
     });
-    const actorIds = [...new Set(logs.map((l) => l.actorId))];
+    const actorIds = [...new Set(logs.map((l) => l.actorId).filter((id) => id !== 'system'))];
     const actors = actorIds.length ? await this.db.person.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true } }) : [];
     const nameOf = new Map(actors.map((a) => [a.id, a.name]));
 
@@ -187,7 +203,10 @@ export class PaymentAdminService {
       ...extra,
       history: logs.map((l) => {
         const m = (l.metadata ?? {}) as Record<string, any>;
-        return { at: l.createdAt, by: nameOf.get(l.actorId) ?? 'Staff', action: l.action.replace('payment.', ''), note: m.note ?? m.reason ?? null, amount: m.amount ?? null, method: m.method ?? null };
+        return { at: l.createdAt, by: l.actorId === 'system' ? 'Automatic check' : nameOf.get(l.actorId) ?? 'Staff', action: l.action.replace('payment.', ''), note: m.note ?? m.reason ?? null, amount: m.amount ?? null,
+          // How the money moved: typed in by staff for a refund, or the provider a payment was confirmed through.
+          method: m.method ?? (m.via === 'stripe' ? 'through Stripe' : m.via === 'tranzak' ? 'through Tranzak' : null),
+        };
       }),
     };
   }
@@ -245,7 +264,7 @@ export class PaymentAdminService {
       if (!['waiting', 'checking'].includes(row.state) && !(cancelledUnpaid && via !== 'manual')) {
         throw new BadRequestException(row.state === 'paid' ? 'This order is already paid.' : 'This order is closed and cannot be marked as paid.');
       }
-      await this.orders.markPaid(id);
+      await this.orders.markPaid(id, input?.ref);
     } else {
       if (row.status !== 'AWAITING_PAYMENT') {
         throw new BadRequestException(PAID_BOOKING.includes(row.status) ? 'This consultation is already paid.' : 'This booking is closed and cannot be marked as paid.');
@@ -381,7 +400,10 @@ export class PaymentAdminService {
     person: { select: { id: true, name: true, email: true, phone: true } },
     engagement: { select: { person: { select: { id: true, name: true, email: true, phone: true } } } },
     lineItems: { select: { priceCharged: true, serviceItem: { select: { name: true } }, variant: { select: { variantKey: true } } } },
-    paymentAttempts: { select: { provider: true, providerRef: true, createdAt: true }, orderBy: { createdAt: 'desc' as const } },
+    paymentAttempts: {
+      select: { provider: true, providerRef: true, createdAt: true, status: true, checkedAt: true, providerStatus: true },
+      orderBy: { createdAt: 'desc' as const },
+    },
     receipts: { select: { issuedAt: true }, orderBy: { issuedAt: 'asc' as const }, take: 1 },
   };
 
@@ -399,21 +421,37 @@ export class PaymentAdminService {
     return this.bookingRow(booking, Date.now());
   }
 
-  private stale(startedAt: Date | null, now: number) {
-    return !!startedAt && now - startedAt.getTime() > CHECK_AFTER_MINUTES * 60000;
+  /**
+   * Still unpaid: is it just waiting for the client, or does a person need to look?
+   *
+   * The automatic check asks the provider every ten minutes. As long as it is getting answers,
+   * an unpaid payment is simply "waiting" — the client has not finished paying, or their last try
+   * failed and they can try again. It needs a person only when the check cannot settle it: the
+   * provider has not been reachable for a while, or it reports a payment that belongs elsewhere.
+   */
+  private unpaidState(newest: PaymentAttemptInfo | undefined, createdAt: Date, now: number, needsReference: boolean): PaymentState {
+    const minutes = (since: Date) => (now - since.getTime()) / 60000;
+    if (!newest) return needsReference && minutes(createdAt) > NO_REFERENCE_MINUTES ? 'checking' : 'waiting';
+    if (newest.said === PAID_ELSEWHERE) return 'checking';
+    if (newest.status === 'FAILED') return 'waiting';
+    if (minutes(newest.at) <= CHECK_AFTER_MINUTES) return 'waiting';
+    return newest.checkedAt && minutes(newest.checkedAt) <= AUTO_CHECK_FRESH_MINUTES ? 'waiting' : 'checking';
   }
 
   private orderRow(o: any, now: number): PaymentRow {
     const person = o.person ?? o.engagement?.person ?? null;
-    const attempts = (o.paymentAttempts ?? [])
+    const attempts: PaymentAttemptInfo[] = (o.paymentAttempts ?? [])
       .filter((a: any) => a.providerRef)
-      .map((a: any) => ({ provider: a.provider, ref: a.providerRef, at: a.createdAt }));
+      .map((a: any) => ({
+        provider: a.provider, ref: a.providerRef, at: a.createdAt,
+        status: a.status ?? 'PENDING', checkedAt: a.checkedAt ?? null, said: a.providerStatus ?? null,
+      }));
     const startedAt: Date | null = attempts[0]?.at ?? null;
     const refund = Number(o.refundAmount ?? 0);
     const state: PaymentState =
       o.status === 'PAID' ? (refund > 0 ? 'part_refunded' : 'paid')
       : o.status === 'CANCELLED' ? (refund > 0 ? 'refunded' : 'cancelled')
-      : this.stale(startedAt, now) ? 'checking' : 'waiting';
+      : this.unpaidState(attempts[0], o.createdAt, now, false);
     const names: string[] = (o.lineItems ?? []).map((li: any) => li.serviceItem?.name ?? 'Service');
     return {
       id: o.id,
@@ -436,13 +474,23 @@ export class PaymentAdminService {
   }
 
   private bookingRow(b: any, now: number): PaymentRow {
-    const refund = Number(b.refundAmount ?? 0);
-    const attempts = b.paymentRef ? [{ provider: providerOf(b.paymentRef), ref: b.paymentRef as string, at: b.createdAt as Date }] : [];
-    const paid = PAID_BOOKING.includes(b.status);
+    const amount = Number(b.amountPaid ?? 0);
+    // Whether money was ever received. A booking cancelled before it was paid carries its price, not a payment.
+    const everPaid = !!b.paidAt || PAID_BOOKING.includes(b.status);
+    const refund = everPaid ? Number(b.refundAmount ?? 0) : 0;
+    const attempts: PaymentAttemptInfo[] = b.paymentRef
+      ? [{
+          provider: providerOf(b.paymentRef), ref: b.paymentRef as string, at: b.createdAt as Date,
+          status: everPaid ? 'SUCCESS' : b.paymentClosedAt ? 'FAILED' : 'PENDING',
+          checkedAt: b.paymentCheckedAt ?? null, said: b.paymentProviderStatus ?? null,
+        }]
+      : [];
     const state: PaymentState =
-      paid ? (refund > 0 ? 'part_refunded' : 'paid')
-      : b.status === 'CANCELLED' ? (refund > 0 ? 'refunded' : 'cancelled')
-      : this.stale(attempts[0]?.at ?? null, now) ? 'checking' : 'waiting';
+      b.status === 'AWAITING_PAYMENT' ? this.unpaidState(attempts[0], b.createdAt, now, true)
+      : !everPaid ? 'cancelled'
+      // A paid booking that was cancelled keeps whatever the refund rules left: all, half or none of it.
+      : refund >= amount && amount > 0 ? 'refunded'
+      : refund > 0 ? 'part_refunded' : 'paid';
     return {
       id: b.id,
       kind: 'consultation',
@@ -452,13 +500,13 @@ export class PaymentAdminService {
       clientEmail: b.clientEmail ?? '',
       clientPhone: b.clientPhone ?? null,
       personId: null,
-      amount: Number(b.amountPaid ?? 0),
+      amount,
       refund,
       summary: `Consultation${b.consultant?.name ? ` with ${b.consultant.name}` : ''}`,
       createdAt: b.createdAt,
       startedAt: attempts[0]?.at ?? null,
-      // Bookings do not store a payment date; the booking is made and paid in one sitting.
-      paidAt: paid || refund > 0 ? b.createdAt : null,
+      // Bookings confirmed before payment dates were kept fall back to the day they were made.
+      paidAt: everPaid ? b.paidAt ?? b.createdAt : null,
       attempts,
     };
   }

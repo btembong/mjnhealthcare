@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { PaymentAdminService, PaymentKind } from './payment-admin.service';
+import { PaymentSweepService } from './payment-sweep.service';
 
 function kindOf(value: string): PaymentKind {
   if (value !== 'order' && value !== 'consultation') throw new BadRequestException('Unknown payment type.');
@@ -18,11 +19,15 @@ function adminOnly(user: AuthUser) {
 @Controller('admin/payments')
 @FinanceOnly()
 export class PaymentAdminController {
-  constructor(private readonly service: PaymentAdminService) {}
+  constructor(
+    private readonly service: PaymentAdminService,
+    private readonly sweep: PaymentSweepService,
+  ) {}
 
   @Get('stats')
-  getStats() {
-    return this.service.summary();
+  async getStats() {
+    // With the totals: when the automatic check last ran, so the page can say it is working.
+    return { ...(await this.service.summary()), autoCheck: this.sweep.status() };
   }
 
   @Get('export')

@@ -76,6 +76,19 @@ const pad = (s, n) => String(s ?? '').padEnd(n);
   const token = await adminToken();
   if (!token) { console.log('Could not sign in to the running server. Run access-check.js to see why.'); process.exit(1); }
 
+  // Is the automatic check (every ten minutes) running, and what did its last run do?
+  const stats = await call(token, 'GET', '/admin/payments/stats');
+  const auto = stats.json && stats.json.autoCheck;
+  if (!auto) console.log('Automatic check: this server version does not report it.');
+  else if (!auto.enabled) console.log('Automatic check: SWITCHED OFF on this server (PAYMENT_AUTO_CHECK=off).');
+  else if (!auto.lastRun) console.log('Automatic check: on, but it has not run since the server started. It runs about a minute after start-up, then every 10 minutes.');
+  else {
+    const r = auto.lastRun;
+    const minutes = Math.round((Date.now() - new Date(r.at).getTime()) / 60000);
+    console.log(`Automatic check: last ran ${minutes} min ago. ${r.looked} looked up, ${r.confirmed} confirmed as paid, ${r.closed} closed unpaid, ${r.unreachable} could not be looked up${r.stoppedEarly ? ' (provider unreachable, stopped early)' : ''}.`);
+  }
+  console.log('');
+
   const list = await call(token, 'GET', '/admin/payments');
   if (list.status !== 200 || !Array.isArray(list.json)) { console.log(`The payments list could not be read (status ${list.status}).`); process.exit(1); }
   const all = list.json;
@@ -103,7 +116,7 @@ const pad = (s, n) => String(s ?? '').padEnd(n);
       verdict = short((r.json && r.json.message) || r.text || '', 27);
       unreachable++;
     }
-    console.log(`${pad(p.kind, 13)}${pad(p.state, 16)}${pad(attempt.provider, 9)}${pad(short(says, 21), 22)}${pad(amount, 16)}${pad(verdict, 28)}${short(attempt.ref, 30)}`);
+    console.log(`${pad(p.kind, 13)}${pad(p.state, 16)}${pad(attempt.provider, 9)}${pad(short(says, 21), 22)}${pad(amount, 16)}${pad(verdict, 28)}${short(attempt.ref, 30)}${attempt.checkedAt ? '  (auto-checked)' : ''}`);
   }
 
   console.log('');

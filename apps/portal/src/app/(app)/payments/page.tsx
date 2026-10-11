@@ -33,6 +33,8 @@ const TEXT = {
     checkAgain: 'Check again',
     unconfirmed: 'We could not confirm a payment for this order.',
     unconfirmedSub: 'If money left your account, contact us before paying again.',
+    failed: 'Your last payment did not go through.',
+    failedSub: 'No money was taken. You can try again when you are ready.',
     getHelp: 'Get help',
     payFailed: 'The payment page could not be opened. Please try again.',
     plan: 'Your plan',
@@ -94,6 +96,8 @@ const TEXT = {
     checkAgain: 'Vérifier à nouveau',
     unconfirmed: 'Nous n’avons pas pu confirmer de paiement pour cette commande.',
     unconfirmedSub: 'Si votre compte a été débité, contactez-nous avant de payer à nouveau.',
+    failed: 'Votre dernier paiement n’a pas abouti.',
+    failedSub: 'Aucun montant n’a été prélevé. Vous pouvez réessayer quand vous le souhaitez.',
     getHelp: 'Obtenir de l’aide',
     payFailed: 'La page de paiement n’a pas pu s’ouvrir. Veuillez réessayer.',
     plan: 'Votre plan',
@@ -234,11 +238,17 @@ export default function PaymentsPage() {
 
   // While a payment is being confirmed, look again on its own.
   const confirming = (orders ?? []).some((o) => o.payment === 'confirming');
+  // Asks the payment provider about each payment still being confirmed, then reads the result.
+  const recheck = useCallback(async () => {
+    const waiting = (orders ?? []).filter((o) => o.payment === 'confirming' || o.payment === 'unconfirmed');
+    await Promise.all(waiting.map((o) => api.verifyOrderPayment(o.id).catch(() => undefined)));
+    await load();
+  }, [orders, load]);
   useEffect(() => {
     if (!confirming) return;
-    const timer = setInterval(load, 20_000);
+    const timer = setInterval(recheck, 20_000);
     return () => clearInterval(timer);
-  }, [confirming, load]);
+  }, [confirming, recheck]);
 
   const list = orders ?? [];
   const due = useMemo(() => list.filter((o) => o.status === 'PENDING').sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), [list]);
@@ -335,10 +345,16 @@ export default function PaymentsPage() {
                       <CircleNotch className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" />
                       <span><span className="block font-bold">{t.confirming(short(order.total))}</span><span className="block text-muted-foreground">{t.confirmingSub}</span></span>
                     </p>
-                    <button onClick={load} className={btnOutline}>{t.checkAgain}</button>
+                    <button onClick={recheck} className={btnOutline}>{t.checkAgain}</button>
                   </div>
                 ) : (
                   <>
+                    {order.payment === 'failed' && (
+                      <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-muted/50 px-4 py-3 text-sm text-foreground">
+                        <Dot className="mt-1.5 bg-muted-foreground/40" />
+                        <span><span className="block font-bold">{t.failed}</span><span className="block text-muted-foreground">{t.failedSub}</span></span>
+                      </p>
+                    )}
                     {order.payment === 'unconfirmed' && (
                       <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-accent/15 px-4 py-3 text-sm text-foreground">
                         <Dot className="mt-1.5 bg-accent" />

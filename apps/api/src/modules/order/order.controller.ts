@@ -174,13 +174,6 @@ export class OrderController {
     return this.orderService.getOrder(id);
   }
 
-  @ApiOperation({ summary: 'Mark order as paid (called by payment webhook handler)' })
-  @FinanceOnly()
-  @Post(':id/mark-paid')
-  markPaid(@Param('id') id: string) {
-    return this.orderService.markPaid(id);
-  }
-
   @ApiOperation({ summary: 'Get all orders for an engagement' })
   @Get('engagement/:engagementId')
   async findByEngagement(@CurrentUser() user: AuthUser, @Param('engagementId') engagementId: string) {

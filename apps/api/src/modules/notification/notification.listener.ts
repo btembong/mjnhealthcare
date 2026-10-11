@@ -784,7 +784,7 @@ export class NotificationListener {
   @OnEvent('consultation.cancelled')
   async onConsultationCancelled(payload: {
     bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
-    refundAmount: number; refundPercent: number; reason: string; byConsultant?: boolean; unpaid?: boolean;
+    refundAmount: number; refundPercent: number; reason: string; byConsultant?: boolean; unpaid?: boolean; byClient?: boolean;
   }) {
     const refundMsg = payload.unpaid ? 'No payment was taken, so there is nothing to refund.'
       : payload.refundAmount > 0
@@ -803,6 +803,7 @@ export class NotificationListener {
           reason: payload.reason,
           byConsultant: payload.byConsultant,
           unpaid: payload.unpaid,
+          byClient: payload.byClient,
         }),
         payload.clientName,
         undefined,
@@ -813,6 +814,61 @@ export class NotificationListener {
         `MJN Healthcare: Your consultation has been cancelled${payload.byConsultant ? ` by your consultant (${payload.reason})` : ''}. ${refundMsg}`,
       ),
     ]);
+  }
+
+  // ── A consultation paid for after it had been cancelled ────────────────────
+
+  @OnEvent('consultation.paid_after_cancel')
+  async onConsultationPaidAfterCancel(payload: {
+    bookingId: string; clientName: string; clientEmail: string; consultantName: string; sessionStart: string;
+    amountUsd: number; provider: string; paymentRef: string;
+  }) {
+    const amount = `$${payload.amountUsd.toFixed(2)}`;
+    const provider = payload.provider === 'stripe' ? 'Stripe' : 'Tranzak';
+    const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
+    try {
+      // The team first: money has arrived that nobody is expecting.
+      await this.notificationService.sendEmail(
+        adminAlertEmail(),
+        `Refund owed: ${payload.clientName} paid ${amount} for a cancelled consultation`,
+        T.shell(
+          T.label('Payments') +
+          T.h1('A cancelled consultation has been paid for') +
+          T.p(`<strong>${escapeHtml(payload.clientName)}</strong> paid for a consultation after the booking had been cancelled and its time released. The payment is recorded, with the full amount owed back to them.`) +
+          T.infoTable([
+            T.row('Client', `${escapeHtml(payload.clientName)} (${escapeHtml(payload.clientEmail)})`),
+            T.row('Consultant', escapeHtml(payload.consultantName)),
+            T.row('Amount', `<strong>${amount}</strong>`),
+            T.row('Paid through', provider),
+            T.row('Payment reference', `<span style="font-family:monospace;font-size:12px;">${escapeHtml(payload.paymentRef)}</span>`, true),
+          ]) +
+          T.notice(`Nothing has been sent back yet. Either return the ${amount} through ${provider}, or agree a new time with the client and book it for them.`, 'warning') +
+          T.btn('Open Payments', `${adminUrl}/payments`),
+        ),
+        undefined,
+        undefined,
+        'billing',
+      );
+      if (payload.clientEmail) {
+        await this.notificationService.sendEmail(
+          payload.clientEmail,
+          'We received your payment for a cancelled consultation',
+          T.shell(
+            T.greeting(payload.clientName) +
+            T.label('Payments') +
+            T.h1('Your payment arrived after the booking was cancelled') +
+            T.p(`We received your payment of <strong>${amount}</strong>, but the consultation booking it was for had already been cancelled and its time released.`) +
+            T.notice('You will not lose this money. We will refund it in full, or, if you would still like a consultation, reply to this email and we will book you a new time with the same payment.', 'info') +
+            T.pSmall('Refunds can take a few days to appear, depending on your bank or mobile operator.'),
+          ),
+          payload.clientName,
+          undefined,
+          'billing',
+        );
+      }
+    } catch (err) {
+      this.logger.error(`Alert failed for consultation ${payload.bookingId} paid after cancellation: ${err}`);
+    }
   }
 
   // ── Orders cancelled or refunded by staff ──────────────────────────────────

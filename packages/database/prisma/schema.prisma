@@ -391,6 +391,8 @@ model PaymentAttempt {
   provider    String
   providerRef String
   status      PaymentAttemptStatus @default(PENDING)
+  checkedAt      DateTime? // when the provider was last asked about this attempt
+  providerStatus String?   // what it said, in its own words
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 
@@ -923,6 +925,10 @@ model ConsultationBooking {
   joinedAt             DateTime?
   completedAt          DateTime?
   noShowAt             DateTime?
+  paidAt                DateTime? // when the booking was paid (set at confirmation)
+  paymentCheckedAt      DateTime? // when the provider was last asked about the payment
+  paymentProviderStatus String?   // what it said, in its own words
+  paymentClosedAt       DateTime? // no payment will arrive on this reference any more
   rescheduleCount      Int                       @default(0)
   rescheduledAt        DateTime?
   createdAt            DateTime                  @default(now())

@@ -4,7 +4,9 @@ import { DatabaseService } from '@mjn/database';
 import { OrderService } from '../order/order.service';
 import { TranzakProvider } from './providers/tranzak.provider';
 import { StripeProvider } from './providers/stripe.provider';
-import { paymentVerifier, belongsTo } from '../../common/payment-verifier';
+import { paymentVerifier, belongsTo, isOver, PAID_ELSEWHERE } from '../../common/payment-verifier';
+
+export type OrderPaymentStatus = 'paid' | 'pending' | 'failed' | 'none';
 
 /** How many of an order's most recent payment attempts are looked up. */
 const ATTEMPTS_CHECKED = 5;
@@ -152,47 +154,81 @@ export class PaymentService {
   }
 
   private readonly lastVerified = new Map<string, number>();
+  private readonly verifying = new Map<string, Promise<{ status: OrderPaymentStatus; closed?: number }>>();
 
   /**
-   * Asks the payment provider about an order's recent payment attempts and marks the order paid
-   * if one of them went through. Safe to call at any time and by anyone allowed to see the order:
-   * it can only ever confirm a payment the provider itself reports as paid.
+   * Asks the payment provider about an order's unresolved payment attempts and marks the order
+   * paid if one of them went through. Safe to call at any time and by anyone allowed to see the
+   * order: it can only ever confirm a payment the provider itself reports as paid.
    *
+   * Each attempt records when it was checked and what the provider said. An attempt that is over
+   * without payment is closed, so it is not asked about again and the client can simply try again.
+   *
+   * A notice from the provider, the page the client returns to, and the ten-minute automatic check
+   * can all ask at the same moment; they share one lookup rather than racing each other.
    * If the provider cannot be reached the error is passed on, so a notice is retried by its sender.
    */
-  async verifyOrderPayment(orderId: string, force = false): Promise<{ status: 'paid' | 'pending' | 'failed' | 'none' }> {
-    const order = await this.db.order.findUnique({ where: { id: orderId }, select: { status: true } });
+  verifyOrderPayment(orderId: string, force = false): Promise<{ status: OrderPaymentStatus; closed?: number }> {
+    const running = this.verifying.get(orderId);
+    if (running) return running;
+    const run = this.verifyOrderPaymentOnce(orderId, force).finally(() => this.verifying.delete(orderId));
+    this.verifying.set(orderId, run);
+    return run;
+  }
+
+  private async verifyOrderPaymentOnce(orderId: string, force: boolean): Promise<{ status: OrderPaymentStatus; closed?: number }> {
+    const order = await this.db.order.findUnique({ where: { id: orderId }, select: { status: true, paidAt: true } });
     if (!order) return { status: 'none' };
     if (order.status === 'PAID') return { status: 'paid' };
-
-    const last = this.lastVerified.get(orderId) ?? 0;
-    if (!force && Date.now() - last < VERIFY_EVERY_MS) return { status: 'pending' };
-    this.lastVerified.set(orderId, Date.now());
-    if (this.lastVerified.size > 5000) this.lastVerified.clear();
+    // Paid once and since refunded in full: closed for good.
+    if (order.paidAt) return { status: 'none' };
 
     const attempts = await this.db.paymentAttempt.findMany({
       where: { orderId, providerRef: { not: '' } },
       orderBy: { createdAt: 'desc' },
       take: ATTEMPTS_CHECKED,
-      select: { id: true, providerRef: true, status: true },
+      select: { id: true, providerRef: true, status: true, createdAt: true },
     });
     if (attempts.length === 0) return { status: 'none' };
+    const outcome = (): OrderPaymentStatus => (attempts[0].status === 'FAILED' ? 'failed' : 'pending');
 
-    let newestFailed = false;
+    const last = this.lastVerified.get(orderId) ?? 0;
+    if (!force && Date.now() - last < VERIFY_EVERY_MS) return { status: outcome() };
+    this.lastVerified.set(orderId, Date.now());
+    if (this.lastVerified.size > 5000) this.lastVerified.clear();
+
+    let newestClosedNow = false;
+    let closed = 0;
     for (const [index, attempt] of attempts.entries()) {
+      if (attempt.status !== 'PENDING') continue; // already has its final answer
       const verified = await paymentVerifier.verify(attempt.providerRef);
-      if (verified.paid && belongsTo(verified, orderId)) {
+      const ours = belongsTo(verified, orderId);
+      if (verified.paid && ours) {
         this.logger.log(`Order ${orderId} confirmed as paid by ${verified.provider} (${attempt.providerRef})`);
-        await this.orderService.markPaid(orderId);
+        await this.db.paymentAttempt.update({ where: { id: attempt.id }, data: { checkedAt: new Date(), providerStatus: verified.status ?? 'paid' } });
+        await this.orderService.markPaid(orderId, attempt.providerRef);
+        await this.db.auditLog.create({
+          data: { actorId: 'system', action: 'payment.confirmed_auto', resourceType: 'Order', resourceId: orderId, metadata: { via: verified.provider, ref: attempt.providerRef } },
+        });
         return { status: 'paid' };
       }
       if (verified.paid) this.logger.error(`${verified.provider} payment ${attempt.providerRef} is paid but belongs to ${verified.ourRef}, not order ${orderId}`);
-      if (verified.failed && attempt.status === 'PENDING') {
-        await this.db.paymentAttempt.update({ where: { id: attempt.id }, data: { status: 'FAILED' } });
-        if (index === 0) newestFailed = true;
+      const over = !verified.paid && isOver(verified, attempt.createdAt);
+      await this.db.paymentAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          checkedAt: new Date(),
+          providerStatus: verified.paid ? PAID_ELSEWHERE : verified.status ?? 'no record',
+          ...(over ? { status: 'FAILED' } : {}),
+        },
+      });
+      if (over) {
+        attempt.status = 'FAILED';
+        closed++;
+        if (index === 0) newestClosedNow = true;
       }
     }
-    if (newestFailed) this.events.emit('payment.failed', { orderId });
-    return { status: newestFailed ? 'failed' : 'pending' };
+    if (newestClosedNow) this.events.emit('payment.failed', { orderId });
+    return { status: outcome(), closed };
   }
 }
