@@ -61,7 +61,7 @@ export class DocumentService {
   }
 
   async verify(documentId: string, verifiedBy: string, status: 'VERIFIED' | 'REJECTED', rejectionReason?: string) {
-    return this.db.document.update({
+    const doc = await this.db.document.update({
       where: { id: documentId },
       data: {
         status,
@@ -70,6 +70,9 @@ export class DocumentService {
         ...(rejectionReason ? { rejectionReason } : {}),
       },
     });
+    // The client is told shortly afterwards, in one notice per review session.
+    this.events.emit('document.reviewed', { documentId: doc.id, personId: doc.personId, status });
+    return doc;
   }
 
   async getViewUrl(documentId: string) {
@@ -95,7 +98,7 @@ export class DocumentService {
   async getQueue(hiddenPersonIds?: string[]) {
     return this.db.document.findMany({
       where: { status: 'PENDING', ...this.scoped(hiddenPersonIds) },
-      include: { person: { select: { id: true, name: true, email: true, profession: true } } },
+      include: { person: { select: { id: true, name: true, email: true, profession: true, locale: true } } },
       orderBy: { uploadedAt: 'asc' },
       take: 500,
     });
@@ -173,7 +176,7 @@ export class DocumentService {
     const [items, total] = await Promise.all([
       this.db.document.findMany({
         where,
-        include: { person: { select: { id: true, name: true, email: true, profession: true } } },
+        include: { person: { select: { id: true, name: true, email: true, profession: true, locale: true } } },
         orderBy,
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -198,7 +201,7 @@ export class DocumentService {
     const [person, engagements, documents] = await Promise.all([
       this.db.person.findUnique({
         where: { id: personId },
-        select: { id: true, name: true, email: true, profession: true },
+        select: { id: true, name: true, email: true, profession: true, locale: true },
       }),
       this.db.engagement.findMany({
         where: { personId },

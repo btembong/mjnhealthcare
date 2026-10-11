@@ -31,12 +31,13 @@ const STATUS: Record<string, { label: string; dot: string }> = {
 };
 
 // What the client reads when a document is rejected for a common reason.
-const REJECT_REASONS: { label: string; text: string }[] = [
-  { label: 'Blurry or unreadable', text: 'The document is blurry or hard to read. Please upload a clear, well-lit copy.' },
-  { label: 'Wrong document', text: 'This is not the document we asked for. Please upload the correct one.' },
-  { label: 'Expired', text: 'This document has expired. Please upload a current, valid version.' },
-  { label: 'Cropped or incomplete', text: 'Part of the document is cut off or pages are missing. Please upload the complete document.' },
-  { label: 'Name does not match', text: 'The name on this document does not match your profile. Please upload a matching document or contact your consultant.' },
+// Written in the client's own language, since this text is emailed to them.
+const REJECT_REASONS: { label: string; text: string; fr: string }[] = [
+  { label: 'Blurry or unreadable', text: 'The document is blurry or hard to read. Please upload a clear, well-lit copy.', fr: 'Le document est flou ou difficile à lire. Veuillez déposer une copie nette et bien éclairée.' },
+  { label: 'Wrong document', text: 'This is not the document we asked for. Please upload the correct one.', fr: "Ce n'est pas le document demandé. Veuillez déposer le bon document." },
+  { label: 'Expired', text: 'This document has expired. Please upload a current, valid version.', fr: 'Ce document a expiré. Veuillez déposer une version valide et à jour.' },
+  { label: 'Cropped or incomplete', text: 'Part of the document is cut off or pages are missing. Please upload the complete document.', fr: 'Une partie du document est coupée ou des pages manquent. Veuillez déposer le document complet.' },
+  { label: 'Name does not match', text: 'The name on this document does not match your profile. Please upload a matching document or contact your consultant.', fr: 'Le nom figurant sur ce document ne correspond pas à votre profil. Veuillez déposer un document conforme ou contacter votre consultant.' },
 ];
 
 type Mode = 'review' | 'all';
@@ -282,6 +283,7 @@ function DecisionBar({
 }) {
   const [reason, setReason] = useState('');
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const french = doc.person?.locale === 'fr';
 
   useEffect(() => { setReason(''); }, [doc.id]);
   useEffect(() => { if (rejectOpen) textRef.current?.focus(); }, [rejectOpen]);
@@ -300,13 +302,16 @@ function DecisionBar({
     return (
       <div className="rounded-2xl border border-border bg-white p-4">
         <p className="text-sm font-bold text-foreground">Why is this being rejected?</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">The client will see this and can upload a corrected copy.</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          The client is emailed this reason and can upload a corrected copy.
+          {french && <span className="font-semibold text-foreground"> This client reads French, so the suggested wording is in French.</span>}
+        </p>
         <div className="mt-3 flex flex-wrap gap-1.5">
           {REJECT_REASONS.map((r) => (
             <button
               key={r.label}
-              onClick={() => { setReason(r.text); textRef.current?.focus(); }}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${reason === r.text ? 'border-primary bg-primary/10 text-primary' : 'border-border text-foreground hover:bg-muted/60'}`}
+              onClick={() => { setReason(french ? r.fr : r.text); textRef.current?.focus(); }}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${reason === (french ? r.fr : r.text) ? 'border-primary bg-primary/10 text-primary' : 'border-border text-foreground hover:bg-muted/60'}`}
             >
               {r.label}
             </button>

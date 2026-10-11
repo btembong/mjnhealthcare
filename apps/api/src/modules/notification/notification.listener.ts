@@ -210,6 +210,64 @@ export class NotificationListener {
     }
   }
 
+  @OnEvent('document.review_digest')
+  async onDocumentReviewDigest(payload: { personId: string; since: number }) {
+    try {
+      const person = await this.db.person.findUnique({
+        where: { id: payload.personId },
+        select: { name: true, email: true, phone: true, locale: true },
+      });
+      if (!person) return;
+
+      // Read the decisions back from the database: anything undone in the meantime is no longer here.
+      const docs = await this.db.document.findMany({
+        where: {
+          personId: payload.personId,
+          verifiedAt: { gte: new Date(payload.since) },
+          status: { in: ['VERIFIED', 'REJECTED'] },
+        },
+        select: { type: true, status: true, rejectionReason: true },
+        orderBy: { verifiedAt: 'asc' },
+      });
+      if (docs.length === 0) return;
+
+      const rejected = docs.filter((d) => d.status === 'REJECTED').map((d) => ({ type: d.type, reason: d.rejectionReason }));
+      const verified = docs.filter((d) => d.status === 'VERIFIED').map((d) => d.type);
+      const fr = person.locale === 'fr';
+      const portalUrl = process.env.PORTAL_URL ?? 'http://localhost:3002';
+      const name = person.name ?? (fr ? 'Client' : 'Client');
+
+      if (person.email) {
+        const subject = rejected.length > 0
+          ? (fr ? 'Action requise : document à remplacer — MJN Healthcare' : 'Action needed: please replace a document — MJN Healthcare')
+          : (fr ? 'Vos documents ont été vérifiés — MJN Healthcare' : 'Your documents have been verified — MJN Healthcare');
+        await this.notificationService.sendEmail(
+          person.email,
+          subject,
+          T.tplDocumentsReviewed({ name, locale: person.locale, verified, rejected }),
+          person.name ?? undefined,
+          undefined,
+          'team',
+        );
+      }
+
+      if (person.phone) {
+        const text = rejected.length > 0
+          ? (fr
+            ? `MJN Healthcare : ${rejected.length} document${rejected.length > 1 ? 's doivent être remplacés' : ' doit être remplacé'}. Consultez le motif et déposez une nouvelle version : ${portalUrl}/documents`
+            : `MJN Healthcare: ${rejected.length} document${rejected.length > 1 ? 's need' : ' needs'} replacing. See why and upload a new copy: ${portalUrl}/documents`)
+          : (fr
+            ? `MJN Healthcare : ${verified.length} document${verified.length > 1 ? 's ont été vérifiés' : ' a été vérifié'}. ${portalUrl}/documents`
+            : `MJN Healthcare: ${verified.length} document${verified.length > 1 ? 's have' : ' has'} been verified. ${portalUrl}/documents`);
+        await this.notificationService.sendWhatsApp(person.phone, text);
+      }
+
+      this.logger.log(`Document review notice sent to person ${payload.personId}: ${verified.length} verified, ${rejected.length} rejected`);
+    } catch (err: any) {
+      this.logger.error(`Document review notice failed for person ${payload.personId}: ${err?.message ?? err}`);
+    }
+  }
+
   @OnEvent('document.officer_sent')
   async onOfficerSentDocument(payload: { personId: string; documentId: string; documentType: string; officerNote?: string }) {
     const person = await this.db.person.findUnique({ where: { id: payload.personId } });

@@ -799,3 +799,90 @@ export function tplOtp(opts: { otp: string }): string {
     pSmall('If you did not request this code, you can safely ignore this email. Your account remains secure.')
   );
 }
+
+// ── Documents reviewed (one notice per review session) ───────────────────────
+
+const esc = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+const docName = (type: string) =>
+  (type ?? '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
+const DOCS_REVIEWED_COPY = {
+  en: {
+    hi: 'Hi',
+    label: 'Documents',
+    titleAction: (n: number) => (n === 1 ? 'One document needs replacing' : `${n} documents need replacing`),
+    titleVerified: (n: number) => (n === 1 ? 'Your document has been verified' : 'Your documents have been verified'),
+    introAction: 'We have reviewed the documents you uploaded. Please replace what is listed below so your case can keep moving.',
+    introVerified: 'We have reviewed the documents you uploaded. Everything listed below has been checked and accepted.',
+    replace: 'Needs replacing',
+    verified: 'Verified',
+    why: 'Why:',
+    noReason: 'Please contact your consultant for details.',
+    ctaAction: 'Upload a new copy',
+    ctaVerified: 'View your documents',
+    small: 'Verification confirms that our team received and checked the document. It does not guarantee a licensing, visa or exam outcome.',
+    footer: undefined as string | undefined,
+  },
+  fr: {
+    hi: 'Bonjour',
+    label: 'Documents',
+    titleAction: (n: number) => (n === 1 ? 'Un document doit être remplacé' : `${n} documents doivent être remplacés`),
+    titleVerified: (n: number) => (n === 1 ? 'Votre document a été vérifié' : 'Vos documents ont été vérifiés'),
+    introAction: "Nous avons examiné les documents que vous avez déposés. Merci de remplacer ce qui est indiqué ci-dessous afin que votre dossier continue d'avancer.",
+    introVerified: 'Nous avons examiné les documents que vous avez déposés. Tout ce qui est indiqué ci-dessous a été contrôlé et accepté.',
+    replace: 'À remplacer',
+    verified: 'Vérifié',
+    why: 'Motif :',
+    noReason: 'Veuillez contacter votre consultant pour plus de détails.',
+    ctaAction: 'Déposer une nouvelle version',
+    ctaVerified: 'Voir vos documents',
+    small: "La vérification confirme que notre équipe a bien reçu et contrôlé le document. Elle ne garantit pas l'issue d'une demande de licence, de visa ou d'un examen.",
+    footer: 'Vous recevez ce message dans le cadre de votre engagement avec MJN Healthcare. Répondez à cet e-mail pour toute question.' as string | undefined,
+  },
+};
+
+export function tplDocumentsReviewed(opts: {
+  name: string;
+  locale?: string | null;
+  verified: string[];
+  rejected: { type: string; reason?: string | null }[];
+}): string {
+  const t = opts.locale === 'fr' ? DOCS_REVIEWED_COPY.fr : DOCS_REVIEWED_COPY.en;
+  const actionNeeded = opts.rejected.length > 0;
+
+  const rowHtml = (name: string, status: string, tone: 'error' | 'success', detail?: string) => `
+    <tr>
+      <td style="padding:14px 16px;vertical-align:top;border-bottom:1px solid ${BORDER};">
+        <p style="margin:0;font-size:14px;font-weight:600;color:${TEXT};">${esc(name)}</p>
+        ${detail ? `<p style="margin:6px 0 0;font-size:13px;line-height:1.55;color:#3D4A5C;">${detail}</p>` : ''}
+      </td>
+      <td align="right" style="padding:14px 16px 14px 0;vertical-align:top;border-bottom:1px solid ${BORDER};white-space:nowrap;">${badge(status, tone)}</td>
+    </tr>`;
+
+  const rows =
+    opts.rejected.map((d) =>
+      rowHtml(
+        docName(d.type),
+        t.replace,
+        'error',
+        `<strong style="color:${TEXT};">${t.why}</strong> ${esc(d.reason?.trim() || t.noReason)}`,
+      ),
+    ).join('') +
+    opts.verified.map((type) => rowHtml(docName(type), t.verified, 'success')).join('');
+
+  const body =
+    `<p style="margin:0 0 24px;font-size:15px;color:#3D4A5C;">${t.hi} <strong style="color:${TEXT};">${esc(opts.name)}</strong>,</p>` +
+    label(t.label) +
+    h1(actionNeeded ? t.titleAction(opts.rejected.length) : t.titleVerified(opts.verified.length)) +
+    p(actionNeeded ? t.introAction : t.introVerified) +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;border:1px solid ${BORDER};border-radius:10px;overflow:hidden;background:#fff;">
+      <tbody>${rows}</tbody>
+    </table>` +
+    btn(actionNeeded ? t.ctaAction : t.ctaVerified, `${PORTAL()}/documents`) +
+    divider() +
+    pSmall(t.small);
+
+  return t.footer ? shell(body, t.footer) : shell(body);
+}
