@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
  * Read-only check of the API's access rules against a running server.
- * Run on the server from apps/api:   node scripts/access-check.js
+ * Run on the server from any folder:   node /var/www/mjnhealthcare/apps/api/scripts/access-check.js
  *
  * Signs 5-minute test logins with the server's own JWT secret, sends GET requests only,
  * and prints status codes. It changes no data and prints no personal information.
@@ -9,7 +9,9 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { JwtService } = require(path.join(process.cwd(), 'node_modules/@nestjs/jwt'));
+// Paths are relative to this file, so the script works from any folder.
+const API_DIR = path.resolve(__dirname, '..');
+const { JwtService } = require(path.join(API_DIR, 'node_modules/@nestjs/jwt'));
 
 const crypto = require('crypto');
 const sh = (cmd) => { try { return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } };
@@ -39,7 +41,7 @@ function fromProcEnv(key) {
 }
 const listening = pid ? (sh('ss -ltnpH').split('\n').filter((l) => l.includes(`pid=${pid},`)).map((l) => (l.match(/:(\d+)\s/) || [])[1]).filter(Boolean)) : [];
 
-const port = listening[0] || fromProcEnv('PORT') || process.env.PORT || fromEnvFile('.env', 'PORT').pop() || 3000;
+const port = listening[0] || fromProcEnv('PORT') || process.env.PORT || fromEnvFile(path.join(API_DIR, '.env'), 'PORT').pop() || 3000;
 const base = `http://localhost:${port}/api/v1`;
 
 async function call(token, urlPath) {
@@ -57,8 +59,8 @@ async function findSecret() {
   const add = (source, value) => { if (value) candidates.push([source, value]); };
   add('the running process start-up environment', fromProcEnv('JWT_SECRET'));
   if (procCwd) fromEnvFile(path.join(procCwd, '.env'), 'JWT_SECRET').forEach((v, i) => add(`${procCwd}/.env (entry ${i + 1})`, v));
-  fromEnvFile('.env', 'JWT_SECRET').forEach((v, i) => add(`apps/api/.env (entry ${i + 1})`, v));
-  fromEnvFile('../../.env', 'JWT_SECRET').forEach((v, i) => add(`repo root .env (entry ${i + 1})`, v));
+  fromEnvFile(path.join(API_DIR, '.env'), 'JWT_SECRET').forEach((v, i) => add(`apps/api/.env (entry ${i + 1})`, v));
+  fromEnvFile(path.join(API_DIR, '../../.env'), 'JWT_SECRET').forEach((v, i) => add(`repo root .env (entry ${i + 1})`, v));
   add('this shell', process.env.JWT_SECRET);
 
   const tried = [];
