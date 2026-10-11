@@ -421,8 +421,19 @@ export function tplConsultationConfirmed(opts: {
 }
 
 export function tplConsultationCancelled(opts: {
-  clientName: string; refundAmount: number; refundPercent: number; reason: string; byConsultant?: boolean;
+  clientName: string; refundAmount: number; refundPercent: number; reason: string; byConsultant?: boolean; unpaid?: boolean;
 }): string {
+  // A booking that was never paid for: nothing was taken, so there is no refund to speak of.
+  if (opts.unpaid) {
+    return shell(
+      greeting(opts.clientName) +
+      label('Cancellation') +
+      h1('Your unpaid booking was cancelled') +
+      p(`Your consultation booking was not paid for, so our team has cancelled it. Their reason: ${opts.reason.replace(/[<>&]/g, '')}`) +
+      notice('No payment was taken, so there is nothing to refund. If you did pay, reply to this email with your payment reference and we will put it right.', 'info') +
+      btn('Book another session', `${WEB()}/consult`)
+    );
+  }
   const refund = opts.refundAmount > 0
     ? `$${opts.refundAmount.toFixed(2)} (${opts.refundPercent}%) will be refunded within 5–7 business days.`
     : opts.byConsultant

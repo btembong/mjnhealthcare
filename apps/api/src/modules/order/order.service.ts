@@ -308,9 +308,19 @@ export class OrderService {
   // ── Mark paid ─────────────────────────────────────────────────────────────
 
   async markPaid(orderId: string): Promise<any> {
+    // The payment provider can tell us about the same payment more than once. An order that is
+    // already paid and has its receipt is left alone: no second receipt, no second email.
+    const already: any = await (this.db.order as any).findUnique({
+      where: { id: orderId },
+      select: { status: true, receipts: { orderBy: { issuedAt: 'asc' }, take: 1 } },
+    });
+    if (already?.status === 'PAID' && already.receipts.length > 0) {
+      return { order: already, receipt: already.receipts[0], alreadyPaid: true };
+    }
+
     const order: any = await (this.db.order as any).update({
       where: { id: orderId },
-      data: { status: 'PAID' },
+      data: { status: 'PAID', paidAt: new Date() },
       include: {
         lineItems: { include: { serviceItem: { include: { category: true } } } },
         person: true,
@@ -342,6 +352,10 @@ export class OrderService {
     };
 
     const receipt = await this.db.receipt.create({ data: { orderId, snapshot } });
+
+    // The newest payment attempt is the one that went through.
+    const attempt = await this.db.paymentAttempt.findFirst({ where: { orderId }, orderBy: { createdAt: 'desc' }, select: { id: true } });
+    if (attempt) await this.db.paymentAttempt.update({ where: { id: attempt.id }, data: { status: 'SUCCESS' } });
 
     this.events.emit('payment.completed', {
       orderId,
@@ -421,7 +435,7 @@ export class OrderService {
       where: { OR: [{ personId }, { engagement: { personId } }] },
       select: {
         id: true, createdAt: true, status: true, orderType: true, paymentMode: true, stageId: true, engagementId: true,
-        subtotal: true, taxRate: true, taxAmount: true, total: true,
+        subtotal: true, taxRate: true, taxAmount: true, total: true, refundAmount: true, refundedAt: true,
         lineItems: {
           select: {
             id: true, priceCharged: true, nonRefundable: true, nonRefundableReason: true,
@@ -457,6 +471,8 @@ export class OrderService {
           nonRefundableReason: li.nonRefundableReason ?? null,
         })),
         receiptIssuedAt: o.receipts[0]?.issuedAt ?? null,
+        refundAmount: o.refundAmount == null ? null : Number(o.refundAmount),
+        refundedAt: o.refundedAt ?? null,
         // An unpaid order the client can cancel themselves: one they created, not one a stage raised.
         canCancel: o.status === 'PENDING' && !o.stageId,
         // 'confirming': a payment was started in the last 15 minutes and we have not heard back yet.

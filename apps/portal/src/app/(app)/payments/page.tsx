@@ -401,7 +401,7 @@ export default function PaymentsPage() {
                           {open ? <CaretUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <CaretDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
                         </button>
                         <span className="text-sm font-bold tabular-nums text-foreground">{short(order.total)}</span>
-                        <span className="inline-flex w-24 items-center gap-1.5 text-xs font-semibold text-foreground"><Dot className={DOT[order.status] ?? 'bg-muted'} /> {t.status[order.status] ?? order.status}</span>
+                        <span className="inline-flex w-24 items-center gap-1.5 text-xs font-semibold text-foreground"><Dot className={DOT[order.status] ?? 'bg-muted'} /> {Number(order.refundAmount ?? 0) >= Number(order.total) && Number(order.total) > 0 ? t.refunded : Number(order.refundAmount ?? 0) > 0 ? `${t.partRefunded ?? t.refunded} ${short(Number(order.refundAmount))}` : t.status[order.status] ?? order.status}</span>
                         {order.status === 'PAID' && (
                           <button onClick={() => receipt(order)} disabled={receiptFor === order.id} className={btnOutline}>
                             {receiptFor === order.id ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <DownloadSimple className="h-3.5 w-3.5" />} {t.receipt}

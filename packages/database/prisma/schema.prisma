@@ -305,6 +305,11 @@ model Order {
   taxAmount     Decimal     @db.Decimal(10, 2)
   total         Decimal     @db.Decimal(10, 2)
   status        OrderStatus @default(PENDING)
+  paidAt        DateTime?
+  cancelReason  String?
+  refundAmount  Decimal?    @db.Decimal(10, 2) // recorded by staff; the money itself is returned outside this system
+  refundedAt    DateTime?
+  refundReason  String?
   createdAt     DateTime    @default(now())
 
   lineItems            OrderLineItem[]

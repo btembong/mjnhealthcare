@@ -1,707 +1,533 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { PageHeader, Skeleton } from '@mjn/ui';
-import {
-  CurrencyDollar,
-  ArrowSquareOut,
-  CheckCircle,
-  XCircle,
-  MagnifyingGlass,
-  ArrowClockwise,
-  DownloadSimple,
-  X,
-  Warning,
-  Receipt,
-  CalendarBlank,
-  Funnel,
-} from '@mjn/ui';
+import { MagnifyingGlass, CircleNotch, X, DownloadSimple, Receipt, ArrowClockwise } from '@mjn/ui';
 import { api } from '../../../lib/api';
+import { useAdmin } from '../../../contexts/admin-context';
 
-// ── Status styles ────────────────────────────────────────────────────────────
+// ── Shape and helpers ─────────────────────────────────────────────────────────
 
-const STATUS_STYLES: Record<string, string> = {
-  CONFIRMED: 'bg-emerald-100 text-emerald-700',
-  COMPLETED: 'bg-emerald-100 text-emerald-700',
-  PAID: 'bg-emerald-100 text-emerald-700',
-  AWAITING_PAYMENT: 'bg-amber-100 text-amber-700',
-  PENDING: 'bg-amber-100 text-amber-700',
-  PARTIALLY_PAID: 'bg-blue-100 text-blue-700',
-  CANCELLED: 'bg-rose-100 text-rose-700',
-  NO_SHOW: 'bg-muted text-muted-foreground',
+type State = 'waiting' | 'checking' | 'paid' | 'part_refunded' | 'refunded' | 'cancelled';
+type Kind = 'order' | 'consultation';
+type Attempt = { provider: string; ref: string; at: string };
+type Row = {
+  id: string; kind: Kind; state: State; status: string; clientName: string; clientEmail: string; clientPhone: string | null;
+  personId: string | null; amount: number; refund: number; summary: string; createdAt: string; startedAt: string | null; paidAt: string | null;
+  attempts: Attempt[];
 };
-
-const STATUS_LABEL: Record<string, string> = {
-  AWAITING_PAYMENT: 'Awaiting Payment',
-  PARTIALLY_PAID: 'Partially Paid',
+type Detail = Row & {
+  lines: { name: string; price: number }[];
+  history: { at: string; by: string; action: string; note: string | null; amount: number | null; method: string | null }[];
+  subtotal?: number; taxAmount?: number; receiptIssuedAt?: string | null; cancelReason?: string | null; refundReason?: string | null;
+  refundedAt?: string | null; consultantName?: string | null; sessionStart?: string | null; forStage?: boolean;
 };
+type Check = { ref: string; status: string | null; paid: boolean; amount: number | null; currency: string | null };
 
-function statusLabel(s: string) {
-  return STATUS_LABEL[s] ?? s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+const STATE: Record<State, { label: string; dot: string }> = {
+  checking:      { label: 'Needs checking',      dot: 'bg-accent' },
+  waiting:       { label: 'Waiting for payment', dot: 'bg-primary' },
+  paid:          { label: 'Paid',                dot: 'bg-secondary' },
+  part_refunded: { label: 'Paid, part refunded', dot: 'bg-secondary' },
+  refunded:      { label: 'Refunded',            dot: 'bg-muted-foreground/40' },
+  cancelled:     { label: 'Cancelled, not paid', dot: 'bg-muted-foreground/40' },
+};
+const TABS = [
+  ['checking', 'Needs checking', ['checking']],
+  ['waiting', 'Waiting', ['waiting']],
+  ['received', 'Received', ['paid', 'part_refunded']],
+  ['closed', 'Cancelled & refunded', ['cancelled', 'refunded']],
+  ['all', 'All', []],
+] as const;
+type Tab = (typeof TABS)[number][0];
+const ACTION: Record<string, string> = { recorded_paid: 'Recorded as paid', cancelled: 'Cancelled', refunded: 'Refund recorded' };
+
+const card = 'rounded-2xl border border-border bg-white shadow-sm';
+const heading = 'text-xs font-bold uppercase tracking-widest text-muted-foreground';
+const btnPrimary = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-primary/90 disabled:opacity-40';
+const btnOutline = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-bold text-foreground transition-colors hover:bg-muted/60 disabled:opacity-40';
+const field = 'w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+const chip = (on: boolean) => `rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${on ? 'border-primary bg-primary text-white' : 'border-border bg-white text-muted-foreground hover:border-primary/40'}`;
+
+function money(n: number) {
+  return `$${Number(n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+function day(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+}
+function dayTime(iso: string) {
+  return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+function ago(iso: string, now: number) {
+  const mins = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000));
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'yesterday' : `${days} days ago`;
+}
+/** The one line under the status that says when. */
+function when(r: Row, now: number) {
+  if (r.state === 'checking' && r.startedAt) return `Payment started ${ago(r.startedAt, now)}, no answer`;
+  if (r.state === 'waiting') return r.startedAt ? `Payment started ${ago(r.startedAt, now)}` : `Created ${day(r.createdAt)}, not started`;
+  if (r.state === 'cancelled') return `Created ${day(r.createdAt)}`;
+  return r.paidAt ? `Paid ${day(r.paidAt)}` : day(r.createdAt);
+}
+function Dot({ className }: { className: string }) {
+  return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${className}`} />;
 }
 
-// ── Stat card ────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
+function Modal({ title, sub, onClose, children }: { title: string; sub?: string; onClose: () => void; children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-2xl font-bold ${color}`}>{value}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>
-    </div>
-  );
-}
-
-// ── Payment detail drawer ────────────────────────────────────────────────────
-
-function PaymentDrawer({
-  payment,
-  onClose,
-  onRefresh,
-  readOnly = false,
-}: {
-  payment: any;
-  onClose: () => void;
-  onRefresh: () => void;
-  readOnly?: boolean;
-}) {
-  const [tranzakResult, setTranzakResult] = useState<any>(null);
-  const [tranzakLoading, setTranzakLoading] = useState(false);
-  const [validateLoading, setValidateLoading] = useState(false);
-  const [adminNote, setAdminNote] = useState('');
-  const [cancelMode, setCancelMode] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
-  const [cancelLoading, setCancelLoading] = useState(false);
-  const [confirmValidate, setConfirmValidate] = useState(false);
-
-  const ref = payment.paymentRef || payment.id;
-
-  async function handleVerifyTranzak() {
-    if (!payment.paymentRef) {
-      toast.error('No Tranzak payment reference on this record.');
-      return;
-    }
-    setTranzakLoading(true);
-    try {
-      const result = await api.verifyPaymentTranzak(payment.paymentRef);
-      setTranzakResult(result);
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setTranzakLoading(false);
-    }
-  }
-
-  async function handleValidate() {
-    setValidateLoading(true);
-    try {
-      const res = await api.validatePayment(ref, adminNote || undefined);
-      toast.success(res.message);
-      setConfirmValidate(false);
-      onRefresh();
-      onClose();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setValidateLoading(false);
-    }
-  }
-
-  async function handleCancel() {
-    if (!cancelReason.trim()) { toast.error('Please enter a cancellation reason.'); return; }
-    setCancelLoading(true);
-    try {
-      const res = await api.cancelPayment(ref, cancelReason);
-      toast.success(res.message);
-      onRefresh();
-      onClose();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setCancelLoading(false);
-    }
-  }
-
-  const canValidate = !readOnly && ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID'].includes(payment.status);
-  const canCancel = !readOnly && ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID', 'CONFIRMED', 'PAID'].includes(payment.status);
-  const isPaidVoid = payment.status === 'PAID';
-
-  return (
-    <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Panel */}
-      <div className="w-full max-w-md bg-white shadow-2xl flex flex-col overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${payment.type === 'CONSULTATION' ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700'}`}>
-                {payment.type === 'CONSULTATION' ? 'Consultation' : 'Order'}
-              </span>
-              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_STYLES[payment.status] ?? 'bg-muted text-muted-foreground'}`}>
-                {statusLabel(payment.status)}
-              </span>
-            </div>
-            <p className="mt-1 font-mono text-xs text-muted-foreground">{payment.id}</p>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={title} className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border border-border bg-white p-6 shadow-xl sm:max-w-lg sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-bold text-foreground">{title}</h2>
+            {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
           </div>
-          <button onClick={onClose} className="rounded-xl p-2 hover:bg-muted transition-colors">
-            <X className="h-4 w-4" />
-          </button>
+          <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
         </div>
-
-        <div className="flex-1 space-y-6 px-6 py-5">
-          {/* Client info */}
-          <section>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client</h3>
-            <div className="space-y-1.5 rounded-xl border border-border bg-muted/20 p-4">
-              <p className="font-semibold text-foreground">{payment.clientName}</p>
-              <p className="text-sm text-muted-foreground">{payment.clientEmail}</p>
-              {payment.clientPhone && <p className="text-sm text-muted-foreground">{payment.clientPhone}</p>}
-            </div>
-          </section>
-
-          {/* Payment info */}
-          <section>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payment</h3>
-            <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Amount</span>
-                <span className="font-bold text-foreground">${Number(payment.amount).toFixed(2)} USD</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Date</span>
-                <span className="text-foreground">{new Date(payment.createdAt).toLocaleString()}</span>
-              </div>
-              {payment.paymentRef && (
-                <div className="flex justify-between gap-2">
-                  <span className="text-muted-foreground shrink-0">Tranzak Ref</span>
-                  <span className="font-mono text-xs text-foreground break-all text-right">{payment.paymentRef}</span>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Type-specific info */}
-          {payment.type === 'CONSULTATION' && payment.meta?.consultantName && (
-            <section>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Session</h3>
-              <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Consultant</span>
-                  <span className="text-foreground">{payment.meta.consultantName}</span>
-                </div>
-                {payment.meta.sessionStart && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Session</span>
-                    <span className="text-foreground">
-                      {new Date(payment.meta.sessionStart).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                )}
-                {payment.meta.category && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Category</span>
-                    <span className="text-foreground">{payment.meta.category}</span>
-                  </div>
-                )}
-                {payment.meta.dailyRoomUrl && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground shrink-0">Room</span>
-                    <a href={payment.meta.dailyRoomUrl} target="_blank" rel="noreferrer"
-                      className="flex items-center gap-1 text-primary text-xs hover:underline">
-                      Open <ArrowSquareOut className="h-3 w-3" />
-                    </a>
-                  </div>
-                )}
-                {payment.meta.preSessionNote && (
-                  <div className="pt-1 border-t border-border">
-                    <p className="text-xs text-muted-foreground">Pre-session note</p>
-                    <p className="mt-0.5 text-sm">{payment.meta.preSessionNote}</p>
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
-          {payment.type === 'ORDER' && (
-            <section>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Order Details</h3>
-              <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Line items</span>
-                  <span className="text-foreground">{payment.meta.lineItems?.length ?? 0}</span>
-                </div>
-                {payment.meta.subtotal != null && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span>${Number(payment.meta.subtotal).toFixed(2)}</span>
-                  </div>
-                )}
-                {payment.meta.taxAmount != null && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Tax</span>
-                    <span>${Number(payment.meta.taxAmount).toFixed(2)}</span>
-                  </div>
-                )}
-                {payment.meta.paymentMode && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Mode</span>
-                    <span className="capitalize">{payment.meta.paymentMode.replace(/_/g, ' ').toLowerCase()}</span>
-                  </div>
-                )}
-                {(payment.meta.lineItems ?? []).map((li: any, i: number) => (
-                  <div key={i} className="flex justify-between border-t border-border pt-1.5">
-                    <span className="text-muted-foreground text-xs">{li.name ?? li.serviceItem?.name ?? li.description ?? `Service ${i + 1}`}</span>
-                    <span className="text-xs">${Number(li.priceCharged ?? 0).toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Tranzak live check */}
-          <section>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tranzak Verification</h3>
-            <button
-              onClick={handleVerifyTranzak}
-              disabled={tranzakLoading || !payment.paymentRef}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-50"
-            >
-              <ArrowClockwise className={`h-4 w-4 ${tranzakLoading ? 'animate-spin' : ''}`} />
-              {tranzakLoading ? 'Checking Tranzak…' : 'Check Live Status on Tranzak'}
-            </button>
-            {!payment.paymentRef && (
-              <p className="mt-1.5 text-center text-xs text-muted-foreground">No Tranzak reference stored for this payment.</p>
-            )}
-            {tranzakResult && (
-              <div className="mt-3 rounded-xl border border-border bg-muted/20 p-4 text-sm space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tranzak Status</span>
-                  <span className={`font-bold ${tranzakResult.tranzakStatus === 'SUCCESSFUL' ? 'text-emerald-600' : tranzakResult.tranzakStatus === 'PENDING' ? 'text-amber-600' : 'text-rose-600'}`}>
-                    {tranzakResult.tranzakStatus ?? '—'}
-                  </span>
-                </div>
-                {tranzakResult.amount != null && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Amount</span>
-                    <span>{tranzakResult.amount} {tranzakResult.currencyCode}</span>
-                  </div>
-                )}
-                {tranzakResult.createdAt && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Created</span>
-                    <span>{new Date(tranzakResult.createdAt).toLocaleString()}</span>
-                  </div>
-                )}
-                {tranzakResult.tranzakStatus === 'SUCCESSFUL' && canValidate && (
-                  <div className="pt-2 border-t border-border">
-                    <p className="text-xs text-emerald-700 font-medium">
-                      Tranzak shows SUCCESSFUL — you can validate this payment below.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* Validate */}
-          {canValidate && (
-            <section>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Validate Payment</h3>
-              {!confirmValidate ? (
-                <button
-                  onClick={() => setConfirmValidate(true)}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Manually Confirm Payment
-                </button>
-              ) : (
-                <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-sm font-medium text-emerald-800">Confirm this payment as paid?</p>
-                  <p className="text-xs text-emerald-700">This will mark the {payment.type === 'CONSULTATION' ? 'booking as CONFIRMED and email the client their join link' : 'order as PAID and generate a receipt'}.</p>
-                  <textarea
-                    value={adminNote}
-                    onChange={(e) => setAdminNote(e.target.value)}
-                    placeholder="Admin note (optional — logged for audit)"
-                    rows={2}
-                    className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400/30 resize-none"
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={() => setConfirmValidate(false)}
-                      className="flex-1 rounded-xl border border-border bg-white px-4 py-2 text-sm font-medium hover:bg-muted">
-                      Cancel
-                    </button>
-                    <button onClick={handleValidate} disabled={validateLoading}
-                      className="flex-1 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-                      {validateLoading ? 'Confirming…' : 'Yes, Confirm'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* Cancel */}
-          {canCancel && (
-            <section>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {isPaidVoid ? 'Force Void' : 'Cancel Payment'}
-              </h3>
-              {!cancelMode ? (
-                <button
-                  onClick={() => setCancelMode(true)}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100"
-                >
-                  <XCircle className="h-4 w-4" />
-                  {isPaidVoid ? 'Force Void Paid Order' : 'Cancel & Void'}
-                </button>
-              ) : (
-                <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
-                  <div className="flex items-center gap-2">
-                    <Warning className="h-4 w-4 text-rose-600 shrink-0" />
-                    <p className="text-sm font-medium text-rose-800">
-                      {isPaidVoid
-                        ? 'This will void a PAID order. It will be removed from all revenue stats.'
-                        : 'This will cancel the payment and free the slot if applicable.'}
-                    </p>
-                  </div>
-                  <textarea
-                    value={cancelReason}
-                    onChange={(e) => setCancelReason(e.target.value)}
-                    placeholder="Reason for cancellation (required)…"
-                    rows={3}
-                    className="w-full rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-400/30 resize-none"
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={() => setCancelMode(false)}
-                      className="flex-1 rounded-xl border border-border bg-white px-4 py-2 text-sm font-medium hover:bg-muted">
-                      Back
-                    </button>
-                    <button onClick={handleCancel} disabled={cancelLoading || !cancelReason.trim()}
-                      className="flex-1 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50">
-                      {cancelLoading ? 'Cancelling…' : 'Confirm Cancel'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
-        </div>
+        {children}
       </div>
     </div>
   );
 }
 
-// ── Main page ────────────────────────────────────────────────────────────────
-
-function getAdminRole(): string {
-  if (typeof window === 'undefined') return '';
-  try {
-    const token = localStorage.getItem('mjn_admin_token');
-    if (!token) return '';
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return (payload.role as string)?.toUpperCase() ?? '';
-  } catch { return ''; }
-}
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PaymentsPage() {
-  const [payments, setPayments] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [selected, setSelected] = useState<any>(null);
-  const isReadOnly = getAdminRole() === 'FINANCE';
+  const { me } = useAdmin();
+  const canChange = (me?.role as string)?.toUpperCase() === 'ADMIN';
 
-  // Filters
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [stats, setStats] = useState<any>(null);
+  const [failed, setFailed] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const [tab, setTab] = useState<Tab>('all');
+  const tabChosen = useRef(false);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [kind, setKind] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [open, setOpen] = useState<{ row: Row; autoCheck: boolean } | null>(null);
+  const [exporting, setExporting] = useState(false);
 
-  const searchRef = useRef<any>(null);
+  const filters = useMemo(() => ({ search: search.trim() || undefined, kind: kind || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }), [search, kind, dateFrom, dateTo]);
 
-  const loadStats = useCallback(() => {
-    setStatsLoading(true);
-    api.getPaymentStats()
-      .then(setStats)
-      .catch(() => {})
-      .finally(() => setStatsLoading(false));
-  }, []);
-
-  const loadPayments = useCallback(() => {
-    setLoading(true);
-    api.listPayments({ search: search || undefined, status: statusFilter || undefined, type: typeFilter || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined })
-      .then(setPayments)
-      .catch((err: any) => toast.error(err.message))
-      .finally(() => setLoading(false));
-  }, [search, statusFilter, typeFilter, dateFrom, dateTo]);
-
-  // Load stats once on mount; reload payments when filters change (debounced for search)
-  useEffect(() => { loadStats(); }, [loadStats]);
+  const load = useCallback(async () => {
+    try {
+      const [list, summary] = await Promise.all([api.listPayments(filters), api.getPaymentStats()]);
+      setRows(list as Row[]);
+      setStats(summary);
+      setNow(Date.now());
+      setFailed(false);
+      // Land on the work that needs doing, the first time only.
+      if (!tabChosen.current) {
+        tabChosen.current = true;
+        if ((list as Row[]).some((r) => r.state === 'checking')) setTab('checking');
+      }
+    } catch {
+      setFailed(true);
+    }
+  }, [filters]);
 
   useEffect(() => {
-    clearTimeout(searchRef.current);
-    searchRef.current = setTimeout(() => loadPayments(), 350);
-    return () => clearTimeout(searchRef.current);
-  }, [loadPayments]);
+    const t = setTimeout(load, 300);
+    return () => clearTimeout(t);
+  }, [load]);
 
-  function handleRefresh() { loadStats(); loadPayments(); }
+  const count = (states: readonly string[]) => (rows ?? []).filter((r) => states.length === 0 || states.includes(r.state)).length;
+  const states = TABS.find((t) => t[0] === tab)![2] as readonly string[];
+  const shown = (rows ?? []).filter((r) => states.length === 0 || states.includes(r.state));
+  const filtering = !!(filters.search || filters.kind || filters.dateFrom || filters.dateTo);
 
-  function handleExport() {
-    const token = localStorage.getItem('mjn_admin_token');
-    const url = api.getPaymentsExportUrl({ search: search || undefined, status: statusFilter || undefined, type: typeFilter || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined });
-    // Trigger download with auth header via fetch → blob
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.blob())
-      .then((blob) => {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `mjn-payments-${Date.now()}.csv`;
-        a.click();
-      })
-      .catch(() => toast.error('Export failed'));
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const url = api.getPaymentsExportUrl({ ...filters, state: states.join(',') || undefined });
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('mjn_admin_token')}` } });
+      if (!res.ok) throw new Error();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(await res.blob());
+      a.download = `mjn-payments-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      toast.error('The export could not be downloaded.');
+    } finally {
+      setExporting(false);
+    }
   }
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-  const totalRevenue = stats?.totalRevenue ?? 0;
-  const pendingCount = stats?.pendingCount ?? 0;
-  const cancelledCount = stats?.cancelledCount ?? 0;
-  const totalTransactions = stats?.totalTransactions ?? 0;
+  if (failed && !rows) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Payments" />
+        <div className={`${card} p-10 text-center`}>
+          <p className="text-sm font-bold text-foreground">Payments could not be loaded.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Check your connection and try again.</p>
+          <button onClick={load} className={`${btnPrimary} mt-4`}>Try again</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <PageHeader
-          title="Payments"
-          subtitle="All payment activity — orders and consultation bookings"
-        />
-        <div className="flex items-center gap-2 pt-1">
-          <button onClick={handleRefresh}
-            className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-muted transition-colors">
-            <ArrowClockwise className="h-4 w-4" />
-            Refresh
-          </button>
-          <button onClick={handleExport}
-            className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 transition-colors">
-            <DownloadSimple className="h-4 w-4" />
-            Export CSV
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Payments"
+        subtitle="Orders and paid consultations. Amounts in US dollars."
+        actions={<button onClick={exportCsv} disabled={exporting || !rows} className={btnOutline}>{exporting ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <DownloadSimple className="h-3.5 w-3.5" />} Export this list</button>}
+      />
 
-      {/* ── Stats bar ──────────────────────────────────────────────────────── */}
-      <div data-tour="pay-stats" className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {statsLoading ? (
-          [...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)
-        ) : (
+      <div data-tour="pay-stats" className="grid gap-3 sm:grid-cols-3">
+        {!stats ? [0, 1, 2].map((i) => <Skeleton key={i} className="h-20 rounded-2xl" />) : (
           <>
-            <StatCard
-              label="Total Revenue"
-              value={`$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-              sub={`${totalTransactions} total transactions`}
-              color="text-emerald-600"
-            />
-            <StatCard
-              label="Consultation Revenue"
-              value={`$${(stats?.consultRevenue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-              sub="confirmed + completed"
-              color="text-purple-600"
-            />
-            <StatCard
-              label="Order Revenue"
-              value={`$${(stats?.orderRevenue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-              sub="paid orders"
-              color="text-sky-600"
-            />
-            <StatCard
-              label="Pending / Cancelled"
-              value={`${pendingCount} / ${cancelledCount}`}
-              sub="awaiting payment · voided"
-              color="text-amber-600"
-            />
+            <div className={`${card} p-4`}>
+              <p className={heading}>Received this month</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">{money(stats.receivedThisMonth)}</p>
+              <p className="text-xs text-muted-foreground">After refunds. {money(stats.receivedTotal)} in all.</p>
+            </div>
+            <div className={`${card} p-4`}>
+              <p className={heading}>Waiting to be paid</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">{money(stats.waitingTotal)}</p>
+              <p className="text-xs text-muted-foreground">{stats.waitingCount} unpaid {stats.waitingCount === 1 ? 'order or booking' : 'orders and bookings'}.</p>
+            </div>
+            <button onClick={() => setTab('checking')} className={`${card} p-4 text-left transition-colors hover:bg-muted/30`}>
+              <p className={heading}>Need checking</p>
+              <p className="mt-1 flex items-center gap-2 text-2xl font-bold text-foreground">{stats.checkingCount > 0 && <Dot className="bg-accent" />}{stats.checkingCount}</p>
+              <p className="text-xs text-muted-foreground">The client started paying and we never heard back.</p>
+            </button>
           </>
         )}
       </div>
 
-      {/* ── Filters ────────────────────────────────────────────────────────── */}
-      <div data-tour="pay-filters" className="flex flex-wrap items-center gap-3">
-        <div className="relative">
-          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, email, ID, ref…"
-            className="h-10 w-72 rounded-xl border border-border bg-white pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-          />
+      <div data-tour="pay-filters" className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {TABS.map(([key, label, st]) => (
+            <button key={key} onClick={() => setTab(key)} className={chip(tab === key)}>{label} <span className="ml-1 opacity-70">{count(st)}</span></button>
+          ))}
         </div>
-
-        <div className="flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 h-10">
-          <Funnel className="h-3.5 w-3.5 text-muted-foreground" />
-          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
-            className="bg-transparent text-sm outline-none text-foreground">
-            <option value="">All types</option>
-            <option value="CONSULTATION">Consultation</option>
-            <option value="ORDER">Order</option>
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+          <div className="relative lg:w-80">
+            <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email or payment reference" className={`${field} pl-9`} />
+          </div>
+          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Type" className={`${field} lg:w-52`}>
+            <option value="">Orders and consultations</option>
+            <option value="order">Orders only</option>
+            <option value="consultation">Consultations only</option>
           </select>
+          <div className="flex items-center gap-2">
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="Created from" className={field} />
+            <span className="text-xs text-muted-foreground">to</span>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="Created to" className={field} />
+          </div>
+          {filtering && <button onClick={() => { setSearch(''); setKind(''); setDateFrom(''); setDateTo(''); }} className={btnOutline}><X className="h-3.5 w-3.5" /> Clear</button>}
         </div>
-
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20">
-          <option value="">All statuses</option>
-          <option value="CONFIRMED">Confirmed</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="PAID">Paid</option>
-          <option value="AWAITING_PAYMENT">Awaiting Payment</option>
-          <option value="PENDING">Pending</option>
-          <option value="PARTIALLY_PAID">Partially Paid</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
-
-        <div className="flex items-center gap-2">
-          <CalendarBlank className="h-4 w-4 text-muted-foreground" />
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
-          <span className="text-xs text-muted-foreground">to</span>
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
-        </div>
-
-        {(search || statusFilter || typeFilter || dateFrom || dateTo) && (
-          <button
-            onClick={() => { setSearch(''); setStatusFilter(''); setTypeFilter(''); setDateFrom(''); setDateTo(''); }}
-            className="flex items-center gap-1 rounded-xl border border-border bg-white px-3 h-10 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <X className="h-3.5 w-3.5" /> Clear
-          </button>
-        )}
-
-        <span className="ml-auto text-xs text-muted-foreground font-medium">
-          {payments.length} result{payments.length !== 1 ? 's' : ''}
-        </span>
       </div>
 
-      {/* ── Table ──────────────────────────────────────────────────────────── */}
-      {loading ? (
-        <div data-tour="pay-table" className="space-y-3">
-          {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-16 rounded-2xl" />)}
-        </div>
-      ) : payments.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-sm">
-          <Receipt className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-          <p className="font-semibold text-foreground">No payments found</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {search || statusFilter || typeFilter || dateFrom || dateTo
-              ? 'Try adjusting your filters.'
-              : 'Payment activity will appear here.'}
-          </p>
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-border bg-white overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 border-b border-border">
-                <tr className="text-left text-xs text-muted-foreground">
-                  <th className="px-4 py-3 font-medium">Client</th>
-                  <th className="px-4 py-3 font-medium">Type</th>
-                  <th className="px-4 py-3 font-medium">Details</th>
-                  <th className="px-4 py-3 font-medium text-right">Amount</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Ref</th>
-                  <th className="px-4 py-3 font-medium">Date</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {payments.map((p: any) => (
-                  <tr
-                    key={p.id}
-                    className="hover:bg-muted/20 transition-colors cursor-pointer"
-                    onClick={() => setSelected(p)}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-foreground">{p.clientName}</div>
-                      <div className="text-xs text-muted-foreground">{p.clientEmail}</div>
-                      {p.clientPhone && <div className="text-xs text-muted-foreground">{p.clientPhone}</div>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${p.type === 'CONSULTATION' ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700'}`}>
-                        {p.type === 'CONSULTATION' ? 'Consult' : 'Order'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {p.type === 'CONSULTATION'
-                        ? p.meta?.consultantName ?? '—'
-                        : (() => {
-                            const items = p.meta?.lineItems ?? [];
-                            if (!items.length) return '—';
-                            const first = items[0]?.name ?? items[0]?.serviceItem?.name ?? items[0]?.description ?? 'Service';
-                            return items.length > 1 ? `${first} +${items.length - 1}` : first;
-                          })()}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-foreground">
-                      ${Number(p.amount).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_STYLES[p.status] ?? 'bg-muted text-muted-foreground'}`}>
-                        {statusLabel(p.status)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {p.paymentRef ? p.paymentRef.slice(0, 10) + '…' : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {new Date(p.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-1">
-                        {!isReadOnly && ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID'].includes(p.status) && (
-                          <button
-                            title="Validate payment"
-                            onClick={() => setSelected(p)}
-                            className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 transition-colors"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </button>
-                        )}
-                        {!isReadOnly && ['AWAITING_PAYMENT', 'PENDING', 'PARTIALLY_PAID', 'CONFIRMED'].includes(p.status) && (
-                          <button
-                            title="Cancel payment"
-                            onClick={() => setSelected(p)}
-                            className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50 transition-colors"
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </button>
-                        )}
-                        <button
-                          title="View details"
-                          onClick={() => setSelected(p)}
-                          className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted transition-colors"
-                        >
-                          <ArrowSquareOut className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div data-tour="pay-table">
+        {!rows ? (
+          <div className="space-y-3">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
+        ) : shown.length === 0 ? (
+          <div className={`${card} p-10 text-center`}>
+            <Receipt className="mx-auto mb-3 h-9 w-9 text-muted-foreground/50" />
+            <p className="text-sm font-bold text-foreground">
+              {filtering ? 'No payments match.' : tab === 'checking' ? 'Nothing needs checking.' : tab === 'waiting' ? 'Nothing is waiting to be paid.' : 'No payments here yet.'}
+            </p>
+            {tab === 'checking' && !filtering && <p className="mt-1 text-sm text-muted-foreground">A payment appears here when a client started paying more than 15 minutes ago and it was never confirmed.</p>}
           </div>
-        </div>
-      )}
+        ) : (
+          <ul className={`${card} divide-y divide-border overflow-hidden`}>
+            {shown.map((r) => (
+              <li key={`${r.kind}${r.id}`} className="flex flex-col gap-2 px-4 py-3 hover:bg-muted/20 md:flex-row md:items-center md:gap-4">
+                <button onClick={() => setOpen({ row: r, autoCheck: false })} className="grid min-w-0 flex-1 gap-1 text-left md:grid-cols-[1.1fr_1.3fr_auto] md:items-center md:gap-4">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold text-foreground">{r.clientName}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{r.clientEmail}</span>
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-foreground">{r.kind === 'order' ? 'Order' : 'Consultation'} · {r.kind === 'order' ? r.summary : r.summary.replace('Consultation with ', '')}</span>
+                    <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground"><Dot className={STATE[r.state].dot} /> <span className="font-bold text-foreground">{STATE[r.state].label}</span> · {when(r, now)}</span>
+                  </span>
+                  <span className="md:w-28 md:text-right">
+                    <span className="block text-sm font-bold tabular-nums text-foreground">{money(r.amount)}</span>
+                    {r.refund > 0 && <span className="block text-xs text-muted-foreground">{money(r.refund)} refunded</span>}
+                  </span>
+                </button>
+                <div className="md:w-40 md:text-right">
+                  {r.state === 'checking' && r.attempts[0]?.provider === 'tranzak'
+                    ? <button onClick={() => setOpen({ row: r, autoCheck: true })} className={btnPrimary}><ArrowClockwise className="h-3.5 w-3.5" /> Check with Tranzak</button>
+                    : <button onClick={() => setOpen({ row: r, autoCheck: false })} className={btnOutline}>Open</button>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
-      {/* ── Detail drawer ────────────────────────────────────────────────── */}
-      {selected && (
-        <PaymentDrawer
-          payment={selected}
-          onClose={() => setSelected(null)}
-          onRefresh={handleRefresh}
-          readOnly={isReadOnly}
+      {open && (
+        <PaymentPanel
+          key={`${open.row.kind}${open.row.id}`}
+          row={open.row}
+          autoCheck={open.autoCheck}
+          canChange={canChange}
+          onClose={() => setOpen(null)}
+          onChanged={load}
         />
       )}
     </div>
+  );
+}
+
+// ── One payment ───────────────────────────────────────────────────────────────
+
+type Mode = null | 'hand' | 'cancel' | 'refund';
+
+function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: Row; autoCheck: boolean; canChange: boolean; onClose: () => void; onChanged: () => void }) {
+  const [d, setD] = useState<Detail | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [checks, setChecks] = useState<Record<string, Check>>({});
+  const [busy, setBusy] = useState('');
+  const [mode, setMode] = useState<Mode>(null);
+  const [text, setText] = useState('');
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState('');
+  const ranAuto = useRef(false);
+
+  const load = useCallback(async () => {
+    try {
+      setD(await api.getPayment(row.kind, row.id) as Detail);
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    }
+  }, [row.kind, row.id]);
+  useEffect(() => { load(); }, [load]);
+
+  const check = useCallback(async (ref: string) => {
+    setBusy('check' + ref);
+    try {
+      const res = await api.checkPayment(row.kind, row.id, ref);
+      setChecks((c) => ({ ...c, [ref]: res }));
+    } catch (e: any) {
+      toast.error(e.message ?? 'Tranzak could not be reached.');
+    } finally {
+      setBusy('');
+    }
+  }, [row.kind, row.id]);
+
+  useEffect(() => {
+    if (!autoCheck || ranAuto.current || !d) return;
+    ranAuto.current = true;
+    const first = d.attempts.find((a) => a.provider === 'tranzak');
+    if (first) check(first.ref);
+  }, [autoCheck, d, check]);
+
+  async function run(key: string, work: () => Promise<{ message: string }>, failedText: string) {
+    setBusy(key);
+    try {
+      const res = await work();
+      toast.success(res.message);
+      setMode(null);
+      setChecks({});
+      onChanged();
+      await load();
+    } catch (e: any) {
+      toast.error(e.message ?? failedText);
+    } finally {
+      setBusy('');
+    }
+  }
+  function start(next: Mode) {
+    setText('');
+    setMethod('');
+    setAmount(next === 'refund' && d ? (d.amount - d.refund).toFixed(2) : '');
+    setMode(next);
+  }
+
+  const unpaid = d ? d.state === 'waiting' || d.state === 'checking' : false;
+  const refundable = d ? d.kind === 'order' && d.status === 'PAID' : false;
+  const paidConsultation = d ? d.kind === 'consultation' && d.status === 'CONFIRMED' : false;
+  const left = d ? d.amount - d.refund : 0;
+  const refundAmount = /^\d+(\.\d{1,2})?$/.test(amount.trim()) ? Number(amount) : NaN;
+
+  return (
+    <Modal title={row.clientName} sub={`${row.kind === 'order' ? 'Order' : 'Consultation'} · ${row.id}`} onClose={onClose}>
+      {failed ? (
+        <div className="py-6 text-center">
+          <p className="text-sm font-bold text-foreground">This payment could not be loaded.</p>
+          <button onClick={load} className={`${btnPrimary} mt-3`}>Try again</button>
+        </div>
+      ) : !d ? (
+        <div className="space-y-3"><Skeleton className="h-16 rounded-xl" /><Skeleton className="h-28 rounded-xl" /></div>
+      ) : (
+        <div className="space-y-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="flex items-center gap-1.5 text-sm font-bold text-foreground"><Dot className={STATE[d.state].dot} /> {STATE[d.state].label}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {d.clientEmail}{d.clientPhone ? ` · ${d.clientPhone}` : ''}
+                {d.personId && <> · <Link href={`/clients/${d.personId}`} className="font-bold text-primary hover:underline">Open client</Link></>}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xl font-bold tabular-nums text-foreground">{money(d.amount)}</p>
+              {d.refund > 0 && <p className="text-xs text-muted-foreground">{money(d.refund)} refunded</p>}
+            </div>
+          </div>
+
+          <section>
+            <p className={heading}>What it is for</p>
+            {d.kind === 'order' ? (
+              <ul className="mt-2 space-y-1 text-sm">
+                {d.lines.map((l, i) => <li key={i} className="flex justify-between gap-3"><span className="text-foreground">{l.name}</span><span className="tabular-nums text-foreground">{money(l.price)}</span></li>)}
+                {!!d.taxAmount && <li className="flex justify-between gap-3 text-muted-foreground"><span>Tax</span><span className="tabular-nums">{money(d.taxAmount)}</span></li>}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-foreground">Consultation{d.consultantName ? ` with ${d.consultantName}` : ''}{d.sessionStart ? `, ${dayTime(d.sessionStart)}` : ''}</p>
+            )}
+            {d.forStage && <p className="mt-1 text-xs text-muted-foreground">Raised automatically for a stage of the client’s payment plan.</p>}
+            {d.receiptIssuedAt && <p className="mt-1 text-xs text-muted-foreground">Receipt issued {day(d.receiptIssuedAt)}.</p>}
+            {d.cancelReason && <p className="mt-1 text-xs text-muted-foreground">Cancelled: {d.cancelReason}</p>}
+            {d.refundReason && <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">Refund reason: {d.refundReason}</p>}
+          </section>
+
+          <section>
+            <p className={heading}>Payment attempts</p>
+            {d.attempts.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">{unpaid ? 'The client has not started a payment yet.' : 'No payment reference is stored for this.'}</p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {d.attempts.map((a) => {
+                  const result = checks[a.ref];
+                  return (
+                    <li key={a.ref} className="rounded-xl border border-border p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm text-foreground">{dayTime(a.at)} · {a.provider === 'tranzak' ? 'Tranzak' : 'Stripe (card)'}</p>
+                          <p className="truncate font-mono text-xs text-muted-foreground">{a.ref}</p>
+                        </div>
+                        {a.provider === 'tranzak'
+                          ? <button onClick={() => check(a.ref)} disabled={!!busy} className={btnOutline}>{busy === 'check' + a.ref ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <ArrowClockwise className="h-3.5 w-3.5" />} Check with Tranzak</button>
+                          : <span className="text-xs text-muted-foreground">Check in the Stripe dashboard</span>}
+                      </div>
+                      {result && (
+                        <div className="mt-2 border-t border-border pt-2" aria-live="polite">
+                          <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                            <Dot className={result.paid ? 'bg-secondary' : 'bg-accent'} />
+                            Tranzak says: {result.paid ? 'paid' : result.status ? result.status.toLowerCase() : 'no record of this payment'}
+                            {result.amount != null && <span className="font-normal text-muted-foreground">· {Number(result.amount).toLocaleString('en-US')} {result.currency ?? ''}</span>}
+                          </p>
+                          {result.paid && unpaid && (canChange
+                            ? <button onClick={() => run('paid', () => api.recordPaymentPaid(d.kind, d.id, { ref: a.ref }), 'It could not be recorded as paid.')} disabled={!!busy} className={`${btnPrimary} mt-2`}>{busy === 'paid' && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} Record as paid</button>
+                            : <p className="mt-1 text-xs text-muted-foreground">Ask an admin to record this as paid.</p>)}
+                          {result.paid && d.state === 'cancelled' && d.kind === 'order' && canChange && (
+                            <button onClick={() => run('paid', () => api.recordPaymentPaid(d.kind, d.id, { ref: a.ref }), 'It could not be recorded as paid.')} disabled={!!busy} className={`${btnPrimary} mt-2`}>The client did pay — reopen as paid</button>
+                          )}
+                          {!result.paid && <p className="mt-1 text-xs text-muted-foreground">Nothing has been changed. If the client insists they paid, ask for their payment confirmation message.</p>}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          {d.history.length > 0 && (
+            <section>
+              <p className={heading}>What staff did</p>
+              <ul className="mt-2 space-y-1.5 text-sm">
+                {d.history.map((h, i) => (
+                  <li key={i}>
+                    <span className="text-foreground">{ACTION[h.action] ?? h.action}{h.action === 'refunded' && h.amount != null ? ` · ${money(h.amount)}` : ''}</span>
+                    <span className="text-muted-foreground"> · {dayTime(h.at)} · {h.by}</span>
+                    {(h.note || h.method) && <span className="block text-xs text-muted-foreground">{[h.method, h.note].filter(Boolean).join(' — ')}</span>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* ── Changing it (admins) ── */}
+          {mode === 'hand' && (
+            <section className="rounded-xl bg-muted/40 p-4">
+              <p className="text-sm font-bold text-foreground">Record a payment received another way</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">For cash, a bank transfer, or a Tranzak payment that never reached us. {d.kind === 'order' ? 'The client is emailed their receipt.' : 'The client is emailed their confirmation and join link.'}</p>
+              <label className={`${heading} mt-3 block`} htmlFor="pay-note">How was the {money(d.amount)} received?</label>
+              <textarea id="pay-note" value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="For example: bank transfer on 12 October, reference 99120." className={`${field} mt-1.5`} />
+              <div className="mt-3 flex justify-end gap-2">
+                <button onClick={() => setMode(null)} className={btnOutline}>Go back</button>
+                <button onClick={() => run('hand', () => api.recordPaymentPaid(d.kind, d.id, { note: text.trim() }), 'It could not be recorded as paid.')} disabled={!!busy || text.trim().length < 5} className={btnPrimary}>{busy === 'hand' && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} Record as paid</button>
+              </div>
+            </section>
+          )}
+
+          {mode === 'cancel' && (
+            <section className="rounded-xl bg-muted/40 p-4">
+              <p className="text-sm font-bold text-foreground">{paidConsultation ? 'Cancel this paid consultation?' : `Cancel this unpaid ${d.kind === 'order' ? 'order' : 'booking'}?`}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {paidConsultation
+                  ? `A full refund of ${money(d.amount)} is recorded as owed and the client is told. The money is not sent automatically: return it through Tranzak.`
+                  : d.kind === 'order' ? 'The client is emailed your reason. Nothing was paid, so there is nothing to refund.' : 'The client is emailed your reason and the time opens up for someone else.'}
+              </p>
+              <label className={`${heading} mt-3 block`} htmlFor="pay-reason">Reason</label>
+              <textarea id="pay-reason" value={text} onChange={(e) => setText(e.target.value)} rows={2} className={`${field} mt-1.5`} />
+              <div className="mt-3 flex justify-end gap-2">
+                <button onClick={() => setMode(null)} className={btnOutline}>Go back</button>
+                <button onClick={() => run('cancel', () => api.cancelPayment(d.kind, d.id, text.trim()), 'It could not be cancelled.')} disabled={!!busy || text.trim().length < 3} className={btnPrimary}>{busy === 'cancel' && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} {paidConsultation ? 'Cancel and record refund' : 'Cancel it'}</button>
+              </div>
+            </section>
+          )}
+
+          {mode === 'refund' && (
+            <section className="rounded-xl bg-muted/40 p-4">
+              <p className="text-sm font-bold text-foreground">Record a refund</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">This records the refund and emails the client. It does not send money: return it through Tranzak or the bank first, then record it here. Up to {money(left)} can be refunded.</p>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label className={heading} htmlFor="pay-amount">Amount (USD)</label>
+                  <input id="pay-amount" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" className={`${field} mt-1.5`} />
+                </div>
+                <div>
+                  <label className={heading} htmlFor="pay-method">Returned by</label>
+                  <input id="pay-method" value={method} onChange={(e) => setMethod(e.target.value)} placeholder="Tranzak to MTN MoMo" className={`${field} mt-1.5`} />
+                </div>
+              </div>
+              <label className={`${heading} mt-3 block`} htmlFor="pay-why">Reason (the client sees this)</label>
+              <textarea id="pay-why" value={text} onChange={(e) => setText(e.target.value)} rows={2} className={`${field} mt-1.5`} />
+              {refundAmount > left && <p className="mt-2 text-xs font-bold text-foreground" role="alert">That is more than the {money(left)} left on this order.</p>}
+              {refundAmount === left && <p className="mt-2 text-xs text-muted-foreground">This refunds the order in full and closes it. The client can order these services again.</p>}
+              <div className="mt-3 flex justify-end gap-2">
+                <button onClick={() => setMode(null)} className={btnOutline}>Go back</button>
+                <button onClick={() => run('refund', () => api.recordPaymentRefund(d.id, { amount: refundAmount, reason: text.trim(), method: method.trim() }), 'The refund could not be recorded.')} disabled={!!busy || !(refundAmount > 0) || refundAmount > left || text.trim().length < 3 || method.trim().length < 3} className={btnPrimary}>{busy === 'refund' && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} Record refund</button>
+              </div>
+            </section>
+          )}
+
+          {!mode && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+              {canChange ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {(unpaid || paidConsultation) && <button onClick={() => start('cancel')} className={btnOutline}>{paidConsultation ? 'Cancel and refund' : d.kind === 'order' ? 'Cancel order' : 'Cancel booking'}</button>}
+                    {refundable && left > 0 && <button onClick={() => start('refund')} className={btnOutline}>Record a refund</button>}
+                  </div>
+                  {unpaid && <button onClick={() => start('hand')} className={btnOutline}>Record a payment by hand</button>}
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">You can view and check payments. Only an admin can record, cancel or refund one.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }

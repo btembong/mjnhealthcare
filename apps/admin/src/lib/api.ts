@@ -648,41 +648,33 @@ export const api = {
   // ── Payment Admin ─────────────────────────────────────────────────────────
   getPaymentStats: () => request<any>('/admin/payments/stats'),
 
-  listPayments: (params?: { search?: string; status?: string; type?: string; dateFrom?: string; dateTo?: string }) => {
+  listPayments: (params?: { search?: string; kind?: string; dateFrom?: string; dateTo?: string }) => {
     const qs = new URLSearchParams();
-    if (params?.search) qs.set('search', params.search);
-    if (params?.status) qs.set('status', params.status);
-    if (params?.type) qs.set('type', params.type);
-    if (params?.dateFrom) qs.set('dateFrom', params.dateFrom);
-    if (params?.dateTo) qs.set('dateTo', params.dateTo);
+    for (const [key, value] of Object.entries(params ?? {})) if (value) qs.set(key, value);
     const q = qs.toString();
     return request<any[]>(`/admin/payments${q ? `?${q}` : ''}`);
   },
 
-  getPaymentByRef: (ref: string) => request<any>(`/admin/payments/${ref}`),
+  getPayment: (kind: 'order' | 'consultation', id: string) => request<any>(`/admin/payments/${kind}/${id}`),
 
-  verifyPaymentTranzak: (ref: string) =>
-    request<any>(`/admin/payments/${ref}/verify-tranzak`, { method: 'POST' }),
+  /** Asks Tranzak what happened to a started payment. Changes nothing. */
+  checkPayment: (kind: 'order' | 'consultation', id: string, ref?: string) =>
+    request<{ ref: string; status: string | null; paid: boolean; amount: number | null; currency: string | null }>(
+      `/admin/payments/${kind}/${id}/check`, { method: 'POST', body: JSON.stringify({ ref }) },
+    ),
 
-  validatePayment: (ref: string, adminNote?: string) =>
-    request<{ success: boolean; message: string }>(`/admin/payments/${ref}/validate`, {
-      method: 'POST',
-      body: JSON.stringify({ adminNote }),
-    }),
+  recordPaymentPaid: (kind: 'order' | 'consultation', id: string, input: { ref?: string; note?: string }) =>
+    request<{ message: string }>(`/admin/payments/${kind}/${id}/record-paid`, { method: 'POST', body: JSON.stringify(input) }),
 
-  cancelPayment: (ref: string, reason: string) =>
-    request<{ success: boolean; message: string }>(`/admin/payments/${ref}/cancel`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
-    }),
+  cancelPayment: (kind: 'order' | 'consultation', id: string, reason: string) =>
+    request<{ message: string }>(`/admin/payments/${kind}/${id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
 
-  getPaymentsExportUrl: (params?: { search?: string; status?: string; type?: string; dateFrom?: string; dateTo?: string }) => {
+  recordPaymentRefund: (orderId: string, input: { amount: number; reason: string; method: string }) =>
+    request<{ message: string; full: boolean }>(`/admin/payments/order/${orderId}/refund`, { method: 'POST', body: JSON.stringify(input) }),
+
+  getPaymentsExportUrl: (params?: { search?: string; kind?: string; state?: string; dateFrom?: string; dateTo?: string }) => {
     const qs = new URLSearchParams();
-    if (params?.search) qs.set('search', params.search);
-    if (params?.status) qs.set('status', params.status);
-    if (params?.type) qs.set('type', params.type);
-    if (params?.dateFrom) qs.set('dateFrom', params.dateFrom);
-    if (params?.dateTo) qs.set('dateTo', params.dateTo);
+    for (const [key, value] of Object.entries(params ?? {})) if (value) qs.set(key, value);
     const q = qs.toString();
     return `${API_BASE}/admin/payments/export${q ? `?${q}` : ''}`;
   },

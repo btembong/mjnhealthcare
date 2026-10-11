@@ -777,9 +777,10 @@ export class NotificationListener {
   @OnEvent('consultation.cancelled')
   async onConsultationCancelled(payload: {
     bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
-    refundAmount: number; refundPercent: number; reason: string; byConsultant?: boolean;
+    refundAmount: number; refundPercent: number; reason: string; byConsultant?: boolean; unpaid?: boolean;
   }) {
-    const refundMsg = payload.refundAmount > 0
+    const refundMsg = payload.unpaid ? 'No payment was taken, so there is nothing to refund.'
+      : payload.refundAmount > 0
       ? `Refund of $${payload.refundAmount.toFixed(2)} (${payload.refundPercent}%) will be processed in 5–7 business days.`
       : payload.byConsultant ? 'It was a free session, so there is nothing to refund.'
       : 'No refund applicable (cancelled less than 4 hours before session).';
@@ -794,6 +795,7 @@ export class NotificationListener {
           refundPercent: payload.refundPercent,
           reason: payload.reason,
           byConsultant: payload.byConsultant,
+          unpaid: payload.unpaid,
         }),
         payload.clientName,
         undefined,
@@ -804,6 +806,108 @@ export class NotificationListener {
         `MJN Healthcare: Your consultation has been cancelled${payload.byConsultant ? ` by your consultant (${payload.reason})` : ''}. ${refundMsg}`,
       ),
     ]);
+  }
+
+  // ── Orders cancelled or refunded by staff ──────────────────────────────────
+
+  private async orderClient(orderId: string) {
+    const order: any = await (this.db.order as any).findUnique({
+      where: { id: orderId },
+      select: {
+        total: true,
+        person: { select: { name: true, email: true, locale: true } },
+        engagement: { select: { person: { select: { name: true, email: true, locale: true } } } },
+        lineItems: { select: { serviceItem: { select: { name: true } } } },
+      },
+    });
+    const person = order?.person ?? order?.engagement?.person;
+    if (!person?.email) return null;
+    const services: string[] = (order.lineItems ?? []).map((li: any) => li.serviceItem?.name ?? 'Service');
+    return { person, fr: person.locale === 'fr', total: Number(order.total), services: services.map(escapeHtml).join('<br>') };
+  }
+
+  @OnEvent('order.cancelled_by_staff')
+  async onOrderCancelledByStaff(payload: { orderId: string; reason: string }) {
+    const found = await this.orderClient(payload.orderId);
+    if (!found) return;
+    const { person, fr, total, services } = found;
+    const reason = escapeHtml(payload.reason);
+    const portal = `${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments`;
+    const html = fr
+      ? T.shell(
+          T.p(`Bonjour <strong>${escapeHtml(person.name)}</strong>,`) +
+          T.label('Paiements') +
+          T.h1('Une commande non payée a été annulée') +
+          T.p("Notre équipe a annulé une commande qui n'avait pas été payée. Aucun paiement n'a été prélevé.") +
+          T.infoTable([T.row('Services', services), T.row('Montant', `$${total.toFixed(2)}`), T.row('Motif', reason, true)]) +
+          T.btn('Voir mes paiements', portal) +
+          T.pSmall('Si vous aviez déjà payé, répondez à cet e-mail avec votre référence de paiement.'),
+          'Vous recevez cet e-mail car vous avez un dossier chez MJN Healthcare.',
+        )
+      : T.shell(
+          T.greeting(person.name) +
+          T.label('Payments') +
+          T.h1('An unpaid order was cancelled') +
+          T.p('Our team has cancelled an order that had not been paid. No payment was taken.') +
+          T.infoTable([T.row('Services', services), T.row('Amount', `$${total.toFixed(2)}`), T.row('Reason', reason, true)]) +
+          T.btn('See my payments', portal) +
+          T.pSmall('If you had already paid, reply to this email with your payment reference.'),
+        );
+    await this.notificationService.sendEmail(
+      person.email,
+      fr ? 'Votre commande non payée a été annulée' : 'Your unpaid order was cancelled',
+      html, person.name, undefined, 'billing',
+    );
+  }
+
+  @OnEvent('order.refund_recorded')
+  async onOrderRefundRecorded(payload: { orderId: string; amount: number; totalRefunded: number; full: boolean; reason: string; method: string }) {
+    const found = await this.orderClient(payload.orderId);
+    if (!found) return;
+    const { person, fr, total, services } = found;
+    const reason = escapeHtml(payload.reason);
+    const method = escapeHtml(payload.method);
+    const portal = `${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments`;
+    const amount = `$${payload.amount.toFixed(2)}`;
+    const html = fr
+      ? T.shell(
+          T.p(`Bonjour <strong>${escapeHtml(person.name)}</strong>,`) +
+          T.label('Remboursement') +
+          T.h1(`Remboursement de ${amount}`) +
+          T.p(payload.full ? 'Nous avons remboursé cette commande en totalité.' : 'Nous avons remboursé une partie de cette commande.') +
+          T.infoTable([
+            T.row('Services', services),
+            T.row('Montant payé', `$${total.toFixed(2)}`),
+            T.row('Remboursé', `<strong>${amount}</strong>`),
+            T.row('Mode de remboursement', method),
+            T.row('Motif', reason, true),
+          ]) +
+          T.notice("Selon votre banque ou votre opérateur mobile, l'argent peut mettre quelques jours à apparaître.", 'info') +
+          T.btn('Voir mes paiements', portal) +
+          T.pSmall("Si vous ne recevez rien d'ici 7 jours ouvrables, répondez à cet e-mail."),
+          'Vous recevez cet e-mail car vous avez un dossier chez MJN Healthcare.',
+        )
+      : T.shell(
+          T.greeting(person.name) +
+          T.label('Refund') +
+          T.h1(`Refund of ${amount}`) +
+          T.p(payload.full ? 'We have refunded this order in full.' : 'We have refunded part of this order.') +
+          T.infoTable([
+            T.row('Services', services),
+            T.row('Amount paid', `$${total.toFixed(2)}`),
+            T.row('Refunded', `<strong>${amount}</strong>`),
+            T.row('Returned by', method),
+            T.row('Reason', reason, true),
+          ]) +
+          T.notice('Depending on your bank or mobile operator, the money can take a few days to appear.', 'info') +
+          T.btn('See my payments', portal) +
+          T.pSmall('If nothing has arrived within 7 working days, reply to this email.'),
+        );
+    await this.notificationService.sendEmail(
+      person.email,
+      fr ? `Remboursement de ${amount} — MJN Healthcare` : `Refund of ${amount} — MJN Healthcare`,
+      html, person.name, undefined, 'billing',
+    );
   }
 
   @OnEvent('consultation.payment_failed')

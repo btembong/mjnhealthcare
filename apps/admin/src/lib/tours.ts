@@ -380,10 +380,12 @@ const TOURS: Record<string, TourDef> = {
   'admin.payments': {
     title: 'Payments',
     steps: [
-      { target: 'page-header', title: 'All payment activity', body: 'Payments for orders and for consultation bookings.' },
-      { target: 'pay-stats', title: 'Totals', body: 'A summary of payments by status.' },
-      { target: 'pay-filters', title: 'Search and filter', body: 'Find a payment by client, status, type or date.' },
-      { target: 'pay-table', title: 'Act on a payment', body: 'Open one for its full detail. You can check it with the payment provider, validate it, or cancel it with a reason.' },
+      { target: 'page-header', title: 'All payments', body: 'Every order and every paid consultation, whether paid, waiting or cancelled.' },
+      { target: 'pay-stats', title: 'The three numbers', body: 'Money received this month after refunds, money still waiting to be paid, and payments that need a person to check them.' },
+      { target: 'pay-filters', title: 'Find a payment', body: 'Needs checking lists payments a client started more than 15 minutes ago that were never confirmed. You can also search by name, email or payment reference.' },
+      { target: 'pay-table', title: 'Open a payment', body: 'See what it is for, each payment attempt, and what staff have done. Check with Tranzak asks the payment provider what happened and changes nothing.' },
+      { title: 'Recording a payment', body: 'If Tranzak says it was paid, an admin can record it in one click. Money received another way needs a note saying how. Either way the client gets their receipt or confirmation, exactly as with a normal payment.' },
+      { title: 'Cancelling and refunds', body: 'An unpaid order or booking can be cancelled with a reason. On a paid order, Record a refund notes the amount and emails the client — it does not send the money, so return it through Tranzak or the bank first. Finance staff can view, check and export only.' },
     ],
   },
   'admin.reports': {

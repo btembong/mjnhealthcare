@@ -1,83 +1,87 @@
-import { FinanceOnly } from '../auth/access';
+import { FinanceOnly, AdminOnly, CurrentUser, AuthUser, isAdmin } from '../auth/access';
 import {
-  Controller,
-  Get,
-  Post,
-  Param,
-  Body,
-  Query,
-  UseGuards,
-  Req,
-  Res,
+  Controller, Get, Post, Param, Body, Query, Res, HttpCode, BadRequestException, ForbiddenException,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { PaymentAdminService } from './payment-admin.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PaymentAdminService, PaymentKind } from './payment-admin.service';
+
+function kindOf(value: string): PaymentKind {
+  if (value !== 'order' && value !== 'consultation') throw new BadRequestException('Unknown payment type.');
+  return value;
+}
+
+/** Finance staff can look, check and export. Changing a payment is for admins. */
+function adminOnly(user: AuthUser) {
+  if (!isAdmin(user)) throw new ForbiddenException('Only an admin can change a payment.');
+}
 
 @Controller('admin/payments')
-@UseGuards(JwtAuthGuard)
 @FinanceOnly()
 export class PaymentAdminController {
   constructor(private readonly service: PaymentAdminService) {}
 
   @Get('stats')
   getStats() {
-    return this.service.getStats();
+    return this.service.summary();
   }
 
   @Get('export')
   async exportCsv(
+    @Res() res: Response,
     @Query('search') search?: string,
-    @Query('status') status?: string,
-    @Query('type') type?: string,
+    @Query('kind') kind?: string,
+    @Query('state') state?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
-    @Res() res?: Response,
   ) {
-    const csv = await this.service.exportCsv({ search, status, type, dateFrom, dateTo });
-    res!.set('Content-Type', 'text/csv');
-    res!.set(
-      'Content-Disposition',
-      `attachment; filename="mjn-payments-${Date.now()}.csv"`,
-    );
-    res!.send(csv);
+    const csv = await this.service.exportCsv({ search, kind, state, dateFrom, dateTo });
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    res.set('Content-Disposition', `attachment; filename="mjn-payments-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(`﻿${csv}`);
   }
 
   @Get()
-  listPayments(
+  list(
     @Query('search') search?: string,
-    @Query('status') status?: string,
-    @Query('type') type?: string,
+    @Query('kind') kind?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
   ) {
-    return this.service.listPayments({ search, status, type, dateFrom, dateTo });
+    return this.service.list({ search, kind, dateFrom, dateTo });
   }
 
-  @Get(':ref')
-  findOne(@Param('ref') ref: string) {
-    return this.service.findByRef(ref);
+  @Get(':kind/:id')
+  detail(@Param('kind') kind: string, @Param('id') id: string) {
+    return this.service.detail(kindOf(kind), id);
   }
 
-  @Post(':ref/verify-tranzak')
-  verifyTranzak(@Param('ref') ref: string) {
-    return this.service.verifyWithTranzak(ref);
+  @Post(':kind/:id/check')
+  @HttpCode(200)
+  check(@Param('kind') kind: string, @Param('id') id: string, @Body() body: { ref?: string }) {
+    return this.service.check(kindOf(kind), id, body?.ref);
   }
 
-  @Post(':ref/validate')
-  validate(
-    @Param('ref') ref: string,
-    @Body() body: { adminNote?: string },
-  ) {
-    return this.service.validatePayment(ref, body.adminNote);
+  @AdminOnly()
+  @Post(':kind/:id/record-paid')
+  @HttpCode(200)
+  recordPaid(@CurrentUser() user: AuthUser, @Param('kind') kind: string, @Param('id') id: string, @Body() body: { ref?: string; note?: string }) {
+    adminOnly(user);
+    return this.service.recordPaid(user, kindOf(kind), id, body ?? {});
   }
 
-  @Post(':ref/cancel')
-  cancel(
-    @Param('ref') ref: string,
-    @Body() body: { reason: string },
-    @Req() req: any,
-  ) {
-    return this.service.cancelPayment(ref, body.reason, req.user?.sub ?? 'admin');
+  @AdminOnly()
+  @Post(':kind/:id/cancel')
+  @HttpCode(200)
+  cancel(@CurrentUser() user: AuthUser, @Param('kind') kind: string, @Param('id') id: string, @Body() body: { reason: string }) {
+    adminOnly(user);
+    return this.service.cancel(user, kindOf(kind), id, String(body?.reason ?? ''));
+  }
+
+  @AdminOnly()
+  @Post('order/:id/refund')
+  @HttpCode(200)
+  refund(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { amount: number; reason: string; method: string }) {
+    adminOnly(user);
+    return this.service.recordRefund(user, id, body ?? ({} as any));
   }
 }
