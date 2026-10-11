@@ -1,4 +1,7 @@
 import type { TourDef, TourLabels, TourStep } from '@mjn/ui';
+import { TOURS_FR, TOUR_LABELS_FR } from './tours.fr';
+
+export type TourLocale = 'en' | 'fr';
 
 // ── Which guide belongs to which page ─────────────────────────────────────────
 
@@ -75,7 +78,7 @@ export function welcomeKeyForRole(role: string): string | undefined {
   return WELCOME_BY_ROLE[role];
 }
 
-export const TOUR_LABELS: TourLabels = {
+const TOUR_LABELS: TourLabels = {
   next: 'Next',
   back: 'Back',
   done: 'Got it',
@@ -104,7 +107,7 @@ const EMAIL_MATCH =
 
 // ── Guides ────────────────────────────────────────────────────────────────────
 
-export const TOURS: Record<string, TourDef> = {
+const TOURS: Record<string, TourDef> = {
   // Role walkthroughs (first login)
   'admin.welcome.admin': {
     title: 'Console walkthrough',
@@ -325,7 +328,7 @@ export const TOURS: Record<string, TourDef> = {
     title: 'Settings',
     steps: [
       { target: 'page-header', title: 'Settings', body: 'Your own account, and for admins the staff list, notifications and system options.' },
-      { target: 'settings-tabs', title: 'Sections', body: 'The tabs you see depend on your role. My Account is where you change your name and password.' },
+      { target: 'settings-tabs', title: 'Sections', body: 'The tabs you see depend on your role. My Account is where you change your name, language and password.' },
     ],
   },
 
@@ -564,3 +567,12 @@ export const TOURS: Record<string, TourDef> = {
     ],
   },
 };
+
+/** Guides follow the staff member's preferred language. */
+export function getTours(locale: TourLocale): Record<string, TourDef> {
+  return locale === 'fr' ? TOURS_FR : TOURS;
+}
+
+export function getTourLabels(locale: TourLocale): TourLabels {
+  return locale === 'fr' ? TOUR_LABELS_FR : TOUR_LABELS;
+}

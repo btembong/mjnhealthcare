@@ -47,7 +47,9 @@ const DEFAULT_SYSTEM_CONFIG: Record<string, string> = {
 function AccountTab({ me }: { me: any }) {
   const [name, setName] = useState(me?.name ?? '');
   const [email, setEmail] = useState(me?.email ?? '');
+  const [locale, setLocale] = useState<'en' | 'fr'>(me?.locale === 'fr' ? 'fr' : 'en');
   const [savingProfile, setSavingProfile] = useState(false);
+  const { refresh } = useAdmin();
 
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -58,8 +60,10 @@ function AccountTab({ me }: { me: any }) {
     e.preventDefault();
     setSavingProfile(true);
     try {
-      await api.updateMe({ name, email });
+      await api.updateMe({ name, email, locale });
       toast.success('Profile updated.');
+      // Reload the account so guides and help switch language straight away.
+      if (locale !== (me?.locale === 'fr' ? 'fr' : 'en')) await refresh();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -105,6 +109,19 @@ function AccountTab({ me }: { me: any }) {
               onChange={(e) => setEmail(e.target.value)}
               className="h-10 w-full rounded-xl border border-border px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
             />
+          </div>
+          <div>
+            <label htmlFor="account-language" className="mb-1.5 block text-sm font-semibold text-foreground">Preferred language</label>
+            <select
+              id="account-language"
+              value={locale}
+              onChange={(e) => setLocale(e.target.value === 'fr' ? 'fr' : 'en')}
+              className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="en">English</option>
+              <option value="fr">Français</option>
+            </select>
+            <p className="mt-1.5 text-xs text-muted-foreground">Used for the guided tours and help on each page.</p>
           </div>
           <div className="pt-2 flex items-center gap-2">
             <div className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-muted/20 px-4 text-xs font-semibold text-muted-foreground">

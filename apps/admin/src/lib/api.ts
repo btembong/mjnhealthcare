@@ -90,7 +90,7 @@ export const api = {
   completeTour: (key: string) =>
     request<{ completedTours: string[] }>(`/persons/me/tours/${encodeURIComponent(key)}`, { method: 'POST' }),
 
-  updateMe: (data: { name?: string; email?: string }) =>
+  updateMe: (data: { name?: string; email?: string; locale?: 'en' | 'fr' }) =>
     request<any>('/persons/me', { method: 'PATCH', body: JSON.stringify(data) }),
 
   getPersons: (role?: string) =>

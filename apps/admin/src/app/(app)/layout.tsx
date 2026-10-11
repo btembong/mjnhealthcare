@@ -14,7 +14,7 @@ import { useEffect } from 'react';
 import { AdminProvider, useAdmin } from '../../contexts/admin-context';
 import { NotificationBell } from '../../components/notification-bell';
 import { api } from '../../lib/api';
-import { TOURS, TOUR_LABELS, tourKeyForPath, welcomeKeyForRole } from '../../lib/tours';
+import { getTours, getTourLabels, tourKeyForPath, welcomeKeyForRole } from '../../lib/tours';
 
 // ── Role-gated sidebar sections ───────────────────────────────────────────────
 
@@ -255,8 +255,8 @@ function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-3 ml-auto">
             <TourHelp
-              tours={TOURS}
-              labels={TOUR_LABELS}
+              tours={getTours(me?.locale === 'fr' ? 'fr' : 'en')}
+              labels={getTourLabels(me?.locale === 'fr' ? 'fr' : 'en')}
               welcomeKey={welcomeKeyForRole(role)}
               pageKey={tourKeyForPath(pathname, role)}
               completed={me ? me.completedTours ?? [] : null}
