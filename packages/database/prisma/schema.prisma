@@ -269,6 +269,7 @@ model ServiceItem {
   variantGroup         String?
   isDefaultSelected    Boolean              @default(true)
   isAvailableStandalone Boolean             @default(false)
+  isActive             Boolean              @default(true) // false = hidden: no longer offered, history kept
   variants             ServiceItemVariant[]
   orderLineItems       OrderLineItem[]
 

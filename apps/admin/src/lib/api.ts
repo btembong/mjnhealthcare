@@ -250,17 +250,32 @@ export const api = {
   // ── Catalog (admin) ───────────────────────────────────────────────────────
   getCatalogCategories: () => request<any[]>('/catalog/categories'),
 
-  createCatalogCategory: (data: { name: string; isMandatory?: boolean; sortOrder?: number }) =>
+  /** The whole catalog, hidden services included, with where each one is used. */
+  getCatalog: () => request<{ priceTypes: string[]; categories: any[] }>('/catalog/admin'),
+
+  getCatalogPriceHistory: (itemId: string) =>
+    request<{ at: string; by: string; priceType: string | null; from: number | null; to: number | null }[]>(`/catalog/items/${itemId}/history`),
+
+  createCatalogCategory: (data: { name: string; isMandatory?: boolean }) =>
     request<any>('/catalog/categories', { method: 'POST', body: JSON.stringify(data) }),
+
+  updateCatalogCategory: (id: string, data: { name?: string; isMandatory?: boolean }) =>
+    request<any>(`/catalog/categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  moveCatalogCategory: (id: string, direction: 'up' | 'down') =>
+    request<any>(`/catalog/categories/${id}/move`, { method: 'POST', body: JSON.stringify({ direction }) }),
 
   deleteCatalogCategory: (id: string) =>
     request<any>(`/catalog/categories/${id}`, { method: 'DELETE' }),
 
-  createCatalogItem: (data: { categoryId: string; name: string; priceUsd: number; description?: string; sortOrder?: number }) =>
-    request<any>('/catalog/items', { method: 'POST', body: JSON.stringify(data) }),
+  createCatalogItem: (data: Record<string, unknown>) =>
+    request<{ id: string }>('/catalog/items', { method: 'POST', body: JSON.stringify(data) }),
 
-  updateCatalogItem: (id: string, data: { priceUsd?: number; name?: string; description?: string }) =>
+  updateCatalogItem: (id: string, data: Record<string, unknown>) =>
     request<any>(`/catalog/items/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  moveCatalogItem: (id: string, direction: 'up' | 'down') =>
+    request<any>(`/catalog/items/${id}/move`, { method: 'POST', body: JSON.stringify({ direction }) }),
 
   deleteCatalogItem: (id: string) =>
     request<any>(`/catalog/items/${id}`, { method: 'DELETE' }),

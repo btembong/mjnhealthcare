@@ -60,6 +60,9 @@ export class OrderService {
       );
     }
 
+    // A service the team has stopped offering cannot be put on a new order.
+    await this.catalogService.assertOffered(lines.map((l) => l.serviceItemId));
+
     // ── Duplicate payment guard ────────────────────────────────────────────
     // Reject if any requested serviceItemId already exists on a PAID order
     // for this engagement, or if a PENDING order is still in flight.
@@ -271,7 +274,7 @@ export class OrderService {
   }): Promise<any> {
     for (const line of data.lines) {
       const item: any = await this.db.serviceItem.findUniqueOrThrow({ where: { id: line.serviceItemId } });
-      if (!item.isAvailableStandalone) {
+      if (!item.isAvailableStandalone || item.isActive === false) {
         throw new BadRequestException(`"${item.name}" is not available for standalone purchase`);
       }
     }

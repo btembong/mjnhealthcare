@@ -487,10 +487,14 @@ const TOURS: Record<string, TourDef> = {
     ],
   },
   'admin.catalog': {
-    title: 'Service catalog',
+    title: 'Services and prices',
     steps: [
-      { target: 'page-header', title: 'Services and prices', body: 'The categories and items clients choose from at checkout.' },
-      { title: 'Changing a price', body: 'A new price applies to new orders only. Receipts already issued keep the price that was paid.' },
+      { target: 'page-header', title: 'Services and prices', body: 'Every service clients can pay for, grouped by category, in the order they see at checkout.' },
+      { target: 'catalog-filters', title: 'Find a service', body: 'Search by name, or show only the services on offer or only the hidden ones.' },
+      { target: 'catalog-list', title: 'Categories and services', body: 'Use the arrows to change the order. Click a service to open it. The engagement fee is locked because checkout depends on it.' },
+      { title: 'Changing a price', body: 'Open a service, change the amount and save. You are asked to confirm, and the change is recorded with your name. A new price applies to new orders only — receipts already issued keep the price that was paid.' },
+      { title: 'Prices by profession', body: 'A service can have a different price for nurses, physicians or a retake. When it does, the client is charged the price that matches them.' },
+      { title: 'Hide or delete', body: 'A service that has been ordered, or that a pathway stage needs, cannot be deleted. Hide it instead: clients no longer see it, and its history stays.' },
     ],
   },
   'admin.bookings': {

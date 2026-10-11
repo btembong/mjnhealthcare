@@ -413,10 +413,14 @@ export const TOURS_FR: Record<string, TourDef> = {
     ],
   },
   'admin.catalog': {
-    title: 'Catalogue de services',
+    title: 'Services et prix',
     steps: [
-      { target: 'page-header', title: 'Services et prix', body: 'Les catégories et les services que les clients choisissent au moment de payer.' },
-      { title: 'Modifier un prix', body: "Un nouveau prix ne s'applique qu'aux nouvelles commandes. Les reçus déjà émis conservent le prix payé." },
+      { target: 'page-header', title: 'Services et prix', body: "Tous les services que les clients peuvent payer, regroupés par catégorie, dans l'ordre affiché au moment du paiement." },
+      { target: 'catalog-filters', title: 'Trouver un service', body: 'Recherchez par nom, ou affichez seulement les services proposés ou seulement les services masqués.' },
+      { target: 'catalog-list', title: 'Catégories et services', body: "Utilisez les flèches pour changer l'ordre. Cliquez sur un service pour l'ouvrir. Les frais d'engagement sont verrouillés, car le paiement en dépend." },
+      { title: 'Modifier un prix', body: "Ouvrez un service, changez le montant et enregistrez. Une confirmation vous est demandée, et le changement est consigné avec votre nom. Un nouveau prix ne s'applique qu'aux nouvelles commandes — les reçus déjà émis conservent le prix payé." },
+      { title: 'Prix selon la profession', body: "Un service peut avoir un prix différent pour les infirmiers, les médecins ou une reprise d'examen. Dans ce cas, le client paie le prix qui lui correspond." },
+      { title: 'Masquer ou supprimer', body: "Un service déjà commandé, ou requis par une étape d'un parcours, ne peut pas être supprimé. Masquez-le : les clients ne le voient plus et son historique est conservé." },
     ],
   },
   'admin.bookings': {

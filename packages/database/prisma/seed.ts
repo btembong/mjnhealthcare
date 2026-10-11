@@ -19,7 +19,7 @@ async function main() {
 
   await prisma.serviceItem.upsert({
     where: { id: 'engagement-fee' },
-    update: { priceUsd: 50 },
+    update: {},
     create: {
       id: 'engagement-fee',
       categoryId: engagementFeeCategory.id,
@@ -207,7 +207,7 @@ async function main() {
     const { variants, ...data } = item as any;
     await prisma.serviceItem.upsert({
       where: { id: item.id },
-      update: { priceUsd: item.priceUsd },
+      update: {},
       create: {
         ...data,
         categoryId: uaeCat.id,
@@ -247,7 +247,7 @@ async function main() {
   for (const item of nclexItems) {
     await prisma.serviceItem.upsert({
       where: { id: item.id },
-      update: { priceUsd: item.priceUsd },
+      update: {},
       create: {
         ...item,
         categoryId: nclexCat.id,
@@ -280,7 +280,7 @@ async function main() {
   for (const item of studentItems) {
     await prisma.serviceItem.upsert({
       where: { id: item.id },
-      update: { priceUsd: item.priceUsd },
+      update: {},
       create: {
         ...item,
         categoryId: studentCat.id,

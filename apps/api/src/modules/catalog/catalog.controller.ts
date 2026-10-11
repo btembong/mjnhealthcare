@@ -1,22 +1,29 @@
-import { AdminOnly } from '../auth/access';
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { AdminOnly, CurrentUser, AuthUser } from '../auth/access';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, HttpCode, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import {
-  IsString, IsNumber, IsOptional, IsBoolean, IsArray, ValidateNested, Min,
+  IsString, IsNumber, IsOptional, IsBoolean, IsArray, IsIn, ValidateNested, Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CatalogService } from './catalog.service';
 
-class VariantDto {
-  @IsString() variantKey!: string;
+class PriceDto {
+  @IsString() key!: string;
   @IsNumber() @Min(0) priceUsd!: number;
 }
 
 class CreateCategoryDto {
   @IsString() name!: string;
   @IsOptional() @IsBoolean() isMandatory?: boolean;
-  @IsOptional() @IsNumber() sortOrder?: number;
+}
+
+class UpdateCategoryDto {
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsBoolean() isMandatory?: boolean;
+}
+
+class MoveDto {
+  @IsIn(['up', 'down']) direction!: 'up' | 'down';
 }
 
 class CreateItemDto {
@@ -24,20 +31,20 @@ class CreateItemDto {
   @IsString() name!: string;
   @IsNumber() @Min(0) priceUsd!: number;
   @IsOptional() @IsString() description?: string;
-  @IsOptional() @IsNumber() sortOrder?: number;
-  @IsOptional() @IsString() variantGroup?: string;
   @IsOptional() @IsBoolean() isDefaultSelected?: boolean;
   @IsOptional() @IsBoolean() isAvailableStandalone?: boolean;
-  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VariantDto) variants?: VariantDto[];
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => PriceDto) prices?: PriceDto[];
 }
 
 class UpdateItemDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsNumber() @Min(0) priceUsd?: number;
   @IsOptional() @IsString() description?: string;
-  @IsOptional() @IsNumber() sortOrder?: number;
+  @IsOptional() @IsString() categoryId?: string;
   @IsOptional() @IsBoolean() isDefaultSelected?: boolean;
   @IsOptional() @IsBoolean() isAvailableStandalone?: boolean;
+  @IsOptional() @IsBoolean() isActive?: boolean;
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => PriceDto) prices?: PriceDto[];
 }
 
 @ApiTags('catalog')
@@ -47,7 +54,7 @@ export class CatalogController {
 
   // ── Public endpoints ──────────────────────────────────────────────────────
 
-  @ApiOperation({ summary: 'Get all service categories with items (pipeline catalog)' })
+  @ApiOperation({ summary: 'Service categories with the services on offer (hidden ones left out)' })
   @Get('categories')
   getCategories(): Promise<any> {
     return this.catalogService.getCategories();
@@ -73,6 +80,22 @@ export class CatalogController {
 
   // ── Admin endpoints ───────────────────────────────────────────────────────
 
+  @ApiOperation({ summary: 'The whole catalog, hidden services included, with where each is used (admin)' })
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('admin')
+  getAdminCatalog() {
+    return this.catalogService.getAdminCatalog();
+  }
+
+  @ApiOperation({ summary: "A service's price changes (admin)" })
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('items/:id/history')
+  getPriceHistory(@Param('id') id: string) {
+    return this.catalogService.getPriceHistory(id);
+  }
+
   @ApiOperation({ summary: 'Create a service category (admin)' })
   @ApiBearerAuth()
   @AdminOnly()
@@ -81,43 +104,62 @@ export class CatalogController {
     return this.catalogService.createCategory(dto);
   }
 
-  @ApiOperation({ summary: 'Create a service item with optional variants (admin)' })
+  @ApiOperation({ summary: 'Rename a category or change whether it is always charged (admin)' })
   @ApiBearerAuth()
   @AdminOnly()
-  @Post('items')
-  createItem(@Body() dto: CreateItemDto) {
-    return this.catalogService.createItem(dto);
+  @Patch('categories/:id')
+  updateCategory(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
+    return this.catalogService.updateCategory(id, dto);
   }
 
-  @ApiOperation({ summary: 'Update a service item (admin)' })
+  @ApiOperation({ summary: 'Move a category up or down (admin)' })
   @ApiBearerAuth()
   @AdminOnly()
-  @Patch('items/:id')
-  updateItem(@Param('id') id: string, @Body() dto: UpdateItemDto) {
-    return this.catalogService.updateItem(id, dto);
+  @Post('categories/:id/move')
+  @HttpCode(200)
+  moveCategory(@Param('id') id: string, @Body() dto: MoveDto) {
+    return this.catalogService.moveCategory(id, dto.direction);
   }
 
-  @ApiOperation({ summary: 'Add a variant to an existing item (admin)' })
-  @ApiBearerAuth()
-  @AdminOnly()
-  @Post('items/:id/variants')
-  createVariant(@Param('id') id: string, @Body() dto: VariantDto) {
-    return this.catalogService.createVariant(id, dto.variantKey, dto.priceUsd);
-  }
-
-  @ApiOperation({ summary: 'Delete a service item (admin)' })
-  @ApiBearerAuth()
-  @AdminOnly()
-  @Delete('items/:id')
-  deleteItem(@Param('id') id: string) {
-    return this.catalogService.deleteItem(id);
-  }
-
-  @ApiOperation({ summary: 'Delete a service category (admin)' })
+  @ApiOperation({ summary: 'Delete an empty category (admin)' })
   @ApiBearerAuth()
   @AdminOnly()
   @Delete('categories/:id')
   deleteCategory(@Param('id') id: string) {
     return this.catalogService.deleteCategory(id);
+  }
+
+  @ApiOperation({ summary: 'Create a service, optionally with extra prices (admin)' })
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Post('items')
+  createItem(@CurrentUser() user: AuthUser, @Body() dto: CreateItemDto) {
+    return this.catalogService.createItem(user.id, dto);
+  }
+
+  @ApiOperation({ summary: 'Update a service: details, prices, whether it is offered (admin)' })
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Patch('items/:id')
+  updateItem(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateItemDto) {
+    if (!dto || Object.keys(dto).length === 0) throw new BadRequestException('Nothing to change.');
+    return this.catalogService.updateItem(user.id, id, dto);
+  }
+
+  @ApiOperation({ summary: 'Move a service up or down within its category (admin)' })
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Post('items/:id/move')
+  @HttpCode(200)
+  moveItem(@Param('id') id: string, @Body() dto: MoveDto) {
+    return this.catalogService.moveItem(id, dto.direction);
+  }
+
+  @ApiOperation({ summary: 'Delete a service that has never been used (admin)' })
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Delete('items/:id')
+  deleteItem(@Param('id') id: string) {
+    return this.catalogService.deleteItem(id);
   }
 }
