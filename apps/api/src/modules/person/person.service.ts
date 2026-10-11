@@ -172,7 +172,8 @@ export class PersonService {
 
   async findStaff() {
     return this.db.person.findMany({
-      where: { role: { in: ['CONSULTANT', 'ADMIN', 'COMPLIANCE'] as any[] } },
+      // Only roles the database knows. Asking for one it does not have ("COMPLIANCE") made this fail every time.
+      where: { role: { in: ['ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER', 'FINANCE'] as any[] } },
       orderBy: { createdAt: 'desc' },
       select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
     });
