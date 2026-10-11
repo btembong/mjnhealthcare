@@ -12,6 +12,7 @@ import {
 } from '@mjn/ui';
 import { api } from '../../../../lib/api';
 import { useAdmin } from '../../../../contexts/admin-context';
+import { MessageBody } from '../../../../components/message-body';
 
 // ── Constants and helpers ─────────────────────────────────────────────────────
 
@@ -257,7 +258,7 @@ function Chat({
                       )}
                     </div>
                     <div className={`max-w-[72%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${staff ? 'rounded-br-sm bg-primary text-white' : 'rounded-bl-sm border border-border/60 bg-white text-foreground'}`}>
-                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                      <MessageBody msg={msg} onDark={staff} />
                       {last && (
                         <p className={`mt-1 flex items-center gap-1 text-[11px] ${staff ? 'justify-end text-white/60' : 'text-muted-foreground'}`}>
                           {new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}

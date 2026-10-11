@@ -10,6 +10,7 @@ import {
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';
+import { MessageBody } from '../../../components/message-body';
 
 function dateSep(date: Date): string {
   if (isToday(date)) return 'Today';
@@ -257,7 +258,7 @@ export default function MessagesPage() {
                           ? 'bg-primary text-white rounded-br-sm'
                           : 'bg-muted text-foreground rounded-bl-sm'
                       }`}>
-                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                        <MessageBody msg={msg} onDark={isAdmin} />
                         <p className={`mt-1 text-[10px] ${isAdmin ? 'text-white/60 text-right' : 'text-muted-foreground'}`}>
                           {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
                         </p>

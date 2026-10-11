@@ -1028,6 +1028,10 @@ model EngagementMessage {
   sender       Person            @relation(fields: [senderId], references: [id])
   senderType   MessageSenderType
   content      String
+  // A file sent with the message. The key is a storage path and never leaves the server.
+  attachmentKey  String?
+  attachmentName String?
+  attachmentType String?
   readAt       DateTime?
   createdAt    DateTime          @default(now())
 

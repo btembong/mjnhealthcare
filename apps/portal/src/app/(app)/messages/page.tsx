@@ -1,618 +1,556 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import { PageHeader, Skeleton } from '@mjn/ui';
+import { Skeleton } from '@mjn/ui';
 import {
-  PaperPlaneTilt, ChatCircle, ArrowDown, CheckCircle,
-  Check, Paperclip, X, ArrowSquareOut, Image as ImageIcon,
-  FileText, FilePdf, CircleNotch, Camera,
+  PaperPlaneTilt, ChatCircle, ArrowDown, CheckCircle, Check, Paperclip, X, FileText, CircleNotch,
+  CalendarBlank, Headset, Info,
 } from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { useUser } from '../../../contexts/user-context';
 
+// ── Wording (the page follows the client's preferred language) ────────────────
+
+type Locale = 'en' | 'fr';
+
+const TEXT = {
+  en: {
+    title: 'Messages',
+    teamFallback: 'MJN Healthcare team',
+    consultant: 'Consultant',
+    officer: 'Processing officer',
+    replies: 'Usually replies within one working day',
+    today: 'Today',
+    yesterday: 'Yesterday',
+    update: 'Update on your case',
+    yourTeam: 'Your team',
+    emptyTitle: 'Start the conversation',
+    emptyBody: 'Ask about your case, your documents or what happens next.',
+    suggestions: ['What is the status of my case?', 'I have uploaded the documents you asked for.', 'Can we schedule a call?'],
+    newMessages: 'New messages',
+    toBottom: 'Go to the latest message',
+    placeholder: 'Write a message…',
+    hint: 'Enter to send · Shift+Enter for a new line · PDF, JPG, PNG or Word, up to 20 MB',
+    attach: 'Attach a file or photo',
+    send: 'Send',
+    removeFile: 'Remove file',
+    tooBig: 'That file is larger than 20 MB.',
+    badType: 'Only PDF, JPG, PNG and Word files can be sent.',
+    uploadFailed: 'The file could not be uploaded. Please try again.',
+    sendFailed: 'Your message was not sent. Please try again.',
+    openFailed: 'The file could not be opened. Please try again.',
+    open: 'Open',
+    team: 'Your team',
+    noTeam: 'A consultant will be assigned to you shortly. You can still write here.',
+    bookCall: 'Book a call',
+    files: 'Shared files',
+    noFiles: 'Files sent in this conversation appear here.',
+    you: 'You',
+    help: 'Need something else?',
+    helpBody: 'For a problem with the portal or a payment, our support team is faster.',
+    helpCta: 'Get help',
+    details: 'Team and shared files',
+    close: 'Close',
+    closed: 'This case is closed, so this conversation is read-only. If you need us, use Get help.',
+    noCaseTitle: 'Messages open once your case starts',
+    noCaseBody: 'After your first consultation you can write to your consultant here. Until then, reach us through Get help.',
+    loadFailed: 'Messages could not be loaded. Check your connection.',
+  },
+  fr: {
+    title: 'Messages',
+    teamFallback: 'Équipe MJN Healthcare',
+    consultant: 'Consultant',
+    officer: 'Agent de traitement',
+    replies: 'Répond généralement sous un jour ouvré',
+    today: 'Aujourd’hui',
+    yesterday: 'Hier',
+    update: 'Nouvelle de votre dossier',
+    yourTeam: 'Votre équipe',
+    emptyTitle: 'Commencez la conversation',
+    emptyBody: 'Posez vos questions sur votre dossier, vos documents ou la suite.',
+    suggestions: ['Où en est mon dossier ?', 'J’ai déposé les documents demandés.', 'Pouvons-nous prévoir un appel ?'],
+    newMessages: 'Nouveaux messages',
+    toBottom: 'Aller au dernier message',
+    placeholder: 'Écrivez un message…',
+    hint: 'Entrée pour envoyer · Maj+Entrée pour aller à la ligne · PDF, JPG, PNG ou Word, 20 Mo maximum',
+    attach: 'Joindre un fichier ou une photo',
+    send: 'Envoyer',
+    removeFile: 'Retirer le fichier',
+    tooBig: 'Ce fichier dépasse 20 Mo.',
+    badType: 'Seuls les fichiers PDF, JPG, PNG et Word peuvent être envoyés.',
+    uploadFailed: 'Le fichier n’a pas pu être envoyé. Veuillez réessayer.',
+    sendFailed: 'Votre message n’a pas été envoyé. Veuillez réessayer.',
+    openFailed: 'Le fichier n’a pas pu être ouvert. Veuillez réessayer.',
+    open: 'Ouvrir',
+    team: 'Votre équipe',
+    noTeam: 'Un consultant vous sera attribué très bientôt. Vous pouvez déjà écrire ici.',
+    bookCall: 'Réserver un appel',
+    files: 'Fichiers partagés',
+    noFiles: 'Les fichiers envoyés dans cette conversation apparaissent ici.',
+    you: 'Vous',
+    help: 'Besoin d’autre chose ?',
+    helpBody: 'Pour un problème avec le portail ou un paiement, notre équipe d’assistance répond plus vite.',
+    helpCta: 'Obtenir de l’aide',
+    details: 'Équipe et fichiers partagés',
+    close: 'Fermer',
+    closed: 'Ce dossier est clôturé : cette conversation est en lecture seule. Si vous avez besoin de nous, utilisez « Obtenir de l’aide ».',
+    noCaseTitle: 'Les messages s’ouvrent au démarrage de votre dossier',
+    noCaseBody: 'Après votre première consultation, vous pourrez écrire à votre consultant ici. D’ici là, contactez-nous via « Obtenir de l’aide ».',
+    loadFailed: 'Les messages n’ont pas pu être chargés. Vérifiez votre connexion.',
+  },
+};
+type Text = (typeof TEXT)['en'];
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatDate(ts: string) {
-  const d = new Date(ts);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-}
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const ALLOWED_EXT = /\.(pdf|jpe?g|png|docx?)$/i;
 
-function formatTime(ts: string) {
-  return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-}
+const card = 'rounded-2xl border border-border bg-white shadow-sm';
+const heading = 'text-xs font-bold uppercase tracking-widest text-muted-foreground';
+const btnOutline = 'inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-bold text-foreground transition-colors hover:bg-muted/60';
 
-function isSameDay(a: string, b: string) {
+function initials(name?: string | null) {
+  return (name ?? '').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || 'M';
+}
+function sameDay(a: string | Date, b: string | Date) {
   return new Date(a).toDateString() === new Date(b).toDateString();
 }
-
-function initials(name?: string) {
-  if (!name) return 'MJN';
-  return name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+function fileSize(bytes: number) {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+/** Older messages carried the file as a code inside the text. They still display. */
+function parseLegacy(content: string): { text: string; name: string; url: string; isImage: boolean } {
+  const m = content.match(/^([\s\S]*?)\n?\[(IMG|FILE)\]:([^:]+):([\s\S]+)$/);
+  if (m) return { text: m[1].trim(), name: m[3], url: m[4].trim(), isImage: m[2] === 'IMG' };
+  return { text: content, name: '', url: '', isImage: false };
 }
 
-// ── Message content parsers ───────────────────────────────────────────────────
-
-function parseMessageContent(content: string) {
-  // New upload format: [IMG]:filename:url  or  [FILE]:filename:url
-  const imgMatch = content.match(/^\[IMG\]:([^:]+):([\s\S]+)$/);
-  if (imgMatch) return { type: 'image' as const, name: imgMatch[1], url: imgMatch[2].trim(), text: '' };
-
-  const fileMatch = content.match(/^\[FILE\]:([^:]+):([\s\S]+)$/);
-  if (fileMatch) return { type: 'file' as const, name: fileMatch[1], url: fileMatch[2].trim(), text: '' };
-
-  // Mixed: text + image/file
-  const mixedImg = content.match(/^([\s\S]+?)\n\[IMG\]:([^:]+):([\s\S]+)$/);
-  if (mixedImg) return { type: 'image' as const, name: mixedImg[2], url: mixedImg[3].trim(), text: mixedImg[1] };
-
-  const mixedFile = content.match(/^([\s\S]+?)\n\[FILE\]:([^:]+):([\s\S]+)$/);
-  if (mixedFile) return { type: 'file' as const, name: mixedFile[2], url: mixedFile[3].trim(), text: mixedFile[1] };
-
-  // Legacy vault attachment format
-  if (content.includes('📎 Attached document:')) {
-    const [textPart, attPart] = content.split('\n\n📎');
-    const attContent = '📎' + (attPart ?? '');
-    const docName = attContent.split('📎 Attached document: ')[1]?.split(' — ')[0] ?? 'Attachment';
-    const docUrl = attContent.split('— ')[1]?.trim() ?? '';
-    return { type: 'vault' as const, name: docName, url: docUrl, text: textPart ?? '' };
+async function openMessageFile(messageId: string, failed: string) {
+  // Opened before the request so the browser does not treat it as a pop-up.
+  const win = window.open('about:blank', '_blank');
+  if (win) win.opener = null;
+  try {
+    const { url } = await api.getMessageAttachmentUrl(messageId);
+    if (win) win.location.href = url; else window.location.href = url;
+  } catch {
+    win?.close();
+    toast.error(failed);
   }
-
-  return { type: 'text' as const, name: '', url: '', text: content };
 }
 
-// ── Quick replies ─────────────────────────────────────────────────────────────
+// ── A message's text and file ─────────────────────────────────────────────────
 
-const QUICK_REPLIES = [
-  "What's the status of my case?",
-  "I've uploaded the requested documents.",
-  'Can we schedule a callback?',
-  'I need urgent assistance.',
-];
+function Bubble({ msg, mine, t }: { msg: any; mine: boolean; t: Text }) {
+  const legacy = parseLegacy(msg.content ?? '');
+  const attachment = msg.attachment as { name: string; isImage: boolean } | null;
+  const [thumb, setThumb] = useState('');
 
-// ── Bubble content renderer ───────────────────────────────────────────────────
+  useEffect(() => {
+    let live = true;
+    if (attachment?.isImage) api.getMessageAttachmentUrl(msg.id).then((r) => { if (live) setThumb(r.url); }).catch(() => {});
+    return () => { live = false; };
+  }, [msg.id, attachment?.isImage]);
 
-function BubbleContent({ content, isMe }: { content: string; isMe: boolean }) {
-  const parsed = parseMessageContent(content);
-
-  const linkClass = isMe
-    ? 'border-white/30 bg-white/10 text-white hover:bg-white/20'
-    : 'border-border bg-muted/60 text-foreground hover:bg-muted';
+  const chip = `flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition-colors ${mine ? 'border-white/30 bg-white/10 text-white hover:bg-white/20' : 'border-border bg-muted/40 text-foreground hover:bg-muted'}`;
+  const open = () => openMessageFile(msg.id, t.openFailed);
 
   return (
-    <div>
-      {/* Lead text */}
-      {parsed.text && (
-        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-2">{parsed.text}</p>
-      )}
+    <div className="space-y-2">
+      {legacy.text && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{legacy.text}</p>}
 
-      {/* Image */}
-      {parsed.type === 'image' && parsed.url && (
-        <a href={parsed.url} target="_blank" rel="noreferrer" className="block">
+      {legacy.url && (legacy.isImage ? (
+        <a href={legacy.url} target="_blank" rel="noreferrer" className="block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={parsed.url}
-            alt={parsed.name}
-            className="max-w-full rounded-xl max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-          />
-          {parsed.name && (
-            <p className={`mt-1 text-[10px] ${isMe ? 'text-white/50' : 'text-muted-foreground/60'}`}>
-              {parsed.name}
-            </p>
-          )}
+          <img src={legacy.url} alt={legacy.name} className="max-h-64 max-w-full rounded-xl object-cover" />
         </a>
-      )}
-
-      {/* File card */}
-      {(parsed.type === 'file' || parsed.type === 'vault') && parsed.url && (
-        <a
-          href={parsed.url}
-          target="_blank"
-          rel="noreferrer"
-          className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-colors ${linkClass}`}
-        >
-          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isMe ? 'bg-white/15' : 'bg-primary/10'}`}>
-            {/pdf/i.test(parsed.name)
-              ? <FilePdf className={`h-5 w-5 ${isMe ? 'text-white' : 'text-rose-500'}`} />
-              : <FileText className={`h-5 w-5 ${isMe ? 'text-white' : 'text-primary'}`} />
-            }
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold truncate">{parsed.name}</p>
-            <p className={`text-[10px] ${isMe ? 'text-white/50' : 'text-muted-foreground/60'}`}>
-              Tap to open
-            </p>
-          </div>
-          <ArrowSquareOut className={`h-4 w-4 shrink-0 ${isMe ? 'text-white/60' : 'text-muted-foreground'}`} />
-        </a>
-      )}
-
-      {/* Plain text */}
-      {parsed.type === 'text' && (
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{parsed.text}</p>
-      )}
-    </div>
-  );
-}
-
-// ── Media preview strip (above compose) ──────────────────────────────────────
-
-interface MediaAttachment {
-  file: File;
-  previewUrl: string; // object URL for local preview
-  isImage: boolean;
-}
-
-function MediaPreview({ media, onRemove }: { media: MediaAttachment; onRemove: () => void }) {
-  return (
-    <div className="relative inline-flex shrink-0">
-      {media.isImage ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={media.previewUrl}
-          alt={media.file.name}
-          className="h-20 w-20 rounded-xl object-cover border border-border"
-        />
       ) : (
-        <div className="flex h-20 w-40 items-center gap-2.5 rounded-xl border border-border bg-muted/40 px-3">
-          <FilePdf className="h-7 w-7 text-rose-500 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-foreground truncate">{media.file.name}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{formatFileSize(media.file.size)}</p>
-          </div>
-        </div>
-      )}
-      <button
-        onClick={onRemove}
-        className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-white hover:bg-foreground/80 transition-colors"
-      >
-        <X className="h-3 w-3" />
-      </button>
+        <a href={legacy.url} target="_blank" rel="noreferrer" className={chip}><FileText className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{legacy.name}</span></a>
+      ))}
+
+      {attachment && (attachment.isImage && thumb ? (
+        <button onClick={open} className="block" aria-label={`${t.open} ${attachment.name}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={thumb} alt={attachment.name} className="max-h-64 max-w-full rounded-xl object-cover" />
+        </button>
+      ) : (
+        <button onClick={open} className={chip}><FileText className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{attachment.name}</span></button>
+      ))}
     </div>
   );
 }
 
-// ── Consultant header ─────────────────────────────────────────────────────────
+// ── Team, shared files and help (side panel on wide screens, sheet on a phone) ──
 
-function ConsultantHeader({ engagement }: { engagement: any }) {
-  const consultant = engagement?.assignedConsultant ?? engagement?.consultant;
-
+function Details({ team, files, meId, t, day }: { team: { name: string; role: string }[]; files: any[]; meId?: string; t: Text; day: (d: string) => string }) {
   return (
-    <div className="shrink-0 flex items-center gap-3 border-b border-[#0d3d6a] bg-[#0F4C81] px-5 py-3.5">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-bold text-white">
-        {consultant?.name ? initials(consultant.name) : 'MJN'}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-white text-sm leading-tight">
-          {consultant?.name ?? 'MJN Healthcare Team'}
-        </p>
-        <div className="flex items-center gap-1.5 text-xs text-white/60">
-          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <span>Online · Replies within 24h</span>
-        </div>
-      </div>
-      <div className="hidden sm:block shrink-0 text-right">
-        <p className="text-xs text-white/60">{consultant?.specialty ?? 'Your consultant'}</p>
-      </div>
+    <div className="space-y-4">
+      <section className={`${card} p-5`}>
+        <h2 className={`mb-3 ${heading}`}>{t.team}</h2>
+        {team.length === 0 ? <p className="text-sm text-muted-foreground">{t.noTeam}</p> : (
+          <ul className="space-y-3">
+            {team.map((m) => (
+              <li key={m.role} className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">{initials(m.name)}</span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-bold text-foreground">{m.name}</span>
+                  <span className="block text-xs text-muted-foreground">{m.role}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link href="/bookings" className={`${btnOutline} mt-4 w-full`}><CalendarBlank className="h-3.5 w-3.5" /> {t.bookCall}</Link>
+      </section>
+
+      <section className={`${card} p-5`}>
+        <h2 className={`mb-2 flex items-center justify-between ${heading}`}>{t.files}{files.length > 0 && <span>{files.length}</span>}</h2>
+        {files.length === 0 ? <p className="text-sm text-muted-foreground">{t.noFiles}</p> : (
+          <ul className="divide-y divide-border/70">
+            {files.slice(0, 12).map((m) => (
+              <li key={m.id}>
+                <button onClick={() => openMessageFile(m.id, t.openFailed)} className="flex w-full items-center gap-2.5 py-2.5 text-left hover:text-primary">
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-foreground">{m.attachment.name}</span>
+                    <span className="block text-xs text-muted-foreground">{m.senderId === meId ? t.you : m.sender?.name ?? t.yourTeam} · {day(m.createdAt)}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className={`${card} p-5`}>
+        <h2 className="flex items-center gap-2 text-sm font-bold text-foreground"><Headset className="h-4 w-4 text-primary" /> {t.help}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t.helpBody}</p>
+        <Link href="/tickets" className={`${btnOutline} mt-3 w-full`}>{t.helpCta}</Link>
+      </section>
     </div>
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MessagesPage() {
-  const { engagement, me } = useUser();
+  const { engagement, me, loading: userLoading } = useUser();
+  const locale: Locale = me?.locale === 'fr' ? 'fr' : 'en';
+  const t = TEXT[locale];
+  const dateLocale = locale === 'fr' ? 'fr-FR' : 'en-US';
+  const day = (d: string) => new Date(d).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' });
+  const time = (d: string) => new Date(d).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' });
+
   const [messages, setMessages] = useState<any[]>([]);
+  const [caseView, setCaseView] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [content, setContent] = useState('');
-  const [sending, setSending] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
   const [newBanner, setNewBanner] = useState(false);
-  const [mediaAttachment, setMediaAttachment] = useState<MediaAttachment | null>(null);
+  const [sheet, setSheet] = useState(false);
 
   const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const latestIdRef = useRef<string>('');
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const boxRef = useRef<HTMLTextAreaElement>(null);
+  const seen = useRef(0);
+  const bottomState = useRef(true);
+  bottomState.current = atBottom;
 
-  const engagementId = engagement?.id;
-  const personId = me?.id;
-
-  // ── Load ──────────────────────────────────────────────────────────────────
+  const eid: string | undefined = engagement?.id;
+  const meId: string | undefined = me?.id;
+  const toBottom = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   const load = useCallback(async (silent = false) => {
-    if (!engagementId) { setLoading(false); return; }
+    if (!eid) { setLoading(false); return; }
     try {
-      const msgs = await api.getMessages(engagementId);
-      setMessages((prev) => {
-        const latestNew = msgs[msgs.length - 1]?.id;
-        if (latestNew && latestNew !== latestIdRef.current && prev.length > 0) {
-          if (!atBottom) setNewBanner(true);
-        }
-        latestIdRef.current = latestNew ?? '';
-        return msgs;
-      });
-      if (!silent) api.markMessagesRead(engagementId).catch(() => {});
-    } catch (err: any) {
-      if (!silent) toast.error(err.message);
+      const list = (await api.getMessages(eid)) ?? [];
+      const arrived = list.length > seen.current;
+      const fromTeam = arrived && list.slice(seen.current).some((m: any) => m.senderId !== meId);
+      seen.current = list.length;
+      setMessages(list);
+      setFailed(false);
+      // Whatever is on screen has been seen, including messages that arrive while the page is open.
+      if (!silent || fromTeam) api.markMessagesRead(eid).catch(() => {});
+      if (!silent) setTimeout(toBottom, 100);
+      else if (arrived) { if (bottomState.current) setTimeout(toBottom, 50); else setNewBanner(true); }
+    } catch {
+      if (!silent) setFailed(true);
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [engagementId, atBottom]);
-
-  useEffect(() => { load(); }, [load]);
+  }, [eid, meId]);
 
   useEffect(() => {
-    if (!engagementId) return;
-    pollRef.current = setInterval(() => load(true), 20000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [engagementId, load]);
+    seen.current = 0;
+    load();
+    if (!eid) return;
+    api.getCaseView(eid).then(setCaseView).catch(() => {});
+    const timer = setInterval(() => load(true), 20_000);
+    return () => clearInterval(timer);
+  }, [eid, load]);
 
-  useEffect(() => {
-    if (atBottom) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, atBottom]);
-
-  // ── Scroll ────────────────────────────────────────────────────────────────
-
-  function handleScroll() {
+  function onScroll() {
     const el = listRef.current;
     if (!el) return;
-    const isBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    setAtBottom(isBottom);
-    if (isBottom) setNewBanner(false);
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    setAtBottom(near);
+    if (near) setNewBanner(false);
   }
 
-  function scrollToBottom() {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    setNewBanner(false);
-    setAtBottom(true);
-  }
-
-  // ── Textarea auto-resize ──────────────────────────────────────────────────
-
-  function autoResize(el: HTMLTextAreaElement) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-  }
-
-  // ── File picker handlers ──────────────────────────────────────────────────
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>, forceImage = false) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const isImage = forceImage || file.type.startsWith('image/');
-    const previewUrl = URL.createObjectURL(file);
-    setMediaAttachment({ file, previewUrl, isImage });
-    // reset input so same file can be re-selected
+  function pickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = e.target.files?.[0];
     e.target.value = '';
+    if (!picked) return;
+    if (picked.size > MAX_FILE_SIZE) { toast.error(t.tooBig); return; }
+    if (!ALLOWED_EXT.test(picked.name)) { toast.error(t.badType); return; }
+    setFile(picked);
   }
 
-  function removeMedia() {
-    if (mediaAttachment) URL.revokeObjectURL(mediaAttachment.previewUrl);
-    setMediaAttachment(null);
-  }
-
-  // ── Upload file to R2 ────────────────────────────────────────────────────
-
-  async function uploadMedia(attachment: MediaAttachment): Promise<string | null> {
-    if (!personId) return null;
-    setUploading(true);
+  async function send(text?: string) {
+    const body = (text ?? content).trim();
+    if ((!body && !file) || !eid || busy) return;
+    setBusy(true);
     try {
-      const docType = attachment.isImage ? 'CHAT_IMAGE' : 'CHAT_FILE';
-      const { url, key } = await api.getUploadUrl(personId, docType, attachment.file.name);
-      // PUT directly to R2 presigned URL
-      const putRes = await fetch(url, {
-        method: 'PUT',
-        body: attachment.file,
-        headers: { 'Content-Type': attachment.file.type },
-      });
-      if (!putRes.ok) throw new Error('Upload failed');
-      // Confirm to get public URL
-      const doc = await api.confirmUpload(personId, docType, key);
-      return doc.fileUrl ?? null;
-    } catch (err: any) {
-      toast.error('Failed to upload file: ' + err.message);
-      return null;
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  // ── Send ──────────────────────────────────────────────────────────────────
-
-  async function handleSend(e?: React.FormEvent) {
-    e?.preventDefault();
-    const text = content.trim();
-    if (!text && !mediaAttachment) return;
-    if (!engagementId) return;
-
-    setSending(true);
-    try {
-      let messageContent = text;
-
-      if (mediaAttachment) {
-        const fileUrl = await uploadMedia(mediaAttachment);
-        if (!fileUrl) { setSending(false); return; }
-
-        const prefix = mediaAttachment.isImage ? '[IMG]' : '[FILE]';
-        const fileRef = `${prefix}:${mediaAttachment.file.name}:${fileUrl}`;
-        messageContent = text ? `${text}\n${fileRef}` : fileRef;
-        removeMedia();
+      let attachment: { key: string; name: string; type?: string } | undefined;
+      if (file) {
+        try {
+          const { url, key } = await api.getMessageUploadUrl(eid, file.name);
+          const put = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type || 'application/octet-stream' } });
+          if (!put.ok) throw new Error('upload');
+          attachment = { key, name: file.name, type: file.type };
+        } catch {
+          toast.error(t.uploadFailed);
+          return;
+        }
       }
-
-      const msg = await api.sendMessage(engagementId, messageContent);
+      const msg = await api.sendMessage(eid, body, attachment);
+      seen.current += 1;
       setMessages((prev) => [...prev, msg]);
       setContent('');
-      latestIdRef.current = msg.id;
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
-      setTimeout(scrollToBottom, 50);
-    } catch (err: any) {
-      toast.error(err.message);
+      setFile(null);
+      if (boxRef.current) boxRef.current.style.height = 'auto';
+      setTimeout(toBottom, 50);
+    } catch (e: any) {
+      toast.error(e?.message && e.message !== 'Unauthorised' ? e.message : t.sendFailed);
     } finally {
-      setSending(false);
+      setBusy(false);
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+  // Messages and the team's case updates, in one timeline.
+  const timeline = useMemo(() => {
+    const updates = ((caseView?.updates ?? []) as any[]).map((u) => ({ kind: 'update' as const, id: `u${u.id}`, at: u.at as string, update: u }));
+    const msgs = messages.map((m) => ({ kind: 'message' as const, id: m.id as string, at: m.createdAt as string, msg: m }));
+    return [...msgs, ...updates].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  }, [messages, caseView]);
+
+  const team = [
+    caseView?.team?.consultant && { name: caseView.team.consultant.name as string, role: t.consultant },
+    caseView?.team?.officer && { name: caseView.team.officer.name as string, role: t.officer },
+  ].filter(Boolean) as { name: string; role: string }[];
+  const files = useMemo(() => messages.filter((m) => m.attachment).reverse(), [messages]);
+  const closed = engagement?.status === 'COMPLETED' || engagement?.status === 'TERMINATED';
+  const dayLabel = (d: string) => {
+    if (sameDay(d, new Date())) return t.today;
+    if (sameDay(d, new Date(Date.now() - 86400000))) return t.yesterday;
+    return new Date(d).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  if (userLoading || loading) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-8 w-40 rounded-xl" />
+        <Skeleton className="h-16 rounded-2xl" />
+        <Skeleton className="h-96 rounded-2xl" />
+      </div>
+    );
   }
 
-  // ── Message grouping ──────────────────────────────────────────────────────
+  if (!eid) {
+    return (
+      <div className="space-y-4">
+        <h1 data-tour="page-title" className="text-2xl font-bold tracking-tight text-foreground">{t.title}</h1>
+        <div className={`${card} flex flex-col items-center px-6 py-14 text-center`}>
+          <ChatCircle className="mb-3 h-10 w-10 text-muted-foreground/40" />
+          <h2 className="font-bold text-foreground">{t.noCaseTitle}</h2>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t.noCaseBody}</p>
+          <Link href="/tickets" className={`${btnOutline} mt-4`}><Headset className="h-3.5 w-3.5" /> {t.helpCta}</Link>
+        </div>
+      </div>
+    );
+  }
 
-  const grouped = messages.map((msg, i) => {
-    const isMe = msg.senderId === me?.id;
-    const prev = messages[i - 1];
-    const next = messages[i + 1];
-    const sameSenderAsPrev = prev && prev.senderId === msg.senderId;
-    const sameSenderAsNext = next && next.senderId === msg.senderId;
-    const showDate = !prev || !isSameDay(prev.createdAt, msg.createdAt);
-    const showAvatar = !isMe && (!sameSenderAsNext || !next || !isSameDay(msg.createdAt, next.createdAt));
-    const isLastInGroup = !sameSenderAsNext || (next && !isSameDay(msg.createdAt, next.createdAt));
-    return { msg, isMe, showAvatar, showDate, isLastInGroup };
-  });
-
-  const isBusy = sending || uploading;
-  const canSend = !isBusy && (content.trim().length > 0 || !!mediaAttachment);
-
-  // ── Render ────────────────────────────────────────────────────────────────
+  const details = <Details team={team} files={files} meId={meId} t={t} day={day} />;
 
   return (
     <div className="flex h-[calc(100vh-5rem)] flex-col">
-      <div className="pb-4 shrink-0">
-        <PageHeader title="Messages" subtitle="Direct thread with your assigned consultant" />
-      </div>
+      <h1 data-tour="page-title" className="shrink-0 pb-3 text-2xl font-bold tracking-tight text-foreground">{t.title}</h1>
 
-      {/* Hidden file inputs */}
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => handleFileChange(e, true)}
-      />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,image/*"
-        className="hidden"
-        onChange={(e) => handleFileChange(e)}
-      />
-
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 rounded-2xl" />)}
-        </div>
-      ) : !engagementId ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-border bg-white shadow-sm p-10 text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50">
-            <ChatCircle className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <p className="font-semibold text-foreground">No active engagement</p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            Messages are available once your engagement is signed and active. Contact us at{' '}
-            <a href="mailto:hello@mjnhealthcare.com" className="text-primary hover:underline">
-              hello@mjnhealthcare.com
-            </a>
-          </p>
-        </div>
-      ) : (
-        <div className="relative flex flex-1 flex-col overflow-hidden rounded-2xl border border-border shadow-sm">
-
-          {/* Consultant header */}
-          <ConsultantHeader engagement={engagement} />
-
-          {/* New messages banner */}
-          {newBanner && (
-            <button
-              onClick={scrollToBottom}
-              className="absolute left-1/2 top-16 z-20 -translate-x-1/2 flex items-center gap-2 rounded-full bg-[#0F4C81] px-4 py-1.5 text-xs font-semibold text-white shadow-lg hover:bg-[#0d3d6a] transition-colors"
-            >
-              <ArrowDown className="h-3.5 w-3.5" /> New messages
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
+        {/* Conversation */}
+        <div className={`${card} relative flex min-h-0 flex-col overflow-hidden`}>
+          {/* Who the client is talking to */}
+          <div data-tour="msg-header" className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+            <div className="flex shrink-0 -space-x-2">
+              {(team.length ? team : [{ name: 'MJN', role: '' }]).map((m) => (
+                <span key={m.role || m.name} className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-primary text-xs font-bold text-white">{initials(m.name)}</span>
+              ))}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-foreground">{team.length ? team.map((m) => m.name).join(', ') : t.teamFallback}</p>
+              <p className="truncate text-xs text-muted-foreground">{t.replies}</p>
+            </div>
+            <button onClick={() => setSheet(true)} aria-label={t.details} title={t.details} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/60 hover:text-foreground xl:hidden">
+              <Info className="h-5 w-5" />
             </button>
-          )}
+          </div>
 
-          {/* Message list */}
-          <div
-            ref={listRef}
-            onScroll={handleScroll}
-            className="flex-1 overflow-y-auto px-4 py-4"
-            style={{ background: '#f0f2f5' }}
-          >
-            {messages.length === 0 && (
-              <div className="flex h-full flex-col items-center justify-center text-center py-10">
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm">
-                  <ChatCircle className="h-7 w-7 text-primary/60" weight="fill" />
-                </div>
-                <p className="font-semibold text-foreground">Start the conversation</p>
-                <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                  Your consultant is ready. Ask about your case, documents, or next steps.
-                </p>
+          {/* Timeline */}
+          <div ref={listRef} onScroll={onScroll} data-tour="msg-thread" className="min-h-0 flex-1 overflow-y-auto bg-muted/40 px-4 py-4">
+            {failed && <p className="mb-3 rounded-xl bg-white px-4 py-3 text-center text-sm text-muted-foreground">{t.loadFailed}</p>}
+
+            {timeline.length === 0 && !failed ? (
+              <div className="flex h-full flex-col items-center justify-center py-8 text-center">
+                <ChatCircle className="mb-3 h-10 w-10 text-primary/40" weight="fill" />
+                <p className="font-bold text-foreground">{t.emptyTitle}</p>
+                <p className="mt-1 max-w-xs text-sm text-muted-foreground">{t.emptyBody}</p>
+                {!closed && (
+                  <div className="mt-4 flex max-w-md flex-wrap justify-center gap-2">
+                    {t.suggestions.map((s) => (
+                      <button key={s} onClick={() => { setContent(s); boxRef.current?.focus(); }} className="rounded-full border border-border bg-white px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/40">{s}</button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-
-            <div className="space-y-0.5">
-              {grouped.map(({ msg, isMe, showAvatar, showDate, isLastInGroup }, i) => (
-                <div key={msg.id ?? i}>
-                  {/* Date separator */}
-                  {showDate && (
-                    <div className="flex items-center justify-center my-4">
-                      <span className="rounded-full bg-white/90 border border-black/5 px-3 py-1 text-[11px] text-muted-foreground font-medium shadow-sm">
-                        {formatDate(msg.createdAt)}
-                      </span>
+            ) : (
+              <div className="space-y-1">
+                {timeline.map((item, i) => {
+                  const prev = timeline[i - 1];
+                  const next = timeline[i + 1];
+                  const newDay = !prev || !sameDay(prev.at, item.at);
+                  const separator = newDay && (
+                    <div className="my-3 flex justify-center">
+                      <span className="rounded-full border border-border/60 bg-white px-3 py-1 text-xs font-medium text-muted-foreground">{dayLabel(item.at)}</span>
                     </div>
-                  )}
+                  );
 
-                  {/* Message row */}
-                  <div className={`flex items-end gap-1.5 mb-0.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-
-                    {/* Consultant avatar placeholder */}
-                    {!isMe && (
-                      <div className="h-7 w-7 shrink-0">
-                        {showAvatar && (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#00A896] text-[11px] font-bold text-white">
-                            {initials(msg.sender?.name)}
+                  if (item.kind === 'update') {
+                    const u = item.update;
+                    return (
+                      <div key={item.id}>
+                        {separator}
+                        <div className="flex items-end gap-1.5 py-1">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-bold text-white">{initials(u.authorName ?? 'MJN')}</span>
+                          <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-primary/20 bg-white px-3.5 py-2.5">
+                            <p className="text-xs font-bold uppercase tracking-wide text-primary">{t.update}</p>
+                            <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">{u.content}</p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">{u.authorName ?? t.yourTeam} · {time(item.at)}</p>
                           </div>
-                        )}
+                        </div>
                       </div>
-                    )}
+                    );
+                  }
 
-                    {/* Bubble */}
-                    <div
-                      className={`relative max-w-[72%] ${
-                        isMe
-                          ? 'bg-[#0F4C81] text-white rounded-2xl rounded-br-sm'
-                          : 'bg-white text-foreground rounded-2xl rounded-bl-sm'
-                      } ${!isLastInGroup ? (isMe ? 'rounded-br-2xl' : 'rounded-bl-2xl') : ''}
-                      shadow-sm px-3.5 py-2.5`}
-                    >
-                      <BubbleContent content={msg.content} isMe={isMe} />
-
-                      {/* Timestamp + read receipt (last in group only) */}
-                      {isLastInGroup && (
-                        <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                          <span className={`text-[10px] ${isMe ? 'text-white/50' : 'text-muted-foreground/50'}`}>
-                            {formatTime(msg.createdAt)}
+                  const msg = item.msg;
+                  const mine = msg.senderId === meId;
+                  const last = !next || next.kind !== 'message' || next.msg.senderId !== msg.senderId || !sameDay(next.at, item.at);
+                  return (
+                    <div key={item.id}>
+                      {separator}
+                      <div className={`flex items-end gap-1.5 ${mine ? 'flex-row-reverse' : ''}`}>
+                        {!mine && (
+                          <span className="h-7 w-7 shrink-0">
+                            {last && <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-xs font-bold text-white">{initials(msg.sender?.name ?? 'MJN')}</span>}
                           </span>
-                          {isMe && (
-                            msg.readAt
-                              ? <CheckCircle className="h-3 w-3 text-white/60" weight="fill" />
-                              : <Check className="h-3 w-3 text-white/40" />
+                        )}
+                        <div className={`max-w-[78%] rounded-2xl px-3.5 py-2.5 ${mine ? 'rounded-br-sm bg-primary text-white' : 'rounded-bl-sm border border-border/60 bg-white text-foreground'}`}>
+                          <Bubble msg={msg} mine={mine} t={t} />
+                          {last && (
+                            <p className={`mt-1 flex items-center gap-1 text-[11px] ${mine ? 'justify-end text-white/60' : 'text-muted-foreground'}`}>
+                              {!mine && msg.sender?.name ? `${msg.sender.name} · ` : ''}{time(msg.createdAt)}
+                              {mine && (msg.readAt ? <CheckCircle className="h-3 w-3" weight="fill" /> : <Check className="h-3 w-3" />)}
+                            </p>
                           )}
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-              <div ref={bottomRef} />
-            </div>
+                  );
+                })}
+                <div ref={bottomRef} />
+              </div>
+            )}
           </div>
 
-          {/* Scroll-to-bottom FAB */}
-          {!atBottom && !newBanner && (
+          {(newBanner || !atBottom) && timeline.length > 0 && (
             <button
-              onClick={scrollToBottom}
-              className="absolute bottom-24 right-5 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-border shadow-md hover:bg-muted transition-colors"
+              onClick={() => { toBottom(); setNewBanner(false); }}
+              aria-label={t.toBottom}
+              className={`absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold shadow-lg ${newBanner ? 'bg-primary text-white' : 'border border-border bg-white text-foreground'}`}
             >
-              <ArrowDown className="h-4 w-4 text-muted-foreground" />
+              <ArrowDown className="h-3.5 w-3.5" /> {newBanner ? t.newMessages : ''}
             </button>
           )}
 
-          {/* Quick replies */}
-          <div className="shrink-0 flex gap-2 overflow-x-auto px-4 py-2 bg-white border-t border-border/50 scrollbar-hide">
-            {QUICK_REPLIES.map((text) => (
-              <button
-                key={text}
-                onClick={() => { setContent(text); textareaRef.current?.focus(); }}
-                className="whitespace-nowrap shrink-0 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-foreground hover:bg-muted hover:border-primary/30 transition-colors"
-              >
-                {text}
-              </button>
-            ))}
-          </div>
-
-          {/* Media preview strip */}
-          {mediaAttachment && (
-            <div className="shrink-0 flex items-center gap-3 border-t border-border bg-white px-4 py-3">
-              <MediaPreview media={mediaAttachment} onRemove={removeMedia} />
-              {uploading && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <CircleNotch className="h-4 w-4 animate-spin" /> Uploading…
+          {/* Compose */}
+          {closed ? (
+            <p className="shrink-0 border-t border-border bg-white px-4 py-3.5 text-sm text-muted-foreground">{t.closed} <Link href="/tickets" className="font-bold text-primary hover:underline">{t.helpCta}</Link></p>
+          ) : (
+            <div data-tour="msg-compose" className="shrink-0 border-t border-border bg-white">
+              {file && (
+                <div className="flex items-center gap-2.5 border-b border-border/70 px-4 py-2.5">
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{file.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{fileSize(file.size)}</span>
+                  {!busy && <button onClick={() => setFile(null)} aria-label={t.removeFile} className="rounded-lg p-1 text-muted-foreground hover:bg-muted/60"><X className="h-4 w-4" /></button>}
                 </div>
               )}
+              <div className="flex items-end gap-2 px-3 pt-3">
+                <input ref={fileRef} type="file" accept="image/jpeg,image/png,.pdf,.doc,.docx" className="hidden" onChange={pickFile} />
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} aria-label={t.attach} title={t.attach} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40">
+                  <Paperclip className="h-5 w-5" />
+                </button>
+                <textarea
+                  ref={boxRef}
+                  aria-label={t.placeholder}
+                  value={content}
+                  maxLength={5000}
+                  onChange={(e) => { setContent(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${Math.min(e.target.scrollHeight, 128)}px`; }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+                  placeholder={t.placeholder}
+                  rows={1}
+                  className="max-h-32 min-h-10 flex-1 resize-none rounded-2xl border border-border bg-muted/40 px-4 py-2.5 text-sm leading-relaxed outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/20"
+                />
+                <button onClick={() => send()} disabled={busy || (!content.trim() && !file)} aria-label={t.send} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 disabled:opacity-40">
+                  {busy ? <CircleNotch className="h-4 w-4 animate-spin" /> : <PaperPlaneTilt className="h-4 w-4" weight="fill" />}
+                </button>
+              </div>
+              <p className="hidden px-4 pb-2 pt-1.5 text-[11px] text-muted-foreground sm:block">{t.hint}</p>
+              <div className="h-3 sm:hidden" />
             </div>
           )}
+        </div>
 
-          {/* Compose bar */}
-          <form onSubmit={handleSend} className="shrink-0 flex items-end gap-2 border-t border-border bg-white px-4 py-3">
+        {/* Side panel on wide screens */}
+        <aside data-tour="msg-side" className="hidden min-h-0 overflow-y-auto xl:block">{details}</aside>
+      </div>
 
-            {/* Image capture */}
-            <button
-              type="button"
-              onClick={() => imageInputRef.current?.click()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              title="Send photo"
-            >
-              <Camera className="h-5 w-5" />
-            </button>
-
-            {/* File attach */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              title="Attach file"
-            >
-              <Paperclip className="h-5 w-5" />
-            </button>
-
-            {/* Textarea */}
-            <div className="relative flex-1">
-              <textarea
-                ref={textareaRef}
-                value={content}
-                onChange={(e) => { setContent(e.target.value); autoResize(e.target); }}
-                onKeyDown={handleKeyDown}
-                placeholder="Type a message…"
-                rows={1}
-                className="w-full resize-none rounded-full border border-border bg-[#f0f2f5] px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 max-h-[120px] leading-relaxed"
-              />
-              {content.length > 300 && (
-                <span className={`absolute bottom-2 right-4 text-[10px] ${content.length > 1000 ? 'text-rose-500' : 'text-muted-foreground/50'}`}>
-                  {content.length}/1000
-                </span>
-              )}
+      {/* The same details as a sheet on smaller screens */}
+      {sheet && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/40 sm:items-center sm:justify-center sm:p-4 xl:hidden" onClick={() => setSheet(false)}>
+          <div role="dialog" aria-modal="true" aria-label={t.details} className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-muted p-4 sm:max-w-md sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-bold text-foreground">{t.details}</p>
+              <button onClick={() => setSheet(false)} aria-label={t.close} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white"><X className="h-5 w-5" /></button>
             </div>
-
-            {/* Send */}
-            <button
-              type="submit"
-              disabled={!canSend}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0F4C81] text-white hover:bg-[#0d3d6a] disabled:opacity-40 transition-colors shadow-sm"
-            >
-              {isBusy
-                ? <CircleNotch className="h-4 w-4 animate-spin" />
-                : <PaperPlaneTilt className="h-4 w-4" weight="fill" />
-              }
-            </button>
-          </form>
+            {details}
+          </div>
         </div>
       )}
     </div>

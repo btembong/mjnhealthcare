@@ -99,7 +99,10 @@ export class DocumentService {
     const publicPrefix = process.env.R2_PUBLIC_URL ?? '';
     const key = publicPrefix ? doc.fileUrl.replace(`${publicPrefix}/`, '') : doc.fileUrl;
     // The record is gone either way; a leftover file is not reachable without it.
-    await this.s3.deleteObject({ Bucket: process.env.R2_BUCKET_NAME as string, Key: key }).promise().catch(() => undefined);
+    // A file that was sent in chat and then filed still belongs to its message, so it is kept.
+    if (!key.startsWith('chat/')) {
+      await this.s3.deleteObject({ Bucket: process.env.R2_BUCKET_NAME as string, Key: key }).promise().catch(() => undefined);
+    }
     return { removed: true, type: doc.type };
   }
 

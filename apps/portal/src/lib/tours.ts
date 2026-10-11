@@ -10,6 +10,7 @@ const PAGE_TOURS: Record<string, string> = {
   '/documents': 'portal.documents',
   '/checkout': 'portal.checkout',
   '/payments': 'portal.payments',
+  '/messages': 'portal.messages',
   '/bookings': 'portal.bookings',
   '/academy': 'portal.academy',
   '/settings': 'portal.settings',
@@ -184,6 +185,33 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
           skipIfMissing: true,
           title: "Your documents",
           body: "Each document with its status. If one is not accepted you see the reason and can upload a new copy. You can remove a document until our team has checked it.",
+        },
+      ],
+    },
+    'portal.messages': {
+      title: "Messages",
+      steps: [
+        {
+          target: 'msg-header',
+          skipIfMissing: true,
+          title: "Who you are writing to",
+          body: "The people working on your case. They usually reply within one working day, and you are emailed when they do.",
+        },
+        {
+          target: 'msg-thread',
+          skipIfMissing: true,
+          title: "One conversation",
+          body: "Everything said between you and your team, including the updates they send about your case.",
+        },
+        {
+          target: 'msg-compose',
+          skipIfMissing: true,
+          title: "Write or send a file",
+          body: "Type your message, or use the paperclip to send a photo or file. A file sent here stays in this conversation; to submit a document for your case, use My documents.",
+        },
+        {
+          title: "For other problems",
+          body: "If something is wrong with the portal or a payment, Get Help in the menu reaches our support team directly.",
         },
       ],
     },
@@ -422,6 +450,33 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
           skipIfMissing: true,
           title: "Vos documents",
           body: "Chaque document avec son statut. Si l'un d'eux n'est pas accepté, vous en voyez la raison et pouvez en déposer une nouvelle copie. Vous pouvez retirer un document tant que notre équipe ne l'a pas vérifié.",
+        },
+      ],
+    },
+    'portal.messages': {
+      title: "Messages",
+      steps: [
+        {
+          target: 'msg-header',
+          skipIfMissing: true,
+          title: "À qui vous écrivez",
+          body: "Les personnes qui travaillent sur votre dossier. Elles répondent généralement sous un jour ouvré, et vous recevez un e-mail à chaque réponse.",
+        },
+        {
+          target: 'msg-thread',
+          skipIfMissing: true,
+          title: "Une seule conversation",
+          body: "Tout ce qui s'est dit entre vous et votre équipe, y compris les nouvelles qu'elle vous envoie sur votre dossier.",
+        },
+        {
+          target: 'msg-compose',
+          skipIfMissing: true,
+          title: "Écrire ou envoyer un fichier",
+          body: "Saisissez votre message, ou utilisez le trombone pour envoyer une photo ou un fichier. Un fichier envoyé ici reste dans cette conversation ; pour fournir un document à votre dossier, passez par « Mes documents ».",
+        },
+        {
+          title: "Pour tout autre problème",
+          body: "En cas de souci avec le portail ou un paiement, « Get Help » dans le menu vous met directement en contact avec notre équipe d'assistance.",
         },
       ],
     },

@@ -648,6 +648,12 @@ export const api = {
   sendEngagementMessage: (engagementId: string, content: string) =>
     request<any>(`/messages/engagement/${engagementId}`, { method: 'POST', body: JSON.stringify({ content }) }),
 
+  getMessageAttachmentUrl: (messageId: string) =>
+    request<{ url: string; name: string }>(`/messages/${messageId}/attachment-url`),
+
+  saveMessageAttachment: (messageId: string, documentType: string) =>
+    request<{ documentId: string; alreadySaved: boolean }>(`/messages/${messageId}/save-to-documents`, { method: 'POST', body: JSON.stringify({ documentType }) }),
+
   // ── Officer module ────────────────────────────────────────────────────────
   listOfficers: () => request<any[]>('/admin/officers'),
 

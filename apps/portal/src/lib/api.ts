@@ -241,11 +241,20 @@ export const api = {
   getMessages: (engagementId: string) =>
     request<any[]>(`/messages/engagement/${engagementId}`),
 
-  sendMessage: (engagementId: string, content: string) =>
+  sendMessage: (engagementId: string, content: string, attachment?: { key: string; name: string; type?: string }) =>
     request<any>(`/messages/engagement/${engagementId}`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, attachment }),
     }),
+
+  getMessageUploadUrl: (engagementId: string, fileName: string) =>
+    request<{ url: string; key: string }>(`/messages/engagement/${engagementId}/attachment-url`, {
+      method: 'POST',
+      body: JSON.stringify({ fileName }),
+    }),
+
+  getMessageAttachmentUrl: (messageId: string) =>
+    request<{ url: string; name: string }>(`/messages/${messageId}/attachment-url`),
 
   markMessagesRead: (engagementId: string) =>
     request<any>(`/messages/engagement/${engagementId}/read`, { method: 'PATCH' }),
