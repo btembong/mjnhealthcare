@@ -26,6 +26,70 @@ export class DocumentController {
     return scope ? docs.filter((d: any) => scope.canSeePerson(d.personId)) : docs;
   }
 
+  @ApiOperation({ summary: 'Documents waiting for review, longest-waiting first' })
+  @StaffOnly()
+  @Get('queue')
+  async getQueue(@CurrentUser() user: AuthUser) {
+    const scope = await this.access.consultantScope(user);
+    return this.documentService.getQueue(scope?.hiddenPersonIds);
+  }
+
+  @ApiOperation({ summary: 'Document counts by status and expiry' })
+  @StaffOnly()
+  @Get('counts')
+  async getCounts(@CurrentUser() user: AuthUser) {
+    const scope = await this.access.consultantScope(user);
+    return this.documentService.getCounts(scope?.hiddenPersonIds);
+  }
+
+  @ApiOperation({ summary: 'One page of documents, filtered and sorted' })
+  @StaffOnly()
+  @Get('search')
+  async search(
+    @CurrentUser() user: AuthUser,
+    @Query('filter') filter?: string,
+    @Query('q') q?: string,
+    @Query('type') type?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sort') sort?: string,
+    @Query('dir') dir?: string,
+  ) {
+    const scope = await this.access.consultantScope(user);
+    return this.documentService.search(
+      { filter, q, type, page: Number(page), pageSize: Number(pageSize), sort, dir },
+      scope?.hiddenPersonIds,
+    );
+  }
+
+  @ApiOperation({ summary: "A client's stage, required documents and document list, for reviewers" })
+  @StaffOnly()
+  @Get('review-context/:personId')
+  async getReviewContext(@CurrentUser() user: AuthUser, @Param('personId') personId: string) {
+    await this.access.assertPerson(user, personId);
+    await this.complianceService.logAuditEvent({
+      actorId: user.id,
+      action: 'list_documents',
+      resourceType: 'person',
+      resourceId: personId,
+    });
+    return this.documentService.getReviewContext(personId);
+  }
+
+  @ApiOperation({ summary: 'Put a reviewed document back in the queue' })
+  @StaffOnly()
+  @Patch(':id/reopen')
+  async reopen(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertDocument(user, id);
+    await this.complianceService.logAuditEvent({
+      actorId: user.id,
+      action: 'document_reopened',
+      resourceType: 'document',
+      resourceId: id,
+    });
+    return this.documentService.reopen(id);
+  }
+
   @ApiOperation({ summary: 'Reject a document (shorthand)' })
   @StaffOnly()
   @Patch(':id/reject')
@@ -45,6 +109,12 @@ export class DocumentController {
   @Get(':id/view-url')
   async getViewUrl(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     await this.access.assertDocument(user, id);
+    await this.complianceService.logAuditEvent({
+      actorId: user.id,
+      action: 'document_viewed',
+      resourceType: 'document',
+      resourceId: id,
+    });
     return this.documentService.getViewUrl(id);
   }
 

@@ -1,17 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import { PageHeader, Skeleton } from '@mjn/ui';
+import { Skeleton } from '@mjn/ui';
 import {
-  CheckCircle, XCircle, Eye, X, CircleNotch, ArrowClockwise,
-  MagnifyingGlass, WarningCircle, Clock, ShieldCheck, ArrowSquareOut,
-  FileText, User, Funnel, Sparkle, ArrowUp, ArrowDown,
+  CheckCircle, XCircle, X, CircleNotch, ArrowClockwise, MagnifyingGlass, WarningCircle,
+  ArrowSquareOut, FileText, Funnel, Sparkle, ArrowUp, ArrowDown, CaretLeft, CaretRight,
+  Plus, Minus, Flag, ListChecks,
 } from '@mjn/ui';
 import { api } from '../../../lib/api';
 import { useAdmin } from '../../../contexts/admin-context';
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Constants and helpers ─────────────────────────────────────────────────────
 
 const DOC_TYPES = [
   'PASSPORT_COPY', 'DIPLOMA_DEGREE', 'DIPLOMA_TRANSCRIPT', 'BACHELORS_DEGREE',
@@ -22,638 +23,860 @@ const DOC_TYPES = [
   'REFERENCE_LETTER', 'OTHER',
 ];
 
-// Monochrome status — no rainbow
-const STATUS_PILL: Record<string, string> = {
-  VERIFIED: 'bg-slate-900 text-white',
-  PENDING:  'bg-slate-100 text-slate-600 ring-1 ring-slate-200',
-  REJECTED: 'bg-slate-200 text-slate-700',
+const STATUS: Record<string, { label: string; dot: string }> = {
+  PENDING:        { label: 'Waiting',     dot: 'bg-accent' },
+  VERIFIED:       { label: 'Verified',    dot: 'bg-secondary' },
+  REJECTED:       { label: 'Rejected',    dot: 'bg-rose-500' },
+  PENDING_CLIENT: { label: 'With client', dot: 'bg-primary/40' },
 };
 
-type SortKey = 'client' | 'type' | 'uploaded' | 'expiry' | 'status';
-type SortDir = 'asc' | 'desc';
+// What the client reads when a document is rejected for a common reason.
+const REJECT_REASONS: { label: string; text: string }[] = [
+  { label: 'Blurry or unreadable', text: 'The document is blurry or hard to read. Please upload a clear, well-lit copy.' },
+  { label: 'Wrong document', text: 'This is not the document we asked for. Please upload the correct one.' },
+  { label: 'Expired', text: 'This document has expired. Please upload a current, valid version.' },
+  { label: 'Cropped or incomplete', text: 'Part of the document is cut off or pages are missing. Please upload the complete document.' },
+  { label: 'Name does not match', text: 'The name on this document does not match your profile. Please upload a matching document or contact your consultant.' },
+];
+
+type Mode = 'review' | 'all';
+type Counts = { all: number; pending: number; verified: number; rejected: number; expiring: number; expired: number; oldestPendingAt: string | null };
+type Check = { flags: string[]; summary: string; confidence: string };
 
 function fmt(type: string) {
-  return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function timeAgo(date: string | Date) {
-  const diff = (Date.now() - new Date(date).getTime()) / 1000;
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  return (type ?? '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function daysUntil(date: string) {
   return Math.ceil((new Date(date).getTime() - Date.now()) / 86400000);
 }
 
-function sortDocs(docs: any[], key: SortKey, dir: SortDir): any[] {
-  return [...docs].sort((a, b) => {
-    let av: any, bv: any;
-    switch (key) {
-      case 'client':   av = a.person?.name ?? ''; bv = b.person?.name ?? ''; break;
-      case 'type':     av = a.type ?? '';          bv = b.type ?? '';         break;
-      case 'uploaded': av = a.uploadedAt ?? '';    bv = b.uploadedAt ?? '';   break;
-      case 'expiry':   av = a.expiryDate ?? '9999'; bv = b.expiryDate ?? '9999'; break;
-      case 'status': {
-        const order: Record<string, number> = { PENDING: 0, VERIFIED: 1, REJECTED: 2 };
-        av = order[a.status] ?? 9; bv = order[b.status] ?? 9; break;
-      }
-    }
-    if (av < bv) return dir === 'asc' ? -1 : 1;
-    if (av > bv) return dir === 'asc' ? 1 : -1;
-    return 0;
-  });
+function waited(date?: string) {
+  if (!date) return '';
+  const mins = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
+  if (mins < 60) return `${Math.max(mins, 1)}m`;
+  if (mins < 1440) return `${Math.floor(mins / 60)}h`;
+  return `${Math.floor(mins / 1440)}d`;
 }
 
-// ── Sort header cell ──────────────────────────────────────────────────────────
+function waitedLong(date?: string | null) {
+  if (!date) return '';
+  const mins = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
+  if (mins < 60) return 'under an hour';
+  if (mins < 1440) { const h = Math.floor(mins / 60); return `${h} hour${h !== 1 ? 's' : ''}`; }
+  const d = Math.floor(mins / 1440);
+  return `${d} day${d !== 1 ? 's' : ''}`;
+}
 
-function SortTh({
-  label, sortKey, current, dir, onSort,
-}: { label: string; sortKey: SortKey; current: SortKey; dir: SortDir; onSort: (k: SortKey) => void }) {
-  const active = current === sortKey;
+function shortDate(date?: string) {
+  return date ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+}
+
+function StatusPill({ status }: { status: string }) {
+  const s = STATUS[status] ?? { label: fmt(status), dot: 'bg-muted-foreground/40' };
   return (
-    <th
-      className="px-4 py-3 font-semibold cursor-pointer select-none whitespace-nowrap group"
-      onClick={() => onSort(sortKey)}
-    >
-      <span className="inline-flex items-center gap-1 text-slate-500 group-hover:text-slate-800 transition-colors">
-        {label}
-        <span className="text-slate-300 group-hover:text-slate-500">
-          {active ? (dir === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />) : <ArrowDown className="h-3 w-3" />}
-        </span>
-      </span>
-    </th>
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-foreground">
+      <span className={`h-2 w-2 rounded-full ${s.dot}`} /> {s.label}
+    </span>
   );
 }
 
-// ── Detail panel ─────────────────────────────────────────────────────────────
+function ExpiryText({ date }: { date?: string | null }) {
+  if (!date) return <span className="text-xs text-muted-foreground">—</span>;
+  const days = daysUntil(date);
+  if (days < 0) {
+    return <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground"><span className="h-2 w-2 rounded-full bg-rose-500" /> Expired</span>;
+  }
+  if (days <= 30) {
+    return <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground"><span className="h-2 w-2 rounded-full bg-accent" /> {days} day{days !== 1 ? 's' : ''} left</span>;
+  }
+  return <span className="text-xs text-muted-foreground">{new Date(date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>;
+}
 
-function DocPanel({
-  doc, reviewerName, onClose, onVerified, onRejected,
-}: {
-  doc: any; reviewerName: string;
-  onClose: () => void; onVerified: (id: string) => void; onRejected: (id: string) => void;
-}) {
-  const [previewUrl, setPreviewUrl]   = useState('');
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [actionLoading, setActionLoading]   = useState<'verify' | 'reject' | null>(null);
-  const [rejectMode, setRejectMode]         = useState(false);
-  const [rejectReason, setRejectReason]     = useState('');
-  const [confirmVerify, setConfirmVerify]   = useState(false);
+// ── Document viewer ───────────────────────────────────────────────────────────
 
+function Viewer({ doc, className }: { doc: any; className: string }) {
+  const [url, setUrl] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
   const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(doc.fileUrl ?? '');
 
+  // The file is fetched only when the reviewer reaches this document: each fetch is recorded in the audit log.
   useEffect(() => {
-    setPreviewUrl('');
-    setPreviewLoading(true);
-    setRejectMode(false);
-    setConfirmVerify(false);
-    setRejectReason('');
+    let cancelled = false;
+    setUrl(''); setLoading(true); setFailed(false); setZoom(1); setRotation(0);
     api.getDocumentViewUrl(doc.id)
-      .then(({ url }) => setPreviewUrl(url))
-      .catch(() => setPreviewUrl(doc.fileUrl ?? ''))
-      .finally(() => setPreviewLoading(false));
-  }, [doc.id, doc.fileUrl]);
+      .then(({ url: signed }) => { if (!cancelled) setUrl(signed); })
+      .catch(() => { if (!cancelled) setFailed(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [doc.id]);
 
-  async function handleVerify() {
-    setActionLoading('verify');
-    try {
-      await api.verifyDocument(doc.id, reviewerName);
-      toast.success('Document verified.');
-      onVerified(doc.id); onClose();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setActionLoading(null); }
-  }
-
-  async function handleReject() {
-    if (!rejectReason.trim()) { toast.error('Enter a rejection reason.'); return; }
-    setActionLoading('reject');
-    try {
-      await api.rejectDocument(doc.id, reviewerName, rejectReason);
-      toast.success('Document rejected.');
-      onRejected(doc.id); onClose();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setActionLoading(null); }
-  }
-
-  const expiryDays = doc.expiryDate ? daysUntil(doc.expiryDate) : null;
+  const tool = 'flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40';
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="w-full max-w-lg bg-white shadow-2xl flex flex-col overflow-y-auto">
-
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 shrink-0">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex rounded-md px-2.5 py-0.5 text-xs font-bold ${STATUS_PILL[doc.status] ?? 'bg-slate-100 text-slate-600'}`}>
-                {doc.status}
-              </span>
-              {doc.expiryDate && expiryDays !== null && expiryDays <= 30 && (
-                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-700 ring-1 ring-slate-200">
-                  <WarningCircle className="h-3 w-3" />
-                  {expiryDays <= 0 ? 'Expired' : `Expires in ${expiryDays}d`}
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{fmt(doc.type)}</p>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-2 hover:bg-slate-100 transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Preview */}
-        <div className="h-64 shrink-0 bg-slate-50 flex items-center justify-center border-b border-slate-100">
-          {previewLoading ? (
-            <CircleNotch className="h-7 w-7 animate-spin text-slate-400" />
-          ) : previewUrl ? (
-            isImage
-              ? <img src={previewUrl} alt={doc.type} className="max-h-full max-w-full object-contain rounded" />
-              : <iframe src={previewUrl} className="h-full w-full border-0" title={doc.type} />
-          ) : (
-            <div className="flex flex-col items-center gap-2 text-slate-400">
-              <FileText className="h-8 w-8" />
-              <p className="text-xs">Preview unavailable</p>
-            </div>
+    <div data-tour="docs-viewer" className={`flex flex-col overflow-hidden rounded-2xl border border-border bg-white ${className}`}>
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+        <p className="min-w-0 truncate text-xs font-semibold text-foreground">
+          {fmt(doc.type)}
+          <span className="ml-2 font-normal text-muted-foreground">uploaded {shortDate(doc.uploadedAt)}</span>
+        </p>
+        <div className="flex shrink-0 items-center gap-0.5">
+          {isImage && (
+            <>
+              <button className={tool} onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))} disabled={zoom <= 0.5} aria-label="Zoom out"><Minus className="h-4 w-4" /></button>
+              <button className="h-8 rounded-lg px-2 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => { setZoom(1); setRotation(0); }} aria-label="Reset zoom">
+                {Math.round(zoom * 100)}%
+              </button>
+              <button className={tool} onClick={() => setZoom((z) => Math.min(4, z + 0.25))} disabled={zoom >= 4} aria-label="Zoom in"><Plus className="h-4 w-4" /></button>
+              <button className={tool} onClick={() => setRotation((r) => (r + 90) % 360)} aria-label="Rotate"><ArrowClockwise className="h-4 w-4" /></button>
+            </>
           )}
-        </div>
-
-        <div className="flex-1 space-y-5 px-6 py-5">
-
-          {/* Open in tab */}
-          {previewUrl && (
-            <a href={previewUrl} target="_blank" rel="noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50 transition-colors">
-              <ArrowSquareOut className="h-4 w-4" /> Open in new tab
+          {url && (
+            <a href={url} target="_blank" rel="noreferrer" className={tool} aria-label="Open in new tab" title="Open in new tab">
+              <ArrowSquareOut className="h-4 w-4" />
             </a>
           )}
-
-          {/* Client info */}
-          <section>
-            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">Client</h3>
-            <div className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 p-4">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-200">
-                <User className="h-4 w-4 text-slate-600" />
-              </div>
-              <div>
-                <p className="font-semibold text-slate-900">{doc.person?.name ?? doc.personId}</p>
-                {doc.person?.email && <p className="text-xs text-slate-500">{doc.person.email}</p>}
-              </div>
-            </div>
-          </section>
-
-          {/* Document metadata */}
-          <section>
-            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">Details</h3>
-            <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Type</span>
-                <span className="font-medium text-slate-900">{fmt(doc.type)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Uploaded</span>
-                <span className="text-slate-700">{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</span>
-              </div>
-              {doc.expiryDate && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Expiry</span>
-                  <span className={`font-medium ${expiryDays !== null && expiryDays <= 14 ? 'text-slate-900 font-bold' : 'text-slate-700'}`}>
-                    {new Date(doc.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    {expiryDays !== null && expiryDays <= 30 && ` (${expiryDays <= 0 ? 'expired' : `${expiryDays}d left`})`}
-                  </span>
-                </div>
-              )}
-              {doc.verifiedAt && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Verified</span>
-                  <span className="text-slate-700">{new Date(doc.verifiedAt).toLocaleDateString()}</span>
-                </div>
-              )}
-              {doc.verifiedBy && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">By</span>
-                  <span className="text-slate-700">{doc.verifiedBy}</span>
-                </div>
-              )}
-              {doc.rejectionReason && (
-                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
-                  <strong className="text-slate-900">Rejection reason:</strong> {doc.rejectionReason}
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Actions */}
-          {doc.status === 'PENDING' && (
-            <section>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-400">Actions</h3>
-
-              {!confirmVerify && !rejectMode && (
-                <div className="flex gap-2">
-                  <button onClick={() => setConfirmVerify(true)}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors">
-                    <CheckCircle className="h-4 w-4" /> Verify
-                  </button>
-                  <button onClick={() => setRejectMode(true)}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-                    <XCircle className="h-4 w-4" /> Reject
-                  </button>
-                </div>
-              )}
-
-              {confirmVerify && (
-                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-900">Verify this document?</p>
-                  <p className="text-xs text-slate-500">The client will be notified. This action is logged.</p>
-                  <div className="flex gap-2">
-                    <button onClick={() => setConfirmVerify(false)}
-                      className="flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                      Cancel
-                    </button>
-                    <button onClick={handleVerify} disabled={actionLoading === 'verify'}
-                      className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50">
-                      {actionLoading === 'verify' ? <CircleNotch className="mx-auto h-4 w-4 animate-spin" /> : 'Confirm Verify'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {rejectMode && (
-                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-900">Reject this document?</p>
-                  <textarea
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="Reason for rejection — client will see this and can re-upload…"
-                    rows={3}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={() => setRejectMode(false)}
-                      className="flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                      Cancel
-                    </button>
-                    <button onClick={handleReject} disabled={actionLoading === 'reject' || !rejectReason.trim()}
-                      className="flex-1 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
-                      {actionLoading === 'reject' ? <CircleNotch className="mx-auto h-4 w-4 animate-spin" /> : 'Confirm Reject'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
         </div>
+      </div>
+
+      <div className="relative min-h-0 flex-1 overflow-auto bg-muted/40">
+        {loading ? (
+          <div className="flex h-full min-h-64 items-center justify-center"><CircleNotch className="h-7 w-7 animate-spin text-muted-foreground" /></div>
+        ) : failed || !url ? (
+          <div className="flex h-full min-h-64 flex-col items-center justify-center gap-2 text-muted-foreground">
+            <FileText className="h-8 w-8" />
+            <p className="text-sm font-semibold text-foreground">This file could not be loaded</p>
+            <p className="text-xs">Refresh the page and try again.</p>
+          </div>
+        ) : isImage ? (
+          <div className="flex min-h-full items-start justify-center p-4">
+            <img
+              src={url}
+              alt={fmt(doc.type)}
+              className="rounded shadow-sm transition-transform"
+              style={{ width: `${zoom * 100}%`, maxWidth: 'none', transform: `rotate(${rotation}deg)` }}
+            />
+          </div>
+        ) : (
+          <iframe src={url} className="h-full min-h-[28rem] w-full border-0" title={fmt(doc.type)} />
+        )}
       </div>
     </div>
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Client and stage context ──────────────────────────────────────────────────
 
-type TabKey = 'ALL' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+function bestStatus(docs: any[], type: string): string | null {
+  const mine = docs.filter((d) => d.type === type).map((d) => d.status);
+  for (const s of ['VERIFIED', 'PENDING', 'REJECTED']) if (mine.includes(s)) return s;
+  return null;
+}
 
-export default function DocumentsPage() {
-  const { me } = useAdmin();
-  const isConsultant = (me?.role as string)?.toUpperCase() === 'CONSULTANT';
-  const reviewerName = me?.name || me?.email || 'admin';
-
-  // allDocs holds the full unfiltered list; tabs/search filter client-side
-  const [allDocs, setAllDocs]         = useState<any[]>([]);
-  const [myPersonIds, setMyPersonIds] = useState<Set<string> | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [selected, setSelected]       = useState<any | null>(null);
-  const [tab, setTab]                 = useState<TabKey>('PENDING');
-  const [search, setSearch]           = useState('');
-  const [typeFilter, setTypeFilter]   = useState('');
-  const [sortKey, setSortKey]         = useState<SortKey>('uploaded');
-  const [sortDir, setSortDir]         = useState<SortDir>('desc');
-
-  const [prescreening, setPrescreening]     = useState<Set<string>>(new Set());
-  const [prescreenResult, setPrescreenResult] = useState<{ docId: string; docType: string; flags: string[]; summary: string; confidence: number } | null>(null);
-
-  useEffect(() => {
-    if (!isConsultant || !me?.email) { setMyPersonIds(null); return; }
-    api.getAllEngagements()
-      .then((engs: any[]) => {
-        const ids = new Set(
-          engs.filter((e) => e.consultantEmail?.toLowerCase() === me.email?.toLowerCase())
-              .map((e) => e.personId).filter(Boolean)
-        );
-        setMyPersonIds(ids);
-      })
-      .catch(() => setMyPersonIds(new Set()));
-  }, [isConsultant, me?.email]);
-
-  // Always load ALL documents once — filter/tab is done client-side
-  const load = useCallback(() => {
-    setLoading(true);
-    api.getAllDocuments()
-      .then((data) => setAllDocs(data ?? []))
-      .catch((e: any) => toast.error(e.message))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  function handleVerified(id: string) {
-    setAllDocs((prev) => prev.map((d) => d.id === id ? { ...d, status: 'VERIFIED', verifiedAt: new Date().toISOString() } : d));
-  }
-  function handleRejected(id: string) {
-    setAllDocs((prev) => prev.map((d) => d.id === id ? { ...d, status: 'REJECTED' } : d));
-  }
-
-  async function handlePrescreen(doc: any, e: React.MouseEvent) {
-    e.stopPropagation();
-    setPrescreening((prev) => new Set(prev).add(doc.id));
-    try {
-      const result = await api.prescreenDocument(doc.id);
-      setPrescreenResult({ docId: doc.id, docType: doc.type, flags: result.flags ?? [], summary: result.summary ?? '', confidence: Number(result.confidence ?? 0) });
-    } catch (err: any) {
-      toast.error(err.message ?? 'Pre-screen failed');
-    } finally {
-      setPrescreening((prev) => { const s = new Set(prev); s.delete(doc.id); return s; });
-    }
-  }
-
-  function handleSort(key: SortKey) {
-    if (key === sortKey) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKey(key); setSortDir('asc'); }
-  }
-
-  // Stats always from the full list (not affected by tab/search)
-  const pending      = allDocs.filter((d) => d.status === 'PENDING').length;
-  const verified     = allDocs.filter((d) => d.status === 'VERIFIED').length;
-  const rejected     = allDocs.filter((d) => d.status === 'REJECTED').length;
-  const expiringSoon = allDocs.filter((d) => {
-    if (!d.expiryDate) return false;
-    const days = daysUntil(d.expiryDate);
-    return days >= 0 && days <= 30;
-  }).length;
-
-  // Tab + search + type filter — all client-side
-  const filtered = allDocs.filter((d) => {
-    if (tab !== 'ALL' && d.status !== tab) return false;
-    if (isConsultant && myPersonIds !== null && !myPersonIds.has(d.personId)) return false;
-    const q = search.toLowerCase();
-    const nameMatch = !q || d.person?.name?.toLowerCase().includes(q) || d.person?.email?.toLowerCase().includes(q) || d.type?.toLowerCase().includes(q);
-    const typeMatch = !typeFilter || d.type === typeFilter;
-    return nameMatch && typeMatch;
-  });
-
-  // Sort
-  const sorted = sortDocs(filtered, sortKey, sortDir);
-
-  const TABS: { key: TabKey; label: string; count?: number }[] = [
-    { key: 'PENDING',  label: 'Pending',  count: pending  },
-    { key: 'ALL',      label: 'All'                       },
-    { key: 'VERIFIED', label: 'Verified', count: verified  },
-    { key: 'REJECTED', label: 'Rejected', count: rejected  },
-  ];
+function ContextStrip({ doc, ctx }: { doc: any; ctx: any | 'loading' | 'error' | undefined }) {
+  const person = doc.person ?? {};
+  const loaded = ctx && ctx !== 'loading' && ctx !== 'error' ? ctx : null;
+  const required: string[] = loaded?.requiredDocTypes ?? [];
+  const needed = required.includes(doc.type);
 
   return (
-    <div className="space-y-6">
-
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 data-tour="page-title" className="text-xl font-bold text-slate-900">Document Verification</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Review, verify, and manage all client-uploaded credentials</p>
+    <div className="rounded-2xl border border-border bg-white px-4 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-foreground">
+            {person.name ?? 'Unknown client'}
+            {person.profession && <span className="ml-2 text-xs font-medium text-muted-foreground">{fmt(person.profession)}</span>}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {ctx === 'loading' || ctx === undefined ? 'Loading case details…'
+              : ctx === 'error' ? 'Case details could not be loaded.'
+              : loaded?.stage ? <>Stage {loaded.stage.index} of {loaded.stage.total} · <span className="font-semibold text-foreground">{loaded.stage.label}</span>{loaded.stage.pathway ? ` · ${loaded.stage.pathway}` : ''}</>
+              : loaded?.engagement ? 'No stages set up for this case yet.'
+              : 'This client has no case yet.'}
+          </p>
         </div>
-        <button onClick={() => load()}
-          className="mt-1 flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-slate-50 transition-colors">
-          <ArrowClockwise className="h-4 w-4" /> Refresh
-        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          {needed && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/20 px-2.5 py-1 text-xs font-bold text-foreground">
+              <Flag className="h-3.5 w-3.5" /> Needed for this stage
+            </span>
+          )}
+          {loaded?.engagement && (
+            <Link href={`/caseload/${loaded.engagement.id}`} className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">
+              Open case <ArrowSquareOut className="h-3.5 w-3.5" />
+            </Link>
+          )}
+        </div>
       </div>
 
-      {/* KPI bar — monochrome */}
-      <div data-tour="docs-kpis" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { icon: Clock,         value: pending,      label: 'Pending Review', primary: true  },
-          { icon: ShieldCheck,   value: verified,     label: 'Verified',       primary: false },
-          { icon: XCircle,       value: rejected,     label: 'Rejected',       primary: false },
-          { icon: WarningCircle, value: expiringSoon, label: 'Expiring ≤30d',  primary: false },
-        ].map(({ icon: Icon, value, label, primary }) => (
-          <div key={label} className={`rounded-xl border shadow-sm p-4 flex items-center gap-3 bg-white ${primary && pending > 0 ? 'border-slate-300' : 'border-slate-100'}`}>
-            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${primary ? 'bg-primary/10' : 'bg-slate-100'}`}>
-              <Icon className={`h-4.5 w-4.5 ${primary ? 'text-primary' : 'text-slate-500'}`} />
-            </div>
-            <div>
-              <p className={`text-xl font-bold tabular-nums ${primary ? 'text-slate-900' : 'text-slate-800'}`}>{value}</p>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">{label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      {required.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/70 pt-2.5">
+          <span className="text-xs font-semibold text-muted-foreground">This stage needs:</span>
+          {required.map((type) => {
+            const s = bestStatus(loaded.documents ?? [], type);
+            return (
+              <span key={type} className={`inline-flex items-center gap-1.5 text-xs ${type === doc.type ? 'font-bold text-foreground' : 'text-muted-foreground'}`}>
+                <span className={`h-2 w-2 rounded-full ${s ? STATUS[s].dot : 'border border-muted-foreground/50'}`} />
+                {fmt(type)}
+                <span className="text-muted-foreground/70">{s ? STATUS[s].label.toLowerCase() : 'missing'}</span>
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
-      {/* Tabs + Filters */}
-      <div data-tour="docs-filters" className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-          {TABS.map((t) => (
-            <button key={t.key} onClick={() => { setTab(t.key); setSearch(''); setTypeFilter(''); setSortKey('uploaded'); setSortDir('desc'); }}
-              className={`rounded-md px-4 py-1.5 text-sm font-semibold transition-colors ${tab === t.key ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-800'}`}>
-              {t.label}
-              {t.count !== undefined && (
-                <span className={`ml-1.5 rounded-md px-1.5 py-0.5 text-xs ${tab === t.key ? 'bg-primary/10 text-primary' : 'bg-slate-200 text-slate-500'}`}>
-                  {t.count}
-                </span>
-              )}
+// ── Suggested checks (AI) ─────────────────────────────────────────────────────
+
+function CheckPanel({ check, running, onRun }: { check?: Check; running: boolean; onRun: () => void }) {
+  return (
+    <div className="rounded-2xl border border-border bg-white px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-xs font-bold text-foreground"><ListChecks className="h-4 w-4 text-primary" /> What to check</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            AI suggestions based on the document type and dates. The AI has not seen the file; the decision is yours.
+          </p>
+        </div>
+        {!check && (
+          <button
+            onClick={onRun}
+            disabled={running}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-bold text-foreground transition-colors hover:bg-muted/60 disabled:opacity-50"
+          >
+            {running ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Sparkle className="h-3.5 w-3.5" />}
+            Suggest checks
+          </button>
+        )}
+      </div>
+      {check && (
+        <div className="mt-2.5 border-t border-border/70 pt-2.5">
+          <p className="text-xs text-foreground">{check.summary}</p>
+          {check.flags.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {check.flags.map((flag, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" /> {flag}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Decision bar ──────────────────────────────────────────────────────────────
+
+function DecisionBar({
+  doc, busy, rejectOpen, setRejectOpen, onVerify, onReject,
+}: {
+  doc: any; busy: 'verify' | 'reject' | null; rejectOpen: boolean; setRejectOpen: (open: boolean) => void;
+  onVerify: () => void; onReject: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState('');
+  const textRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => { setReason(''); }, [doc.id]);
+  useEffect(() => { if (rejectOpen) textRef.current?.focus(); }, [rejectOpen]);
+
+  if (doc.status !== 'PENDING') {
+    return (
+      <div className="rounded-2xl border border-border bg-white px-4 py-3 text-xs text-muted-foreground">
+        <StatusPill status={doc.status} />
+        {doc.verifiedBy && <span className="ml-3">by {doc.verifiedBy}{doc.verifiedAt ? ` on ${shortDate(doc.verifiedAt)}` : ''}</span>}
+        {doc.rejectionReason && <p className="mt-1.5 text-foreground"><span className="font-semibold">Reason given to the client:</span> {doc.rejectionReason}</p>}
+      </div>
+    );
+  }
+
+  if (rejectOpen) {
+    return (
+      <div className="rounded-2xl border border-border bg-white p-4">
+        <p className="text-sm font-bold text-foreground">Why is this being rejected?</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">The client will see this and can upload a corrected copy.</p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {REJECT_REASONS.map((r) => (
+            <button
+              key={r.label}
+              onClick={() => { setReason(r.text); textRef.current?.focus(); }}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${reason === r.text ? 'border-primary bg-primary/10 text-primary' : 'border-border text-foreground hover:bg-muted/60'}`}
+            >
+              {r.label}
             </button>
           ))}
         </div>
+        <textarea
+          ref={textRef}
+          id="reject-reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Choose a reason above, or write your own…"
+          rows={2}
+          className="mt-3 w-full resize-none rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+        />
+        <div className="mt-3 flex justify-end gap-2">
+          <button onClick={() => setRejectOpen(false)} className="rounded-xl border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60">
+            Cancel
+          </button>
+          <button
+            onClick={() => onReject(reason.trim())}
+            disabled={!reason.trim() || busy === 'reject'}
+            className="flex items-center gap-2 rounded-xl bg-foreground px-4 py-2 text-sm font-bold text-white hover:bg-foreground/90 disabled:opacity-40"
+          >
+            {busy === 'reject' && <CircleNotch className="h-4 w-4 animate-spin" />} Reject and continue
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search client or type…"
-              className="h-9 w-56 rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+  const key = 'ml-1 rounded border border-current/30 px-1 text-[10px] font-bold opacity-70';
+  return (
+    <div data-tour="docs-decision" className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-white p-3">
+      <button
+        onClick={() => setRejectOpen(true)}
+        disabled={!!busy}
+        className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted/60 disabled:opacity-40"
+      >
+        <XCircle className="h-4 w-4" /> Reject <span className={key}>R</span>
+      </button>
+      <button
+        onClick={onVerify}
+        disabled={!!busy}
+        className="flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-40"
+      >
+        {busy === 'verify' ? <CircleNotch className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+        Verify <span className={key}>V</span>
+      </button>
+    </div>
+  );
+}
+
+// ── Workspace: context, viewer, checks and decision for one document ───────────
+
+function Workspace(props: {
+  doc: any; ctx: any; check?: Check; checkRunning: boolean; onRunCheck: () => void;
+  busy: 'verify' | 'reject' | null; rejectOpen: boolean; setRejectOpen: (open: boolean) => void;
+  onVerify: () => void; onReject: (reason: string) => void;
+  /** On very large screens, put the details in a column beside the document. */
+  wide?: boolean;
+}) {
+  const { doc, wide } = props;
+  return (
+    <div
+      className={`flex min-w-0 flex-1 flex-col gap-3 ${
+        wide ? '2xl:grid 2xl:min-h-0 2xl:grid-cols-[minmax(0,1fr)_21rem] 2xl:grid-rows-[minmax(0,1fr)_auto]' : ''
+      }`}
+    >
+      <div className={wide ? '2xl:hidden' : ''}><ContextStrip doc={doc} ctx={props.ctx} /></div>
+      <Viewer doc={doc} className={`h-[68vh] min-h-[24rem] ${wide ? '2xl:row-span-2 2xl:h-auto 2xl:min-h-0' : ''}`} />
+      <div className={`flex flex-col gap-3 ${wide ? '2xl:col-start-2 2xl:row-start-1 2xl:min-h-0 2xl:overflow-y-auto' : ''}`}>
+        {wide && <div className="hidden 2xl:block"><ContextStrip doc={doc} ctx={props.ctx} /></div>}
+        {doc.expiryDate && (
+          <p className="flex flex-wrap items-center gap-2 px-1 text-xs text-muted-foreground">
+            Expiry on file: <span className="font-semibold text-foreground">{shortDate(doc.expiryDate)}</span> <ExpiryText date={doc.expiryDate} />
+          </p>
+        )}
+        {doc.status === 'PENDING' && <CheckPanel check={props.check} running={props.checkRunning} onRun={props.onRunCheck} />}
+      </div>
+      {/* A direct child of the workspace so it can stay pinned to the bottom of the screen while the page scrolls. */}
+      <div className={`sticky bottom-0 z-10 ${wide ? '2xl:static 2xl:col-start-2 2xl:row-start-2' : ''}`}>
+        <DecisionBar
+          doc={doc} busy={props.busy} rejectOpen={props.rejectOpen} setRejectOpen={props.setRejectOpen}
+          onVerify={props.onVerify} onReject={props.onReject}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+const FILTERS: { key: string; label: string; count: keyof Counts }[] = [
+  { key: 'ALL', label: 'All', count: 'all' },
+  { key: 'PENDING', label: 'Waiting', count: 'pending' },
+  { key: 'VERIFIED', label: 'Verified', count: 'verified' },
+  { key: 'REJECTED', label: 'Rejected', count: 'rejected' },
+  { key: 'EXPIRING', label: 'Expiring', count: 'expiring' },
+  { key: 'EXPIRED', label: 'Expired', count: 'expired' },
+];
+
+const COLUMNS: { key: string; label: string }[] = [
+  { key: 'client', label: 'Client' },
+  { key: 'type', label: 'Document' },
+  { key: 'uploaded', label: 'Uploaded' },
+  { key: 'expiry', label: 'Expiry' },
+  { key: 'status', label: 'Status' },
+];
+
+const PAGE_SIZE = 25;
+
+export default function DocumentsPage() {
+  const { me } = useAdmin();
+  const reviewerName = me?.name || me?.email || 'staff';
+
+  const [mode, setMode] = useState<Mode>('review');
+  const [counts, setCounts] = useState<Counts | null>(null);
+
+  // Review queue
+  const [queue, setQueue] = useState<any[]>([]);
+  const [queueLoading, setQueueLoading] = useState(true);
+  const [queueSearch, setQueueSearch] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Shared across both modes
+  const [contexts, setContexts] = useState<Record<string, any>>({});
+  const [checks, setChecks] = useState<Record<string, Check>>({});
+  const [checkRunning, setCheckRunning] = useState<string | null>(null);
+  const [busy, setBusy] = useState<'verify' | 'reject' | null>(null);
+  const [rejectOpen, setRejectOpen] = useState(false);
+
+  // Lookup table
+  const [filter, setFilter] = useState('ALL');
+  const [search, setSearch] = useState('');
+  const [debounced, setDebounced] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [sort, setSort] = useState('uploaded');
+  const [dir, setDir] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(1);
+  const [table, setTable] = useState<{ items: any[]; total: number } | null>(null);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [viewing, setViewing] = useState<any | null>(null);
+
+  const loadCounts = useCallback(() => {
+    api.getDocumentCounts().then(setCounts).catch(() => {});
+  }, []);
+
+  const loadQueue = useCallback(() => {
+    setQueueLoading(true);
+    api.getDocumentQueue()
+      .then((data) => setQueue(data ?? []))
+      .catch((e: any) => toast.error(e.message))
+      .finally(() => setQueueLoading(false));
+  }, []);
+
+  useEffect(() => { loadQueue(); loadCounts(); }, [loadQueue, loadCounts]);
+
+  // Queue grouped by client; both the groups and the documents inside are longest-waiting first.
+  const groups = useMemo(() => {
+    const q = queueSearch.trim().toLowerCase();
+    const map = new Map<string, { personId: string; name: string; docs: any[] }>();
+    for (const d of queue) {
+      const name = d.person?.name ?? 'Unknown client';
+      if (q && !name.toLowerCase().includes(q) && !(d.person?.email ?? '').toLowerCase().includes(q)) continue;
+      if (!map.has(d.personId)) map.set(d.personId, { personId: d.personId, name, docs: [] });
+      map.get(d.personId)!.docs.push(d);
+    }
+    return [...map.values()];
+  }, [queue, queueSearch]);
+
+  const flat = useMemo(() => groups.flatMap((g) => g.docs), [groups]);
+  const selected = flat.find((d) => d.id === selectedId) ?? flat[0] ?? null;
+  const position = selected ? flat.findIndex((d) => d.id === selected.id) : -1;
+  const active = mode === 'review' ? selected : viewing;
+
+  const loadContext = useCallback((personId: string) => {
+    setContexts((prev) => (prev[personId] ? prev : { ...prev, [personId]: 'loading' }));
+    api.getDocumentReviewContext(personId)
+      .then((ctx) => setContexts((prev) => ({ ...prev, [personId]: ctx })))
+      .catch(() => setContexts((prev) => ({ ...prev, [personId]: 'error' })));
+  }, []);
+
+  const activePersonId: string | undefined = active?.personId;
+  useEffect(() => {
+    if (activePersonId && contexts[activePersonId] === undefined) loadContext(activePersonId);
+  }, [activePersonId, contexts, loadContext]);
+
+  useEffect(() => { setRejectOpen(false); }, [active?.id]);
+
+  const move = useCallback((delta: number) => {
+    if (position < 0) return;
+    const next = flat[position + delta];
+    if (next) setSelectedId(next.id);
+  }, [flat, position]);
+
+  // Lookup table loading
+  useEffect(() => { const t = setTimeout(() => setDebounced(search), 300); return () => clearTimeout(t); }, [search]);
+  useEffect(() => { setPage(1); }, [filter, debounced, typeFilter, sort, dir]);
+
+  const loadTable = useCallback(() => {
+    setTableLoading(true);
+    api.searchDocuments({ filter, q: debounced, type: typeFilter, page, pageSize: PAGE_SIZE, sort, dir })
+      .then((res) => setTable({ items: res.items ?? [], total: res.total ?? 0 }))
+      .catch((e: any) => toast.error(e.message))
+      .finally(() => setTableLoading(false));
+  }, [filter, debounced, typeFilter, page, sort, dir]);
+
+  useEffect(() => { if (mode === 'all') loadTable(); }, [mode, loadTable]);
+
+  function refreshAll() {
+    loadQueue(); loadCounts();
+    if (mode === 'all') loadTable();
+  }
+
+  // ── Decisions ──
+
+  function afterDecision(doc: any, status: 'VERIFIED' | 'REJECTED', reason?: string) {
+    const index = flat.findIndex((d) => d.id === doc.id);
+    const next = index >= 0 ? (flat[index + 1] ?? flat[index - 1] ?? null) : null;
+    setQueue((prev) => prev.filter((d) => d.id !== doc.id));
+    if (mode === 'review') setSelectedId(next?.id ?? null);
+    setContexts((prev) => { const copy = { ...prev }; delete copy[doc.personId]; return copy; });
+    setViewing(null);
+    loadCounts();
+    if (mode === 'all') loadTable();
+
+    toast.success(status === 'VERIFIED' ? `${fmt(doc.type)} verified` : `${fmt(doc.type)} rejected`, {
+      description: status === 'REJECTED' ? reason : undefined,
+      action: { label: 'Undo', onClick: () => undo(doc) },
+    });
+  }
+
+  async function undo(doc: any) {
+    try {
+      await api.reopenDocument(doc.id);
+      setQueue((prev) => {
+        if (prev.some((d) => d.id === doc.id)) return prev;
+        return [...prev, { ...doc, status: 'PENDING' }].sort(
+          (a, b) => new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime(),
+        );
+      });
+      setSelectedId(doc.id);
+      setContexts((prev) => { const copy = { ...prev }; delete copy[doc.personId]; return copy; });
+      loadCounts();
+      if (mode === 'all') loadTable();
+      toast.success('Decision undone. The document is back in the queue.');
+    } catch (e: any) {
+      toast.error(e.message ?? 'Could not undo.');
+    }
+  }
+
+  async function verify(doc: any) {
+    if (busy) return;
+    setBusy('verify');
+    try {
+      await api.verifyDocument(doc.id, reviewerName);
+      afterDecision(doc, 'VERIFIED');
+    } catch (e: any) {
+      toast.error(e.message ?? 'Could not verify.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function reject(doc: any, reason: string) {
+    if (busy || !reason) return;
+    setBusy('reject');
+    try {
+      await api.rejectDocument(doc.id, reviewerName, reason);
+      setRejectOpen(false);
+      afterDecision(doc, 'REJECTED', reason);
+    } catch (e: any) {
+      toast.error(e.message ?? 'Could not reject.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runCheck(doc: any) {
+    setCheckRunning(doc.id);
+    try {
+      const result = await api.prescreenDocument(doc.id);
+      setChecks((prev) => ({ ...prev, [doc.id]: { flags: result.flags ?? [], summary: result.summary ?? '', confidence: String(result.confidence ?? '') } }));
+    } catch (e: any) {
+      toast.error(e.message ?? 'Suggestions are unavailable right now.');
+    } finally {
+      setCheckRunning(null);
+    }
+  }
+
+  // Keyboard shortcuts for the review queue
+  const keyState = useRef({ selected, busy, rejectOpen, mode, viewing });
+  keyState.current = { selected, busy, rejectOpen, mode, viewing };
+  const actions = useRef({ verify, move });
+  actions.current = { verify, move };
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const s = keyState.current;
+      if (s.mode !== 'review' || s.viewing || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) {
+        if (e.key === 'Escape' && s.rejectOpen) setRejectOpen(false);
+        return;
+      }
+      // Do nothing while a guided tour or another dialog is open.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      const key = e.key.toLowerCase();
+      if (key === 'escape' && s.rejectOpen) { setRejectOpen(false); return; }
+      if (key === 'arrowdown' || key === 'j') { e.preventDefault(); actions.current.move(1); return; }
+      if (key === 'arrowup' || key === 'k') { e.preventDefault(); actions.current.move(-1); return; }
+      if (!s.selected || s.busy || s.rejectOpen) return;
+      if (key === 'v') { e.preventDefault(); actions.current.verify(s.selected); }
+      if (key === 'r') { e.preventDefault(); setRejectOpen(true); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  function toggleSort(key: string) {
+    if (key === sort) setDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSort(key); setDir('asc'); }
+  }
+
+  const pending = counts?.pending ?? queue.length;
+  const totalPages = table ? Math.max(1, Math.ceil(table.total / PAGE_SIZE)) : 1;
+
+  const workspaceProps = (doc: any) => ({
+    doc,
+    ctx: contexts[doc.personId],
+    check: checks[doc.id],
+    checkRunning: checkRunning === doc.id,
+    onRunCheck: () => runCheck(doc),
+    busy,
+    rejectOpen,
+    setRejectOpen,
+    onVerify: () => verify(doc),
+    onReject: (reason: string) => reject(doc, reason),
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 data-tour="page-title" className="text-xl font-bold text-foreground">Document Verification</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-accent" /> <b className="text-foreground">{pending}</b> waiting</span>
+            {counts && counts.expiring > 0 && <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-accent" /> <b className="text-foreground">{counts.expiring}</b> expiring within 30 days</span>}
+            {counts && counts.expired > 0 && <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-500" /> <b className="text-foreground">{counts.expired}</b> expired</span>}
+            {counts?.oldestPendingAt && <span>Longest wait: <b className="text-foreground">{waitedLong(counts.oldestPendingAt)}</b></span>}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div data-tour="docs-modes" className="flex rounded-xl border border-border bg-muted/40 p-1">
+            {([['review', `Review${pending ? ` ${pending}` : ''}`], ['all', 'All documents']] as [Mode, string][]).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setMode(key)}
+                className={`rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors ${mode === key ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <div className="flex items-center gap-1.5 h-9 rounded-lg border border-slate-200 bg-white px-3">
-            <Funnel className="h-3.5 w-3.5 text-slate-400" />
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
-              className="bg-transparent text-sm outline-none text-slate-700 pr-1">
-              <option value="">All types</option>
-              {DOC_TYPES.map((t) => <option key={t} value={t}>{fmt(t)}</option>)}
-            </select>
-          </div>
-          {(search || typeFilter) && (
-            <button onClick={() => { setSearch(''); setTypeFilter(''); }}
-              className="flex items-center gap-1 h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors">
-              <X className="h-3.5 w-3.5" /> Clear
-            </button>
-          )}
-          <span className="text-xs text-slate-400 font-medium ml-1">
-            {sorted.length} record{sorted.length !== 1 ? 's' : ''}
-          </span>
+          <button onClick={refreshAll} aria-label="Refresh" title="Refresh" className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white text-muted-foreground hover:bg-muted/60 hover:text-foreground">
+            <ArrowClockwise className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
-      {/* Table */}
-      {loading ? (
-        <div data-tour="docs-table" className="space-y-2">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}</div>
-      ) : sorted.length === 0 ? (
-        <div className="rounded-xl border border-slate-100 bg-white p-14 text-center shadow-sm">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100">
-            <CheckCircle className="h-6 w-6 text-slate-400" weight="fill" />
+      {/* ── Review mode ── */}
+      {mode === 'review' && (
+        queueLoading ? (
+          <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+            <Skeleton className="hidden h-[32rem] rounded-2xl lg:block" />
+            <Skeleton className="h-[32rem] rounded-2xl" />
           </div>
-          <h3 className="font-semibold text-slate-900">
-            {search || typeFilter ? 'No matches' : tab === 'PENDING' ? 'All clear — nothing pending' : `No ${tab.toLowerCase()} documents`}
-          </h3>
-          <p className="mt-1 text-sm text-slate-400">
-            {search || typeFilter ? 'Try adjusting your filters.' : tab === 'PENDING' ? 'Nothing in the queue right now.' : ''}
-          </p>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-slate-100 bg-white overflow-hidden shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr className="text-left text-xs">
-                <SortTh label="Client"   sortKey="client"   current={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortTh label="Type"     sortKey="type"     current={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortTh label="Uploaded" sortKey="uploaded" current={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortTh label="Expiry"   sortKey="expiry"   current={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortTh label="Status"   sortKey="status"   current={sortKey} dir={sortDir} onSort={handleSort} />
-                <th className="px-4 py-3 text-slate-500 font-semibold text-xs">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {sorted.map((doc) => {
-                const expiryDays = doc.expiryDate ? daysUntil(doc.expiryDate) : null;
-                const expiryWarning = expiryDays !== null && expiryDays <= 14;
-                return (
-                  <tr key={doc.id} onClick={() => setSelected(doc)}
-                    className="cursor-pointer hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3.5">
-                      <p className="font-medium text-slate-900">{doc.person?.name ?? doc.personId}</p>
-                      {doc.person?.email && <p className="text-xs text-slate-400">{doc.person.email}</p>}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="font-medium text-slate-800">{fmt(doc.type)}</span>
-                    </td>
-                    <td className="px-4 py-3.5 text-xs text-slate-500">
-                      <p>{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</p>
-                      <p className="text-slate-400">{doc.uploadedAt ? timeAgo(doc.uploadedAt) : ''}</p>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      {doc.expiryDate ? (
-                        <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ${
-                          expiryDays !== null && expiryDays <= 0  ? 'bg-slate-900 text-white ring-slate-700'
-                          : expiryWarning                         ? 'bg-slate-800 text-white ring-slate-600'
-                          : expiryDays !== null && expiryDays <= 30 ? 'bg-slate-100 text-slate-700 ring-slate-200'
-                          : 'bg-transparent text-slate-500 ring-transparent'
-                        }`}>
-                          {expiryWarning && <WarningCircle className="h-3 w-3" />}
-                          {expiryDays !== null && expiryDays <= 0 ? 'Expired'
-                            : expiryDays !== null && expiryDays <= 30 ? `${expiryDays}d left`
-                            : new Date(doc.expiryDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                        </span>
-                      ) : <span className="text-xs text-slate-400">—</span>}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={`inline-flex rounded-md px-2.5 py-0.5 text-xs font-bold ${STATUS_PILL[doc.status] ?? 'bg-slate-100 text-slate-600'}`}>
-                        {doc.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-1">
-                        <button title="View" onClick={() => setSelected(doc)}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button title="AI pre-screen" onClick={(e) => handlePrescreen(doc, e)} disabled={prescreening.has(doc.id)}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40 transition-colors">
-                          {prescreening.has(doc.id) ? <CircleNotch className="h-4 w-4 animate-spin" /> : <Sparkle className="h-4 w-4" />}
-                        </button>
-                        {doc.status === 'PENDING' && (
-                          <>
-                            <button title="Verify" onClick={() => setSelected(doc)}
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-primary transition-colors">
-                              <CheckCircle className="h-4 w-4" />
-                            </button>
-                            <button title="Reject" onClick={() => setSelected(doc)}
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-900 transition-colors">
-                              <XCircle className="h-4 w-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Detail panel */}
-      {selected && (
-        <DocPanel doc={selected} reviewerName={reviewerName}
-          onClose={() => setSelected(null)}
-          onVerified={handleVerified} onRejected={handleRejected} />
-      )}
-
-      {/* AI Pre-screen modal */}
-      {prescreenResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl border border-slate-100 bg-white shadow-xl p-6 space-y-5 mx-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <Sparkle className="h-4 w-4 text-slate-500" />
-                  <h2 className="text-base font-bold text-slate-900">AI Pre-screen Result</h2>
+        ) : queue.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-white p-14 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary/10">
+              <CheckCircle className="h-6 w-6 text-secondary" weight="fill" />
+            </div>
+            <h3 className="font-bold text-foreground">All clear</h3>
+            <p className="mt-1 text-sm text-muted-foreground">No documents are waiting for review.</p>
+            <button onClick={() => setMode('all')} className="mt-4 text-sm font-bold text-primary hover:underline">Browse all documents</button>
+          </div>
+        ) : (
+          <div className="grid items-start gap-4 lg:grid-cols-[250px_minmax(0,1fr)] 2xl:h-[calc(100vh-14rem)] 2xl:min-h-[34rem] 2xl:items-stretch">
+            {/* Queue */}
+            <aside data-tour="docs-queue" className="hidden min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-white lg:sticky lg:top-0 lg:flex lg:max-h-[calc(100vh-8rem)] 2xl:static 2xl:max-h-none">
+              <div className="border-b border-border p-3">
+                <p className="mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Queue <span className="font-medium normal-case tracking-normal">longest wait first</span>
+                </p>
+                <div className="relative">
+                  <MagnifyingGlass className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    id="queue-search"
+                    value={queueSearch}
+                    onChange={(e) => setQueueSearch(e.target.value)}
+                    placeholder="Search client"
+                    className="h-8 w-full rounded-lg border border-border bg-white pl-8 pr-2 text-xs outline-none focus:ring-2 focus:ring-primary/20"
+                  />
                 </div>
-                <p className="text-xs text-slate-400">{fmt(prescreenResult.docType)}</p>
               </div>
-              <button onClick={() => setPrescreenResult(null)} className="text-slate-400 hover:text-slate-700 transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Confidence bar — monochrome */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${prescreenResult.confidence}%` }} />
+              <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                {groups.length === 0 && <p className="p-4 text-center text-xs text-muted-foreground">No client matches that search.</p>}
+                {groups.map((g) => (
+                  <div key={g.personId} className="mb-2">
+                    <p className="flex items-center justify-between gap-2 px-2 py-1 text-xs font-bold text-foreground">
+                      <span className="truncate">{g.name}</span>
+                      <span className="shrink-0 font-medium text-muted-foreground" title="Longest wait for this client">{waited(g.docs[0]?.uploadedAt)}</span>
+                    </p>
+                    {g.docs.map((d) => (
+                      <button
+                        key={d.id}
+                        onClick={() => setSelectedId(d.id)}
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${selected?.id === d.id ? 'bg-primary/10 font-semibold text-primary' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`}
+                      >
+                        <span className="truncate">{fmt(d.type)}</span>
+                        {d.expiryDate && daysUntil(d.expiryDate) <= 30 && (
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${daysUntil(d.expiryDate) < 0 ? 'bg-rose-500' : 'bg-accent'}`} title={daysUntil(d.expiryDate) < 0 ? 'Expired' : 'Expiring soon'} />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ))}
               </div>
-              <span className="text-xs font-bold text-slate-700 tabular-nums w-20 text-right">
-                {prescreenResult.confidence}% confidence
-              </span>
-            </div>
+              <div className="flex items-center justify-between border-t border-border px-3 py-2 text-xs text-muted-foreground">
+                <span>{position >= 0 ? `${position + 1} of ${flat.length}` : `${flat.length} waiting`}</span>
+                <span className="hidden xl:inline">↑ ↓ to move · V verify · R reject</span>
+              </div>
+            </aside>
 
-            {/* Summary */}
-            <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-sm text-slate-700 leading-relaxed">
-              {prescreenResult.summary}
+            <div className="flex min-h-0 min-w-0 flex-col gap-3">
+              {/* Compact queue navigation when the list is hidden */}
+              <div className="flex items-center justify-between rounded-xl border border-border bg-white px-3 py-2 lg:hidden">
+                <button onClick={() => move(-1)} disabled={position <= 0} aria-label="Previous document" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30"><CaretLeft className="h-4 w-4" /></button>
+                <span className="text-xs font-semibold text-foreground">{position + 1} of {flat.length} waiting</span>
+                <button onClick={() => move(1)} disabled={position >= flat.length - 1} aria-label="Next document" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30"><CaretRight className="h-4 w-4" /></button>
+              </div>
+              {selected ? (
+                <div className="flex min-w-0 flex-1 flex-col 2xl:min-h-0">
+                  <Workspace {...workspaceProps(selected)} wide />
+                </div>
+              ) : (
+                <div className="flex flex-1 items-center justify-center rounded-2xl border border-border bg-white p-10 text-sm text-muted-foreground">
+                  No document matches that search.
+                </div>
+              )}
             </div>
+          </div>
+        )
+      )}
 
-            {/* Flags */}
-            {prescreenResult.flags.length > 0 ? (
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Issues flagged</p>
-                <ul className="space-y-1.5">
-                  {prescreenResult.flags.map((flag, i) => (
-                    <li key={i} className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
-                      <WarningCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-slate-500" />
-                      {flag}
-                    </li>
-                  ))}
-                </ul>
+      {/* ── All documents ── */}
+      {mode === 'all' && (
+        <>
+          <div data-tour="docs-filters" className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-1.5">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${filter === f.key ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-white text-muted-foreground hover:text-foreground'}`}
+                >
+                  {f.label}
+                  {counts && <span className="ml-1.5 tabular-nums opacity-70">{counts[f.count] as number}</span>}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <MagnifyingGlass className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  id="docs-search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search client or document"
+                  className="h-9 w-56 rounded-xl border border-border bg-white pl-8 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="flex h-9 items-center gap-1.5 rounded-xl border border-border bg-white px-3">
+                <Funnel className="h-3.5 w-3.5 text-muted-foreground" />
+                <select id="docs-type" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="bg-transparent pr-1 text-sm text-foreground outline-none">
+                  <option value="">All types</option>
+                  {DOC_TYPES.map((t) => <option key={t} value={t}>{fmt(t)}</option>)}
+                </select>
+              </div>
+              {(search || typeFilter) && (
+                <button onClick={() => { setSearch(''); setTypeFilter(''); }} className="flex h-9 items-center gap-1 rounded-xl border border-border bg-white px-3 text-sm text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5" /> Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div data-tour="docs-table" className="overflow-hidden rounded-2xl border border-border bg-white">
+            {tableLoading && !table ? (
+              <div className="space-y-2 p-3">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)}</div>
+            ) : !table || table.items.length === 0 ? (
+              <div className="p-14 text-center">
+                <h3 className="font-bold text-foreground">{search || typeFilter || filter !== 'ALL' ? 'No documents match' : 'No documents yet'}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{search || typeFilter || filter !== 'ALL' ? 'Try a different filter or search.' : 'Documents appear here as clients upload them.'}</p>
               </div>
             ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <CheckCircle className="h-4 w-4 shrink-0 text-slate-500" />
-                No issues detected — document looks complete.
+              <div className={`overflow-x-auto ${tableLoading ? 'opacity-60' : ''}`}>
+                <table className="w-full min-w-[44rem] text-sm">
+                  <thead className="border-b border-border bg-muted/40">
+                    <tr className="text-left text-xs">
+                      {COLUMNS.map((c) => (
+                        <th key={c.key} className="px-4 py-3 font-semibold">
+                          <button onClick={() => toggleSort(c.key)} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                            {c.label}
+                            {sort === c.key && (dir === 'asc' ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />)}
+                          </button>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/70">
+                    {table.items.map((doc) => (
+                      <tr key={doc.id} onClick={() => setViewing(doc)} className="cursor-pointer transition-colors hover:bg-muted/40">
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-foreground">{doc.person?.name ?? 'Unknown client'}</p>
+                          {doc.person?.email && <p className="text-xs text-muted-foreground">{doc.person.email}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-foreground">{fmt(doc.type)}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{shortDate(doc.uploadedAt)}</td>
+                        <td className="px-4 py-3"><ExpiryText date={doc.expiryDate} /></td>
+                        <td className="px-4 py-3"><StatusPill status={doc.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
+            {table && table.total > 0 && (
+              <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
+                <span>
+                  {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, table.total)} of {table.total}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} aria-label="Previous page" className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted disabled:opacity-30"><CaretLeft className="h-4 w-4" /></button>
+                  <span className="px-1 font-semibold text-foreground">Page {page} of {totalPages}</span>
+                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} aria-label="Next page" className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted disabled:opacity-30"><CaretRight className="h-4 w-4" /></button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
-            <div className="flex justify-end pt-1">
-              <button onClick={() => setPrescreenResult(null)}
-                className="rounded-lg border border-slate-200 px-5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-                Close
+      {/* A document opened from the table */}
+      {viewing && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="flex-1 bg-black/30" onClick={() => setViewing(null)} />
+          <div className="flex h-full w-full max-w-3xl flex-col gap-3 overflow-y-auto bg-[#F8FAFC] p-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-2 text-sm font-bold text-foreground">
+                {fmt(viewing.type)} <StatusPill status={viewing.status} />
+                {viewing.expiryDate && daysUntil(viewing.expiryDate) <= 30 && <WarningCircle className="h-4 w-4 text-accent" />}
+              </p>
+              <button onClick={() => setViewing(null)} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
+                <X className="h-4 w-4" />
               </button>
+            </div>
+            <div className="flex flex-1 flex-col">
+              <Workspace {...workspaceProps(viewing)} />
             </div>
           </div>
         </div>

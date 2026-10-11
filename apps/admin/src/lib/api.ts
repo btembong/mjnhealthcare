@@ -133,6 +133,21 @@ export const api = {
   getAllDocuments: (status?: string) =>
     request<any[]>(`/documents${status && status !== 'ALL' ? `?status=${status}` : ''}`),
 
+  getDocumentQueue: () => request<any[]>('/documents/queue'),
+
+  getDocumentCounts: () =>
+    request<{ all: number; pending: number; verified: number; rejected: number; expiring: number; expired: number; oldestPendingAt: string | null }>('/documents/counts'),
+
+  searchDocuments: (params: { filter?: string; q?: string; type?: string; page?: number; pageSize?: number; sort?: string; dir?: string }) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') qs.set(k, String(v)); });
+    return request<{ items: any[]; total: number; page: number; pageSize: number }>(`/documents/search?${qs.toString()}`);
+  },
+
+  getDocumentReviewContext: (personId: string) => request<any>(`/documents/review-context/${personId}`),
+
+  reopenDocument: (id: string) => request<any>(`/documents/${id}/reopen`, { method: 'PATCH' }),
+
   getDocumentsByPerson: (personId: string) =>
     request<any[]>(`/documents/person/${personId}`),
 

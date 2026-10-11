@@ -6,6 +6,8 @@ export type ConsultantScope = {
   canSeeEngagement: (engagement: { consultantId?: string | null }) => boolean;
   canSeeEngagementId: (engagementId?: string | null) => boolean;
   canSeePerson: (personId?: string | null) => boolean;
+  /** People who belong only to other consultants. Use in a `notIn` filter. */
+  hiddenPersonIds: string[];
 };
 
 const DENIED = 'You do not have access to this record.';
@@ -84,6 +86,7 @@ export class AccessService {
       canSeeEngagement: (e) => !e.consultantId || mine.has(e.consultantId),
       canSeeEngagementId: (id) => !!id && visibleEngagements.has(id),
       canSeePerson: (id) => !!id && (id === user.id || myClients.has(id) || !othersClients.has(id)),
+      hiddenPersonIds: [...othersClients].filter((id) => id !== user.id && !myClients.has(id)),
     };
   }
 

@@ -263,11 +263,12 @@ const TOURS: Record<string, TourDef> = {
   'admin.documents': {
     title: 'Document verification',
     steps: [
-      { target: 'page-title', title: 'Review client documents', body: 'Every upload is checked by a person before it counts towards a case.' },
-      { target: 'docs-kpis', title: 'Where things stand', body: 'How many documents are pending review, verified, rejected, or expiring within 30 days.' },
-      { target: 'docs-filters', title: 'Tabs and filters', body: 'Pending shows what is waiting for you. Switch tabs to see verified or rejected documents.' },
-      { target: 'docs-table', title: 'Open, then verify or reject', body: 'Open a document to check it. To reject, give a reason: the client sees it and can upload a corrected copy.' },
-      { title: 'AI pre-screen', body: 'You can ask AI to flag likely problems before you review. It assists; the decision to verify or reject is yours.' },
+      { target: 'page-title', title: 'Review client documents', body: 'Every upload is checked by a person before it counts towards a case. The line below shows how many are waiting and the longest wait.' },
+      { target: 'docs-modes', title: 'Two ways to work', body: 'Review is for clearing the queue, one document after another. All documents is a searchable list for looking something up.' },
+      { target: 'docs-queue', skipIfMissing: true, title: 'The queue', body: 'Documents waiting for review, grouped by client, with the longest wait at the top.' },
+      { target: 'docs-viewer', skipIfMissing: true, title: 'The document', body: 'Zoom and rotate to read it. Above it you see the client, their current stage, and whether this document is needed for that stage. Each time a document is opened it is recorded in the audit log.' },
+      { target: 'docs-decision', skipIfMissing: true, title: 'Verify or reject', body: 'Press V to verify or R to reject, or use the buttons. To reject, pick a common reason or write your own: the client sees it. The next document opens by itself, and Undo appears for a few seconds.' },
+      { title: 'What to check', body: 'You can ask AI what to look for on this type of document. It works from the document type and dates only and has not seen the file, so the decision is yours.' },
     ],
   },
   'admin.drafts': {

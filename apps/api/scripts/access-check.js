@@ -118,7 +118,7 @@ async function findSecret() {
 
   for (const [label, p, noHash] of [
     ['lists people, no password field', '/persons', true], ['lists all cases', '/engagements'], ['lists all orders', '/orders/admin'],
-    ['sees document queue', '/documents'], ['sees finance reports', '/reports/finance'], ['sees payment stats', '/admin/payments/stats'],
+    ['sees document queue', '/documents'], ['sees review queue', '/documents/queue'], ['sees document counts', '/documents/counts'], ['searches documents', '/documents/search'], ['sees finance reports', '/reports/finance'], ['sees payment stats', '/admin/payments/stats'],
     ['sees pending AI drafts', '/ai/drafts/pending'], ['sees audit log', '/compliance/audit-log'], ['lists officers', '/admin/officers'],
   ]) await check('admin ' + label, admin, p, 200, noHash);
 
@@ -140,10 +140,11 @@ async function findSecret() {
     await check('client reads own bookings', client, '/bookings/person/' + a, 200);
     for (const p of ['/persons', '/engagements', '/orders/admin', '/documents', '/reports/finance', '/admin/payments/stats',
       '/ai/drafts/pending', '/compliance/audit-log', '/admin/officers', '/academy/courses/admin', '/bookings/admin',
-      '/credits/admin/wallets', '/officer/my-cases', '/blog/admin/all', '/staffing/admin/applications'])
+      '/credits/admin/wallets', '/officer/my-cases', '/blog/admin/all', '/staffing/admin/applications',
+      '/documents/queue', '/documents/counts', '/documents/search'])
       await check('client cannot open ' + p, client, p, 403);
     if (b) for (const p of ['/persons/', '/orders/person/', '/documents/person/', '/engagements/client/', '/bookings/person/',
-      '/academy/study-plan/', '/ai/study-conversation/'])
+      '/academy/study-plan/', '/ai/study-conversation/', '/documents/review-context/'])
       await check(`client cannot read another person's ${p}`, client, p + b, 403);
     if (otherEng) for (const p of ['/engagements/' + otherEng, '/messages/engagement/' + otherEng, '/orders/engagement/' + otherEng,
       '/engagements/' + otherEng + '/tracking'])

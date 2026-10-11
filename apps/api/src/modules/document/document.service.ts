@@ -4,6 +4,8 @@ import { DatabaseService } from '@mjn/database';
 import { S3 } from 'aws-sdk';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
+type DocumentQuery = NonNullable<Parameters<DatabaseService['document']['findMany']>[0]>;
+
 @Injectable()
 export class DocumentService {
   private readonly s3 = new S3({
@@ -81,6 +83,180 @@ export class DocumentService {
       Expires: 300,
     });
     return { url };
+  }
+
+  // ── Review workspace ─────────────────────────────────────────────────────
+
+  private scoped(hiddenPersonIds?: string[]) {
+    return hiddenPersonIds?.length ? { personId: { notIn: hiddenPersonIds } } : {};
+  }
+
+  /** Documents waiting for review, longest-waiting first. */
+  async getQueue(hiddenPersonIds?: string[]) {
+    return this.db.document.findMany({
+      where: { status: 'PENDING', ...this.scoped(hiddenPersonIds) },
+      include: { person: { select: { id: true, name: true, email: true, profession: true } } },
+      orderBy: { uploadedAt: 'asc' },
+      take: 500,
+    });
+  }
+
+  async getCounts(hiddenPersonIds?: string[]) {
+    const scope = this.scoped(hiddenPersonIds);
+    const now = new Date();
+    const soon = new Date(now.getTime() + 30 * 86400000);
+    const live = { in: ['PENDING', 'VERIFIED'] as any[] };
+    const [all, pending, verified, rejected, expiring, expired, oldest] = await Promise.all([
+      this.db.document.count({ where: scope }),
+      this.db.document.count({ where: { ...scope, status: 'PENDING' } }),
+      this.db.document.count({ where: { ...scope, status: 'VERIFIED' } }),
+      this.db.document.count({ where: { ...scope, status: 'REJECTED' } }),
+      this.db.document.count({ where: { ...scope, status: live, expiryDate: { gte: now, lte: soon } } }),
+      this.db.document.count({ where: { ...scope, status: live, expiryDate: { lt: now } } }),
+      this.db.document.findFirst({
+        where: { ...scope, status: 'PENDING' },
+        orderBy: { uploadedAt: 'asc' },
+        select: { uploadedAt: true },
+      }),
+    ]);
+    return { all, pending, verified, rejected, expiring, expired, oldestPendingAt: oldest?.uploadedAt ?? null };
+  }
+
+  /** One page of documents for the lookup table. */
+  async search(
+    params: { filter?: string; q?: string; type?: string; page?: number; pageSize?: number; sort?: string; dir?: string },
+    hiddenPersonIds?: string[],
+  ) {
+    const page = Math.max(1, Math.floor(Number(params.page) || 1));
+    const pageSize = Math.min(100, Math.max(10, Math.floor(Number(params.pageSize) || 25)));
+    const dir: 'asc' | 'desc' = params.dir === 'asc' ? 'asc' : 'desc';
+    const now = new Date();
+    const soon = new Date(now.getTime() + 30 * 86400000);
+    const live = { in: ['PENDING', 'VERIFIED'] as any[] };
+
+    const where: NonNullable<DocumentQuery['where']> = { ...this.scoped(hiddenPersonIds) };
+    switch ((params.filter ?? '').toUpperCase()) {
+      case 'PENDING':
+      case 'VERIFIED':
+      case 'REJECTED':
+      case 'PENDING_CLIENT':
+        where.status = (params.filter as string).toUpperCase() as any;
+        break;
+      case 'EXPIRING':
+        where.status = live;
+        where.expiryDate = { gte: now, lte: soon };
+        break;
+      case 'EXPIRED':
+        where.status = live;
+        where.expiryDate = { lt: now };
+        break;
+      default:
+        break;
+    }
+    if (params.type) where.type = params.type;
+    const q = (params.q ?? '').trim();
+    if (q) {
+      where.OR = [
+        { person: { name: { contains: q, mode: 'insensitive' } } },
+        { person: { email: { contains: q, mode: 'insensitive' } } },
+        { type: { contains: q.replace(/\s+/g, '_'), mode: 'insensitive' } },
+      ];
+    }
+
+    const orderBy: DocumentQuery['orderBy'] =
+      params.sort === 'client' ? { person: { name: dir } }
+      : params.sort === 'type' ? { type: dir }
+      : params.sort === 'status' ? { status: dir }
+      : params.sort === 'expiry' ? { expiryDate: { sort: dir, nulls: 'last' } }
+      : { uploadedAt: dir };
+
+    const [items, total] = await Promise.all([
+      this.db.document.findMany({
+        where,
+        include: { person: { select: { id: true, name: true, email: true, profession: true } } },
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.db.document.count({ where }),
+    ]);
+    return { items, total, page, pageSize };
+  }
+
+  /** Puts a reviewed document back in the queue (undo of verify or reject). */
+  async reopen(documentId: string) {
+    const doc = await this.db.document.findUnique({ where: { id: documentId }, select: { id: true } });
+    if (!doc) throw new NotFoundException('Document not found');
+    return this.db.document.update({
+      where: { id: documentId },
+      data: { status: 'PENDING', verifiedBy: null, verifiedAt: null, rejectionReason: null },
+    });
+  }
+
+  /** What a reviewer needs to know about the client behind a document. */
+  async getReviewContext(personId: string) {
+    const [person, engagements, documents] = await Promise.all([
+      this.db.person.findUnique({
+        where: { id: personId },
+        select: { id: true, name: true, email: true, profession: true },
+      }),
+      this.db.engagement.findMany({
+        where: { personId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          milestones: { select: { id: true, label: true, completedAt: true }, orderBy: { createdAt: 'asc' } },
+        },
+      }),
+      this.db.document.findMany({
+        where: { personId },
+        orderBy: { uploadedAt: 'desc' },
+        select: { id: true, type: true, status: true, expiryDate: true, uploadedAt: true },
+      }),
+    ]);
+    if (!person) throw new NotFoundException('Person not found');
+
+    const engagement = engagements.find((e) => e.status === 'ACTIVE') ?? engagements[0] ?? null;
+    let stage: { label: string; index: number; total: number; pathway?: string } | null = null;
+    let requiredDocTypes: string[] = [];
+
+    if (engagement) {
+      const progress = await this.db.licensingProgress.findFirst({
+        where: { personId, engagementId: engagement.id },
+        include: {
+          currentStage: {
+            include: { pathway: { include: { stages: { select: { id: true }, orderBy: { order: 'asc' } } } } },
+          },
+        },
+      });
+      if (progress?.currentStage) {
+        const stages = progress.currentStage.pathway.stages;
+        stage = {
+          label: progress.currentStage.label,
+          index: stages.findIndex((s) => s.id === progress.currentStageId) + 1,
+          total: stages.length,
+          pathway: `${progress.currentStage.pathway.country} · ${progress.currentStage.pathway.regulatoryBody}`,
+        };
+        requiredDocTypes = progress.currentStage.requiredDocs ?? [];
+      } else if (engagement.milestones.length > 0) {
+        const current = engagement.milestones.findIndex((m) => !m.completedAt);
+        const at = current === -1 ? engagement.milestones.length - 1 : current;
+        stage = {
+          label: current === -1 ? 'All stages complete' : engagement.milestones[at].label,
+          index: at + 1,
+          total: engagement.milestones.length,
+        };
+      }
+    }
+
+    return {
+      person,
+      engagement: engagement ? { id: engagement.id, status: engagement.status } : null,
+      stage,
+      requiredDocTypes,
+      documents,
+    };
   }
 
   // ── Officer: send blank form to client ───────────────────────────────────

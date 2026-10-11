@@ -184,11 +184,12 @@ export const TOURS_FR: Record<string, TourDef> = {
   'admin.documents': {
     title: 'Vérification des documents',
     steps: [
-      { target: 'page-title', title: 'Vérifier les documents des clients', body: "Chaque document déposé est contrôlé par une personne avant de compter pour un dossier." },
-      { target: 'docs-kpis', title: 'Où en est-on', body: "Le nombre de documents en attente, vérifiés, refusés, ou qui expirent dans les 30 jours." },
-      { target: 'docs-filters', title: 'Onglets et filtres', body: "« Pending » montre ce qui vous attend. Changez d'onglet pour voir les documents vérifiés ou refusés." },
-      { target: 'docs-table', title: 'Ouvrir, puis valider ou refuser', body: 'Ouvrez un document pour le contrôler. Pour refuser, indiquez un motif : le client le voit et peut déposer une version corrigée.' },
-      { title: "Pré-contrôle par l'IA", body: "Vous pouvez demander à l'IA de signaler les problèmes probables avant votre contrôle. Elle vous assiste ; la décision de valider ou de refuser vous revient." },
+      { target: 'page-title', title: 'Vérifier les documents des clients', body: "Chaque document déposé est contrôlé par une personne avant de compter pour un dossier. La ligne ci-dessous indique combien sont en attente et l'attente la plus longue." },
+      { target: 'docs-modes', title: 'Deux façons de travailler', body: "« Review » sert à traiter la file, un document après l'autre. « All documents » est une liste avec recherche pour retrouver un document précis." },
+      { target: 'docs-queue', skipIfMissing: true, title: "La file d'attente", body: "Les documents en attente de vérification, regroupés par client, les plus anciens en haut." },
+      { target: 'docs-viewer', skipIfMissing: true, title: 'Le document', body: "Agrandissez et faites pivoter pour le lire. Au-dessus figurent le client, son étape actuelle, et si ce document est nécessaire pour cette étape. Chaque ouverture d'un document est enregistrée dans le journal d'audit." },
+      { target: 'docs-decision', skipIfMissing: true, title: 'Valider ou refuser', body: "Appuyez sur V pour valider ou R pour refuser, ou utilisez les boutons. Pour refuser, choisissez un motif courant ou rédigez le vôtre : le client le voit. Le document suivant s'ouvre automatiquement, et « Undo » apparaît quelques secondes." },
+      { title: 'Que vérifier', body: "Vous pouvez demander à l'IA ce qu'il faut contrôler sur ce type de document. Elle se base uniquement sur le type et les dates, sans avoir vu le fichier : la décision vous revient." },
     ],
   },
   'admin.drafts': {
