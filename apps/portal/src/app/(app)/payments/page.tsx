@@ -342,7 +342,7 @@ export default function PaymentsPage() {
                     {order.payment === 'unconfirmed' && (
                       <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-accent/15 px-4 py-3 text-sm text-foreground">
                         <Dot className="mt-1.5 bg-accent" />
-                        <span><span className="block font-bold">{t.unconfirmed}</span><span className="block">{t.unconfirmedSub} <Link href="/tickets" className="font-bold text-primary hover:underline">{t.getHelp}</Link></span></span>
+                        <span><span className="block font-bold">{t.unconfirmed}</span><span className="block">{t.unconfirmedSub} <Link href="/tickets?topic=PAYMENT" className="font-bold text-primary hover:underline">{t.getHelp}</Link></span></span>
                       </p>
                     )}
                     <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -469,7 +469,7 @@ export default function PaymentsPage() {
           <section className={`${card} p-5`}>
             <h2 className="flex items-center gap-2 text-sm font-bold text-foreground"><Headset className="h-4 w-4 text-primary" /> {t.help}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t.helpBody}</p>
-            <Link href="/tickets" className={`${btnOutline} mt-3 w-full`}>{t.getHelp}</Link>
+            <Link href="/tickets?topic=PAYMENT" className={`${btnOutline} mt-3 w-full`}>{t.getHelp}</Link>
           </section>
         </aside>
       </div>

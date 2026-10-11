@@ -523,6 +523,9 @@ export const api = {
 
   getTicket: (id: string) => request<any>(`/tickets/${id}`),
 
+  getTicketAttachmentUrl: (replyId: string) =>
+    request<{ url: string; name: string }>(`/tickets/replies/${replyId}/attachment-url`),
+
   replyToTicket: (id: string, content: string) =>
     request<any>(`/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify({ content }) }),
 

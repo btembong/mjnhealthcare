@@ -11,6 +11,7 @@ const PAGE_TOURS: Record<string, string> = {
   '/checkout': 'portal.checkout',
   '/payments': 'portal.payments',
   '/messages': 'portal.messages',
+  '/tickets': 'portal.tickets',
   '/bookings': 'portal.bookings',
   '/academy': 'portal.academy',
   '/settings': 'portal.settings',
@@ -212,6 +213,31 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
         {
           title: "For other problems",
           body: "If something is wrong with the portal or a payment, Get Help in the menu reaches our support team directly.",
+        },
+      ],
+    },
+    'portal.tickets': {
+      title: "Get help",
+      steps: [
+        {
+          target: 'help-quick',
+          skipIfMissing: true,
+          title: "Quick answers",
+          body: "The four things people most often need. Each takes you straight to the page that solves it.",
+        },
+        {
+          target: 'help-ask',
+          title: "Ask for help",
+          body: "For a problem with the portal, a payment, your account or a session. Say what happened and add a screenshot if you can. Questions about your case or licence go to your team in Messages.",
+        },
+        {
+          target: 'help-requests',
+          title: "Your requests",
+          body: "Each request shows whose turn it is: waiting for us, we replied, or solved. You are emailed when we reply.",
+        },
+        {
+          title: "When it is fixed",
+          body: "Mark a request as solved once your problem is fixed. If it comes back, reply within 14 days to reopen the same request.",
         },
       ],
     },
@@ -495,6 +521,31 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
         {
           title: "Pour tout autre problème",
           body: "En cas de souci avec le portail ou un paiement, « Get Help » dans le menu vous met directement en contact avec notre équipe d'assistance.",
+        },
+      ],
+    },
+    'portal.tickets': {
+      title: "Obtenir de l’aide",
+      steps: [
+        {
+          target: 'help-quick',
+          skipIfMissing: true,
+          title: "Réponses rapides",
+          body: "Les quatre besoins les plus fréquents. Chacun vous mène directement à la page qui règle le problème.",
+        },
+        {
+          target: 'help-ask',
+          title: "Demander de l’aide",
+          body: "Pour un problème avec le portail, un paiement, votre compte ou une séance. Dites ce qui s'est passé et ajoutez une capture d'écran si possible. Les questions sur votre dossier ou votre autorisation d'exercer vont à votre équipe dans « Messages ».",
+        },
+        {
+          target: 'help-requests',
+          title: "Vos demandes",
+          body: "Chaque demande indique à qui c'est le tour : en attente de notre réponse, nous avons répondu, ou résolue. Vous recevez un e-mail à chacune de nos réponses.",
+        },
+        {
+          title: "Quand c’est réglé",
+          body: "Marquez une demande comme résolue une fois votre problème réglé. S'il revient, répondez dans les 14 jours pour rouvrir la même demande.",
         },
       ],
     },

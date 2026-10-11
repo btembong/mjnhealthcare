@@ -286,10 +286,22 @@ export const api = {
     request<{ unread: number }>('/messages/unread'),
 
   // ── Support Tickets ───────────────────────────────────────────────────────
-  createTicket: (subject: string, category: string, content: string) =>
+  getTicketUploadUrl: (fileName: string) =>
+    request<{ url: string; key: string }>('/tickets/attachment-url', { method: 'POST', body: JSON.stringify({ fileName }) }),
+
+  getTicketAttachmentUrl: (replyId: string) =>
+    request<{ url: string; name: string }>(`/tickets/replies/${replyId}/attachment-url`),
+
+  markTicketSeen: (id: string) =>
+    request<any>(`/tickets/${id}/seen`, { method: 'POST' }),
+
+  solveTicket: (id: string) =>
+    request<any>(`/tickets/${id}/solve`, { method: 'POST' }),
+
+  createTicket: (subject: string, category: string, content: string, attachment?: { key: string; name: string; type?: string }) =>
     request<any>('/tickets', {
       method: 'POST',
-      body: JSON.stringify({ subject, category, content }),
+      body: JSON.stringify({ subject, category, content, attachment }),
     }),
 
   getMyTickets: () =>
@@ -298,10 +310,10 @@ export const api = {
   getTicket: (id: string) =>
     request<any>(`/tickets/${id}`),
 
-  replyToTicket: (id: string, content: string) =>
+  replyToTicket: (id: string, content: string, attachment?: { key: string; name: string; type?: string }) =>
     request<any>(`/tickets/${id}/reply`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, attachment }),
     }),
 
   // ── Engagement letter (self-hosted sign) ─────────────────────────────────

@@ -384,7 +384,23 @@ function ThreadPanel({
                       ? 'bg-[#0F4C81] text-white rounded-2xl rounded-br-sm'
                       : 'bg-white text-foreground rounded-2xl rounded-bl-sm'
                   } ${!isLastInGroup ? (isAdmin ? 'rounded-br-2xl' : 'rounded-bl-2xl') : ''}`}>
-                    <p className="whitespace-pre-wrap break-words">{reply.content}</p>
+                    {reply.content && <p className="whitespace-pre-wrap break-words">{reply.content}</p>}
+                    {reply.attachment && (
+                      <button
+                        onClick={async () => {
+                          // Opened before the request so the browser does not treat it as a pop-up.
+                          const win = window.open('about:blank', '_blank');
+                          if (win) win.opener = null;
+                          try {
+                            const { url } = await api.getTicketAttachmentUrl(reply.id);
+                            if (win) win.location.href = url; else window.location.href = url;
+                          } catch { win?.close(); toast.error('The file could not be opened.'); }
+                        }}
+                        className="mt-1.5 flex w-full items-center gap-2 rounded-xl border border-current/20 px-3 py-2 text-left text-xs font-semibold underline-offset-2 hover:underline"
+                      >
+                        <span className="min-w-0 flex-1 truncate">📎 {reply.attachment.name}</span>
+                      </button>
+                    )}
                     {isLastInGroup && (
                       <p className={`text-[10px] mt-1 ${isAdmin ? 'text-white/50 text-right' : 'text-muted-foreground/50'}`}>
                         {new Date(reply.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
@@ -462,6 +478,16 @@ export default function AdminTicketsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The list carries only each request's latest message; the whole conversation is loaded when one is opened.
+  const [full, setFull] = useState<Record<string, any>>({});
+  const loadFull = (id: string) => api.getTicket(id).then((t) => setFull((prev) => ({ ...prev, [id]: t }))).catch(() => {});
+
+  useEffect(() => { if (selectedId) loadFull(selectedId); }, [selectedId]);
+  useEffect(() => {
+    // A link from an alert email opens that request directly.
+    const wanted = new URLSearchParams(window.location.search).get('ticket');
+    if (wanted) setSelectedId(wanted);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -473,6 +499,7 @@ export default function AdminTicketsPage() {
 
   async function handleReply(ticketId: string, content: string) {
     const reply = await api.replyToTicket(ticketId, content);
+    loadFull(ticketId);
     setTickets((prev) => prev.map((t) =>
       t.id === ticketId
         ? { ...t, replies: [...(t.replies ?? []), reply], status: t.status === 'OPEN' ? 'IN_PROGRESS' : t.status, updatedAt: new Date().toISOString() }
@@ -524,7 +551,8 @@ export default function AdminTicketsPage() {
     });
   }, [tickets, search]);
 
-  const selected = tickets.find((t) => t.id === selectedId) ?? null;
+  const listed = tickets.find((t) => t.id === selectedId) ?? null;
+  const selected = selectedId && (listed || full[selectedId]) ? { ...(full[selectedId] ?? {}), ...(listed ?? {}), replies: full[selectedId]?.replies ?? listed?.replies ?? [] } : null;
 
   const TABS = [
     { key: '',            label: 'All' },

@@ -1061,6 +1061,8 @@ enum TicketCategory {
   LICENSING
   EXAM_PREP
   GENERAL
+  ACCOUNT
+  SESSIONS
 }
 
 enum TicketAuthorRole {
@@ -1133,6 +1135,7 @@ model SupportTicket {
   priority             TicketPriority @default(MEDIUM)
   assignedConsultantId String?
   resolvedAt           DateTime?
+  clientSeenAt         DateTime?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
@@ -1148,6 +1151,9 @@ model TicketReply {
   authorId   String
   authorRole TicketAuthorRole
   content    String
+  attachmentKey  String?
+  attachmentName String?
+  attachmentType String?
   createdAt  DateTime         @default(now())
 
   @@map("ticket_replies")

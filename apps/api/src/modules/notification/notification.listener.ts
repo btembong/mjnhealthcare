@@ -580,6 +580,135 @@ export class NotificationListener {
     }
   }
 
+  // ── Support requests ──────────────────────────────────────────────────────
+
+  private readonly ticketTopics: Record<string, string> = {
+    PAYMENT: 'Payment', DOCUMENT: 'Documents', ACCOUNT: 'Account', SESSIONS: 'Sessions and classes',
+    LICENSING: 'Licensing', EXAM_PREP: 'Exam preparation', GENERAL: 'Something else',
+  };
+
+  /** A message quoted in an email: safe to show, with its line breaks kept. */
+  private quote(text: string) {
+    const clipped = text.length > 1500 ? text.slice(0, 1500) + '…' : text;
+    return `<p style="margin:0 0 20px;padding:14px 16px;background:#F5F7FA;border-radius:10px;font-size:14px;line-height:1.6;color:#1A2332;">${escapeHtml(clipped).replace(/\n/g, '<br>')}</p>`;
+  }
+
+  @OnEvent('ticket.created')
+  async onTicketCreated(payload: {
+    ticketId: string; subject: string; category: string; content: string; attachmentName?: string | null;
+    clientName: string; clientEmail?: string | null;
+  }) {
+    try {
+      const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
+      await this.notificationService.sendEmail(
+        adminAlertEmail(),
+        `New support request: ${payload.subject}`,
+        T.shell(
+          T.label('Support request') +
+          T.h1(escapeHtml(payload.subject)) +
+          T.infoTable([
+            T.row('From', escapeHtml(payload.clientName) + (payload.clientEmail ? ` · ${escapeHtml(payload.clientEmail)}` : '')),
+            T.row('About', this.ticketTopics[payload.category] ?? payload.category, !payload.attachmentName),
+            ...(payload.attachmentName ? [T.row('File', escapeHtml(payload.attachmentName), true)] : []),
+          ]) +
+          this.quote(payload.content) +
+          T.btn('Open in the console', `${adminUrl}/tickets?ticket=${payload.ticketId}`),
+        ),
+        undefined,
+        undefined,
+        'team',
+      );
+    } catch (err) {
+      this.logger.error(`Support request ${payload.ticketId} was created but the alert email failed: ${err}`);
+    }
+  }
+
+  @OnEvent('ticket.client_replied')
+  async onTicketClientReplied(payload: {
+    ticketId: string; subject: string; content: string; reopened: boolean; clientName: string; clientEmail?: string | null;
+  }) {
+    try {
+      const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
+      await this.notificationService.sendEmail(
+        adminAlertEmail(),
+        `${payload.reopened ? 'Reopened' : 'Client replied'}: ${payload.subject}`,
+        T.shell(
+          T.label(payload.reopened ? 'Support request reopened' : 'Support request') +
+          T.h1(escapeHtml(payload.subject)) +
+          T.p(`<strong>${escapeHtml(payload.clientName)}</strong> ${payload.reopened ? 'says this is not solved yet:' : 'wrote:'}`) +
+          this.quote(payload.content) +
+          T.btn('Open in the console', `${adminUrl}/tickets?ticket=${payload.ticketId}`),
+        ),
+        undefined,
+        undefined,
+        'team',
+      );
+    } catch (err) {
+      this.logger.error(`Alert email failed for a client reply on support request ${payload.ticketId}: ${err}`);
+    }
+  }
+
+  @OnEvent('ticket.staff_replied')
+  async onTicketStaffReplied(payload: {
+    ticketId: string; subject: string; content: string; clientName?: string | null; clientEmail?: string | null; locale?: string | null;
+  }) {
+    if (!payload.clientEmail) return;
+    const fr = payload.locale === 'fr';
+    const portalUrl = process.env.PORTAL_URL ?? 'http://localhost:3002';
+    try {
+      await this.notificationService.sendEmail(
+        payload.clientEmail,
+        fr ? `Réponse à votre demande : ${payload.subject}` : `We replied to your request: ${payload.subject}`,
+        T.shell(
+          (fr ? T.p(`Bonjour ${escapeHtml(payload.clientName ?? '')},`) : T.greeting(escapeHtml(payload.clientName ?? 'there'))) +
+          T.label(fr ? 'Assistance' : 'Support') +
+          T.h1(fr ? 'Nous avons répondu à votre demande' : 'We replied to your request') +
+          T.p(`<strong>${escapeHtml(payload.subject)}</strong>`) +
+          this.quote(payload.content) +
+          T.btn(fr ? 'Ouvrir ma demande' : 'Open my request', `${portalUrl}/tickets?ticket=${payload.ticketId}`) +
+          T.pSmall(fr ? 'Répondez depuis votre portail pour que tout reste au même endroit.' : 'Reply from your portal so everything stays in one place.'),
+          fr ? 'Vous recevez cet e-mail car vous avez une demande d’assistance en cours auprès de MJN Healthcare.' : undefined,
+        ),
+        payload.clientName ?? undefined,
+        undefined,
+        'team',
+      );
+    } catch (err) {
+      this.logger.error(`Could not email the client about a reply on support request ${payload.ticketId}: ${err}`);
+    }
+  }
+
+  @OnEvent('ticket.resolved')
+  async onTicketResolved(payload: {
+    ticketId: string; subject: string; clientName?: string | null; clientEmail?: string | null; locale?: string | null;
+  }) {
+    if (!payload.clientEmail) return;
+    const fr = payload.locale === 'fr';
+    const portalUrl = process.env.PORTAL_URL ?? 'http://localhost:3002';
+    try {
+      await this.notificationService.sendEmail(
+        payload.clientEmail,
+        fr ? `Demande résolue : ${payload.subject}` : `Request solved: ${payload.subject}`,
+        T.shell(
+          (fr ? T.p(`Bonjour ${escapeHtml(payload.clientName ?? '')},`) : T.greeting(escapeHtml(payload.clientName ?? 'there'))) +
+          T.label(fr ? 'Assistance' : 'Support') +
+          T.h1(fr ? 'Votre demande est marquée comme résolue' : 'Your request is marked as solved') +
+          T.p(`<strong>${escapeHtml(payload.subject)}</strong>`) +
+          T.p(fr
+            ? 'Si le problème persiste, répondez à cette demande depuis votre portail dans les 14 jours pour la rouvrir.'
+            : 'If it is still not right, reply to the request from your portal within 14 days to reopen it.') +
+          T.btn(fr ? 'Ouvrir ma demande' : 'Open my request', `${portalUrl}/tickets?ticket=${payload.ticketId}`),
+          fr ? 'Vous recevez cet e-mail car vous avez contacté l’assistance de MJN Healthcare.' : undefined,
+        ),
+        payload.clientName ?? undefined,
+        undefined,
+        'team',
+      );
+    } catch (err) {
+      this.logger.error(`Could not email the client that support request ${payload.ticketId} was solved: ${err}`);
+    }
+  }
+
   @OnEvent('consultation.rescheduled')
   async onConsultationRescheduled(payload: {
     bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
