@@ -937,7 +937,7 @@ export class NotificationListener {
           T.p(`Hello ${escapeHtml(payload.consultantName ?? 'there')},`) +
           T.p(`<strong>${clientName}</strong> sent a message in the client portal${payload.consultantEmail ? '' : '. This case has no consultant email on file, so it was sent to the admin inbox'}.`) +
           `<blockquote style="margin:0 0 20px;border-left:4px solid #0F4C81;padding:10px 16px;background:#f5f7fa;font-size:14px;line-height:1.6;color:#3D4A5C;white-space:pre-wrap;">${escapeHtml(preview)}</blockquote>` +
-          T.btn('Reply in Admin Console', `${adminUrl}/messages`),
+          T.btn('Reply in Admin Console', `${adminUrl}/messages?case=${payload.engagementId}`),
         ),
         payload.consultantName,
         undefined,

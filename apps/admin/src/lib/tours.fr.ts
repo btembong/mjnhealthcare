@@ -200,8 +200,9 @@ export const TOURS_FR: Record<string, TourDef> = {
   'admin.messages': {
     title: 'Messages',
     steps: [
-      { target: 'msg-list', title: 'Vos conversations', body: 'Une conversation par dossier. Utilisez la recherche pour trouver un client.' },
-      { target: 'msg-chat', title: 'Lire et répondre', body: 'Sélectionnez une conversation pour la lire et y répondre. Le client voit votre réponse dans son portail.' },
+      { target: 'msg-list', title: 'Vos conversations', body: "Une conversation par dossier. Les clients qui attendent une réponse apparaissent en premier, signalés par un point orange ; « Needs reply » n'affiche que ceux-là. Utilisez la recherche pour trouver un client." },
+      { target: 'msg-chat', title: 'Lire et répondre', body: "Sélectionnez une conversation pour la lire et y répondre. Le client voit votre réponse dans son portail. Une coche indique qu'il l'a lue." },
+      { title: 'Fichiers', body: "Utilisez le trombone pour envoyer un fichier PDF, image ou Word. Lorsqu'un client envoie un justificatif ici, utilisez « Save to client’s documents » pour qu'il passe en vérification ; un fichier envoyé dans la conversation n'est pas classé automatiquement." },
     ],
   },
   'admin.sessions': {

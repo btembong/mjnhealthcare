@@ -645,8 +645,16 @@ export const api = {
   getEngagementMessages: (engagementId: string) =>
     request<any[]>(`/messages/engagement/${engagementId}`),
 
-  sendEngagementMessage: (engagementId: string, content: string) =>
-    request<any>(`/messages/engagement/${engagementId}`, { method: 'POST', body: JSON.stringify({ content }) }),
+  sendEngagementMessage: (engagementId: string, content: string, attachment?: { key: string; name: string; type?: string }) =>
+    request<any>(`/messages/engagement/${engagementId}`, { method: 'POST', body: JSON.stringify({ content, attachment }) }),
+
+  getConversations: () => request<any[]>('/messages/conversations'),
+
+  markEngagementMessagesRead: (engagementId: string) =>
+    request<any>(`/messages/engagement/${engagementId}/read`, { method: 'PATCH' }),
+
+  getMessageUploadUrl: (engagementId: string, fileName: string) =>
+    request<{ url: string; key: string }>(`/messages/engagement/${engagementId}/attachment-url`, { method: 'POST', body: JSON.stringify({ fileName }) }),
 
   getMessageAttachmentUrl: (messageId: string) =>
     request<{ url: string; name: string }>(`/messages/${messageId}/attachment-url`),

@@ -14,6 +14,25 @@ const DOCUMENT_TYPES: [string, string][] = [
   ['BIRTH_CERTIFICATE', 'Birth certificate'], ['PHOTO_ID', 'Photo ID'], ['OTHER', 'Other document'],
 ];
 
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const ALLOWED_EXT = /\.(pdf|jpe?g|png|docx?)$/i;
+export const CHAT_FILE_ACCEPT = 'image/jpeg,image/png,.pdf,.doc,.docx';
+
+/** Why a file cannot be sent, or an empty string when it can. */
+export function chatFileProblem(file: File): string {
+  if (file.size > MAX_FILE_SIZE) return 'That file is larger than 20 MB.';
+  if (!ALLOWED_EXT.test(file.name)) return 'Only PDF, JPG, PNG and Word files can be sent.';
+  return '';
+}
+
+/** Uploads a file for this conversation and returns what to send with the message. */
+export async function uploadChatFile(engagementId: string, file: File) {
+  const { url, key } = await api.getMessageUploadUrl(engagementId, file.name);
+  const put = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type || 'application/octet-stream' } });
+  if (!put.ok) throw new Error('The file could not be uploaded. Please try again.');
+  return { key, name: file.name, type: file.type };
+}
+
 /** Older client messages carried the file as a code inside the text. Show those as a plain link. */
 function parseLegacy(content: string): { text: string; name: string; url: string } {
   const m = content.match(/^([\s\S]*?)\n?\[(?:IMG|FILE)\]:([^:]+):([\s\S]+)$/);

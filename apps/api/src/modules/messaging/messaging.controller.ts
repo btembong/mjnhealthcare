@@ -56,6 +56,15 @@ export class MessagingController {
     private readonly compliance: ComplianceService,
   ) {}
 
+  // Declared before the ':messageId' routes so 'conversations' is not read as a message id.
+  @ApiOperation({ summary: 'Staff inbox: each case with its last message and whether the client is waiting' })
+  @StaffOnly()
+  @Get('conversations')
+  async getConversations(@CurrentUser() user: AuthUser) {
+    const scope = await this.access.consultantScope(user);
+    return this.messagingService.getConversations(scope ? scope.canSeeEngagement : null);
+  }
+
   @ApiOperation({ summary: 'Get messages for an engagement' })
   @Get('engagement/:engagementId')
   async getMessages(@CurrentUser() user: AuthUser, @Param('engagementId') engagementId: string) {
@@ -92,9 +101,9 @@ export class MessagingController {
 
   @ApiOperation({ summary: 'Mark all messages in engagement as read' })
   @Patch('engagement/:engagementId/read')
-  async markRead(@CurrentUser() user: AuthUser, @Param('engagementId') engagementId: string, @Req() req: any) {
+  async markRead(@CurrentUser() user: AuthUser, @Param('engagementId') engagementId: string) {
     await this.access.assertEngagement(user, engagementId);
-    return this.messagingService.markRead(engagementId, req.user.id);
+    return this.messagingService.markRead(engagementId, isStaff(user));
   }
 
   @ApiOperation({ summary: 'Get unread message count for current user' })

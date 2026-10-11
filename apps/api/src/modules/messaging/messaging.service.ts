@@ -13,6 +13,16 @@ const IMAGE_EXT = /\.(jpe?g|png)$/i;
 
 export type MessageAttachment = { key: string; name: string; type?: string };
 
+const OPEN_CASE = ['PENDING_SIGNATURE', 'ACTIVE', 'ON_HOLD'];
+
+/** Older messages carried a file as a code inside the text; show its name instead. */
+function previewText(content: string, attachmentName: string | null): string {
+  const legacy = content.match(/^([\s\S]*?)\n?\[(?:IMG|FILE)\]:([^:]+):[\s\S]+$/);
+  const text = (legacy ? legacy[1] : content).replace(/\s+/g, ' ').trim();
+  const file = attachmentName ?? (legacy ? legacy[2] : null);
+  return [text, file && `File: ${file}`].filter(Boolean).join(' · ').slice(0, 140);
+}
+
 type StoredMessage = {
   attachmentKey: string | null;
   attachmentName: string | null;
@@ -61,6 +71,57 @@ export class MessagingService {
       orderBy: { createdAt: 'asc' },
     });
     return messages.map((m) => this.present(m));
+  }
+
+  /**
+   * One line per case for the staff inbox: the last thing said and whether the client is
+   * waiting for an answer (the client spoke last). Waiting conversations come first, longest wait on top.
+   */
+  async getConversations(canSee: ((engagement: { consultantId?: string | null; officerId?: string | null }) => boolean) | null) {
+    const all = await this.db.engagement.findMany({
+      select: {
+        id: true, status: true, consultantId: true, officerId: true, createdAt: true,
+        person: { select: { id: true, name: true, email: true, profession: true } },
+      },
+    });
+    const engagements = canSee ? all.filter(canSee) : all;
+    if (engagements.length === 0) return [];
+    const ids = engagements.map((e) => e.id);
+
+    const [latest, unread] = await Promise.all([
+      this.db.engagementMessage.findMany({
+        where: { engagementId: { in: ids } },
+        orderBy: { createdAt: 'desc' },
+        distinct: ['engagementId'],
+        select: { engagementId: true, content: true, senderType: true, senderId: true, createdAt: true, attachmentName: true, sender: { select: { name: true } } },
+      }),
+      this.db.engagementMessage.groupBy({
+        by: ['engagementId'],
+        where: { engagementId: { in: ids }, senderType: MessageSenderType.CLIENT, readAt: null },
+        _count: { _all: true },
+      }),
+    ]);
+    const lastBy = new Map(latest.map((m) => [m.engagementId, m]));
+    const unreadBy = new Map(unread.map((g) => [g.engagementId, g._count._all]));
+
+    const rows = engagements.map((e) => {
+      const m = lastBy.get(e.id);
+      const fromClient = m?.senderType === MessageSenderType.CLIENT;
+      return {
+        id: e.id,
+        status: e.status,
+        person: e.person,
+        last: m ? { text: previewText(m.content, m.attachmentName), at: m.createdAt, fromClient, senderId: m.senderId, senderName: m.sender?.name ?? null } : null,
+        needsReply: fromClient && OPEN_CASE.includes(e.status),
+        unread: unreadBy.get(e.id) ?? 0,
+        createdAt: e.createdAt,
+      };
+    });
+    const time = (d?: Date | null) => (d ? d.getTime() : 0);
+    return rows.sort((a, b) =>
+      Number(b.needsReply) - Number(a.needsReply)
+      || (a.needsReply ? time(a.last?.at) - time(b.last?.at) : time(b.last?.at) - time(a.last?.at))
+      || time(b.createdAt) - time(a.createdAt));
   }
 
   /** Where the browser may put a file it is about to send in this conversation. */
@@ -197,10 +258,14 @@ export class MessagingService {
     });
   }
 
-  async markRead(engagementId: string, readerId: string) {
-    // Mark all messages in this engagement not sent by the reader as read
+  async markRead(engagementId: string, readerIsStaff: boolean) {
+    // One colleague opening the thread must not make another colleague's message look read by the client.
     await this.db.engagementMessage.updateMany({
-      where: { engagementId, readAt: null, NOT: { senderId: readerId } },
+      where: {
+        engagementId,
+        readAt: null,
+        ...(readerIsStaff ? { senderType: MessageSenderType.CLIENT } : { NOT: { senderType: MessageSenderType.CLIENT } }),
+      },
       data: { readAt: new Date() },
     });
     return { ok: true };

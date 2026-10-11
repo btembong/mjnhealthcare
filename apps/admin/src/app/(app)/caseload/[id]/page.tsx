@@ -12,7 +12,7 @@ import {
 } from '@mjn/ui';
 import { api } from '../../../../lib/api';
 import { useAdmin } from '../../../../contexts/admin-context';
-import { MessageBody } from '../../../../components/message-body';
+import { MessageBody, CHAT_FILE_ACCEPT, chatFileProblem, uploadChatFile } from '../../../../components/message-body';
 
 // ── Constants and helpers ─────────────────────────────────────────────────────
 
@@ -154,6 +154,8 @@ function Chat({
   const [compose, setCompose] = useState('');
   const [sending, setSending] = useState(false);
   const [attach, setAttach] = useState<null | 'refer' | 'request'>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [atBottom, setAtBottom] = useState(true);
   const [newBanner, setNewBanner] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -171,8 +173,10 @@ function Chat({
       if (silent && list.length > count.current) {
         if (bottomState.current) setTimeout(toBottom, 50); else setNewBanner(true);
       }
+      const fromClient = list.length > count.current && list.slice(count.current).some((m: any) => m.senderType === 'CLIENT');
       count.current = list.length;
       setMessages(list);
+      if (fromClient) api.markEngagementMessagesRead(eid).catch(() => {});
       if (!silent) setTimeout(toBottom, 100);
     } catch { /* keep what is on screen */ } finally {
       if (!silent) setLoading(false);
@@ -199,11 +203,12 @@ function Chat({
 
   async function send() {
     const content = compose.trim();
-    if (!content || sending) return;
+    if ((!content && !file) || sending) return;
     setSending(true);
     try {
-      await api.sendEngagementMessage(eid, content);
-      setCompose(''); setAttach(null);
+      const attachment = file ? await uploadChatFile(eid, file) : undefined;
+      await api.sendEngagementMessage(eid, content, attachment);
+      setCompose(''); setAttach(null); setFile(null);
       await load(true);
       setTimeout(toBottom, 50);
       onSent();
@@ -327,7 +332,28 @@ function Chat({
         </div>
       )}
 
+      {file && (
+        <div className="flex shrink-0 items-center gap-2.5 border-t border-border bg-white px-4 py-2.5">
+          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{file.name}</span>
+          {!sending && <button onClick={() => setFile(null)} aria-label="Remove file" className="rounded-lg p-1 text-muted-foreground hover:bg-muted/60"><X className="h-4 w-4" /></button>}
+        </div>
+      )}
+
       <div className="flex shrink-0 items-end gap-2 border-t border-border bg-white px-4 py-3">
+        <input
+          ref={fileRef} type="file" accept={CHAT_FILE_ACCEPT} className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; const problem = chatFileProblem(f); if (problem) toast.error(problem); else setFile(f); }}
+        />
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={sending}
+          aria-label="Send a file"
+          title="Send a file"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+        >
+          <UploadSimple className="h-4 w-4" />
+        </button>
         <button
           onClick={() => setAttach((v) => (v ? null : 'request'))}
           aria-label="Request or refer to a document"
@@ -346,7 +372,7 @@ function Chat({
           rows={compose.split('\n').length > 2 || compose.length > 160 ? 3 : 1}
           className="max-h-32 min-h-10 flex-1 resize-none rounded-2xl border border-border bg-muted/40 px-4 py-2.5 text-sm leading-relaxed outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
         />
-        <button onClick={send} disabled={!compose.trim() || sending} aria-label="Send" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 disabled:opacity-40">
+        <button onClick={send} disabled={(!compose.trim() && !file) || sending} aria-label="Send" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 disabled:opacity-40">
           {sending ? <CircleNotch className="h-4 w-4 animate-spin" /> : <PaperPlaneRight className="h-4 w-4" weight="fill" />}
         </button>
       </div>

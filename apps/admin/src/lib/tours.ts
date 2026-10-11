@@ -274,8 +274,9 @@ const TOURS: Record<string, TourDef> = {
   'admin.messages': {
     title: 'Messages',
     steps: [
-      { target: 'msg-list', title: 'Your conversations', body: 'One conversation per case. Search to find a client.' },
-      { target: 'msg-chat', title: 'Read and reply', body: 'Select a conversation to read it and reply. The client sees your reply in their portal.' },
+      { target: 'msg-list', title: 'Your conversations', body: 'One conversation per case. Clients waiting for a reply come first, marked with an orange dot; Needs reply shows only those. Search to find a client.' },
+      { target: 'msg-chat', title: 'Read and reply', body: 'Select a conversation to read it and reply. The client sees your reply in their portal. A tick shows when they have read it.' },
+      { title: 'Files', body: 'Use the paperclip to send a PDF, image or Word file. When a client sends a credential here, use “Save to client’s documents” so it goes through review; a file in chat is not filed on its own.' },
     ],
   },
   'admin.sessions': {
