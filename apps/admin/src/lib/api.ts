@@ -830,7 +830,7 @@ export const api = {
     }),
 
   // ── Reports ──────────────────────────────────────────────────────────────
-  getReports: () => request<any>('/reports/admin'),
+  getReports: (period = 'this_month') => request<any>(`/reports/admin?period=${period}`),
   getFinanceDashboard: () => request<any>('/reports/finance'),
 
   downloadBulkReceipts: (dateFrom?: string, dateTo?: string) => {

@@ -1,18 +1,23 @@
-import { FinanceOnly } from '../auth/access';
+import { FinanceOnly, CurrentUser, AuthUser, isAdmin } from '../auth/access';
 import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ReportsService } from './reports.service';
+import { ReportOverviewService, ReportPeriod } from './report-overview.service';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard)
 @FinanceOnly()
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly overview: ReportOverviewService,
+  ) {}
 
+  /** The Reports page. Admins get every section; finance staff get the money section only. */
   @Get('admin')
-  getAdminReports() {
-    return this.reportsService.getAdminReports();
+  getAdminReports(@CurrentUser() user: AuthUser, @Query('period') period?: string) {
+    return this.overview.overview((period || 'this_month') as ReportPeriod, !isAdmin(user));
   }
 
   @Get('finance')

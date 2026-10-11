@@ -315,12 +315,15 @@ export const TOURS_FR: Record<string, TourDef> = {
     ],
   },
   'admin.reports': {
-    title: 'Rapports et analyses',
+    title: 'Rapports',
     steps: [
-      { target: 'page-header', title: "Comment se porte l'activité", body: "Revenus, placements, taux de réussite aux examens et pipeline." },
-      { target: 'rep-kpis', title: 'Chiffres clés', body: 'Les principaux chiffres.' },
-      { target: 'rep-revenue', title: 'Revenus', body: 'Les revenus dans le temps et par catégorie de service.' },
-      { target: 'rep-pipeline', skipIfMissing: true, title: 'Pipeline et clients', body: 'La progression des dossiers dans le pipeline, et les clients par profession.' },
+      { target: 'page-header', title: "Comment se porte l'activité", body: "Tous les chiffres proviennent de ce que le système enregistre. La ligne sous le titre indique les dates couvertes et celles auxquelles elles sont comparées." },
+      { target: 'page-actions', title: 'Choisir la période', body: "Choisissez une période : toutes les sections la suivent. « Export » télécharge les chiffres affichés sous forme de feuille de calcul." },
+      { target: 'rep-money', title: 'Argent', body: "Ce qui a été reçu, des commandes et des consultations, après remboursements. Le calcul est le même que celui de la page Paiements : les deux concordent. Le graphique peut aussi s'afficher en tableau." },
+      { target: 'rep-leads', skipIfMissing: true, title: 'Prospects', body: "Les personnes qui ont pris contact pendant la période, et où elles en sont : consultation gratuite réservée, tenue, devenues clientes." },
+      { target: 'rep-cases', skipIfMissing: true, title: 'Dossiers', body: "Les dossiers ouverts, l'étape où se trouvent les dossiers actifs, et ceux qui sont restés sans activité. « Open Caseload » permet d'agir." },
+      { target: 'rep-service', skipIfMissing: true, title: 'Service', body: "Les clients sont-ils bien suivis : documents vérifiés, demandes d'assistance traitées à temps, séances tenues." },
+      { title: 'Comment chaque chiffre est calculé', body: "Sous chaque section, « How this is counted » explique précisément ce que les chiffres comprennent. Les résultats d'examen et les placements ne sont pas affichés, car le système ne les enregistre pas encore." },
     ],
   },
   'admin.referrals': {

@@ -9,5 +9,6 @@ import { ConsultationModule } from '../consultation/consultation.module';
   imports: [OrderModule, ConsultationModule],
   controllers: [PaymentAdminController],
   providers: [PaymentAdminService],
+  exports: [PaymentAdminService],
 })
 export class PaymentAdminModule {}

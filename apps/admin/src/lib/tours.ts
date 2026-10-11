@@ -390,12 +390,15 @@ const TOURS: Record<string, TourDef> = {
     ],
   },
   'admin.reports': {
-    title: 'Reports and analytics',
+    title: 'Reports',
     steps: [
-      { target: 'page-header', title: 'How the business is doing', body: 'Revenue, placements, exam pass rates and pipeline.' },
-      { target: 'rep-kpis', title: 'Key figures', body: 'The headline numbers.' },
-      { target: 'rep-revenue', title: 'Revenue', body: 'Revenue over time and by service category.' },
-      { target: 'rep-pipeline', skipIfMissing: true, title: 'Pipeline and clients', body: 'How cases move through the pipeline, and clients by profession.' },
+      { target: 'page-header', title: 'How the business is doing', body: 'Every figure here comes from what the system records. The line under the title shows the dates covered and the dates they are compared with.' },
+      { target: 'page-actions', title: 'Choose the period', body: 'Pick a period and every section follows it. Export downloads the figures you are looking at as a spreadsheet.' },
+      { target: 'rep-money', title: 'Money', body: 'What was received, from orders and from consultations, after refunds. It is counted the same way as the Payments page, so the two agree. The chart can also be shown as a table.' },
+      { target: 'rep-leads', skipIfMissing: true, title: 'Leads', body: 'The people who first got in touch in the period, and how far they have got: booked a free consultation, attended it, became a client.' },
+      { target: 'rep-cases', skipIfMissing: true, title: 'Cases', body: 'Cases started, where active cases are now, and how many have gone quiet. Use Open Caseload to act on them.' },
+      { target: 'rep-service', skipIfMissing: true, title: 'Service', body: 'Whether clients are being looked after: documents checked, support requests answered in time, sessions held.' },
+      { title: 'How each figure is counted', body: 'Under every section, “How this is counted” explains exactly what the numbers include. Exam results and job placements are not shown because the system does not record them yet.' },
     ],
   },
   'admin.referrals': {
