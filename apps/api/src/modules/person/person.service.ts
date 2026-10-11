@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { DatabaseService } from '@mjn/database';
 
 @Injectable()
@@ -7,6 +7,89 @@ export class PersonService {
 
   async findByEmail(email: string) {
     return this.db.person.findUnique({ where: { email } });
+  }
+
+  async findByEmailInsensitive(email: string) {
+    return this.db.person.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } });
+  }
+
+  /** Switches the sign-in address. A marketing opt-out made under the old address follows the person. */
+  async changeEmail(id: string, email: string, oldEmail?: string | null) {
+    await this.db.person.update({ where: { id }, data: { email } });
+    if (oldEmail) {
+      const optedOut = await this.db.emailUnsubscribe.findUnique({ where: { email: oldEmail.toLowerCase() } });
+      if (optedOut) {
+        await this.db.emailUnsubscribe.upsert({ where: { email }, update: {}, create: { email } });
+      }
+    }
+  }
+
+  async setSessionsValidAfter(id: string, when: Date) {
+    await this.db.person.update({ where: { id }, data: { sessionsValidAfter: when } });
+  }
+
+  /**
+   * What a person may change about themselves. Profession sets some prices, so once a case
+   * exists a client can no longer change it on their own; staff still can.
+   */
+  async updateOwnProfile(id: string, isStaff: boolean, data: { name?: string; profession?: string; locale?: string; phone?: string }) {
+    const current = await this.db.person.findUnique({ where: { id }, select: { profession: true, phone: true } });
+    const change: Record<string, unknown> = {};
+    if (data.name !== undefined) {
+      const name = data.name.trim();
+      if (!name) throw new BadRequestException('Your name cannot be empty.');
+      change.name = name.slice(0, 120);
+    }
+    if (data.locale !== undefined) change.locale = data.locale;
+    if (data.profession !== undefined && data.profession !== (current?.profession ?? '')) {
+      if (!isStaff && (await this.db.engagement.count({ where: { personId: id } })) > 0) {
+        throw new BadRequestException('Your prices are based on your profession, so it can no longer be changed here. Message your team to change it.');
+      }
+      change.profession = data.profession;
+    }
+    if (data.phone !== undefined && data.phone !== (current?.phone ?? '')) {
+      const taken = await this.db.person.findFirst({ where: { phone: data.phone, NOT: { id } }, select: { id: true } });
+      if (taken) throw new ConflictException('Another account already uses that phone number.');
+      change.phone = data.phone;
+    }
+    if (Object.keys(change).length === 0) return this.findById(id);
+    return this.db.person.update({ where: { id }, data: change as any });
+  }
+
+  /** The settings that are real: WhatsApp copies of case updates, and marketing email. */
+  async getPreferences(id: string) {
+    const person = await this.db.person.findUnique({ where: { id }, select: { email: true, whatsappUpdates: true } });
+    const [optedOut, consent, cases] = await Promise.all([
+      person?.email ? this.db.emailUnsubscribe.findUnique({ where: { email: person.email.toLowerCase() } }) : null,
+      this.db.consentRecord.findFirst({
+        where: { personId: id, type: { contains: 'privacy', mode: 'insensitive' } },
+        orderBy: { recordedAt: 'desc' },
+        select: { recordedAt: true },
+      }),
+      this.db.engagement.count({ where: { personId: id } }),
+    ]);
+    return {
+      whatsappUpdates: person?.whatsappUpdates ?? true,
+      marketingEmails: !optedOut,
+      privacyConsentAt: consent?.recordedAt ?? null,
+      professionLocked: cases > 0,
+    };
+  }
+
+  async setPreferences(id: string, data: { whatsappUpdates?: boolean; marketingEmails?: boolean }) {
+    if (data.whatsappUpdates !== undefined) {
+      await this.db.person.update({ where: { id }, data: { whatsappUpdates: data.whatsappUpdates } });
+    }
+    if (data.marketingEmails !== undefined) {
+      const person = await this.db.person.findUnique({ where: { id }, select: { email: true } });
+      const email = person?.email?.toLowerCase();
+      if (email) {
+        // The same list the unsubscribe link in campaign emails writes to, so the two always agree.
+        if (data.marketingEmails) await this.db.emailUnsubscribe.deleteMany({ where: { email } });
+        else await this.db.emailUnsubscribe.upsert({ where: { email }, update: {}, create: { email } });
+      }
+    }
+    return this.getPreferences(id);
   }
 
   async findByPhone(phone: string) {

@@ -346,17 +346,37 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
       ],
     },
     'portal.settings': {
-      title: 'Settings',
+      title: "Settings",
       steps: [
         {
           target: 'settings-profile',
-          title: 'Your profile',
-          body: 'Keep your name and profession up to date, as some prices depend on your profession. You can also choose English or French here.',
+          title: "Your profile",
+          body: "Your name and profession. Some prices depend on your profession, so once your case has started it can only be changed by your team.",
+        },
+        {
+          target: 'settings-contact',
+          title: "Contact details",
+          body: "The email you sign in with and the phone number we use for WhatsApp reminders. Changing your email needs a code sent to the new address.",
+        },
+        {
+          target: 'settings-language',
+          title: "Language",
+          body: "Choose English or French. Emails, guides and the main pages follow your choice.",
         },
         {
           target: 'settings-notifications',
-          title: 'Notifications',
-          body: 'Choose which reminders and updates you want to receive.',
+          title: "Notifications",
+          body: "Messages about your case are always emailed. You can turn off the WhatsApp copies, and choose whether to receive news and offers.",
+        },
+        {
+          target: 'settings-privacy',
+          title: "Privacy and data",
+          body: "Ask for a copy of the information we hold about you, or ask us to delete your account. A person on our team handles each request.",
+        },
+        {
+          target: 'settings-signin',
+          title: "Sign-in",
+          body: "Sign out here. If you signed in on a device that is not yours, sign out on all devices.",
         },
       ],
     },
@@ -654,17 +674,37 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
       ],
     },
     'portal.settings': {
-      title: 'Paramètres',
+      title: "Paramètres",
       steps: [
         {
           target: 'settings-profile',
-          title: 'Votre profil',
-          body: "Gardez votre nom et votre profession à jour, car certains prix dépendent de votre profession. Vous pouvez aussi choisir ici l'anglais ou le français.",
+          title: "Votre profil",
+          body: "Votre nom et votre profession. Certains prix dépendent de votre profession : une fois votre dossier commencé, seule votre équipe peut la modifier.",
+        },
+        {
+          target: 'settings-contact',
+          title: "Coordonnées",
+          body: "L'e-mail avec lequel vous vous connectez et le numéro utilisé pour les rappels WhatsApp. Changer d'e-mail demande un code envoyé à la nouvelle adresse.",
+        },
+        {
+          target: 'settings-language',
+          title: "Langue",
+          body: "Choisissez l'anglais ou le français. Les e-mails, les guides et les pages principales suivent votre choix.",
         },
         {
           target: 'settings-notifications',
-          title: 'Notifications',
-          body: 'Choisissez les rappels et les nouvelles que vous souhaitez recevoir.',
+          title: "Notifications",
+          body: "Les messages concernant votre dossier sont toujours envoyés par e-mail. Vous pouvez désactiver les copies WhatsApp, et choisir de recevoir ou non les actualités et les offres.",
+        },
+        {
+          target: 'settings-privacy',
+          title: "Confidentialité et données",
+          body: "Demandez une copie des informations que nous conservons à votre sujet, ou la suppression de votre compte. Chaque demande est traitée par une personne de notre équipe.",
+        },
+        {
+          target: 'settings-signin',
+          title: "Connexion",
+          body: "Déconnectez-vous ici. Si vous vous êtes connecté sur un appareil qui n'est pas le vôtre, déconnectez-vous de tous les appareils.",
         },
       ],
     },

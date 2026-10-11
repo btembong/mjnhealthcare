@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { DatabaseService } from '@mjn/database';
 import * as Brevo from '@getbrevo/brevo';
 
 // Sender identities. The same Brevo-authenticated domain backs all of them,
@@ -11,7 +12,7 @@ export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
   private readonly brevoApi: Brevo.TransactionalEmailsApi;
 
-  constructor() {
+  constructor(@Optional() private readonly db?: DatabaseService) {
     this.brevoApi = new Brevo.TransactionalEmailsApi();
     this.brevoApi.setApiKey(
       Brevo.TransactionalEmailsApiApiKeys.apiKey,
@@ -71,7 +72,22 @@ export class NotificationService {
     }
   }
 
-  async sendSms(phone: string, message: string): Promise<void> {
+  /**
+   * True when the owner of this number has turned off WhatsApp and SMS copies of case updates.
+   * Those updates still reach them by email. Sign-in codes are sent as `essential` and never skipped.
+   */
+  private async mutedPhone(phone: string): Promise<boolean> {
+    if (!this.db || !phone) return false;
+    try {
+      const person = await this.db.person.findFirst({ where: { phone, whatsappUpdates: false }, select: { id: true } });
+      return !!person;
+    } catch {
+      return false;
+    }
+  }
+
+  async sendSms(phone: string, message: string, opts?: { essential?: boolean }): Promise<void> {
+    if (!opts?.essential && (await this.mutedPhone(phone))) return;
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const AfricasTalking = require('africastalking');
@@ -85,7 +101,8 @@ export class NotificationService {
     }
   }
 
-  async sendWhatsApp(to: string, body: string): Promise<void> {
+  async sendWhatsApp(to: string, body: string, opts?: { essential?: boolean }): Promise<void> {
+    if (!opts?.essential && (await this.mutedPhone(to))) return;
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const twilio = require('twilio')(

@@ -1,18 +1,31 @@
 import { Controller, Get, Patch, Post, Param, Body, UseGuards, Query, Request, BadRequestException, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PersonService } from './person.service';
-import { STAFF_ROLES, isAdmin, CurrentUser, AuthUser } from '../auth/access';
+import { STAFF_ROLES, isAdmin, isStaff, CurrentUser, AuthUser } from '../auth/access';
 import { AccessService } from '../auth/access.service';
 
 class UpdatePersonDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsString() profession?: string;
   @IsOptional() @IsEnum(['en', 'fr']) locale?: 'en' | 'fr';
+}
+
+class UpdateMeDto {
+  @IsOptional() @IsString() @MaxLength(120) name?: string;
+  @IsOptional() @IsString() @MaxLength(60) profession?: string;
+  @IsOptional() @IsEnum(['en', 'fr']) locale?: 'en' | 'fr';
+  // International format, for example +237677000000.
+  @IsOptional() @Matches(/^\+[1-9]\d{7,14}$/, { message: 'Enter the phone number with its country code, for example +237677000000.' }) phone?: string;
+}
+
+class PreferencesDto {
+  @IsOptional() @IsBoolean() whatsappUpdates?: boolean;
+  @IsOptional() @IsBoolean() marketingEmails?: boolean;
 }
 
 @ApiTags('persons')
@@ -31,8 +44,18 @@ export class PersonController {
   }
 
   @Patch('me')
-  updateMe(@Request() req: any, @Body() dto: UpdatePersonDto) {
-    return this.personService.update(req.user.id, dto);
+  updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateMeDto) {
+    return this.personService.updateOwnProfile(user.id, isStaff(user), dto);
+  }
+
+  @Get('me/preferences')
+  getPreferences(@CurrentUser() user: AuthUser) {
+    return this.personService.getPreferences(user.id);
+  }
+
+  @Patch('me/preferences')
+  setPreferences(@CurrentUser() user: AuthUser, @Body() dto: PreferencesDto) {
+    return this.personService.setPreferences(user.id, dto);
   }
 
   @Post('me/tours/:key')

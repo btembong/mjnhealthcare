@@ -68,7 +68,22 @@ export const api = {
   completeTour: (key: string) =>
     request<{ completedTours: string[] }>(`/persons/me/tours/${encodeURIComponent(key)}`, { method: 'POST' }),
 
-  updateMe: (data: { name?: string; profession?: string; locale?: string }) =>
+  getPreferences: () =>
+    request<{ whatsappUpdates: boolean; marketingEmails: boolean; privacyConsentAt: string | null; professionLocked: boolean }>('/persons/me/preferences'),
+
+  setPreferences: (data: { whatsappUpdates?: boolean; marketingEmails?: boolean }) =>
+    request<{ whatsappUpdates: boolean; marketingEmails: boolean; privacyConsentAt: string | null; professionLocked: boolean }>('/persons/me/preferences', { method: 'PATCH', body: JSON.stringify(data) }),
+
+  requestEmailChange: (email: string) =>
+    request<{ sentTo: string }>('/auth/email-change/request', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  confirmEmailChange: (code: string) =>
+    request<{ access_token: string; email: string }>('/auth/email-change/confirm', { method: 'POST', body: JSON.stringify({ code }) }),
+
+  signOutEverywhere: () =>
+    request<{ ok: boolean }>('/auth/sign-out-everywhere', { method: 'POST' }),
+
+  updateMe: (data: { name?: string; profession?: string; locale?: string; phone?: string }) =>
     request<any>('/persons/me', { method: 'PATCH', body: JSON.stringify(data) }),
 
   // ── Engagement ──────────────────────────────────────────────────────────

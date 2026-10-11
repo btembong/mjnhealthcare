@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, Logger, Inject } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException, Logger, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import type { Redis } from 'ioredis';
@@ -6,7 +6,8 @@ import { PersonService } from '../person/person.service';
 import { NotificationService } from '../notification/notification.service';
 import { REDIS_CLIENT } from './auth.constants';
 import { randomBytes } from 'crypto';
-import { tplOtp, tplPasswordReset, tplPasswordChanged } from '../notification/email-templates';
+import { tplOtp, tplPasswordReset, tplPasswordChanged, tplEmailChangeCode, tplEmailChanged } from '../notification/email-templates';
+import { forgetSessionCutoff } from './strategies/jwt.strategy';
 
 export type JwtPayload = {
   sub: string;
@@ -16,6 +17,7 @@ export type JwtPayload = {
 };
 
 const OTP_TTL_SECONDS = 600; // 10 minutes
+const EMAIL_CHANGE_MAX_TRIES = 5;
 
 @Injectable()
 export class AuthService {
@@ -78,6 +80,8 @@ export class AuthService {
       await this.notificationService.sendSms(
         identifier,
         `Your MJN Healthcare verification code is: ${otp}. Valid for 10 minutes.`,
+        // A sign-in code is always sent, whatever the person chose for case updates.
+        { essential: true },
       );
     }
     this.logger.log(`OTP sent to ${identifier} via ${via}`);
@@ -111,6 +115,79 @@ export class AuthService {
       role: resolved.role,
     };
     return { access_token: this.jwtService.sign(payload), isNew };
+  }
+
+  // ── Changing the email address an account signs in with ───────────────────
+
+  /** Sends a code to the new address. Nothing changes until it is entered. */
+  async requestEmailChange(personId: string, newEmail: string): Promise<{ sentTo: string }> {
+    const email = (newEmail ?? '').trim().toLowerCase();
+    const person = await this.personService.findById(personId);
+    if (!person) throw new UnauthorizedException();
+    if ((person.email ?? '').toLowerCase() === email) throw new BadRequestException('That is already your email address.');
+    const taken = await this.personService.findByEmailInsensitive(email);
+    if (taken && taken.id !== personId) throw new ConflictException('Another account already uses that email address.');
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    await this.redis.setex(`email-change:${personId}`, OTP_TTL_SECONDS, `${code}|0|${email}`);
+    await this.notificationService.sendEmail(
+      email,
+      person.locale === 'fr' ? 'Confirmez votre nouvelle adresse e-mail' : 'Confirm your new email address',
+      tplEmailChangeCode({ otp: code, locale: person.locale }),
+      undefined,
+      undefined,
+      'security',
+    );
+    return { sentTo: email };
+  }
+
+  async confirmEmailChange(personId: string, code: string): Promise<{ access_token: string; email: string }> {
+    const key = `email-change:${personId}`;
+    const stored = await this.redis.get(key);
+    if (!stored) throw new BadRequestException('That code has expired. Ask for a new one.');
+    const [expected, triesText, ...rest] = String(stored).split('|');
+    const email = rest.join('|');
+    if (String(code ?? '').trim() !== expected) {
+      const tries = Number(triesText) + 1;
+      if (tries >= EMAIL_CHANGE_MAX_TRIES) {
+        await this.redis.del(key);
+        throw new BadRequestException('Too many wrong codes. Ask for a new one.');
+      }
+      await this.redis.setex(key, OTP_TTL_SECONDS, `${expected}|${tries}|${email}`);
+      throw new BadRequestException('That code is not right. Check it and try again.');
+    }
+    await this.redis.del(key);
+
+    const person = await this.personService.findById(personId);
+    if (!person) throw new UnauthorizedException();
+    const oldEmail = person.email;
+    const taken = await this.personService.findByEmailInsensitive(email);
+    if (taken && taken.id !== personId) throw new ConflictException('Another account already uses that email address.');
+    await this.personService.changeEmail(personId, email, oldEmail);
+
+    if (oldEmail) {
+      // Tell the old address, so a change nobody asked for does not go unnoticed.
+      await this.notificationService.sendEmail(
+        oldEmail,
+        person.locale === 'fr' ? 'Votre adresse e-mail a été modifiée' : 'Your email address was changed',
+        tplEmailChanged({ name: person.name, newEmail: email, locale: person.locale }),
+        person.name,
+        undefined,
+        'security',
+      );
+    }
+    this.logger.log(`Email changed for person ${personId}`);
+    const payload: JwtPayload = { sub: person.id, email, role: person.role };
+    return { access_token: this.jwtService.sign(payload), email };
+  }
+
+  /** Ends every login for this person, on every device. They sign in again where they need to. */
+  async signOutEverywhere(personId: string): Promise<{ ok: true }> {
+    // Whole seconds, because a login records the second it was issued.
+    const now = new Date(Math.floor(Date.now() / 1000) * 1000 + 1000);
+    await this.personService.setSessionsValidAfter(personId, now);
+    forgetSessionCutoff(personId);
+    return { ok: true };
   }
 
   async changePassword(personId: string, currentPassword: string, newPassword: string) {

@@ -584,7 +584,7 @@ export class NotificationListener {
 
   private readonly ticketTopics: Record<string, string> = {
     PAYMENT: 'Payment', DOCUMENT: 'Documents', ACCOUNT: 'Account', SESSIONS: 'Sessions and classes',
-    LICENSING: 'Licensing', EXAM_PREP: 'Exam preparation', GENERAL: 'Something else',
+    LICENSING: 'Licensing', EXAM_PREP: 'Exam preparation', GENERAL: 'Something else', PRIVACY: 'Privacy and data',
   };
 
   /** A message quoted in an email: safe to show, with its line breaks kept. */

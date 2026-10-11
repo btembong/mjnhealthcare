@@ -7,6 +7,17 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
 
+class EmailChangeRequestDto {
+  @IsEmail()
+  email!: string;
+}
+
+class EmailChangeConfirmDto {
+  @IsString()
+  @Length(6, 6)
+  code!: string;
+}
+
 class RequestOtpDto {
   @ValidateIf((o) => !o.phone)
   @IsEmail()
@@ -108,6 +119,30 @@ export class AuthController {
     if (!identifier) throw new BadRequestException('Provide email or phone');
     const via = dto.via ?? (dto.email ? 'email' : 'phone');
     return this.authService.verifyOtp(identifier, dto.otp, via);
+  }
+
+  @ApiOperation({ summary: 'Send a code to a new email address before switching to it' })
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('email-change/request')
+  requestEmailChange(@Request() req: any, @Body() dto: EmailChangeRequestDto) {
+    return this.authService.requestEmailChange(req.user.id, dto.email);
+  }
+
+  @ApiOperation({ summary: 'Confirm the code and switch to the new email address' })
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('email-change/confirm')
+  confirmEmailChange(@Request() req: any, @Body() dto: EmailChangeConfirmDto) {
+    return this.authService.confirmEmailChange(req.user.id, dto.code);
+  }
+
+  @ApiOperation({ summary: 'Sign out on every device' })
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('sign-out-everywhere')
+  signOutEverywhere(@Request() req: any) {
+    return this.authService.signOutEverywhere(req.user.id);
   }
 
   @ApiOperation({ summary: 'Change own password (staff)' })

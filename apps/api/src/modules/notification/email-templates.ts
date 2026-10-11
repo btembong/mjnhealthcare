@@ -785,6 +785,44 @@ export function tplPasswordChanged(opts: { name: string }): string {
   );
 }
 
+/** The code that confirms a new email address. Sent to the new address. */
+export function tplEmailChangeCode(opts: { otp: string; locale?: string | null }): string {
+  const fr = opts.locale === 'fr';
+  const digitCells = opts.otp.split('').map(d =>
+    `<td style="width:44px;height:54px;text-align:center;vertical-align:middle;background:#F4F8FF;border:1.5px solid #BDD0E8;border-radius:6px;font-size:26px;font-weight:700;color:${NAVY};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">${d}</td>`
+  ).join('<td style="width:8px;"></td>');
+  return shell(
+    label(fr ? 'Vérification' : 'Verification') +
+    h1(fr ? 'Confirmez votre nouvelle adresse e-mail' : 'Confirm your new email address') +
+    p(fr
+      ? 'Saisissez ce code dans votre portail MJN Healthcare pour utiliser cette adresse. Il expire dans <strong>10 minutes</strong>.'
+      : 'Enter this code in your MJN Healthcare portal to start using this address. It expires in <strong>10 minutes</strong>.') +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;"><tr>${digitCells}</tr></table>` +
+    divider() +
+    pSmall(fr
+      ? 'Si vous n’avez pas demandé ce changement, ignorez cet e-mail : rien ne sera modifié.'
+      : 'If you did not ask for this change, ignore this email: nothing will be changed.'),
+    fr ? 'Vous recevez cet e-mail car cette adresse a été saisie dans un compte MJN Healthcare.' : undefined,
+  );
+}
+
+/** Tells the old address that the account now uses a different one. */
+export function tplEmailChanged(opts: { name?: string | null; newEmail: string; locale?: string | null }): string {
+  const fr = opts.locale === 'fr';
+  const masked = opts.newEmail.replace(/^(.).*(@.*)$/, '$1•••$2');
+  return shell(
+    label(fr ? 'Sécurité' : 'Security') +
+    h1(fr ? 'Votre adresse e-mail a été modifiée' : 'Your email address was changed') +
+    p(fr
+      ? `Votre compte MJN Healthcare utilise désormais l’adresse <strong>${masked}</strong> pour la connexion et les e-mails.`
+      : `Your MJN Healthcare account now uses <strong>${masked}</strong> for signing in and for email.`) +
+    notice(fr
+      ? 'Si ce n’est pas vous, écrivez-nous tout de suite à hello@mjnhealthcare.com.'
+      : 'If this was not you, write to us straight away at hello@mjnhealthcare.com.', 'warning'),
+    fr ? 'Vous recevez cet e-mail car cette adresse était liée à un compte MJN Healthcare.' : undefined,
+  );
+}
+
 export function tplOtp(opts: { otp: string }): string {
   const digitCells = opts.otp.split('').map(d =>
     `<td style="width:44px;height:54px;text-align:center;vertical-align:middle;background:#F4F8FF;border:1.5px solid #BDD0E8;border-radius:6px;font-size:26px;font-weight:700;color:${NAVY};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">${d}</td>`
