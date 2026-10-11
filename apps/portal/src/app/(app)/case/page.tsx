@@ -1,605 +1,293 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Badge, Skeleton } from '@mjn/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { Skeleton } from '@mjn/ui';
 import {
-  FileText, CalendarBlank, CheckCircle, Clock,
-  TrendUp, UploadSimple, Signature, Seal,
-  ChatText, CreditCard, BookOpen, Copy, MapPin,
-  Buildings, Envelope, ArrowRight, Warning,
-  Headset, Receipt, Flag, ArrowSquareUpRight, DownloadSimple,
+  FileText, CalendarBlank, CheckCircle, Check, UploadSimple, Signature, ChatText, CreditCard,
+  Copy, Buildings, ArrowRight, Warning, Headset, DownloadSimple, X,
 } from '@mjn/ui';
+import { toast } from 'sonner';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
-import { toast } from 'sonner';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Wording (the page follows the client's preferred language) ────────────────
 
-const COUNTRY_FLAGS: Record<string, string> = {
-  UAE: '🇦🇪', UK: '🇬🇧', US: '🇺🇸', Ireland: '🇮🇪', Canada: '🇨🇦', Australia: '🇦🇺',
+type Locale = 'en' | 'fr';
+
+const TEXT = {
+  en: {
+    title: 'My case',
+    copied: 'Case reference copied.',
+    copyRef: 'Copy case reference',
+    messageTeam: 'Message team',
+    switchCase: 'Case',
+    status: { PENDING_SIGNATURE: 'Awaiting your signature', ACTIVE: 'Active', ON_HOLD: 'On hold', COMPLETED: 'Completed', TERMINATED: 'Closed' } as Record<string, string>,
+    hold: 'Your case is paused. Message your team to find out what is needed to continue.',
+    noCaseTitle: 'Your case starts after your first consultation',
+    noCaseBody: 'Once your consultant opens your case, you will follow every step of it here.',
+    book: 'Book a consultation',
+    loadFailed: 'Your case could not be loaded. Check your connection and reload the page.',
+    journey: 'Your journey',
+    stageOf: (a: number, b: number) => `Stage ${a} of ${b}`,
+    allDone: 'All stages complete',
+    youAreHere: 'You are here',
+    since: 'since',
+    noStages: 'Your consultant is setting up the stages of your case. They will appear here.',
+    signFirst: 'Your journey starts once your engagement letter is signed.',
+    todo: 'What you need to do',
+    nothingTodo: 'Nothing is needed from you right now.',
+    caseComplete: 'Your case is complete.',
+    tasks: {
+      letter: { title: 'Sign your engagement letter', detail: 'Your case cannot start, and no payment can be taken, until it is signed.', cta: 'Sign now' },
+      replace: { title: (d: string) => `Replace your ${d}`, detail: (r: string | null) => (r ? `Not accepted: “${r}”` : 'It was not accepted. Please upload a new copy.'), cta: 'Re-upload' },
+      form: { title: (d: string) => `Complete and return: ${d}`, detail: (n: string | null) => n ?? 'Your team sent you a form to fill in.', cta: 'Open form' },
+      payment: { title: 'Payment due', detail: (a: string) => `${a} is due now.`, cta: 'Pay now' },
+      upload: { title: (d: string) => `Upload your ${d}`, detail: 'Needed for your current stage.', cta: 'Upload' },
+    },
+    doing: 'What we are doing',
+    doingNothingYet: 'Your team is preparing your file. Submissions to licensing bodies and updates will appear here.',
+    submitted: 'Submitted',
+    ref: 'Ref',
+    latestUpdate: 'Latest update',
+    seeAllUpdates: 'See all updates',
+    sub: { SUBMITTED: 'Submitted', IN_REVIEW: 'In review', PENDING: 'In review', PENDING_DOCS: 'More documents requested', RESUBMITTED: 'Resubmitted', APPROVED: 'Approved', REJECTED: 'Not approved' } as Record<string, string>,
+    tabs: { stages: 'Stages', updates: 'Updates', submissions: 'Submissions', history: 'History' },
+    inProgress: 'in progress',
+    stageNeeds: 'This stage needs',
+    doc: { VERIFIED: 'Ready', PENDING: 'Being checked', REJECTED: 'To replace', NONE: 'Not uploaded' } as Record<string, string>,
+    reupload: 'Re-upload',
+    upload: 'Upload',
+    noUpdates: 'No updates yet. Your team will post here as your case moves.',
+    noSubmissions: 'Nothing has been submitted to a licensing body yet.',
+    team: 'Your team',
+    consultant: 'Consultant',
+    officer: 'Processing officer',
+    noTeam: 'A consultant will be assigned to you shortly.',
+    message: 'Message',
+    bookCall: 'Book a call',
+    glance: 'At a glance',
+    documents: 'Documents',
+    docsReady: (a: number, b: number) => `${a} of ${b} ready`,
+    payments: 'Payments',
+    paidOf: (a: string, b: string) => `${a} of ${b} paid`,
+    noOrders: 'No orders yet',
+    letter: 'Engagement letter',
+    signed: (d: string) => `Signed ${d}`,
+    notSigned: 'Not signed',
+    preparing: 'Being prepared',
+    download: 'Download',
+    downloadFailed: 'The letter could not be downloaded.',
+    opened: 'Opened',
+    askTitle: 'Ask about your case',
+    askBody: 'Quick answers from your own case: what is needed, what is paid, what comes next.',
+    askCta: 'Ask a question',
+    hist: { opened: 'Case opened', letter: 'Engagement letter signed', stage: (l: string) => `Stage completed: ${l}`, doc: (l: string) => `You uploaded: ${l}`, sub: (p: string) => `Submitted to ${p}`, update: (n: string) => `Update from ${n}` },
+    yourTeam: 'your team',
+    bot: {
+      name: 'Case assistant',
+      sub: 'Answers from your own case data',
+      thinking: 'Thinking…',
+      welcome: (n: string) => `Hi${n ? ` ${n}` : ''}! I can answer questions about your case: documents needed, stages, payments, or what happens next. What would you like to know?`,
+      quick: ['What documents do I still need?', 'What is my current case status?', 'Do I have any outstanding payments?', 'What happens next?'],
+      placeholder: 'Ask about your case…',
+      error: 'Sorry, something went wrong. Please try again.',
+      note: 'For questions about eligibility or outcomes, message your consultant.',
+      close: 'Close',
+      send: 'Send',
+    },
+  },
+  fr: {
+    title: 'Mon dossier',
+    copied: 'Référence du dossier copiée.',
+    copyRef: 'Copier la référence du dossier',
+    messageTeam: 'Écrire à mon équipe',
+    switchCase: 'Dossier',
+    status: { PENDING_SIGNATURE: 'En attente de votre signature', ACTIVE: 'Actif', ON_HOLD: 'En pause', COMPLETED: 'Terminé', TERMINATED: 'Clôturé' } as Record<string, string>,
+    hold: 'Votre dossier est en pause. Écrivez à votre équipe pour savoir ce qu’il faut pour continuer.',
+    noCaseTitle: 'Votre dossier commence après votre première consultation',
+    noCaseBody: 'Dès que votre consultant ouvre votre dossier, vous en suivrez chaque étape ici.',
+    book: 'Réserver une consultation',
+    loadFailed: 'Votre dossier n’a pas pu être chargé. Vérifiez votre connexion et rechargez la page.',
+    journey: 'Votre parcours',
+    stageOf: (a: number, b: number) => `Étape ${a} sur ${b}`,
+    allDone: 'Toutes les étapes sont terminées',
+    youAreHere: 'Vous êtes ici',
+    since: 'depuis le',
+    noStages: 'Votre consultant prépare les étapes de votre dossier. Elles apparaîtront ici.',
+    signFirst: 'Votre parcours commence dès que votre lettre d’engagement est signée.',
+    todo: 'Ce que vous devez faire',
+    nothingTodo: 'Rien n’est attendu de vous pour le moment.',
+    caseComplete: 'Votre dossier est terminé.',
+    tasks: {
+      letter: { title: 'Signez votre lettre d’engagement', detail: 'Votre dossier ne peut pas démarrer, et aucun paiement ne peut être effectué, tant qu’elle n’est pas signée.', cta: 'Signer' },
+      replace: { title: (d: string) => `Remplacez ce document : ${d}`, detail: (r: string | null) => (r ? `Non accepté : « ${r} »` : 'Il n’a pas été accepté. Merci d’en déposer une nouvelle copie.'), cta: 'Redéposer' },
+      form: { title: (d: string) => `À remplir et à renvoyer : ${d}`, detail: (n: string | null) => n ?? 'Votre équipe vous a envoyé un formulaire à remplir.', cta: 'Ouvrir' },
+      payment: { title: 'Paiement à effectuer', detail: (a: string) => `${a} à régler maintenant.`, cta: 'Payer' },
+      upload: { title: (d: string) => `Déposez ce document : ${d}`, detail: 'Nécessaire pour votre étape actuelle.', cta: 'Déposer' },
+    },
+    doing: 'Ce que nous faisons',
+    doingNothingYet: 'Votre équipe prépare votre dossier. Les dépôts auprès des organismes et les nouvelles apparaîtront ici.',
+    submitted: 'Déposé le',
+    ref: 'Réf.',
+    latestUpdate: 'Dernière nouvelle',
+    seeAllUpdates: 'Voir toutes les nouvelles',
+    sub: { SUBMITTED: 'Déposé', IN_REVIEW: 'En cours d’examen', PENDING: 'En cours d’examen', PENDING_DOCS: 'Documents complémentaires demandés', RESUBMITTED: 'Déposé à nouveau', APPROVED: 'Approuvé', REJECTED: 'Non approuvé' } as Record<string, string>,
+    tabs: { stages: 'Étapes', updates: 'Nouvelles', submissions: 'Dépôts', history: 'Historique' },
+    inProgress: 'en cours',
+    stageNeeds: 'Cette étape demande',
+    doc: { VERIFIED: 'Prêt', PENDING: 'En vérification', REJECTED: 'À remplacer', NONE: 'Non déposé' } as Record<string, string>,
+    reupload: 'Redéposer',
+    upload: 'Déposer',
+    noUpdates: 'Pas encore de nouvelles. Votre équipe publiera ici à mesure que votre dossier avance.',
+    noSubmissions: 'Rien n’a encore été déposé auprès d’un organisme.',
+    team: 'Votre équipe',
+    consultant: 'Consultant',
+    officer: 'Agent de traitement',
+    noTeam: 'Un consultant vous sera attribué très bientôt.',
+    message: 'Écrire',
+    bookCall: 'Réserver un appel',
+    glance: 'En bref',
+    documents: 'Documents',
+    docsReady: (a: number, b: number) => `${a} sur ${b} prêts`,
+    payments: 'Paiements',
+    paidOf: (a: string, b: string) => `${a} payés sur ${b}`,
+    noOrders: 'Aucune commande',
+    letter: 'Lettre d’engagement',
+    signed: (d: string) => `Signée le ${d}`,
+    notSigned: 'Non signée',
+    preparing: 'En préparation',
+    download: 'Télécharger',
+    downloadFailed: 'La lettre n’a pas pu être téléchargée.',
+    opened: 'Ouvert le',
+    askTitle: 'Une question sur votre dossier ?',
+    askBody: 'Des réponses rapides tirées de votre dossier : ce qui manque, ce qui est payé, la suite.',
+    askCta: 'Poser une question',
+    hist: { opened: 'Dossier ouvert', letter: 'Lettre d’engagement signée', stage: (l: string) => `Étape terminée : ${l}`, doc: (l: string) => `Vous avez déposé : ${l}`, sub: (p: string) => `Déposé auprès de ${p}`, update: (n: string) => `Nouvelle de ${n}` },
+    yourTeam: 'votre équipe',
+    bot: {
+      name: 'Assistant dossier',
+      sub: 'Réponses tirées de votre dossier',
+      thinking: 'Réflexion…',
+      welcome: (n: string) => `Bonjour${n ? ` ${n}` : ''} ! Je peux répondre à vos questions sur votre dossier : documents à fournir, étapes, paiements ou la suite. Que souhaitez-vous savoir ?`,
+      quick: ['Quels documents me manque-t-il ?', 'Où en est mon dossier ?', 'Ai-je des paiements en attente ?', 'Quelle est la suite ?'],
+      placeholder: 'Votre question…',
+      error: 'Désolé, une erreur est survenue. Veuillez réessayer.',
+      note: 'Pour toute question d’admissibilité ou de résultat, écrivez à votre consultant.',
+      close: 'Fermer',
+      send: 'Envoyer',
+    },
+  },
 };
+type Text = (typeof TEXT)['en'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatCaseRef(id?: string) {
-  if (!id) return '—';
+const SUB_DOT: Record<string, string> = {
+  APPROVED: 'bg-secondary', REJECTED: 'bg-rose-500', PENDING_DOCS: 'bg-accent',
+};
+const DOC_DOT: Record<string, string> = { VERIFIED: 'bg-secondary', PENDING: 'bg-primary/40', REJECTED: 'bg-rose-500' };
+const STATUS_DOT: Record<string, string> = {
+  PENDING_SIGNATURE: 'bg-accent', ACTIVE: 'bg-secondary', ON_HOLD: 'bg-muted-foreground/50', COMPLETED: 'bg-primary', TERMINATED: 'bg-muted-foreground/50',
+};
+
+function caseRef(id: string) {
   return `ENG-${id.slice(-6).toUpperCase()}`;
 }
-
-function formatDate(ts: string) {
-  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+function docLabel(type?: string | null) {
+  return (type ?? '').replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+}
+function money(n: number) {
+  return `$${Number(n ?? 0).toLocaleString('en-US')}`;
+}
+function useDay(locale: Locale) {
+  return (date?: string | Date | null) =>
+    date ? new Date(date).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+}
+function initials(name?: string | null) {
+  return (name ?? '').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
 }
 
-function daysAgo(ts: string) {
-  return Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
+const card = 'rounded-2xl border border-border bg-white shadow-sm';
+const heading = 'text-xs font-bold uppercase tracking-widest text-muted-foreground';
+const btnPrimary = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-primary/90 disabled:opacity-40';
+const btnOutline = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-bold text-foreground transition-colors hover:bg-muted/60 disabled:opacity-40';
+
+function Dot({ className }: { className: string }) {
+  return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${className}`} />;
 }
 
-function timeAgo(ts: string) {
-  const d = daysAgo(ts);
-  if (d === 0) return 'Today';
-  if (d === 1) return 'Yesterday';
-  return `${d}d ago`;
-}
+// ── Journey line ──────────────────────────────────────────────────────────────
 
-function engagementStatusVariant(status: string): 'success' | 'warning' | 'outline' | 'destructive' {
-  if (status === 'ACTIVE') return 'success';
-  if (status === 'ON_HOLD') return 'warning';
-  if (status === 'TERMINATED') return 'destructive';
-  return 'outline';
-}
-
-// ── Skeleton ──────────────────────────────────────────────────────────────────
-
-function CaseSkeleton() {
-  return (
-    <div className="space-y-5">
-      <Skeleton className="h-10 w-96 rounded-xl" />
-      <div className="grid grid-cols-4 gap-3">
-        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 rounded-2xl" />)}
-      </div>
-      <Skeleton className="h-16 rounded-2xl" />
-      <div className="flex gap-6">
-        <div className="flex-1 space-y-5">
-          <Skeleton className="h-28 rounded-2xl" />
-          <Skeleton className="h-64 rounded-2xl" />
-          <Skeleton className="h-40 rounded-2xl" />
-        </div>
-        <div className="hidden xl:block w-72 space-y-4">
-          <Skeleton className="h-48 rounded-2xl" />
-          <Skeleton className="h-36 rounded-2xl" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Progress Ring ─────────────────────────────────────────────────────────────
-
-function ProgressRing({ pct }: { pct: number }) {
-  const r = 30;
-  const circ = 2 * Math.PI * r;
-  return (
-    <div className="relative flex items-center justify-center">
-      <svg width="76" height="76" viewBox="0 0 68 68" className="-rotate-90">
-        <circle cx="34" cy="34" r={r} fill="none" stroke="currentColor" strokeWidth="7" className="text-muted" />
-        <circle
-          cx="34" cy="34" r={r} fill="none" stroke="currentColor" strokeWidth="7" className="text-primary"
-          strokeDasharray={`${(pct / 100) * circ} ${circ}`}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dasharray 0.9s ease' }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-sm font-bold text-foreground">{pct}%</span>
-      </div>
-    </div>
-  );
-}
-
-// ── KPI Strip ─────────────────────────────────────────────────────────────────
-
-function KpiChip({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-white shadow-sm px-4 py-3 flex flex-col gap-0.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-xl font-bold text-foreground leading-none">{value}</p>
-      {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
-    </div>
-  );
-}
-
-// ── Next Action Banner ─────────────────────────────────────────────────────────
-
-function NextActionBanner({
-  engagement, docs, router,
-}: { engagement: any; docs: any[]; router: ReturnType<typeof useRouter> }) {
-  const orders: any[] = engagement.orders ?? [];
-  const rejected = docs.filter((d) => d.status === 'REJECTED');
-  const pending = docs.filter((d) => d.status === 'PENDING');
-  const unpaidOrders = orders.filter((o) => o.status === 'PENDING' || o.status === 'PARTIALLY_PAID');
-  const totalDue = unpaidOrders.reduce((s, o) => s + Number(o.total ?? 0), 0);
-
-  // Priority 1: sign letter
-  if (!engagement.letterSignedAt && engagement.letterUrl) {
-    return (
-      <div className="flex items-center gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-sm">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
-          <Signature className="h-5 w-5 text-amber-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-amber-900">Action required: Sign your engagement letter</p>
-          <p className="text-xs text-amber-700 mt-0.5">Your engagement cannot proceed until the letter is signed.</p>
-        </div>
-        <a
-          href={`/sign/${engagement.id}`}
-          className="shrink-0 flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
-        >
-          Sign now <ArrowRight className="h-3.5 w-3.5" />
-        </a>
-      </div>
-    );
-  }
-
-  // Priority 2: rejected docs
-  if (rejected.length > 0) {
-    return (
-      <div className="flex items-center gap-4 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 shadow-sm">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100">
-          <Warning className="h-5 w-5 text-rose-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-rose-900">
-            {rejected.length} document{rejected.length > 1 ? 's' : ''} rejected — re-upload required
-          </p>
-          <p className="text-xs text-rose-700 mt-0.5">
-            {rejected.map((d) => d.type?.replace(/_/g, ' ')).join(', ')}
-          </p>
-        </div>
-        <button
-          onClick={() => router.push('/documents')}
-          className="shrink-0 flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 transition-colors"
-        >
-          Fix now <ArrowRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    );
-  }
-
-  // Priority 3: outstanding payment
-  if (unpaidOrders.length > 0) {
-    return (
-      <div className="flex items-center gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-sm">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
-          <CreditCard className="h-5 w-5 text-amber-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-amber-900">
-            Payment outstanding: ${totalDue.toLocaleString()}
-          </p>
-          <p className="text-xs text-amber-700 mt-0.5">
-            {unpaidOrders.length} order{unpaidOrders.length > 1 ? 's' : ''} pending payment
-          </p>
-        </div>
-        <button
-          onClick={() => router.push('/payments')}
-          className="shrink-0 flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
-        >
-          Pay now <ArrowRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    );
-  }
-
-  // Priority 4: pending docs
-  if (pending.length > 0) {
-    return (
-      <div className="flex items-center gap-4 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 shadow-sm">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100">
-          <Clock className="h-5 w-5 text-blue-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-blue-900">
-            {pending.length} document{pending.length > 1 ? 's' : ''} under review
-          </p>
-          <p className="text-xs text-blue-700 mt-0.5">Your consultant is reviewing your uploaded documents.</p>
-        </div>
-        <span className="shrink-0 rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white">In Review</span>
-      </div>
-    );
-  }
-
-  // All clear
-  if (engagement.status === 'ACTIVE') {
-    return (
-      <div className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-sm">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100">
-          <CheckCircle className="h-5 w-5 text-emerald-600" weight="fill" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-emerald-900">Your case is on track</p>
-          <p className="text-xs text-emerald-700 mt-0.5">No action required right now. Your consultant is working on your case.</p>
-        </div>
-        <button
-          onClick={() => router.push('/messages')}
-          className="shrink-0 flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-4 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors"
-        >
-          <ChatText className="h-3.5 w-3.5" /> Message
-        </button>
-      </div>
-    );
-  }
-
-  return null;
-}
-
-// ── Documents Summary Card ────────────────────────────────────────────────────
-
-function DocsSummaryCard({ docs, router }: { docs: any[]; router: ReturnType<typeof useRouter> }) {
-  const verified = docs.filter((d) => d.status === 'VERIFIED').length;
-  const pending  = docs.filter((d) => d.status === 'PENDING').length;
-  const rejected = docs.filter((d) => d.status === 'REJECTED').length;
+function Journey({ view, t, day }: { view: any; t: Text; day: (d?: string | Date | null) => string }) {
+  const stages: any[] = view.stages ?? [];
+  const { done, total, current, startedAt } = view.stage;
+  const unsigned = !view.letter.signedAt;
 
   return (
-    <div className="rounded-2xl border border-border bg-white shadow-sm p-5">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Documents</p>
-        <button
-          onClick={() => router.push('/documents')}
-          className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
-        >
-          View all <ArrowRight className="h-3 w-3" />
-        </button>
+    <section data-tour="case-pipeline" className={`${card} p-5`}>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className={heading}>{t.journey}</h2>
+        {total > 0 && <span className="text-xs font-semibold text-muted-foreground">{current ? t.stageOf(done + 1, total) : t.allDone}</span>}
       </div>
 
-      {docs.length === 0 ? (
-        <div className="text-center py-3">
-          <FileText className="h-7 w-7 text-muted-foreground/30 mx-auto mb-1.5" />
-          <p className="text-xs text-muted-foreground">No documents uploaded yet.</p>
-          <button
-            onClick={() => router.push('/documents')}
-            className="mt-2 text-xs font-semibold text-primary hover:underline"
-          >
-            Upload documents →
-          </button>
-        </div>
+      {total === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">{unsigned ? t.signFirst : t.noStages}</p>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            {[
-              { label: 'Verified', count: verified, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { label: 'Pending',  count: pending,  color: 'text-amber-600',   bg: 'bg-amber-50' },
-              { label: 'Rejected', count: rejected, color: 'text-rose-600',    bg: 'bg-rose-50' },
-            ].map(({ label, count, color, bg }) => (
-              <div key={label} className={`rounded-xl ${bg} px-2 py-2 text-center`}>
-                <p className={`text-lg font-bold ${color}`}>{count}</p>
-                <p className={`text-[10px] font-medium ${color}`}>{label}</p>
-              </div>
+          {/* Phone: one bar */}
+          <div className="mt-3 flex gap-1 md:hidden">
+            {stages.map((s, i) => (
+              <div key={s.id} className={`h-2 flex-1 rounded-full ${s.completedAt ? 'bg-secondary' : i === done ? 'bg-primary' : 'bg-muted'}`} />
             ))}
           </div>
 
-          {rejected > 0 && (
-            <button
-              onClick={() => router.push('/documents')}
-              className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700 transition-colors"
-            >
-              <Warning className="h-3.5 w-3.5" /> Re-upload rejected docs
-            </button>
-          )}
-          {rejected === 0 && (
-            <button
-              onClick={() => router.push('/documents')}
-              className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60 transition-colors"
-            >
-              <UploadSimple className="h-3.5 w-3.5" /> Manage documents
-            </button>
+          {/* Wider screens: every stage by name */}
+          <ol className={`mt-4 hidden md:grid ${unsigned ? 'opacity-50' : ''}`} style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }}>
+            {stages.map((s, i) => {
+              const isDone = !!s.completedAt;
+              const isCurrent = i === done;
+              return (
+                <li key={s.id} className="relative flex flex-col items-center px-1 text-center" aria-current={isCurrent ? 'step' : undefined}>
+                  {i > 0 && <span className={`absolute right-1/2 top-2.5 h-0.5 w-full -translate-y-1/2 ${isDone || isCurrent ? 'bg-secondary' : 'bg-border'}`} />}
+                  <span className={`relative z-10 flex h-5 w-5 items-center justify-center rounded-full ${isDone ? 'bg-secondary text-white' : isCurrent ? 'bg-primary ring-4 ring-primary/15' : 'border-2 border-border bg-white'}`}>
+                    {isDone && <Check className="h-3 w-3" />}
+                  </span>
+                  <span title={s.label} className={`mt-2 line-clamp-2 text-xs leading-tight ${isCurrent ? 'font-bold text-foreground' : isDone ? 'text-foreground' : 'text-muted-foreground'}`}>{s.label}</span>
+                </li>
+              );
+            })}
+          </ol>
+
+          {current && (
+            <p className="mt-4 text-sm text-foreground">
+              <span className="text-muted-foreground">{t.youAreHere}: </span>
+              <span className="font-bold">{current}</span>
+              {startedAt && !unsigned && <span className="text-muted-foreground"> · {t.since} {day(startedAt)}</span>}
+            </p>
           )}
         </>
       )}
-    </div>
+    </section>
   );
 }
 
-// ── Payments Summary Card ─────────────────────────────────────────────────────
-
-function PaymentsSummaryCard({ orders, router }: { orders: any[]; router: ReturnType<typeof useRouter> }) {
-  const paid    = orders.filter((o) => o.status === 'PAID').reduce((s, o) => s + Number(o.total ?? 0), 0);
-  const pending = orders.filter((o) => o.status !== 'PAID').reduce((s, o) => s + Number(o.total ?? 0), 0);
-
-  return (
-    <div className="rounded-2xl border border-border bg-white shadow-sm p-5">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payments</p>
-        <button
-          onClick={() => router.push('/payments')}
-          className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
-        >
-          View all <ArrowRight className="h-3 w-3" />
-        </button>
-      </div>
-
-      {orders.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-2">No orders yet.</p>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Total paid</span>
-            <span className="font-bold text-primary">${paid.toLocaleString()}</span>
-          </div>
-          {pending > 0 && (
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Outstanding</span>
-              <span className="font-bold text-amber-600">${pending.toLocaleString()}</span>
-            </div>
-          )}
-          <div className="border-t border-border pt-2 space-y-1.5">
-            {orders.slice(0, 3).map((o: any) => (
-              <div key={o.id} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                    o.status === 'PAID' ? 'bg-emerald-400' :
-                    o.status === 'PARTIALLY_PAID' ? 'bg-amber-400' : 'bg-rose-400'
-                  }`} />
-                  <span className="text-muted-foreground truncate max-w-[120px]">
-                    {o.lineItems?.[0]?.serviceItem?.name ?? 'Order'}
-                  </span>
-                </div>
-                <span className="font-semibold text-foreground">${Number(o.total).toLocaleString()}</span>
-              </div>
-            ))}
-          </div>
-          {pending > 0 && (
-            <button
-              onClick={() => router.push('/payments')}
-              className="mt-1 w-full flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
-            >
-              <CreditCard className="h-3.5 w-3.5" /> Pay outstanding
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Activity Feed ─────────────────────────────────────────────────────────────
-
-function ActivityFeed({ engagement, docs }: { engagement: any; docs: any[] }) {
-  const milestones: any[] = engagement.milestones ?? [];
-
-  const events: { date: string; icon: React.ReactNode; text: string; sub?: string }[] = [
-    ...(engagement.createdAt ? [{
-      date: engagement.createdAt,
-      icon: <Flag className="h-3.5 w-3.5 text-primary" />,
-      text: 'Case opened',
-      sub: formatDate(engagement.createdAt),
-    }] : []),
-    ...(engagement.letterSignedAt ? [{
-      date: engagement.letterSignedAt,
-      icon: <Seal className="h-3.5 w-3.5 text-emerald-600" />,
-      text: 'Engagement letter signed',
-      sub: formatDate(engagement.letterSignedAt),
-    }] : []),
-    ...milestones.filter((m) => m.completedAt).map((m) => ({
-      date: m.completedAt,
-      icon: <CheckCircle className="h-3.5 w-3.5 text-primary" weight="fill" />,
-      text: `Milestone: ${m.label}`,
-      sub: formatDate(m.completedAt),
-    })),
-    ...docs.filter((d) => d.uploadedAt).map((d) => ({
-      date: d.uploadedAt,
-      icon: <FileText className="h-3.5 w-3.5 text-muted-foreground" />,
-      text: `Document uploaded: ${d.type?.replace(/_/g, ' ') ?? 'Document'}`,
-      sub: formatDate(d.uploadedAt),
-    })),
-    ...(engagement.orders ?? []).filter((o: any) => o.status === 'PAID').map((o: any) => ({
-      date: o.updatedAt ?? o.createdAt,
-      icon: <Receipt className="h-3.5 w-3.5 text-emerald-600" />,
-      text: `Payment received: $${Number(o.total).toLocaleString()}`,
-      sub: formatDate(o.updatedAt ?? o.createdAt),
-    })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6);
-
-  if (events.length === 0) return null;
-
-  return (
-    <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-      <div className="border-b border-border bg-muted/20 px-5 py-3.5">
-        <p className="text-sm font-semibold text-foreground">Recent Activity</p>
-      </div>
-      <div className="divide-y divide-border/60">
-        {events.map((ev, i) => (
-          <div key={i} className="flex items-start gap-3 px-5 py-3">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted/50 mt-0.5">
-              {ev.icon}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-foreground">{ev.text}</p>
-              {ev.sub && <p className="text-xs text-muted-foreground mt-0.5">{ev.sub}</p>}
-            </div>
-            <span className="text-[10px] text-muted-foreground shrink-0 mt-1">{timeAgo(ev.date)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Right Sidebar ─────────────────────────────────────────────────────────────
-
-function CaseSidebar({
-  consultant, engagement, progressPct, completedCount, milestones, docs, router,
-}: {
-  consultant: any;
-  engagement: any;
-  progressPct: number;
-  completedCount: number;
-  milestones: any[];
-  docs: any[];
-  router: ReturnType<typeof useRouter>;
-}) {
-  function copyRef() {
-    navigator.clipboard.writeText(formatCaseRef(engagement?.id))
-      .then(() => toast.success('Case reference copied.'));
-  }
-
-  return (
-    <div className="w-full xl:w-[280px] xl:shrink-0 xl:sticky xl:top-6 xl:self-start space-y-4">
-
-      {/* Consultant card */}
-      <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Your Consultant</p>
-        {consultant ? (
-          <>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-sm font-bold text-white shadow-sm">
-                {consultant.name?.slice(0, 2).toUpperCase() ?? 'CN'}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground leading-tight">{consultant.name}</p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  <p className="text-xs text-muted-foreground">Case Consultant</p>
-                </div>
-                {consultant.email && (
-                  <a href={`mailto:${consultant.email}`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary mt-0.5 transition-colors">
-                    <Envelope className="h-3 w-3" /> {consultant.email}
-                  </a>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => router.push('/messages')}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
-              >
-                <ChatText className="h-3.5 w-3.5" /> Message
-              </button>
-              <button
-                onClick={() => router.push('/bookings')}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors"
-              >
-                <CalendarBlank className="h-3.5 w-3.5" /> Book call
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="rounded-xl border border-dashed border-border p-4 text-center">
-            <p className="text-xs text-muted-foreground">No consultant assigned yet.</p>
-            <button onClick={() => router.push('/bookings')} className="mt-2 text-xs font-semibold text-primary hover:underline">
-              Book a consultation →
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Case details */}
-      <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Case Details</p>
-        <div className="flex items-center justify-between mb-4">
-          <ProgressRing pct={progressPct} />
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Milestones</p>
-            <p className="text-2xl font-bold text-foreground leading-none">
-              {completedCount}<span className="text-sm font-normal text-muted-foreground">/{milestones.length}</span>
-            </p>
-            <p className="text-xs text-muted-foreground">completed</p>
-          </div>
-        </div>
-        <div className="space-y-2.5 text-xs border-t border-border pt-3">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Reference</span>
-            <button onClick={copyRef} className="flex items-center gap-1.5 font-mono font-bold text-foreground hover:text-primary transition-colors">
-              {formatCaseRef(engagement?.id)} <Copy className="h-3 w-3 text-muted-foreground" />
-            </button>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Status</span>
-            <Badge variant={engagementStatusVariant(engagement.status)} className="text-[10px]">
-              {engagement.status.replace(/_/g, ' ')}
-            </Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Opened</span>
-            <span className="font-medium text-foreground">{formatDate(engagement.createdAt)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Days active</span>
-            <span className="font-medium text-foreground">{daysAgo(engagement.createdAt)}d</span>
-          </div>
-          {engagement.letterSignedAt && (
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Letter signed</span>
-              <span className="font-medium text-foreground">{formatDate(engagement.letterSignedAt)}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Documents summary */}
-      <DocsSummaryCard docs={docs} router={router} />
-
-      {/* Payments summary */}
-      <PaymentsSummaryCard orders={engagement.orders ?? []} router={router} />
-
-      {/* Quick actions */}
-      <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Quick Actions</p>
-        <div className="space-y-1.5">
-          {[
-            { label: 'Upload documents', icon: <UploadSimple className="h-4 w-4 text-primary" />, href: '/documents' },
-            { label: 'Payments',         icon: <CreditCard className="h-4 w-4 text-primary" />,  href: '/payments' },
-            { label: 'My courses',       icon: <BookOpen className="h-4 w-4 text-primary" />,    href: '/academy' },
-            { label: 'Support tickets',  icon: <Headset className="h-4 w-4 text-primary" />,     href: '/tickets' },
-          ].map(({ label, icon, href }) => (
-            <button
-              key={href}
-              onClick={() => router.push(href)}
-              className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-            >
-              {icon} {label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Case Status Bot ───────────────────────────────────────────────────────────
+// ── Case assistant ────────────────────────────────────────────────────────────
 
 type BotMsg = { role: 'user' | 'assistant'; content: string };
 
-const BOT_WELCOME = (name?: string): BotMsg => ({
-  role: 'assistant',
-  content: `Hi${name ? ` ${name.split(' ')[0]}` : ''}! I can answer questions about your case — documents needed, milestones, payments, or what happens next. What would you like to know?`,
-});
-
-function CaseStatusBot({ personId, engagementId, name }: { personId: string; engagementId: string; name?: string }) {
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<BotMsg[]>([BOT_WELCOME(name)]);
+function CaseAssistant({ personId, engagementId, name, t, onClose }: { personId: string; engagementId: string; name?: string; t: Text; onClose: () => void }) {
+  const b = t.bot;
+  const [messages, setMessages] = useState<BotMsg[]>([{ role: 'assistant', content: b.welcome((name ?? '').split(' ')[0] ?? '') }]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const [unread, setUnread] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Load persisted conversation
   useEffect(() => {
-    api.getCaseConversation(personId)
-      .then((h) => { if (h && h.length > 0) setMessages(h); })
-      .catch(() => {});
+    api.getCaseConversation(personId).then((h) => { if (h && h.length > 0) setMessages(h); }).catch(() => {});
   }, [personId]);
 
-  useEffect(() => {
-    if (open) { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); setUnread(false); }
-  }, [messages, open]);
-
-  const QUICK = [
-    'What documents do I still need?',
-    'What is my current case status?',
-    'Do I have any outstanding payments?',
-    'What happens next?',
-  ];
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [messages, sending]);
 
   async function send(text?: string) {
     const msg = (text ?? input).trim();
@@ -610,586 +298,447 @@ function CaseStatusBot({ personId, engagementId, name }: { personId: string; eng
     setSending(true);
     try {
       const res = await api.caseChat(engagementId, personId, next);
-      const reply: BotMsg = { role: 'assistant', content: res.content ?? 'Sorry, I could not respond.' };
-      setMessages((prev) => [...prev, reply]);
-      if (!open) setUnread(true);
+      setMessages((prev) => [...prev, { role: 'assistant', content: res.content || b.error }]);
     } catch {
-      setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I ran into an issue. Please try again.' }]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: b.error }]);
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <>
-      {/* Floating trigger */}
-      <button data-tour="case-bot"
-        onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-6 right-6 z-50 flex h-13 w-13 items-center justify-center rounded-full shadow-xl transition-all hover:scale-105 active:scale-95"
-        style={{ height: 52, width: 52, background: 'linear-gradient(135deg, #0F4C81 0%, #00A896 100%)', boxShadow: '0 8px 24px rgba(15,76,129,0.35)' }}
-        aria-label="Open case assistant"
-      >
-        {!open && unread && (
-          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-white">1</span>
+    <div className="fixed inset-x-3 bottom-3 z-50 flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-2xl sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[400px]" role="dialog" aria-label={b.name}>
+      <div className="flex shrink-0 items-center gap-3 bg-primary px-4 py-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15"><Headset weight="fill" className="h-4 w-4 text-white" /></div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-tight text-white">{b.name}</p>
+          <p className="text-xs text-white/70">{sending ? b.thinking : b.sub}</p>
+        </div>
+        <button onClick={onClose} aria-label={b.close} className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"><X className="h-4 w-4" /></button>
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-muted/40 p-4">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === 'user' ? 'rounded-br-sm bg-primary text-white' : 'rounded-bl-sm border border-border/60 bg-white text-foreground'}`}>{m.content}</div>
+          </div>
+        ))}
+        {sending && (
+          <div className="flex justify-start">
+            <div className="flex gap-1.5 rounded-2xl rounded-bl-sm border border-border/60 bg-white px-4 py-3">
+              {[0, 150, 300].map((d) => <span key={d} className="h-2 w-2 animate-bounce rounded-full bg-primary/40" style={{ animationDelay: `${d}ms` }} />)}
+            </div>
+          </div>
         )}
-        {open
-          ? <ArrowRight weight="bold" className="h-5 w-5 text-white rotate-90" />
-          : <Headset weight="fill" className="h-5 w-5 text-white" />}
-      </button>
+        <div ref={bottomRef} />
+      </div>
 
-      {/* Chat panel */}
-      {open && (
-        <div
-          className="fixed bottom-24 right-6 z-50 flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden"
-          style={{ width: 400, maxWidth: 'calc(100vw - 2rem)', maxHeight: 540, border: '1px solid rgba(15,76,129,0.12)' }}
-        >
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 shrink-0" style={{ background: 'linear-gradient(135deg, #0F4C81 0%, #00A896 100%)' }}>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30">
-              <Headset weight="fill" className="h-4 w-4 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white leading-tight">Case Assistant</p>
-              <p className="text-[11px] text-white/70">{sending ? 'Thinking…' : 'Answers based on your real case data'}</p>
-            </div>
-            <button onClick={() => setOpen(false)} className="flex h-7 w-7 items-center justify-center rounded-full text-white/60 hover:bg-white/10 hover:text-white transition">
-              <ArrowRight weight="bold" className="h-3.5 w-3.5 rotate-[-45deg]" />
-            </button>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0" style={{ background: '#f7f9fc' }}>
-            {messages.map((m, i) => (
-              <div key={i} className={`flex items-end gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {m.role === 'assistant' && (
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary shadow-sm">
-                    <Headset weight="fill" className="h-3 w-3 text-white" />
-                  </div>
-                )}
-                <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === 'user' ? 'bg-primary text-white rounded-br-sm' : 'bg-white text-foreground rounded-bl-sm shadow-sm border border-border/50'}`}>
-                  {m.content}
-                </div>
-              </div>
-            ))}
-            {sending && (
-              <div className="flex items-end gap-2 justify-start">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary shadow-sm">
-                  <Headset weight="fill" className="h-3 w-3 text-white" />
-                </div>
-                <div className="rounded-2xl rounded-bl-sm bg-white shadow-sm border border-border/50 px-4 py-3">
-                  <div className="flex gap-1.5">
-                    {[0, 150, 300].map((d) => <span key={d} className="h-2 w-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: `${d}ms` }} />)}
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-
-          {/* Quick chips — first message only */}
-          {messages.length === 1 && (
-            <div className="flex flex-wrap gap-1.5 border-t border-border bg-white px-3 py-2.5">
-              {QUICK.map((q) => (
-                <button key={q} onClick={() => send(q)} className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors">
-                  {q}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Input */}
-          <div className="border-t border-border bg-white px-3 py-3 flex gap-2 shrink-0">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
-              placeholder="Ask about your case…"
-              disabled={sending}
-              className="flex-1 h-10 rounded-full border border-border bg-muted/30 px-4 text-sm outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10 transition disabled:opacity-60"
-            />
-            <button
-              onClick={() => send()}
-              disabled={!input.trim() || sending}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-40 transition hover:scale-105"
-              style={{ background: 'linear-gradient(135deg, #0F4C81 0%, #00A896 100%)' }}
-            >
-              <ArrowRight weight="bold" className="h-4 w-4" />
-            </button>
-          </div>
+      {messages.length === 1 && (
+        <div className="flex shrink-0 flex-wrap gap-1.5 border-t border-border bg-white px-3 py-2.5">
+          {b.quick.map((q) => (
+            <button key={q} onClick={() => send(q)} className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:border-primary/40 hover:bg-muted/60">{q}</button>
+          ))}
         </div>
       )}
-    </>
+
+      <div className="shrink-0 border-t border-border bg-white px-3 pb-2 pt-3">
+        <div className="flex gap-2">
+          <input
+            aria-label={b.placeholder}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
+            placeholder={b.placeholder}
+            disabled={sending}
+            className="h-10 flex-1 rounded-full border border-border bg-muted/30 px-4 text-sm outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10 disabled:opacity-60"
+          />
+          <button onClick={() => send()} disabled={!input.trim() || sending} aria-label={b.send} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 disabled:opacity-40">
+            <ArrowRight weight="bold" className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-2 text-center text-[11px] text-muted-foreground">{b.note}</p>
+      </div>
+    </div>
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+const TABS = ['stages', 'updates', 'submissions', 'history'] as const;
+type Tab = (typeof TABS)[number];
 
 export default function CasePage() {
-  const router = useRouter();
-  const { engagement, progress, loading, me } = useUser();
-  const [botOpen, setBotOpen] = useState(false);
-  const [docs, setDocs] = useState<any[]>([]);
-  const [tracking, setTracking] = useState<any[]>([]);
-  const [caseUpdates, setCaseUpdates] = useState<any[]>([]);
+  const { engagement, allEngagements, switchEngagement, documents, loading, me } = useUser();
+  const locale: Locale = me?.locale === 'fr' ? 'fr' : 'en';
+  const t = TEXT[locale];
+  const day = useDay(locale);
 
-  useEffect(() => {
-    if (me?.id) {
-      api.getDocuments(me.id).then(setDocs).catch(() => {});
+  const [view, setView] = useState<any>(null);
+  const [failed, setFailed] = useState(false);
+  const [tab, setTab] = useState<Tab>('stages');
+  const [assistant, setAssistant] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const eid: string | undefined = engagement?.id;
+
+  const load = useCallback(() => {
+    if (!eid) return;
+    setFailed(false);
+    api.getCaseView(eid).then(setView).catch(() => setFailed(true));
+  }, [eid]);
+
+  useEffect(() => { setView(null); load(); }, [load]);
+
+  if (loading || (eid && !view && !failed)) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-14 rounded-2xl" />
+        <Skeleton className="h-32 rounded-2xl" />
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
+          <div className="space-y-4"><Skeleton className="h-40 rounded-2xl" /><Skeleton className="h-64 rounded-2xl" /></div>
+          <Skeleton className="h-72 rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!engagement) {
+    return (
+      <div className="space-y-4">
+        <h1 data-tour="case-title" className="text-xl font-bold text-foreground">{t.title}</h1>
+        <div className={`${card} p-10 text-center`}>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50"><Buildings className="h-7 w-7 text-muted-foreground" /></div>
+          <h2 className="font-bold text-foreground">{t.noCaseTitle}</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">{t.noCaseBody}</p>
+          <Link href="/bookings" className={`${btnPrimary} mt-5`}><CalendarBlank className="h-4 w-4" /> {t.book}</Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (failed || !view) {
+    return (
+      <div className="space-y-4">
+        <h1 data-tour="case-title" className="text-xl font-bold text-foreground">{t.title}</h1>
+        <div className={`${card} p-10 text-center text-sm text-muted-foreground`}>{t.loadFailed}</div>
+      </div>
+    );
+  }
+
+  const closed = view.status === 'COMPLETED' || view.status === 'TERMINATED';
+  const tasks: any[] = view.tasks ?? [];
+  const submissions: any[] = view.submissions ?? [];
+  const updates: any[] = view.updates ?? [];
+  const stages: any[] = view.stages ?? [];
+  const required: any[] = view.requiredDocs ?? [];
+  const latestSubmission = submissions[0];
+  const latestUpdate = updates[0];
+  const team = [
+    view.team.consultant && { ...view.team.consultant, role: t.consultant },
+    view.team.officer && { ...view.team.officer, role: t.officer },
+  ].filter(Boolean) as { name: string; role: string }[];
+
+  function taskRow(task: any): { icon: any; title: string; detail: string; cta: string; href: string } {
+    const k = t.tasks;
+    switch (task.key) {
+      case 'letter': return { icon: Signature, title: k.letter.title, detail: k.letter.detail, cta: k.letter.cta, href: `/sign/${view.id}` };
+      case 'replace': return { icon: Warning, title: k.replace.title(docLabel(task.docType).toLowerCase()), detail: k.replace.detail(task.reason), cta: k.replace.cta, href: '/documents' };
+      case 'form': return { icon: FileText, title: k.form.title(docLabel(task.docType)), detail: k.form.detail(task.note), cta: k.form.cta, href: '/documents' };
+      case 'payment': return { icon: CreditCard, title: k.payment.title, detail: k.payment.detail(money(task.amount)), cta: k.payment.cta, href: '/payments' };
+      default: return { icon: UploadSimple, title: k.upload.title(docLabel(task.docType).toLowerCase()), detail: k.upload.detail, cta: k.upload.cta, href: '/documents' };
     }
-  }, [me?.id]);
+  }
 
-  useEffect(() => {
-    if (engagement?.id) {
-      api.getEngagementTracking(engagement.id).then(setTracking).catch(() => {});
-      api.getClientUpdates(engagement.id).then(setCaseUpdates).catch(() => {});
-    }
-  }, [engagement?.id]);
+  async function downloadLetter() {
+    setDownloading(true);
+    try { await api.downloadEngagementLetterPdf(view.id); } catch { toast.error(t.downloadFailed); } finally { setDownloading(false); }
+  }
 
-  const milestones: any[] = engagement?.milestones ?? [];
-  const completedCount = milestones.filter((m) => !!m.completedAt).length;
-  const progressPct = milestones.length > 0 ? Math.round((completedCount / milestones.length) * 100) : 0;
-  const consultant = engagement?.consultants?.[0] ?? engagement?.consultant ?? null;
-  const orders: any[] = engagement?.orders ?? [];
-  const verifiedDocs = docs.filter((d) => d.status === 'VERIFIED').length;
+  type Entry = { id: string; at: Date; label: string; sub?: string };
+  const history: Entry[] = [
+    { id: 'opened', at: new Date(view.createdAt), label: t.hist.opened },
+    ...(view.letter.signedAt ? [{ id: 'letter', at: new Date(view.letter.signedAt), label: t.hist.letter }] : []),
+    ...stages.filter((s) => s.completedAt).map((s) => ({ id: `s${s.id}`, at: new Date(s.completedAt), label: t.hist.stage(s.label) })),
+    ...(documents ?? []).filter((d: any) => d.origin !== 'OFFICER_SENT' && d.uploadedAt).map((d: any) => ({ id: `d${d.id}`, at: new Date(d.uploadedAt), label: t.hist.doc(docLabel(d.type)) })),
+    ...submissions.map((s) => ({ id: `t${s.id}`, at: new Date(s.submittedAt ?? s.createdAt), label: t.hist.sub(s.portal) })),
+    ...updates.map((u) => ({ id: `u${u.id}`, at: new Date(u.at), label: t.hist.update(u.authorName ?? t.yourTeam), sub: u.content })),
+  ].sort((a, b) => b.at.getTime() - a.at.getTime());
 
-  if (loading) return <CaseSkeleton />;
+  const subStatus = (s: string) => (
+    <span className="inline-flex items-center gap-1.5 font-semibold text-foreground"><Dot className={SUB_DOT[s] ?? 'bg-primary/40'} /> {t.sub[s] ?? docLabel(s)}</span>
+  );
+
+  const tabCount: Partial<Record<Tab, number>> = { updates: updates.length, submissions: submissions.length };
 
   return (
-    <div className="space-y-5">
-      {/* Case status bot — only when engagement exists */}
-      {engagement && me?.id && (
-        <CaseStatusBot personId={me.id} engagementId={engagement.id} name={me.name} />
-      )}
-
-      {/* Page title */}
-      <div data-tour="case-title" className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">My Case</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Track your licensing journey and stay up to date with your consultant.</p>
+    <div className="space-y-4">
+      {/* Header */}
+      <div data-tour="case-title" className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-foreground">{t.title}</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            {view.pathway && <span className="font-semibold text-foreground">{view.pathway.country}{view.pathway.regulatoryBody ? ` · ${view.pathway.regulatoryBody}` : ''}</span>}
+            <button
+              onClick={() => navigator.clipboard?.writeText(caseRef(view.id)).then(() => toast.success(t.copied)).catch(() => {})}
+              aria-label={t.copyRef}
+              className="inline-flex items-center gap-1.5 font-mono text-xs hover:text-foreground"
+            >
+              {caseRef(view.id)} <Copy className="h-3.5 w-3.5" />
+            </button>
+            <span className="inline-flex items-center gap-1.5 font-semibold text-foreground"><Dot className={STATUS_DOT[view.status] ?? 'bg-muted'} /> {t.status[view.status] ?? docLabel(view.status)}</span>
+          </p>
         </div>
-        {consultant && (
-          <button
-            onClick={() => router.push('/messages')}
-            className="shrink-0 flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors shadow-sm"
-          >
-            <ChatText className="h-4 w-4" /> Message consultant
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {allEngagements.length > 1 && (
+            <select
+              aria-label={t.switchCase}
+              value={view.id}
+              onChange={(e) => { const next = allEngagements.find((x: any) => x.id === e.target.value); if (next) switchEngagement(next); }}
+              className="h-9 rounded-xl border border-border bg-white px-3 text-xs font-semibold text-foreground outline-none focus:border-primary"
+            >
+              {allEngagements.map((x: any) => <option key={x.id} value={x.id}>{caseRef(x.id)} · {t.status[x.status] ?? x.status}</option>)}
+            </select>
+          )}
+          <Link href="/messages" className={btnPrimary}><ChatText className="h-4 w-4" /> {t.messageTeam}</Link>
+        </div>
       </div>
 
-      {/* No engagement */}
-      {!engagement && (
-        <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50">
-            <Buildings className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <h3 className="font-semibold text-foreground">No active engagement</h3>
-          <p className="mt-2 max-w-sm mx-auto text-sm text-muted-foreground">
-            Your consulting engagement will appear here once your consultant sets it up after your initial session.
-          </p>
-          <button
-            onClick={() => router.push('/bookings')}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
-          >
-            <CalendarBlank className="h-4 w-4" /> Book a consultation
-          </button>
+      {view.status === 'ON_HOLD' && (
+        <div className={`${card} flex flex-wrap items-center justify-between gap-3 px-5 py-3.5`}>
+          <p className="flex items-center gap-2.5 text-sm font-semibold text-foreground"><Dot className="bg-accent" /> {t.hold}</p>
+          <Link href="/messages" className={btnOutline}>{t.message}</Link>
         </div>
       )}
 
-      {engagement && (
-        <>
-          {/* KPI strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiChip
-              label="Milestones"
-              value={`${completedCount}/${milestones.length}`}
-              sub={milestones.length > 0 ? `${progressPct}% complete` : 'Not configured'}
-            />
-            <KpiChip
-              label="Documents"
-              value={verifiedDocs}
-              sub={`of ${docs.length} verified`}
-            />
-            <KpiChip
-              label="Days Active"
-              value={daysAgo(engagement.createdAt)}
-              sub={`Since ${formatDate(engagement.createdAt)}`}
-            />
-            <KpiChip
-              label="Stage"
-              value={progress?.currentStage?.label ?? '—'}
-              sub={progress?.currentStage?.pathway?.country ?? 'Awaiting assignment'}
-            />
-          </div>
+      <Journey view={view} t={t} day={day} />
 
-          {/* Next action banner */}
-          <NextActionBanner engagement={engagement} docs={docs} router={router} />
-
-          {/* Two-column layout */}
-          <div className="flex flex-col xl:flex-row gap-5 items-start">
-
-            {/* ── Main column ── */}
-            <div className="flex-1 min-w-0 space-y-5">
-
-              {/* Engagement letter */}
-              <div data-tour="case-letter" className={`rounded-2xl border p-6 shadow-sm ${
-                engagement.letterSignedAt
-                  ? 'border-primary/20 bg-primary/5'
-                  : 'border-amber-200 bg-amber-50/60'
-              }`}>
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                      engagement.letterSignedAt ? 'bg-primary/10' : 'bg-amber-100'
-                    }`}>
-                      {engagement.letterSignedAt
-                        ? <Seal weight="fill" className="h-5 w-5 text-primary" />
-                        : <Signature className="h-5 w-5 text-amber-600" />}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground">Engagement Letter</h3>
-                      <p className="mt-0.5 text-sm text-muted-foreground">
-                        {engagement.letterSignedAt
-                          ? 'Signed and on file — your engagement is formally active.'
-                          : 'Your engagement letter requires your signature before we can proceed.'}
-                      </p>
-                      {engagement.letterSignedAt && (
-                        <p className="mt-1 text-xs font-medium text-primary">
-                          Signed {formatDate(engagement.letterSignedAt)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {engagement.letterSignedAt ? (
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
-                        <CheckCircle weight="fill" className="h-3.5 w-3.5" /> Signed
-                      </span>
-                      <button
-                        onClick={() => api.downloadEngagementLetterPdf(engagement.id).catch(() => toast.error('Download failed'))}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-sm"
-                        title="Download engagement letter PDF"
-                      >
-                        <DownloadSimple className="h-3.5 w-3.5" /> Download PDF
-                      </button>
-                    </div>
-                  ) : engagement.letterUrl ? (
-                    <a
-                      href={`/sign/${engagement.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition-colors"
-                    >
-                      <Signature className="h-4 w-4" /> Sign Letter
-                    </a>
-                  ) : (
-                    <span className="text-xs text-muted-foreground rounded-xl border border-border bg-white px-3 py-1.5">
-                      Being prepared…
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Engagement overview */}
-              <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-foreground">Engagement Overview</h3>
-                      <Badge variant={engagementStatusVariant(engagement.status)} className="text-xs">
-                        {engagement.status.replace(/_/g, ' ')}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Opened {formatDate(engagement.createdAt)}
-                    </p>
-                  </div>
-
-                  {progress?.currentStage?.pathway?.country && (
-                    <div className="flex items-center gap-3 rounded-xl bg-muted/40 px-4 py-2.5">
-                      <span className="text-2xl leading-none">
-                        {COUNTRY_FLAGS[progress.currentStage.pathway.country] ?? ''}
-                      </span>
-                      <div>
-                        <p className="text-xs font-semibold text-foreground">{progress.currentStage.pathway.country} Pathway</p>
-                        {progress.currentStage.pathway.regulatoryBody && (
-                          <p className="text-xs text-muted-foreground">{progress.currentStage.pathway.regulatoryBody}</p>
-                        )}
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
+        {/* Main column */}
+        <div className="min-w-0 space-y-4">
+          {/* What you need to do */}
+          <section data-tour="case-todo" className={card}>
+            <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
+              <h2 className={heading}>{t.todo}</h2>
+              {tasks.length > 0 && <span className="rounded-full bg-accent px-2 text-xs font-bold text-accent-foreground">{tasks.length}</span>}
+            </div>
+            {tasks.length === 0 ? (
+              <p className="flex items-center gap-2 px-5 py-5 text-sm font-semibold text-foreground">
+                <CheckCircle weight="fill" className="h-4 w-4 shrink-0 text-secondary" /> {view.status === 'COMPLETED' ? t.caseComplete : t.nothingTodo}
+              </p>
+            ) : (
+              <ul className="divide-y divide-border/70">
+                {tasks.map((task, i) => {
+                  const row = taskRow(task);
+                  return (
+                    <li key={i} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-foreground"><row.icon className="h-4 w-4" /></span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-foreground">{row.title}</p>
+                        <p className="text-sm text-muted-foreground">{row.detail}</p>
                       </div>
-                    </div>
-                  )}
-                </div>
+                      <Link href={row.href} className={i === 0 ? btnPrimary : btnOutline}>{row.cta}</Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
 
-                {/* Progress bar */}
-                {milestones.length > 0 && (
-                  <div className="mb-5">
-                    <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{completedCount} of {milestones.length} milestones complete</span>
-                      <span className="font-bold text-foreground">{progressPct}%</span>
-                    </div>
-                    <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-2.5 rounded-full bg-primary transition-all duration-700"
-                        style={{ width: `${progressPct}%` }}
-                      />
-                    </div>
+          {/* What we are doing */}
+          <section data-tour="case-doing" className={card}>
+            <div className="border-b border-border px-5 py-3.5"><h2 className={heading}>{t.doing}</h2></div>
+            {!latestSubmission && !latestUpdate ? (
+              <p className="px-5 py-5 text-sm text-muted-foreground">{closed ? t.caseComplete : t.doingNothingYet}</p>
+            ) : (
+              <div className="divide-y divide-border/70">
+                {latestSubmission && (
+                  <div className="px-5 py-4">
+                    <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm">
+                      <span className="font-bold text-foreground">{latestSubmission.portal}</span>
+                      {subStatus(latestSubmission.status)}
+                      {latestSubmission.referenceNumber && <span className="select-all font-mono text-xs text-muted-foreground">{t.ref} {latestSubmission.referenceNumber}</span>}
+                    </p>
+                    {latestSubmission.submittedAt && <p className="mt-1 text-xs text-muted-foreground">{t.submitted} {day(latestSubmission.submittedAt)}</p>}
                   </div>
                 )}
-
-                {/* Team */}
-                {engagement.consultants?.length > 0 && (
-                  <div className="border-t border-border pt-4">
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your Team</p>
-                    <div className="flex flex-wrap gap-3">
-                      {engagement.consultants.map((c: any) => (
-                        <div key={c.id} className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3 py-2">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white shrink-0">
-                            {c.name?.slice(0, 2).toUpperCase() ?? 'CN'}
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold text-foreground">{c.name}</p>
-                            {c.email && (
-                              <a href={`mailto:${c.email}`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
-                                <Envelope className="h-3 w-3" /> {c.email}
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                {latestUpdate && (
+                  <div className="px-5 py-4">
+                    <p className="text-xs text-muted-foreground"><span className="font-bold uppercase tracking-wide">{t.latestUpdate}</span> · {latestUpdate.authorName ?? t.yourTeam} · {day(latestUpdate.at)}</p>
+                    <p className="mt-1.5 line-clamp-4 whitespace-pre-wrap text-sm text-foreground">{latestUpdate.content}</p>
+                    {updates.length > 1 && <button onClick={() => setTab('updates')} className="mt-2 text-xs font-bold text-primary hover:underline">{t.seeAllUpdates} ({updates.length})</button>}
                   </div>
                 )}
               </div>
+            )}
+          </section>
 
-              {/* Licensing Pipeline */}
-              <div data-tour="case-pipeline" className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-                <div className="mb-6 flex items-center gap-2">
-                  <TrendUp className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold text-foreground">Licensing Pipeline</h3>
-                  {milestones.length > 0 && (
-                    <span className="ml-auto text-xs text-muted-foreground">{completedCount}/{milestones.length} stages</span>
-                  )}
-                </div>
+          {/* Details */}
+          <section data-tour="case-tabs" className={`${card} overflow-hidden`}>
+            <div className="flex gap-1 overflow-x-auto border-b border-border px-2">
+              {TABS.map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-3.5 py-3 text-sm font-semibold transition-colors ${tab === key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                >
+                  {t.tabs[key]}{tabCount[key] ? <span className="ml-1.5 text-xs text-muted-foreground">{tabCount[key]}</span> : null}
+                </button>
+              ))}
+            </div>
 
-                {milestones.length === 0 ? (
-                  <div className="flex flex-col items-center rounded-xl border border-dashed border-border bg-muted/20 py-10 text-center">
-                    <Clock className="mb-2 h-7 w-7 text-muted-foreground/40" />
-                    <p className="text-sm font-medium text-foreground">Milestones being configured</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Your consultant is setting up your licensing stages. Check back soon.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-0">
-                    {milestones.map((m: any, i: number) => {
-                      const isDone = !!m.completedAt;
-                      const isActive = !isDone && i === milestones.findIndex((x: any) => !x.completedAt);
-                      const isLast = i === milestones.length - 1;
-
+            {tab === 'stages' && (
+              <div className="p-5">
+                {stages.length === 0 ? <p className="text-sm text-muted-foreground">{t.noStages}</p> : (
+                  <ol className="divide-y divide-border/70">
+                    {stages.map((s, i) => {
+                      const isDone = !!s.completedAt;
+                      const isCurrent = i === view.stage.done;
                       return (
-                        <div key={m.id} className="flex gap-4">
-                          <div className="flex flex-col items-center">
-                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-all ${
-                              isDone
-                                ? 'border-primary bg-primary text-white'
-                                : isActive
-                                ? 'border-primary bg-primary text-white ring-4 ring-primary/15'
-                                : 'border-border bg-white text-muted-foreground'
-                            }`}>
-                              {isDone ? <CheckCircle weight="fill" className="h-4 w-4" /> : i + 1}
-                            </div>
-                            {!isLast && (
-                              <div className={`mt-1 mb-1 w-0.5 flex-1 min-h-8 transition-colors ${isDone ? 'bg-primary/40' : 'bg-border'}`} />
-                            )}
+                        <li key={s.id} className="py-3">
+                          <div className="flex items-center gap-3">
+                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${isDone ? 'bg-secondary text-white' : isCurrent ? 'bg-primary' : 'border-2 border-border'}`}>{isDone && <Check className="h-3 w-3" />}</span>
+                            <span className={`min-w-0 flex-1 text-sm ${isCurrent ? 'font-bold text-foreground' : isDone ? 'text-foreground' : 'text-muted-foreground'}`}>{s.label}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">{isDone ? day(s.completedAt) : isCurrent && !closed ? t.inProgress : ''}</span>
                           </div>
-
-                          <div className={`flex-1 min-w-0 ${isLast ? 'pb-0' : 'pb-8'}`}>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className={`text-sm font-semibold ${!isDone && !isActive ? 'text-muted-foreground' : 'text-foreground'}`}>
-                                {m.label}
-                              </p>
-                              {isActive && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                                  In Progress
-                                </span>
-                              )}
-                              {isDone && (
-                                <span className="text-xs text-muted-foreground">
-                                  Completed {formatDate(m.completedAt)}
-                                </span>
-                              )}
+                          {isCurrent && !closed && required.length > 0 && (
+                            <div className="ml-8 mt-3 rounded-xl bg-muted/40 px-4 py-3">
+                              <p className={`mb-2 ${heading}`}>{t.stageNeeds}</p>
+                              <ul className="space-y-2">
+                                {required.map((r) => (
+                                  <li key={r.type} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                                    <Dot className={r.status ? DOC_DOT[r.status] : 'border border-muted-foreground/50'} />
+                                    <span className="min-w-0 flex-1 text-foreground">{docLabel(r.type)}</span>
+                                    <span className="text-xs text-muted-foreground">{t.doc[r.status ?? 'NONE']}</span>
+                                    {(!r.status || r.status === 'REJECTED') && <Link href="/documents" className={btnOutline}>{r.status ? t.reupload : t.upload}</Link>}
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
-
-                            {m.description && (
-                              <p className="mt-1 text-xs text-muted-foreground">{m.description}</p>
-                            )}
-
-                            {isActive && progress?.currentStage?.requiredDocuments?.length > 0 && (
-                              <div className="mt-3 rounded-xl border border-border bg-muted/20 p-4">
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                  Required for this stage
-                                </p>
-                                <div className="space-y-1.5">
-                                  {progress.currentStage.requiredDocuments.map((docType: string, j: number) => (
-                                    <div key={j} className="flex items-center gap-2 text-xs text-foreground">
-                                      <div className="h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
-                                      {docType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                                    </div>
-                                  ))}
-                                </div>
-                                <button
-                                  onClick={() => router.push('/documents')}
-                                  className="mt-3 flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors"
-                                >
-                                  <UploadSimple className="h-3.5 w-3.5" /> Upload documents
-                                </button>
-                              </div>
-                            )}
-
-                            {!isDone && !isActive && (
-                              <p className="mt-0.5 text-xs text-muted-foreground">Pending previous stage</p>
-                            )}
-                          </div>
-                        </div>
+                          )}
+                        </li>
                       );
                     })}
-                  </div>
+                  </ol>
                 )}
               </div>
+            )}
 
-              {/* Current stage detail */}
-              {progress?.currentStage && (
-                <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
-                  <div className="mb-4 flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-primary" />
-                    <h3 className="font-semibold text-foreground">Current Stage Detail</h3>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl bg-muted/30 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Stage</p>
-                      <p className="mt-1 text-sm font-bold text-foreground">{progress.currentStage.label}</p>
-                    </div>
-                    {progress.currentStage.pathway?.country && (
-                      <div className="rounded-xl bg-muted/30 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Destination</p>
-                        <p className="mt-1 text-sm font-bold text-foreground">
-                          {COUNTRY_FLAGS[progress.currentStage.pathway.country] ?? ''} {progress.currentStage.pathway.country}
-                        </p>
-                      </div>
-                    )}
-                    {progress.currentStage.pathway?.regulatoryBody && (
-                      <div className="rounded-xl bg-muted/30 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Regulatory Body</p>
-                        <p className="mt-1 text-sm font-bold text-foreground">{progress.currentStage.pathway.regulatoryBody}</p>
-                      </div>
-                    )}
-                    {progress.startedAt && (
-                      <div className="rounded-xl bg-muted/30 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Stage Started</p>
-                        <p className="mt-1 text-sm font-bold text-foreground">{formatDate(progress.startedAt)}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Case Updates from officer */}
-              {caseUpdates.length > 0 && (
-                <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-                  <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center gap-2">
-                    <ChatText className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-semibold text-foreground">Case Updates</p>
-                    <span className="ml-auto text-xs text-muted-foreground">{caseUpdates.length} update{caseUpdates.length > 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="divide-y divide-border/60">
-                    {caseUpdates.map((u: any) => (
-                      <div key={u.id} className="px-5 py-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary mt-0.5">
-                            {(u.author?.name ?? 'MJN').slice(0, 2).toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <p className="text-xs font-semibold text-foreground">{u.author?.name ?? 'MJN Healthcare'}</p>
-                              <span className="text-xs text-muted-foreground shrink-0">{formatDate(u.createdAt)}</span>
-                            </div>
-                            <p className="text-sm text-foreground whitespace-pre-wrap">{u.content}</p>
-                          </div>
+            {tab === 'updates' && (
+              <div className="p-5">
+                {updates.length === 0 ? <p className="text-sm text-muted-foreground">{t.noUpdates}</p> : (
+                  <ol className="space-y-5">
+                    {updates.map((u) => (
+                      <li key={u.id} className="flex gap-3">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">{initials(u.authorName ?? 'MJN')}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-muted-foreground"><span className="font-bold text-foreground">{u.authorName ?? 'MJN Healthcare'}</span> · {day(u.at)}</p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{u.content}</p>
                         </div>
-                      </div>
+                      </li>
                     ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Application Progress */}
-              {tracking.length > 0 && (
-                <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-                  <div className="border-b border-border bg-muted/20 px-5 py-3.5 flex items-center gap-2">
-                    <ArrowSquareUpRight className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-semibold text-foreground">Application Progress</p>
-                    <span className="ml-auto text-xs text-muted-foreground">{tracking.length} submission{tracking.length > 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="divide-y divide-border/60">
-                    {tracking.map((t: any) => (
-                      <div key={t.id} className="px-5 py-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-foreground">{t.portal}</p>
-                            {t.referenceNumber && (
-                              <p className="text-xs text-muted-foreground mt-0.5">Ref: {t.referenceNumber}</p>
-                            )}
-                            {t.submittedAt && (
-                              <p className="text-xs text-muted-foreground">Submitted {formatDate(t.submittedAt)}</p>
-                            )}
-                            {t.nextActionDate && (
-                              <p className="text-xs text-amber-600 mt-0.5">Next action: {formatDate(t.nextActionDate)}</p>
-                            )}
-                          </div>
-                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            t.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
-                            t.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' :
-                            t.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' :
-                            'bg-muted text-muted-foreground'
-                          }`}>
-                            {t.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Activity Feed */}
-              <ActivityFeed engagement={engagement} docs={docs} />
-
-              {/* Mobile sidebar cards (visible below xl) */}
-              <div className="xl:hidden space-y-5">
-                <CaseSidebar
-                  consultant={consultant}
-                  engagement={engagement}
-                  progressPct={progressPct}
-                  completedCount={completedCount}
-                  milestones={milestones}
-                  docs={docs}
-                  router={router}
-                />
+                  </ol>
+                )}
               </div>
-            </div>
+            )}
 
-            {/* ── Right sidebar (xl only) ── */}
-            <div className="hidden xl:block w-[280px] shrink-0">
-              <CaseSidebar
-                consultant={consultant}
-                engagement={engagement}
-                progressPct={progressPct}
-                completedCount={completedCount}
-                milestones={milestones}
-                docs={docs}
-                router={router}
-              />
+            {tab === 'submissions' && (
+              <div>
+                {submissions.length === 0 ? <p className="p-5 text-sm text-muted-foreground">{t.noSubmissions}</p> : (
+                  <ul className="divide-y divide-border/70">
+                    {submissions.map((s) => (
+                      <li key={s.id} className="px-5 py-4">
+                        <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm">
+                          <span className="font-bold text-foreground">{s.portal}</span>
+                          {subStatus(s.status)}
+                        </p>
+                        <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                          {s.submittedAt && <span>{t.submitted} {day(s.submittedAt)}</span>}
+                          {s.referenceNumber && <span className="select-all font-mono">{t.ref} {s.referenceNumber}</span>}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {tab === 'history' && (
+              <ol className="space-y-4 p-5">
+                {history.map((e) => (
+                  <li key={e.id} className="flex gap-3">
+                    <Dot className="mt-1.5 bg-primary/40" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground">{e.label}</p>
+                      {e.sub && <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{e.sub}</p>}
+                      <p className="mt-0.5 text-xs text-muted-foreground">{day(e.at)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        </div>
+
+        {/* Side panel */}
+        <aside className="space-y-4">
+          <section data-tour="case-team" className={`${card} p-5`}>
+            <h2 className={`mb-3 ${heading}`}>{t.team}</h2>
+            {team.length === 0 ? <p className="text-sm text-muted-foreground">{t.noTeam}</p> : (
+              <ul className="space-y-3">
+                {team.map((m) => (
+                  <li key={m.role} className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">{initials(m.name)}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-bold text-foreground">{m.name}</span>
+                      <span className="block text-xs text-muted-foreground">{m.role}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Link href="/messages" className={btnPrimary}><ChatText className="h-3.5 w-3.5" /> {t.message}</Link>
+              <Link href="/bookings" className={btnOutline}><CalendarBlank className="h-3.5 w-3.5" /> {t.bookCall}</Link>
             </div>
-          </div>
-        </>
-      )}
+          </section>
+
+          <section data-tour="case-glance" className={`${card} p-5`}>
+            <h2 className={`mb-2 ${heading}`}>{t.glance}</h2>
+            <dl className="divide-y divide-border/70 text-sm">
+              <Link href="/documents" className="flex items-center justify-between gap-3 py-2.5 hover:text-primary">
+                <dt className="text-muted-foreground">{t.documents}</dt>
+                <dd className="flex items-center gap-1.5 font-semibold text-foreground">{view.documents.rejected > 0 && <Dot className="bg-rose-500" />}{t.docsReady(view.documents.verified, view.documents.total)}</dd>
+              </Link>
+              <Link href="/payments" className="flex items-center justify-between gap-3 py-2.5 hover:text-primary">
+                <dt className="text-muted-foreground">{t.payments}</dt>
+                <dd className="flex items-center gap-1.5 text-right font-semibold text-foreground">{view.payments.due > 0 && <Dot className="bg-accent" />}{view.payments.total > 0 ? t.paidOf(money(view.payments.paid), money(view.payments.total)) : t.noOrders}</dd>
+              </Link>
+              <div data-tour="case-letter" className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-muted-foreground">{t.letter}</dt>
+                <dd className="flex flex-col items-end gap-1.5 text-right font-semibold text-foreground">
+                  {view.letter.signedAt ? t.signed(day(view.letter.signedAt)) : view.letter.ready ? t.notSigned : t.preparing}
+                  {view.letter.signedAt
+                    ? <button onClick={downloadLetter} disabled={downloading} className={btnOutline}><DownloadSimple className="h-3.5 w-3.5" /> {t.download}</button>
+                    : view.letter.ready && !closed ? <Link href={`/sign/${view.id}`} className={btnOutline}><Signature className="h-3.5 w-3.5" /> {t.tasks.letter.cta}</Link> : null}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-muted-foreground">{t.opened}</dt>
+                <dd className="font-semibold text-foreground">{day(view.createdAt)}</dd>
+              </div>
+            </dl>
+          </section>
+
+          {me?.id && (
+            <section className={`${card} p-5`}>
+              <h2 className="flex items-center gap-2 text-sm font-bold text-foreground"><Headset className="h-4 w-4 text-primary" /> {t.askTitle}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{t.askBody}</p>
+              <button data-tour="case-bot" onClick={() => setAssistant(true)} className={`${btnOutline} mt-3 w-full`}>{t.askCta}</button>
+            </section>
+          )}
+        </aside>
+      </div>
+
+      {assistant && me?.id && <CaseAssistant personId={me.id} engagementId={view.id} name={me.name} t={t} onClose={() => setAssistant(false)} />}
     </div>
   );
 }

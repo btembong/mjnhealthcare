@@ -9,6 +9,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { EngagementService } from './engagement.service';
 import { EngagementOverviewService } from './engagement-overview.service';
+import { EngagementClientViewService } from './engagement-client-view.service';
 
 const STATUSES = ['PENDING_SIGNATURE', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'TERMINATED'];
 
@@ -44,6 +45,7 @@ export class EngagementController {
   constructor(
     private readonly engagementService: EngagementService,
     private readonly overviewService: EngagementOverviewService,
+    private readonly clientViewService: EngagementClientViewService,
     private readonly access: AccessService,
   ) {}
 
@@ -98,6 +100,13 @@ export class EngagementController {
   async summary(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     await this.access.assertEngagement(user, id);
     return this.overviewService.summary(id);
+  }
+
+  @ApiOperation({ summary: "The client's own picture of their case: stages, tasks, team, submissions and updates" })
+  @Get(':id/client-view')
+  async clientView(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertEngagement(user, id);
+    return this.clientViewService.view(id);
   }
 
   @ApiOperation({ summary: 'Create engagement and assign consultant' })

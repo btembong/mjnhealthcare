@@ -277,7 +277,7 @@ export const api = {
     request<{ ok: boolean }>(`/engagements/${engagementId}/sign`, { method: 'POST' }),
 
   downloadEngagementLetterPdf: async (engagementId: string): Promise<void> => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const token = getToken();
     const res = await fetch(`${API_BASE}/engagements/${engagementId}/letter-pdf`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
@@ -290,6 +290,9 @@ export const api = {
     a.click();
     URL.revokeObjectURL(url);
   },
+
+  getCaseView: (engagementId: string) =>
+    request<any>(`/engagements/${engagementId}/client-view`),
 
   getEngagementTracking: (engagementId: string) =>
     request<any[]>(`/engagements/${engagementId}/tracking`),

@@ -161,7 +161,7 @@ async function findSecret() {
       '/academy/study-plan/', '/ai/study-conversation/', '/documents/review-context/'])
       await check(`client cannot read another person's ${p}`, client, p + b, 403);
     if (otherEng) for (const p of ['/engagements/' + otherEng, '/messages/engagement/' + otherEng, '/orders/engagement/' + otherEng,
-      '/engagements/' + otherEng + '/tracking'])
+      '/engagements/' + otherEng + '/tracking', '/engagements/' + otherEng + '/client-view'])
       await check("client cannot open another's case " + p.replace(otherEng, ':id'), client, p, 403);
   }
 

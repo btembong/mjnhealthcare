@@ -49,7 +49,7 @@ export class EngagementService {
   async findByClient(personId: string) {
     return this.db.engagement.findMany({
       where: { personId },
-      include: { milestones: true, orders: true },
+      include: { milestones: { orderBy: { createdAt: 'asc' } }, orders: true },
       orderBy: { createdAt: 'desc' },
     });
   }
