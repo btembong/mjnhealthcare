@@ -30,6 +30,24 @@ export class PaymentController {
     );
   }
 
+  /**
+   * Asks the payment provider whether this order has been paid, and confirms it if so.
+   * Called by the "payment received" page when a client comes back from paying, so the
+   * order is confirmed even if the provider's own notice never reaches us.
+   */
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('verify/:orderId')
+  async verify(@CurrentUser() user: AuthUser, @Param('orderId') orderId: string) {
+    await this.access.assertOrder(user, orderId);
+    try {
+      return await this.paymentService.verifyOrderPayment(orderId);
+    } catch {
+      // The provider could not be reached. Nothing is known yet; the page keeps waiting.
+      return { status: 'pending' as const };
+    }
+  }
+
   @Post('webhook/tranzak')
   tranzakWebhook(
     @Req() req: Request,

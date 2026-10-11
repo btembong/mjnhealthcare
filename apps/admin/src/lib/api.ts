@@ -666,9 +666,9 @@ export const api = {
 
   getPayment: (kind: 'order' | 'consultation', id: string) => request<any>(`/admin/payments/${kind}/${id}`),
 
-  /** Asks Tranzak what happened to a started payment. Changes nothing. */
+  /** Asks Tranzak or Stripe what happened to a started payment. Changes nothing. */
   checkPayment: (kind: 'order' | 'consultation', id: string, ref?: string) =>
-    request<{ ref: string; status: string | null; paid: boolean; amount: number | null; currency: string | null }>(
+    request<{ ref: string; provider?: string; status: string | null; paid: boolean; amount: number | null; currency: string | null }>(
       `/admin/payments/${kind}/${id}/check`, { method: 'POST', body: JSON.stringify({ ref }) },
     ),
 

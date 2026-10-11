@@ -4,6 +4,12 @@ import { DatabaseService } from '@mjn/database';
 import { OrderService } from '../order/order.service';
 import { TranzakProvider } from './providers/tranzak.provider';
 import { StripeProvider } from './providers/stripe.provider';
+import { paymentVerifier, belongsTo } from '../../common/payment-verifier';
+
+/** How many of an order's most recent payment attempts are looked up. */
+const ATTEMPTS_CHECKED = 5;
+/** The same order is not looked up more often than this, however often it is asked for. */
+const VERIFY_EVERY_MS = 8000;
 
 export type PaymentProvider = 'tranzak' | 'stripe';
 
@@ -131,18 +137,62 @@ export class PaymentService {
   ) {
     const providerImpl = provider === 'stripe' ? this.stripe : this.tranzak;
 
-    if (!providerImpl.verifyWebhook(rawBody, signature)) {
-      throw new Error('Invalid webhook signature');
-    }
+    // Stripe signs every notice and its check is dependable, so an unsigned one is refused outright.
+    // A Tranzak notice is not trusted either way: signed or not, it only tells us which order to look up.
+    const signed = providerImpl.verifyWebhook(rawBody, signature);
+    if (provider === 'stripe' && !signed) throw new Error('Invalid webhook signature');
+    if (!signed) this.logger.warn('Tranzak notice arrived without a valid signature; asking Tranzak directly instead of trusting it');
 
-    const { orderId, status } = await providerImpl.handleWebhook(payload);
-
+    const { orderId } = await providerImpl.handleWebhook(payload);
     if (!orderId) return; // unhandled event type (e.g. Stripe non-checkout events)
 
-    if (status === 'success') {
-      await this.orderService.markPaid(orderId);
-    } else {
-      this.events.emit('payment.failed', { orderId, provider });
+    // What the notice says is ignored. The order is marked paid only if the provider, asked by us, says so.
+    const result = await this.verifyOrderPayment(orderId, true);
+    return { received: true, status: result.status };
+  }
+
+  private readonly lastVerified = new Map<string, number>();
+
+  /**
+   * Asks the payment provider about an order's recent payment attempts and marks the order paid
+   * if one of them went through. Safe to call at any time and by anyone allowed to see the order:
+   * it can only ever confirm a payment the provider itself reports as paid.
+   *
+   * If the provider cannot be reached the error is passed on, so a notice is retried by its sender.
+   */
+  async verifyOrderPayment(orderId: string, force = false): Promise<{ status: 'paid' | 'pending' | 'failed' | 'none' }> {
+    const order = await this.db.order.findUnique({ where: { id: orderId }, select: { status: true } });
+    if (!order) return { status: 'none' };
+    if (order.status === 'PAID') return { status: 'paid' };
+
+    const last = this.lastVerified.get(orderId) ?? 0;
+    if (!force && Date.now() - last < VERIFY_EVERY_MS) return { status: 'pending' };
+    this.lastVerified.set(orderId, Date.now());
+    if (this.lastVerified.size > 5000) this.lastVerified.clear();
+
+    const attempts = await this.db.paymentAttempt.findMany({
+      where: { orderId, providerRef: { not: '' } },
+      orderBy: { createdAt: 'desc' },
+      take: ATTEMPTS_CHECKED,
+      select: { id: true, providerRef: true, status: true },
+    });
+    if (attempts.length === 0) return { status: 'none' };
+
+    let newestFailed = false;
+    for (const [index, attempt] of attempts.entries()) {
+      const verified = await paymentVerifier.verify(attempt.providerRef);
+      if (verified.paid && belongsTo(verified, orderId)) {
+        this.logger.log(`Order ${orderId} confirmed as paid by ${verified.provider} (${attempt.providerRef})`);
+        await this.orderService.markPaid(orderId);
+        return { status: 'paid' };
+      }
+      if (verified.paid) this.logger.error(`${verified.provider} payment ${attempt.providerRef} is paid but belongs to ${verified.ourRef}, not order ${orderId}`);
+      if (verified.failed && attempt.status === 'PENDING') {
+        await this.db.paymentAttempt.update({ where: { id: attempt.id }, data: { status: 'FAILED' } });
+        if (index === 0) newestFailed = true;
+      }
     }
+    if (newestFailed) this.events.emit('payment.failed', { orderId });
+    return { status: newestFailed ? 'failed' : 'pending' };
   }
 }

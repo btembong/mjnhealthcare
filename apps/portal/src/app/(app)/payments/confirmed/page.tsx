@@ -23,6 +23,8 @@ function ConfirmedContent() {
 
     async function load() {
       try {
+        // Ask the payment provider directly; its own notice to us can be late or never arrive.
+        await api.verifyOrderPayment(orderId!).catch(() => undefined);
         const data = await api.getOrder(orderId!);
         setOrder(data);
       } catch {
@@ -37,6 +39,7 @@ function ConfirmedContent() {
     // Auto-refresh every 10s while order is PENDING (webhook hasn't fired yet)
     const interval = setInterval(async () => {
       try {
+        await api.verifyOrderPayment(orderId!).catch(() => undefined);
         const data = await api.getOrder(orderId!);
         setOrder(data);
         if (data?.status === 'PAID') clearInterval(interval);

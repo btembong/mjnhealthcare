@@ -24,7 +24,8 @@ type Detail = Row & {
   subtotal?: number; taxAmount?: number; receiptIssuedAt?: string | null; cancelReason?: string | null; refundReason?: string | null;
   refundedAt?: string | null; consultantName?: string | null; sessionStart?: string | null; forStage?: boolean;
 };
-type Check = { ref: string; status: string | null; paid: boolean; amount: number | null; currency: string | null };
+type Check = { ref: string; provider?: string; status: string | null; paid: boolean; amount: number | null; currency: string | null };
+const providerName = (p?: string) => (p === 'stripe' ? 'Stripe' : 'Tranzak');
 
 const STATE: Record<State, { label: string; dot: string }> = {
   checking:      { label: 'Needs checking',      dot: 'bg-accent' },
@@ -261,8 +262,8 @@ export default function PaymentsPage() {
                   </span>
                 </button>
                 <div className="md:w-40 md:text-right">
-                  {r.state === 'checking' && r.attempts[0]?.provider === 'tranzak'
-                    ? <button onClick={() => setOpen({ row: r, autoCheck: true })} className={btnPrimary}><ArrowClockwise className="h-3.5 w-3.5" /> Check with Tranzak</button>
+                  {r.state === 'checking' && r.attempts[0]
+                    ? <button onClick={() => setOpen({ row: r, autoCheck: true })} className={btnPrimary}><ArrowClockwise className="h-3.5 w-3.5" /> Check with {providerName(r.attempts[0].provider)}</button>
                     : <button onClick={() => setOpen({ row: r, autoCheck: false })} className={btnOutline}>Open</button>}
                 </div>
               </li>
@@ -316,7 +317,7 @@ function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: 
       const res = await api.checkPayment(row.kind, row.id, ref);
       setChecks((c) => ({ ...c, [ref]: res }));
     } catch (e: any) {
-      toast.error(e.message ?? 'Tranzak could not be reached.');
+      toast.error(e.message ?? 'The payment provider could not be reached.');
     } finally {
       setBusy('');
     }
@@ -325,7 +326,7 @@ function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: 
   useEffect(() => {
     if (!autoCheck || ranAuto.current || !d) return;
     ranAuto.current = true;
-    const first = d.attempts.find((a) => a.provider === 'tranzak');
+    const first = d.attempts[0];
     if (first) check(first.ref);
   }, [autoCheck, d, check]);
 
@@ -413,15 +414,13 @@ function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: 
                           <p className="text-sm text-foreground">{dayTime(a.at)} · {a.provider === 'tranzak' ? 'Tranzak' : 'Stripe (card)'}</p>
                           <p className="truncate font-mono text-xs text-muted-foreground">{a.ref}</p>
                         </div>
-                        {a.provider === 'tranzak'
-                          ? <button onClick={() => check(a.ref)} disabled={!!busy} className={btnOutline}>{busy === 'check' + a.ref ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <ArrowClockwise className="h-3.5 w-3.5" />} Check with Tranzak</button>
-                          : <span className="text-xs text-muted-foreground">Check in the Stripe dashboard</span>}
+                        <button onClick={() => check(a.ref)} disabled={!!busy} className={btnOutline}>{busy === 'check' + a.ref ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <ArrowClockwise className="h-3.5 w-3.5" />} Check with {providerName(a.provider)}</button>
                       </div>
                       {result && (
                         <div className="mt-2 border-t border-border pt-2" aria-live="polite">
                           <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
                             <Dot className={result.paid ? 'bg-secondary' : 'bg-accent'} />
-                            Tranzak says: {result.paid ? 'paid' : result.status ? result.status.toLowerCase() : 'no record of this payment'}
+                            {providerName(a.provider)} says: {result.paid ? 'paid' : result.status ? (result.status.toLowerCase() === 'paid' ? 'paid, but for a different order' : result.status.toLowerCase()) : 'no record of this payment'}
                             {result.amount != null && <span className="font-normal text-muted-foreground">· {Number(result.amount).toLocaleString('en-US')} {result.currency ?? ''}</span>}
                           </p>
                           {result.paid && unpaid && (canChange
@@ -459,7 +458,7 @@ function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: 
           {mode === 'hand' && (
             <section className="rounded-xl bg-muted/40 p-4">
               <p className="text-sm font-bold text-foreground">Record a payment received another way</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">For cash, a bank transfer, or a Tranzak payment that never reached us. {d.kind === 'order' ? 'The client is emailed their receipt.' : 'The client is emailed their confirmation and join link.'}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">For cash or a bank transfer — money that did not come through Tranzak or Stripe. {d.kind === 'order' ? 'The client is emailed their receipt.' : 'The client is emailed their confirmation and join link.'}</p>
               <label className={`${heading} mt-3 block`} htmlFor="pay-note">How was the {money(d.amount)} received?</label>
               <textarea id="pay-note" value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="For example: bank transfer on 12 October, reference 99120." className={`${field} mt-1.5`} />
               <div className="mt-3 flex justify-end gap-2">

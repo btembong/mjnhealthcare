@@ -125,7 +125,22 @@ export class ConsultationController {
     return this.svc.holdSlot(slotId, dto.clientEmail);
   }
 
-  // Tranzak webhook — no auth, verify via HMAC in service
+  /**
+   * Asks the payment provider whether this booking has been paid and confirms it if so.
+   * Open to anyone, like the booking page itself: it can only confirm a booking the provider
+   * reports as paid, so calling it for someone else's booking gains nothing.
+   */
+  @Post('booking/:id/verify-payment')
+  @HttpCode(HttpStatus.OK)
+  async verifyPayment(@Param('id') id: string) {
+    try {
+      return { status: await this.svc.verifyBookingPayment(id) };
+    } catch {
+      return { status: 'pending' };
+    }
+  }
+
+  // Tranzak notice — open to anyone, so nothing in it is trusted: the booking is looked up with Tranzak directly
   @Post('webhook/payment')
   @HttpCode(HttpStatus.OK)
   paymentWebhook(@Body() payload: any) {

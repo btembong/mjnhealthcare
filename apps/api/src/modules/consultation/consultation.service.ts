@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
+import { paymentVerifier, belongsTo } from '../../common/payment-verifier';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bull';
@@ -677,6 +678,9 @@ export class ConsultationService {
   // ── Public: booking summary ──────────────────────────────────────────────────
 
   async getBookingSummary(bookingId: string) {
+    // The page a client lands on after paying reads this every few seconds. While the booking is
+    // unpaid, each read also asks the provider, so the booking confirms even if no notice arrives.
+    await this.verifyBookingPayment(bookingId).catch(() => undefined);
     const booking = await this.db.consultationBooking.findUnique({
       where: { id: bookingId },
       include: {
@@ -707,41 +711,69 @@ export class ConsultationService {
       payload?.data?.mchTransactionRef ??
       payload?.customData?.bookingId;
 
-    if (!bookingId) {
-      this.logger.warn('Tranzak webhook: no bookingId found', JSON.stringify(payload));
+    if (!bookingId || typeof bookingId !== 'string') {
+      this.logger.warn('Tranzak webhook: no bookingId found');
       return;
     }
+    // This address is open to anyone, so what the notice claims is ignored. It only tells us which
+    // booking to look up; the booking changes only on what Tranzak says when we ask it ourselves.
+    const status = await this.verifyBookingPayment(bookingId, true);
+    return { received: true, status };
+  }
 
-    const status =
-      payload?.resource?.status ??
-      payload?.status ??
-      payload?.data?.status;
-    if (status === 'SUCCESSFUL') {
-      await this.handlePaymentConfirmed(bookingId);
-    } else if (status && status !== 'PENDING' && status !== 'PROCESSING') {
-      const booking = await this.db.consultationBooking.findUnique({
-        where: { id: bookingId },
-        include: { slot: { include: { consultant: { select: { name: true, priceUsd: true } } } } },
-      });
-      // Release the slot when payment fails
-      if (booking?.slotId) {
-        await this.db.consultationSlot.update({
-          where: { id: booking.slotId },
-          data: { status: 'AVAILABLE' },
-        });
+  private readonly lastVerified = new Map<string, number>();
+
+  /**
+   * Asks the payment provider about a booking that is still waiting for payment.
+   * Paid → the booking is confirmed (room, email, reminders). Finished without payment → the
+   * booking is cancelled and its time released. Anything else → left as it is.
+   *
+   * Safe for anyone to trigger: it can only confirm a payment the provider reports as paid for
+   * this booking. If the provider cannot be reached the error is passed on.
+   */
+  async verifyBookingPayment(bookingId: string, force = false): Promise<'confirmed' | 'pending' | 'failed' | 'ignored'> {
+    const booking = await this.db.consultationBooking.findUnique({
+      where: { id: bookingId },
+      include: { slot: { include: { consultant: { select: { name: true, priceUsd: true } } } } },
+    });
+    if (!booking || booking.status !== 'AWAITING_PAYMENT') return 'ignored';
+    if (!booking.paymentRef) return 'pending';
+
+    // Not more than once every few seconds per booking, however often the page asks.
+    const last = this.lastVerified.get(bookingId) ?? 0;
+    if (!force && Date.now() - last < 8000) return 'pending';
+    this.lastVerified.set(bookingId, Date.now());
+    if (this.lastVerified.size > 5000) this.lastVerified.clear();
+
+    const verified = await paymentVerifier.verify(booking.paymentRef);
+    if (verified.paid) {
+      if (!belongsTo(verified, bookingId)) {
+        this.logger.error(`${verified.provider} payment ${booking.paymentRef} is paid but belongs to ${verified.ourRef}, not booking ${bookingId}`);
+        return 'pending';
       }
-      this.logger.warn(`Tranzak payment ${status} for booking ${bookingId}`);
-      this.events.emit('consultation.payment_failed', {
-        bookingId,
-        clientName: booking?.clientName ?? 'Unknown',
-        clientEmail: booking?.clientEmail ?? '',
-        clientPhone: booking?.clientPhone ?? '',
-        consultantName: booking?.slot?.consultant?.name ?? '—',
-        amountUsd: Number(booking?.slot?.consultant?.priceUsd ?? 0),
-        failReason: status,
-        sessionStart: booking?.slot?.startAt?.toISOString() ?? '',
-      });
+      this.logger.log(`Booking ${bookingId} confirmed as paid by ${verified.provider}`);
+      await this.handlePaymentConfirmed(bookingId);
+      return 'confirmed';
     }
+    if (!verified.failed) return 'pending';
+
+    // The provider says this payment ended without money being taken: close the booking, free the time.
+    await this.db.$transaction([
+      this.db.consultationBooking.update({ where: { id: bookingId }, data: { status: 'CANCELLED' } }),
+      this.db.consultationSlot.update({ where: { id: booking.slotId }, data: { status: 'AVAILABLE', reservedUntil: null, reservedBy: null } }),
+    ]);
+    this.logger.warn(`${verified.provider} payment ${verified.status} for booking ${bookingId}`);
+    this.events.emit('consultation.payment_failed', {
+      bookingId,
+      clientName: booking.clientName ?? 'Unknown',
+      clientEmail: booking.clientEmail ?? '',
+      clientPhone: booking.clientPhone ?? '',
+      consultantName: booking.slot?.consultant?.name ?? '—',
+      amountUsd: Number(booking.slot?.consultant?.priceUsd ?? 0),
+      failReason: verified.status ?? 'FAILED',
+      sessionStart: booking.slot?.startAt?.toISOString() ?? '',
+    });
+    return 'failed';
   }
 
   // ── Public: Stripe payment webhook ─────────────────────────────────────────
@@ -767,12 +799,9 @@ export class ConsultationService {
         this.logger.warn('Consultation Stripe webhook: no bookingId in session metadata');
         return;
       }
-      if (session.payment_status === 'paid') {
-        this.logger.log(`Stripe payment confirmed for consultation booking ${bookingId}`);
-        await this.handlePaymentConfirmed(bookingId);
-      } else {
-        this.logger.warn(`Stripe session ${session.id} completed but payment_status=${session.payment_status}`);
-      }
+      // The notice is signed, and the session is still fetched from Stripe before anything is confirmed.
+      const status = await this.verifyBookingPayment(bookingId, true);
+      this.logger.log(`Stripe notice for consultation booking ${bookingId}: ${status}`);
     }
   }
 

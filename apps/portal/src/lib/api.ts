@@ -129,6 +129,10 @@ export const api = {
   getOrder: (orderId: string) =>
     request<any>(`/orders/${orderId}`),
 
+  /** Asks the payment provider whether this order has been paid, and confirms it if so. */
+  verifyOrderPayment: (orderId: string) =>
+    request<{ status: 'paid' | 'pending' | 'failed' | 'none' }>(`/payments/verify/${orderId}`, { method: 'POST' }),
+
   getOrdersByEngagement: (engagementId: string) =>
     request<any[]>(`/orders/engagement/${engagementId}`),
 

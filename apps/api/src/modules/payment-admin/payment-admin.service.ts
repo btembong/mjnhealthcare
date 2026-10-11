@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 import { OrderService } from '../order/order.service';
 import { ConsultationService } from '../consultation/consultation.service';
+import { paymentVerifier, belongsTo, providerOfRef, PaymentLookupError } from '../../common/payment-verifier';
 
 export type PaymentKind = 'order' | 'consultation';
 /**
@@ -38,7 +39,7 @@ const CHECK_AFTER_MINUTES = 15;
 const PAID_BOOKING = ['CONFIRMED', 'COMPLETED', 'NO_SHOW'];
 
 const round = (n: number) => Math.round(n * 100) / 100;
-const providerOf = (ref: string) => (ref.startsWith('cs_') ? 'stripe' : 'tranzak');
+const providerOf = providerOfRef;
 
 @Injectable()
 export class PaymentAdminService {
@@ -193,43 +194,23 @@ export class PaymentAdminService {
 
   // ── Checking with the payment provider ──────────────────────────────────────
 
-  /** Asks Tranzak what happened to a payment the client started. Changes nothing. */
+  /** Asks Tranzak or Stripe what happened to a payment the client started. Changes nothing. */
   async check(kind: PaymentKind, id: string, ref?: string) {
     const row = await this.rowOf(kind, id);
     const attempt = ref ? row.attempts.find((a) => a.ref === ref) : row.attempts[0];
     if (!attempt) throw new BadRequestException('The client has not started a payment for this, so there is nothing to check.');
-    if (attempt.provider !== 'tranzak') {
-      throw new BadRequestException('This was paid by card through Stripe. Check it in the Stripe dashboard.');
-    }
-    const result = await this.askTranzak(attempt.ref);
-    return { ref: attempt.ref, ...result, checkedAt: new Date() };
+    const result = await this.ask(attempt.ref, id);
+    return { ref: attempt.ref, provider: result.provider, status: result.status, paid: result.paid, amount: result.amount, currency: result.currency, checkedAt: new Date() };
   }
 
-  private async askTranzak(requestId: string) {
-    const baseUrl = process.env.TRANZAK_BASE_URL ?? 'https://dsapi.tranzak.me';
+  /** One lookup with the provider. "Paid" also requires the provider's record to be for this order or booking. */
+  private async ask(ref: string, id: string) {
     try {
-      const authRes = await fetch(`${baseUrl}/auth/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appId: process.env.TRANZAK_APP_ID, appKey: process.env.TRANZAK_APP_KEY }),
-      });
-      const token = ((await authRes.json()) as any)?.data?.token;
-      if (!token) throw new Error('no token');
-      const statusRes = await fetch(`${baseUrl}/xp021/v1/request/${encodeURIComponent(requestId)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = (await statusRes.json()) as any;
-      const resource = data?.data ?? data?.resource ?? {};
-      const status = typeof resource.status === 'string' ? resource.status : null;
-      return {
-        status,
-        paid: status === 'SUCCESSFUL',
-        amount: resource.amount ?? null,
-        currency: resource.currencyCode ?? null,
-      };
+      const verified = await paymentVerifier.verify(ref);
+      return { ...verified, paid: verified.paid && belongsTo(verified, id) };
     } catch (err) {
-      this.logger.warn(`Tranzak check failed for ${requestId}: ${err}`);
-      throw new BadRequestException('Tranzak could not be reached. Try again in a minute.');
+      if (err instanceof PaymentLookupError) throw new BadRequestException(err.message);
+      throw err;
     }
   }
 
@@ -249,10 +230,11 @@ export class PaymentAdminService {
 
     if (input?.ref) {
       const attempt = row.attempts.find((a) => a.ref === input.ref);
-      if (!attempt || attempt.provider !== 'tranzak') throw new BadRequestException('That payment attempt does not belong here.');
-      const result = await this.askTranzak(attempt.ref);
-      if (!result.paid) throw new BadRequestException(`Tranzak does not show this as paid (it says ${result.status ?? 'nothing'}).`);
-      via = 'tranzak';
+      if (!attempt) throw new BadRequestException('That payment attempt does not belong here.');
+      const result = await this.ask(attempt.ref, id);
+      const name = result.provider === 'stripe' ? 'Stripe' : 'Tranzak';
+      if (!result.paid) throw new BadRequestException(`${name} does not show this as paid (it says ${result.status ?? 'nothing'}).`);
+      via = result.provider;
     } else if (note.length < 5) {
       throw new BadRequestException('Say how the money was received (for example: bank transfer on 12 October, reference …).');
     }
@@ -260,7 +242,7 @@ export class PaymentAdminService {
     if (kind === 'order') {
       // A payment can land after the client cancelled an unpaid order; it still counts.
       const cancelledUnpaid = row.state === 'cancelled';
-      if (!['waiting', 'checking'].includes(row.state) && !(cancelledUnpaid && via === 'tranzak')) {
+      if (!['waiting', 'checking'].includes(row.state) && !(cancelledUnpaid && via !== 'manual')) {
         throw new BadRequestException(row.state === 'paid' ? 'This order is already paid.' : 'This order is closed and cannot be marked as paid.');
       }
       await this.orders.markPaid(id);
