@@ -230,6 +230,24 @@ export const api = {
     request<any[]>('/student-support/university-programs'),
 
   // ── Consultation sessions (client view) ───────────────────────────────────
+  cancelBooking: (id: string) =>
+    request<any>(`/bookings/${id}`, { method: 'DELETE' }),
+
+  getSessionCancelPreview: (id: string) =>
+    request<{ amountPaid: number; refundAmount: number; refundPercent: number; canCancel: boolean }>(`/consultations/my/${id}/cancel-preview`),
+
+  cancelMySession: (id: string) =>
+    request<{ refundAmount: number; refundPercent: number }>(`/consultations/my/${id}/cancel`, { method: 'POST' }),
+
+  joinMySession: (id: string) =>
+    request<{ roomUrl: string | null; token: string | null; consultantName: string; message: string | null }>(`/consultations/my/${id}/join`),
+
+  rescheduleMySession: (id: string, slotId: string) =>
+    request<{ id: string; startAt: string; durationMinutes: number }>(`/consultations/my/${id}/reschedule`, { method: 'POST', body: JSON.stringify({ slotId }) }),
+
+  getConsultantSlots: (consultantId: string) =>
+    request<any[]>(`/consultations/slots/${consultantId}`),
+
   getMyConsultationBookings: (email: string) =>
     request<any[]>(`/consultations/client/${encodeURIComponent(email)}`),
 

@@ -102,7 +102,7 @@ export class BookingService {
   async getBookingsByPerson(personId: string) {
     return this.db.booking.findMany({
       where: { personId },
-      include: { slot: true },
+      include: { slot: { include: { consultant: { select: { id: true, name: true } } } } },
       orderBy: { createdAt: 'desc' },
     });
   }

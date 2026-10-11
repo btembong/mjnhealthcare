@@ -3,6 +3,7 @@ import { Process, Processor } from '@nestjs/bull';
 import { Job } from 'bull';
 import { Logger } from '@nestjs/common';
 import { NotificationService } from '../notification/notification.service';
+import { DatabaseService } from '@mjn/database';
 
 interface ReminderPayload {
   bookingId: string;
@@ -30,18 +31,44 @@ interface FollowupPayload {
 export class ConsultationReminderProcessor {
   private readonly logger = new Logger(ConsultationReminderProcessor.name);
 
-  constructor(private readonly notifications: NotificationService) {}
+  constructor(
+    private readonly notifications: NotificationService,
+    private readonly db: DatabaseService,
+  ) {}
+
+  /** A reminder is only sent if the session is still confirmed for the time it was queued for. */
+  private async stillOn(data: ReminderPayload): Promise<boolean> {
+    try {
+      const booking = await this.db.consultationBooking.findUnique({
+        where: { id: data.bookingId },
+        select: { status: true, slot: { select: { startAt: true } } },
+      });
+      if (!booking) return false;
+      const moved = Math.abs(booking.slot.startAt.getTime() - new Date(data.sessionStart).getTime()) > 60_000;
+      if (booking.status !== 'CONFIRMED' || moved) {
+        this.logger.log(`Reminder skipped for booking ${data.bookingId}: ${moved ? 'session was moved' : `status is ${booking.status}`}`);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      // If the check itself fails, send the reminder rather than leave a client without one.
+      this.logger.error(`Could not check booking ${data.bookingId} before a reminder: ${err}`);
+      return true;
+    }
+  }
 
   // ── Legacy handlers (keep for backward compat with queued jobs) ─────────────
 
   @Process('consultation-reminder-24h')
   async handle24h(job: Job<ReminderPayload>) {
+    if (!(await this.stillOn(job.data))) return;
     await this._sendClientReminder(job.data, '24 hours');
     this.logger.log(`24h reminder sent for booking ${job.data.bookingId}`);
   }
 
   @Process('consultation-reminder-1h')
   async handle1h(job: Job<ReminderPayload>) {
+    if (!(await this.stillOn(job.data))) return;
     await this._sendClientReminder(job.data, '1 hour');
     this.logger.log(`1h reminder sent for booking ${job.data.bookingId}`);
   }
@@ -50,6 +77,7 @@ export class ConsultationReminderProcessor {
 
   @Process('consultation-reminder-48h')
   async handle48h(job: Job<ReminderPayload>) {
+    if (!(await this.stillOn(job.data))) return;
     const { clientName, clientEmail, clientPhone, consultantName, sessionStart, roomUrl } = job.data;
     const time = new Date(sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
 
@@ -74,6 +102,7 @@ export class ConsultationReminderProcessor {
 
   @Process('consultation-reminder-2h')
   async handle2h(job: Job<ReminderPayload>) {
+    if (!(await this.stillOn(job.data))) return;
     const { clientName, clientEmail, clientPhone, consultantName, sessionStart, roomUrl } = job.data;
     const time = new Date(sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
 
@@ -97,6 +126,7 @@ export class ConsultationReminderProcessor {
 
   @Process('consultation-reminder-15m')
   async handle15m(job: Job<ReminderPayload>) {
+    if (!(await this.stillOn(job.data))) return;
     const { clientName, clientEmail, clientPhone, consultantName, sessionStart, roomUrl } = job.data;
     const time = new Date(sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
 
@@ -119,6 +149,7 @@ export class ConsultationReminderProcessor {
 
   @Process('consultation-reminder-consultant')
   async handleConsultantReminder(job: Job<ReminderPayload>) {
+    if (!(await this.stillOn(job.data))) return;
     const { bookingId, consultantName, consultantEmail, clientName, clientEmail, sessionStart, preSessionNote } = job.data;
     const time = new Date(sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
 

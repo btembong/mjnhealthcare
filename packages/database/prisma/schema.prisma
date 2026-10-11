@@ -911,6 +911,8 @@ model ConsultationBooking {
   joinedAt             DateTime?
   completedAt          DateTime?
   noShowAt             DateTime?
+  rescheduleCount      Int                       @default(0)
+  rescheduledAt        DateTime?
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
 

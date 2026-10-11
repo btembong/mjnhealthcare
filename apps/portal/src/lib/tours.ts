@@ -262,17 +262,29 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
       ],
     },
     'portal.bookings': {
-      title: 'Bookings',
+      title: "My sessions",
       steps: [
         {
           target: 'bookings-header',
-          title: 'Book a session',
-          body: 'Schedule time with your consultant or join an academy class. Choose a slot that suits you.',
+          title: "Book a session",
+          body: "Book time with a consultant whenever you need it. Choose a time that suits you.",
+        },
+        {
+          target: 'bookings-next',
+          skipIfMissing: true,
+          title: "Your next session",
+          body: "When it is, who it is with, and the Join button. Join opens 10 minutes before the start. Times are shown in your own time zone.",
         },
         {
           target: 'bookings-list',
-          title: 'Upcoming and past sessions',
-          body: 'Your sessions are listed here. When a session is about to start you can join it from this page, and upcoming sessions can be cancelled.',
+          title: "Upcoming and past",
+          body: "Your other sessions. From an upcoming one you can add it to your calendar, move it or cancel it. Past sessions show how they ended and any refund.",
+        },
+        {
+          target: 'bookings-rules',
+          skipIfMissing: true,
+          title: "Moving and cancelling",
+          body: "A session can be moved once, free, when it is more than 24 hours away. Before you cancel you are shown exactly what will be refunded.",
         },
       ],
     },
@@ -527,17 +539,29 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
       ],
     },
     'portal.bookings': {
-      title: 'Réservations',
+      title: "Mes séances",
       steps: [
         {
           target: 'bookings-header',
-          title: 'Réserver une séance',
-          body: "Planifiez un moment avec votre consultant ou rejoignez un cours de l'académie. Choisissez le créneau qui vous convient.",
+          title: "Réserver une séance",
+          body: "Réservez un moment avec un consultant quand vous en avez besoin. Choisissez le créneau qui vous convient.",
+        },
+        {
+          target: 'bookings-next',
+          skipIfMissing: true,
+          title: "Votre prochaine séance",
+          body: "La date, l'heure, la personne que vous rencontrez et le bouton « Rejoindre ». Il s'active 10 minutes avant le début. Les heures sont affichées dans votre fuseau horaire.",
         },
         {
           target: 'bookings-list',
-          title: 'Séances à venir et passées',
-          body: "Vos séances sont listées ici. Lorsqu'une séance est sur le point de commencer, vous pouvez la rejoindre depuis cette page ; les séances à venir peuvent être annulées.",
+          title: "À venir et passées",
+          body: "Vos autres séances. Pour une séance à venir, vous pouvez l'ajouter à votre calendrier, la déplacer ou l'annuler. Les séances passées indiquent leur issue et tout remboursement.",
+        },
+        {
+          target: 'bookings-rules',
+          skipIfMissing: true,
+          title: "Déplacer et annuler",
+          body: "Une séance peut être déplacée une fois, gratuitement, si elle a lieu dans plus de 24 heures. Avant d'annuler, le montant exact du remboursement vous est indiqué.",
         },
       ],
     },

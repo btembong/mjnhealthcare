@@ -580,6 +580,67 @@ export class NotificationListener {
     }
   }
 
+  @OnEvent('consultation.rescheduled')
+  async onConsultationRescheduled(payload: {
+    bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
+    consultantName: string; consultantEmail?: string | null;
+    oldStart: string; newStart: string; durationMins: number;
+  }) {
+    const when = (iso: string) => new Date(iso).toLocaleString('en-GB', {
+      timeZone: 'Africa/Douala', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+    const portalUrl = process.env.PORTAL_URL ?? 'http://localhost:3002';
+    try {
+      await Promise.all([
+        this.notificationService.sendEmail(
+          payload.clientEmail,
+          'Your session has been moved — MJN Healthcare',
+          T.shell(
+            T.greeting(payload.clientName) +
+            T.label('Session moved') +
+            T.h1('Your session has a new time') +
+            T.infoTable([
+              T.row('Consultant', escapeHtml(payload.consultantName)),
+              T.row('New time', `<strong>${when(payload.newStart)} WAT</strong>`),
+              T.row('Was', `${when(payload.oldStart)} WAT`),
+              T.row('Duration', `${payload.durationMins} min`, true),
+            ]) +
+            T.p('Your payment carries over; there is nothing more to pay. Any join link from an earlier email no longer works, so please join from your portal.') +
+            T.btn('Open my sessions', `${portalUrl}/bookings`),
+          ),
+          payload.clientName,
+          undefined,
+          'team',
+        ),
+        this.notificationService.sendWhatsApp(
+          payload.clientPhone,
+          `MJN Healthcare: your session with ${payload.consultantName} has been moved to ${when(payload.newStart)} WAT. Join from your portal: ${portalUrl}/bookings`,
+        ),
+      ]);
+    } catch (err) {
+      this.logger.error(`Failed to tell the client about moved booking ${payload.bookingId}: ${err}`);
+    }
+    try {
+      await this.notificationService.sendEmail(
+        payload.consultantEmail || adminAlertEmail(),
+        `Session moved — ${payload.clientName} — ${when(payload.newStart)} WAT`,
+        T.shell(
+          T.h1('A client moved their session') +
+          T.infoTable([
+            T.row('Client', escapeHtml(payload.clientName)),
+            T.row('New time', `<strong>${when(payload.newStart)} WAT</strong>`),
+            T.row('Was', `${when(payload.oldStart)} WAT`, true),
+          ]) +
+          T.p('The earlier time is open for booking again.') +
+          T.btn('Open My Sessions', `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/sessions`),
+        ),
+        payload.consultantName,
+      );
+    } catch (err) {
+      this.logger.error(`Failed to tell the consultant about moved booking ${payload.bookingId}: ${err}`);
+    }
+  }
+
   @OnEvent('consultation.cancelled')
   async onConsultationCancelled(payload: {
     bookingId: string; clientName: string; clientEmail: string; clientPhone: string;

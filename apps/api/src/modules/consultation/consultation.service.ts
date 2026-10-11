@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -19,6 +19,12 @@ import {
   CreateBlockedTimeDto,
 } from './consultation.dto';
 
+// A client may move a confirmed session themselves this many times, and only this far ahead.
+const MAX_CLIENT_RESCHEDULES = 1;
+const RESCHEDULE_MIN_HOURS = 24;
+
+const sameEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+
 @Injectable()
 export class ConsultationService {
   private readonly logger = new Logger(ConsultationService.name);
@@ -36,20 +42,192 @@ export class ConsultationService {
 
   // ── Public: list consultants ────────────────────────────────────────────────
 
+  /**
+   * A client's own sessions. Leaves out the consultant's private case note, the payment
+   * reference, the recording and the video room details: the room is reached through the join route.
+   */
   async getClientBookings(clientEmail: string) {
-    return this.db.consultationBooking.findMany({
+    const bookings = await this.db.consultationBooking.findMany({
       where: { clientEmail: { equals: clientEmail, mode: 'insensitive' } },
-      include: {
+      select: {
+        id: true, status: true, consultationCategory: true, preSessionNote: true, amountPaid: true,
+        refundAmount: true, refundedAt: true, rescheduleCount: true, createdAt: true, completedAt: true,
         slot: {
-          include: {
-            consultant: {
-              select: { id: true, name: true, bio: true, photoUrl: true, specialty: true },
-            },
+          select: {
+            id: true, startAt: true, durationMinutes: true, isFree: true, consultantId: true,
+            consultant: { select: { id: true, name: true, bio: true, photoUrl: true, specialty: true } },
           },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
+    const earliest = Date.now() + RESCHEDULE_MIN_HOURS * 60 * 60 * 1000;
+    return bookings.map((b) => ({
+      ...b,
+      canReschedule: b.status === 'CONFIRMED' && b.rescheduleCount < MAX_CLIENT_RESCHEDULES && b.slot.startAt.getTime() > earliest,
+    }));
+  }
+
+  /** The email address a logged-in person books under. */
+  async emailOf(personId: string): Promise<string> {
+    const person = await this.db.person.findUnique({ where: { id: personId }, select: { email: true } });
+    if (!person?.email) throw new ForbiddenException('Your account has no email address to match a booking.');
+    return person.email;
+  }
+
+  /**
+   * A slot keeps a link to its booking even after that booking is cancelled, and a slot can
+   * hold only one. Move the old cancelled booking onto an archived copy so the slot can be booked again.
+   */
+  private async detachCancelledBooking(slotId: string) {
+    const prior = await this.db.consultationBooking.findUnique({ where: { slotId }, include: { slot: true } });
+    if (!prior) return;
+    if (prior.status !== 'CANCELLED') throw new ConflictException('That time is no longer available. Please choose another.');
+    const archive = await this.db.consultationSlot.create({
+      data: {
+        consultantId: prior.slot.consultantId,
+        startAt: prior.slot.startAt,
+        durationMinutes: prior.slot.durationMinutes,
+        isFree: prior.slot.isFree,
+        status: 'CANCELLED',
+      },
+    });
+    await this.db.consultationBooking.update({ where: { id: prior.id }, data: { slotId: archive.id } });
+  }
+
+  /** Reminders before a session, for the client and the consultant. */
+  private async scheduleReminders(booking: {
+    id: string; clientName: string; clientEmail: string; clientPhone: string; preSessionNote: string | null;
+    consultant: { name: string; email: string | null };
+  }, startAt: Date, roomUrl: string) {
+    const now = Date.now();
+    const sessionMs = startAt.getTime();
+    const payload = {
+      bookingId: booking.id,
+      clientName: booking.clientName,
+      clientEmail: booking.clientEmail,
+      clientPhone: booking.clientPhone,
+      consultantName: booking.consultant.name,
+      sessionStart: startAt.toISOString(),
+      roomUrl,
+    };
+    const reminders: Array<{ name: string; offsetMs: number }> = [
+      { name: 'consultation-reminder-48h', offsetMs: 48 * 60 * 60 * 1000 },
+      { name: 'consultation-reminder-2h',  offsetMs: 2  * 60 * 60 * 1000 },
+      { name: 'consultation-reminder-15m', offsetMs: 15 * 60 * 1000 },
+    ];
+    for (const r of reminders) {
+      const delay = sessionMs - r.offsetMs - now;
+      if (delay > 0) await this.reminderQueue.add(r.name, payload, { delay });
+    }
+    const consultantDelay = sessionMs - 30 * 60 * 1000 - now;
+    if (consultantDelay > 0) {
+      await this.reminderQueue.add('consultation-reminder-consultant', {
+        ...payload,
+        consultantEmail: booking.consultant.email,
+        preSessionNote: booking.preSessionNote,
+      }, { delay: consultantDelay });
+    }
+  }
+
+  /** What cancelling right now would refund, under the standing rule. Changes nothing. */
+  async cancelPreview(bookingId: string, clientEmail: string) {
+    const booking = await this.db.consultationBooking.findUnique({ where: { id: bookingId }, include: { slot: true } });
+    if (!booking || !sameEmail(booking.clientEmail, clientEmail)) throw new NotFoundException('Booking not found');
+    const refund = this.refundService.calculate(Number(booking.amountPaid), booking.slot.startAt);
+    return {
+      amountPaid: Number(booking.amountPaid),
+      refundAmount: refund.refundAmount,
+      refundPercent: refund.refundPercent,
+      canCancel: ['CONFIRMED', 'AWAITING_PAYMENT'].includes(booking.status),
+    };
+  }
+
+  /**
+   * The client moves a confirmed session to another free time with the same consultant.
+   * Allowed once, and only more than 24 hours before the session; the payment stays as it is.
+   */
+  async rescheduleBooking(bookingId: string, clientEmail: string, newSlotId: string) {
+    const booking = await this.db.consultationBooking.findUnique({
+      where: { id: bookingId },
+      include: { slot: true, consultant: true },
+    });
+    if (!booking || !sameEmail(booking.clientEmail, clientEmail)) throw new NotFoundException('Booking not found');
+    if (booking.status !== 'CONFIRMED') throw new BadRequestException('Only a confirmed session can be moved.');
+    if (booking.rescheduleCount >= MAX_CLIENT_RESCHEDULES) {
+      throw new BadRequestException('This session has already been moved once. Message your team to change it again.');
+    }
+    const now = new Date();
+    if (booking.slot.startAt.getTime() - now.getTime() <= RESCHEDULE_MIN_HOURS * 60 * 60 * 1000) {
+      throw new BadRequestException('A session can only be moved more than 24 hours before it starts.');
+    }
+    if (newSlotId === booking.slotId) throw new BadRequestException('Choose a different time.');
+
+    const target = await this.db.consultationSlot.findUnique({ where: { id: newSlotId } });
+    if (!target || target.consultantId !== booking.consultantId || target.isFree !== booking.slot.isFree || target.startAt <= now) {
+      throw new ConflictException('That time is no longer available. Please choose another.');
+    }
+
+    // Claim the new time first; only one request can win it.
+    const claimed = await this.db.consultationSlot.updateMany({
+      where: {
+        id: newSlotId,
+        OR: [{ status: 'AVAILABLE' }, { status: 'RESERVED', reservedUntil: { lt: now } }],
+      },
+      data: { status: 'BOOKED', reservedUntil: null, reservedBy: null },
+    });
+    if (claimed.count !== 1) throw new ConflictException('That time is no longer available. Please choose another.');
+
+    const oldSlotId = booking.slotId;
+    const oldStart = booking.slot.startAt;
+    try {
+      await this.detachCancelledBooking(newSlotId);
+      await this.db.$transaction([
+        this.db.consultationBooking.update({
+          where: { id: bookingId },
+          data: { slotId: newSlotId, rescheduleCount: { increment: 1 }, rescheduledAt: now },
+        }),
+        this.db.consultationSlot.update({
+          where: { id: oldSlotId },
+          data: { status: 'AVAILABLE', reservedUntil: null, reservedBy: null },
+        }),
+      ]);
+    } catch (err) {
+      // Give the new time back if the move itself failed.
+      await this.db.consultationSlot.update({ where: { id: newSlotId }, data: { status: 'AVAILABLE' } }).catch(() => undefined);
+      throw err;
+    }
+
+    // The video room closes shortly after the original time, so the session needs a new one.
+    let dailyRoomUrl = booking.dailyRoomUrl ?? '';
+    try {
+      if (booking.dailyRoomName) await this.dailyCo.deleteRoom(booking.dailyRoomName).catch(() => undefined);
+      const room = await this.dailyCo.createRoom(booking.id, target.startAt, target.durationMinutes);
+      dailyRoomUrl = room.url;
+      await this.db.consultationBooking.update({ where: { id: bookingId }, data: { dailyRoomUrl: room.url, dailyRoomName: room.name } });
+    } catch (err) {
+      this.logger.error(`Video room could not be recreated for moved booking ${bookingId}: ${err}`);
+      await this.db.consultationBooking.update({ where: { id: bookingId }, data: { dailyRoomUrl: null, dailyRoomName: null } }).catch(() => undefined);
+      dailyRoomUrl = '';
+    }
+
+    // Old reminders stop themselves when they see the time has changed; queue the new ones without holding up the reply.
+    this.scheduleReminders(booking, target.startAt, dailyRoomUrl).catch((err) =>
+      this.logger.error(`Reminders could not be queued for moved booking ${bookingId}: ${err}`));
+
+    this.events.emit('consultation.rescheduled', {
+      bookingId,
+      clientName: booking.clientName,
+      clientEmail: booking.clientEmail,
+      clientPhone: booking.clientPhone,
+      consultantName: booking.consultant.name,
+      consultantEmail: booking.consultant.email,
+      oldStart: oldStart.toISOString(),
+      newStart: target.startAt.toISOString(),
+      durationMins: target.durationMinutes,
+    });
+
+    return { id: bookingId, startAt: target.startAt, durationMinutes: target.durationMinutes };
   }
 
   async listConsultants(category?: string) {
@@ -216,6 +394,9 @@ export class ConsultationService {
         data: { status: 'BOOKED', reservedUntil: null, reservedBy: null },
       });
     });
+
+    // A time freed by a cancellation still carries the cancelled booking; move that aside first.
+    await this.detachCancelledBooking(dto.slotId);
 
     const booking = await this.db.consultationBooking.create({
       data: {
@@ -441,42 +622,7 @@ export class ConsultationService {
       recordingConsent: booking.recordingConsent,
     });
 
-    // Schedule extended reminder chain
-    const now = Date.now();
-    const sessionMs = booking.slot.startAt.getTime();
-
-    const payload = {
-      bookingId,
-      clientName: booking.clientName,
-      clientEmail: booking.clientEmail,
-      clientPhone: booking.clientPhone,
-      consultantName: booking.consultant.name,
-      sessionStart,
-      roomUrl: dailyRoomUrl,
-    };
-
-    const reminders: Array<{ name: string; offsetMs: number }> = [
-      { name: 'consultation-reminder-48h', offsetMs: 48 * 60 * 60 * 1000 },
-      { name: 'consultation-reminder-2h',  offsetMs: 2  * 60 * 60 * 1000 },
-      { name: 'consultation-reminder-15m', offsetMs: 15 * 60 * 1000 },
-    ];
-
-    for (const r of reminders) {
-      const delay = sessionMs - r.offsetMs - now;
-      if (delay > 0) {
-        await this.reminderQueue.add(r.name, payload, { delay });
-      }
-    }
-
-    // Consultant-side reminder 30 min before
-    const consultantDelay = sessionMs - 30 * 60 * 1000 - now;
-    if (consultantDelay > 0) {
-      await this.reminderQueue.add('consultation-reminder-consultant', {
-        ...payload,
-        consultantEmail: booking.consultant.email,
-        preSessionNote: booking.preSessionNote,
-      }, { delay: consultantDelay });
-    }
+    await this.scheduleReminders(booking, booking.slot.startAt, dailyRoomUrl);
 
     // ── Auto-create Lead for free sessions ──────────────────────────────────
     const slotWithFree = await this.db.consultationSlot.findUnique({ where: { id: booking.slotId } });
@@ -622,7 +768,7 @@ export class ConsultationService {
       include: { consultant: true },
     });
     if (!booking) throw new NotFoundException('Booking not found');
-    if (booking.clientEmail !== email) throw new BadRequestException('Email does not match booking');
+    if (!sameEmail(booking.clientEmail, email)) throw new BadRequestException('Email does not match booking');
     if (booking.status !== 'CONFIRMED') throw new BadRequestException('Booking is not confirmed');
 
     // Record first join time
@@ -673,7 +819,7 @@ export class ConsultationService {
       include: { slot: true },
     });
     if (!booking) throw new NotFoundException('Booking not found');
-    if (booking.clientEmail !== clientEmail) throw new BadRequestException('Email does not match booking');
+    if (!sameEmail(booking.clientEmail, clientEmail)) throw new BadRequestException('Email does not match booking');
     if (!['CONFIRMED', 'AWAITING_PAYMENT'].includes(booking.status)) {
       throw new BadRequestException('Booking cannot be cancelled');
     }

@@ -74,6 +74,35 @@ export class ConsultationController {
     return this.svc.getBookingSummary(id);
   }
 
+  // ── Logged-in client: their own sessions ─────────────────────────────────
+  // These act on the account's own email, so nothing has to be typed or guessed.
+
+  @UseGuards(JwtAuthGuard)
+  @Get('my/:id/cancel-preview')
+  async myCancelPreview(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.svc.cancelPreview(id, await this.svc.emailOf(user.id));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('my/:id/cancel')
+  @HttpCode(HttpStatus.OK)
+  async myCancel(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.svc.cancelBooking(id, await this.svc.emailOf(user.id));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('my/:id/join')
+  async myJoin(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.svc.getJoinInfo(id, await this.svc.emailOf(user.id));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('my/:id/reschedule')
+  @HttpCode(HttpStatus.OK)
+  async myReschedule(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { slotId: string }) {
+    return this.svc.rescheduleBooking(id, await this.svc.emailOf(user.id), String(body?.slotId ?? ''));
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('client/:email')
   async getClientBookings(@CurrentUser() user: AuthUser, @Param('email') email: string) {

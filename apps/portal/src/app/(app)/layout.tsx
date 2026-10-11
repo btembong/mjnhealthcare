@@ -38,7 +38,7 @@ const sidebarSections = [
     title: 'Academy',
     items: [
       { label: 'My Courses', href: '/academy', icon: BookOpen },
-      { label: 'Bookings', href: '/bookings', icon: CalendarBlank },
+      { label: 'My Sessions', href: '/bookings', icon: CalendarBlank },
     ],
   },
   {
