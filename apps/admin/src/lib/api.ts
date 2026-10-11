@@ -660,6 +660,15 @@ export const api = {
   deactivateOfficer: (id: string) =>
     request<any>(`/admin/officers/${id}`, { method: 'DELETE' }),
 
+  reactivateOfficer: (id: string) =>
+    request<any>(`/admin/officers/${id}/reactivate`, { method: 'PATCH' }),
+
+  reassignCases: (engagementIds: string[], officerId: string | null, handoverNotes?: string) =>
+    request<{ moved: number }>('/admin/officers/reassign', {
+      method: 'POST',
+      body: JSON.stringify({ engagementIds, officerId: officerId ?? undefined, handoverNotes }),
+    }),
+
   assignOfficer: (engagementId: string, officerId: string | null, handoverNotes?: string) =>
     request<any>(`/engagements/${engagementId}/assign-officer`, {
       method: 'PATCH',
@@ -740,10 +749,10 @@ export const api = {
   rejectNote: (noteId: string) =>
     request<any>(`/officer/notes/${noteId}/reject`, { method: 'PATCH' }),
 
-  setOfficerAvailability: (officerId: string, isAvailable: boolean, reassignToOfficerId?: string | null) =>
+  setOfficerAvailability: (officerId: string, isAvailable: boolean, reassignToOfficerId?: string | null, keepCases = false) =>
     request<any>(`/admin/officers/${officerId}/availability`, {
       method: 'PATCH',
-      body: JSON.stringify({ isAvailable, reassignToOfficerId }),
+      body: JSON.stringify({ isAvailable, reassignToOfficerId: reassignToOfficerId ?? undefined, keepCases }),
     }),
 
   // ── Reports ──────────────────────────────────────────────────────────────

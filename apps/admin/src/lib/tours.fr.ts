@@ -429,10 +429,10 @@ export const TOURS_FR: Record<string, TourDef> = {
   'admin.officers': {
     title: 'Agents de traitement',
     steps: [
-      { target: 'page-title', title: 'Vos agents de traitement', body: "Les membres de l'équipe qui traitent les dossiers au quotidien." },
-      { target: 'officers-stats', title: 'Charge de travail', body: 'Le nombre d\'agents actifs et la répartition des dossiers entre eux.' },
-      { target: 'officers-grid', title: 'Gérer un agent', body: "Modifiez un agent, ou indiquez qu'il est indisponible et transférez ses dossiers à quelqu'un d'autre." },
-      { title: 'Dossiers non attribués', body: "Les dossiers actifs sans agent sont signalés sur cette page, pour qu'aucun ne reste en attente." },
+      { target: 'page-title', title: 'Votre équipe de traitement', body: "Les membres de l'équipe qui traitent les dossiers au quotidien, avec le nombre d'agents disponibles et de dossiers ouverts qu'ils suivent." },
+      { target: 'officers-banner', skipIfMissing: true, title: 'Dossiers sans agent', body: "Les dossiers ouverts que personne ne traite. « Assign cases » propose pour chacun l'agent le moins chargé ; rien ne change tant que vous n'avez pas confirmé." },
+      { target: 'officers-grid', skipIfMissing: true, title: 'Comparer la charge de travail', body: "Chaque agent avec ses dossiers ouverts, ceux qui attendent une action de votre équipe et ceux qui sont inactifs. Sélectionnez un agent pour voir ses dossiers et en transférer à un collègue." },
+      { title: 'Absence et départ', body: "Indiquez qu'un agent est indisponible pour qu'il ne reçoive plus de nouveaux dossiers. Il peut garder ses dossiers pour une courte absence, ou vous pouvez les transférer. Un agent désactivé ne peut plus se connecter et peut être réactivé plus tard." },
     ],
   },
   'admin.catalog': {

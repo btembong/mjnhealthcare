@@ -508,10 +508,10 @@ const TOURS: Record<string, TourDef> = {
   'admin.officers': {
     title: 'Processing officers',
     steps: [
-      { target: 'page-title', title: 'Your processing officers', body: 'The staff who process cases day to day.' },
-      { target: 'officers-stats', title: 'Workload', body: 'How many officers are active and how cases are spread across them.' },
-      { target: 'officers-grid', title: 'Manage an officer', body: 'Edit an officer, or set them as unavailable and move their cases to someone else.' },
-      { title: 'Unassigned cases', body: 'Active cases with no officer are flagged on this page so none is left waiting.' },
+      { target: 'page-title', title: 'Your processing team', body: 'The staff who process cases day to day, with how many are available and how many open cases they hold between them.' },
+      { target: 'officers-banner', skipIfMissing: true, title: 'Cases with no officer', body: 'Open cases that nobody is processing. Assign cases suggests the officer with the lightest workload for each one; you confirm before anything changes.' },
+      { target: 'officers-grid', skipIfMissing: true, title: 'Compare workload', body: 'Each officer with their open cases, how many are waiting on your team, and how many have gone quiet. Select an officer to see their cases and move some to a colleague.' },
+      { title: 'Absence and leaving', body: 'Mark an officer unavailable to stop new cases reaching them. They can keep their cases for a short absence, or you can hand them over. A deactivated officer cannot log in and can be reactivated later.' },
     ],
   },
   'admin.catalog': {

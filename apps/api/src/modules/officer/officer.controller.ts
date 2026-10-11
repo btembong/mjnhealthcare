@@ -15,7 +15,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { IsString, IsEmail, MinLength, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsEmail, MinLength, IsOptional, IsBoolean, IsArray } from 'class-validator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OfficerService } from './officer.service';
 
@@ -71,6 +71,24 @@ class SetAvailabilityDto {
   @IsOptional()
   @IsString()
   reassignToOfficerId?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  keepCases?: boolean;
+}
+
+class ReassignCasesDto {
+  @IsArray()
+  @IsString({ each: true })
+  engagementIds!: string[];
+
+  @IsOptional()
+  @IsString()
+  officerId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  handoverNotes?: string;
 }
 
 class AddTrackingDto {
@@ -180,7 +198,22 @@ export class OfficerController {
       officerId,
       dto.isAvailable,
       dto.reassignToOfficerId,
+      dto.keepCases ?? false,
     );
+  }
+
+  @ApiOperation({ summary: 'Reactivate a deactivated officer' })
+  @AdminOnly()
+  @Patch('admin/officers/:id/reactivate')
+  reactivateOfficer(@Param('id') id: string) {
+    return this.svc.reactivateOfficer(id);
+  }
+
+  @ApiOperation({ summary: 'Move several cases to one officer, or to none' })
+  @AdminOnly()
+  @Post('admin/officers/reassign')
+  reassignCases(@Body() dto: ReassignCasesDto) {
+    return this.svc.reassignCases(dto.engagementIds, dto.officerId || null, dto.handoverNotes);
   }
 
   @ApiOperation({ summary: 'Assign / unassign officer to engagement' })

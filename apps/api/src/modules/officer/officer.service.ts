@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -19,11 +20,22 @@ export class OfficerService {
 
   // ── Admin: create / list officers ─────────────────────────────────────────
 
+  private async assertEmailFree(email: string, exceptId?: string) {
+    const existing = await this.db.person.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (existing && existing.id !== exceptId) {
+      throw new ConflictException('An account with this email address already exists.');
+    }
+  }
+
   async createOfficer(data: {
     name: string;
     email: string;
     password: string;
   }) {
+    await this.assertEmailFree(data.email);
     const bcrypt = await import('bcrypt');
     const hash = await bcrypt.hash(data.password, 12);
     return this.db.person.create({
@@ -61,6 +73,7 @@ export class OfficerService {
     officerId: string,
     isAvailable: boolean,
     reassignToOfficerId?: string | null,
+    keepCases = false,
   ) {
     const officer = await this.db.person.findUnique({ where: { id: officerId } });
     if (!officer || officer.role !== 'PROCESSING_OFFICER')
@@ -70,6 +83,10 @@ export class OfficerService {
       where: { id: officerId },
       data: { isAvailable },
     });
+
+    if (!isAvailable && keepCases) {
+      return { markedUnavailable: true, casesReassigned: 0, casesKept: true };
+    }
 
     if (!isAvailable) {
       // Bulk reassign or unassign all active cases
@@ -109,6 +126,7 @@ export class OfficerService {
   }
 
   async updateOfficer(id: string, data: { name?: string; email?: string; notes?: string }) {
+    if (data.email) await this.assertEmailFree(data.email, id);
     return this.db.person.update({
       where: { id },
       data: {
@@ -130,6 +148,27 @@ export class OfficerService {
       data: { isActive: false, isAvailable: false },
       select: { id: true, name: true, isActive: true },
     });
+  }
+
+  async reactivateOfficer(id: string) {
+    const officer = await this.db.person.findUnique({ where: { id }, select: { role: true } });
+    if (!officer || officer.role !== 'PROCESSING_OFFICER') throw new NotFoundException('Officer not found');
+    return this.db.person.update({
+      where: { id },
+      data: { isActive: true, isAvailable: true },
+      select: { id: true, name: true, isActive: true, isAvailable: true },
+    });
+  }
+
+  /** Moves several cases to one officer (or to none) with a single handover note. */
+  async reassignCases(engagementIds: string[], officerId: string | null, handoverNotes?: string) {
+    const ids = [...new Set(engagementIds)].slice(0, 200);
+    let moved = 0;
+    for (const engagementId of ids) {
+      await this.assignOfficer(engagementId, officerId, handoverNotes);
+      moved += 1;
+    }
+    return { moved };
   }
 
   // ── Admin: assign officer to engagement ───────────────────────────────────
