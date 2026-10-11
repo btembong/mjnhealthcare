@@ -282,10 +282,12 @@ const TOURS: Record<string, TourDef> = {
   'admin.sessions': {
     title: 'Sessions',
     steps: [
-      { target: 'page-title', title: 'Consultation sessions', body: 'Booked consultations, past and upcoming.' },
-      { target: 'sessions-stats', title: 'At a glance', body: 'Upcoming, confirmed and completed sessions, and the revenue from them.' },
-      { target: 'sessions-filters', title: 'Filter and switch view', body: 'Filter by status, and switch between a calendar and a list.' },
-      { title: 'Hosting and completing', body: 'Join a session as host from here. When you mark it complete you are asked for a short case note.' },
+      { target: 'page-title', title: 'Your sessions', body: 'Consultations booked with you. Consultants see their own; admins see everyone’s and can filter by consultant.' },
+      { target: 'sessions-stats', title: 'At a glance', body: 'How many sessions are today and this week, and how many still need a note. Times are shown in your own time zone.' },
+      { target: 'sessions-next', skipIfMissing: true, title: 'Your next session', body: 'Who you are seeing, what they asked to discuss, and the Join button. Join opens 15 minutes before the start.' },
+      { target: 'sessions-filters', title: 'Find a session', body: 'Upcoming, Needs a note, Past, and Cancelled & missed. Needs a note lists sessions that ended without being written up.' },
+      { title: 'Moving or cancelling', body: 'Open a session to move it to another of your free times, or to cancel it with a reason. The client is told either way. If you cancel, the client is refunded in full.' },
+      { title: 'Finishing a session', body: 'Mark it complete and write a short note for the team. If the client never joined, use “Client did not attend” from 10 minutes after the start; a missed session is not refunded.' },
     ],
   },
   'admin.approvals': {

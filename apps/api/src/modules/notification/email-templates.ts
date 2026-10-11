@@ -421,16 +421,19 @@ export function tplConsultationConfirmed(opts: {
 }
 
 export function tplConsultationCancelled(opts: {
-  clientName: string; refundAmount: number; refundPercent: number; reason: string;
+  clientName: string; refundAmount: number; refundPercent: number; reason: string; byConsultant?: boolean;
 }): string {
   const refund = opts.refundAmount > 0
     ? `$${opts.refundAmount.toFixed(2)} (${opts.refundPercent}%) will be refunded within 5–7 business days.`
-    : 'No refund applies per our cancellation policy (cancelled less than 4 hours before session).';
+    : opts.byConsultant
+      ? 'This was a free session, so there is nothing to refund. You are welcome to book another time.'
+      : 'No refund applies per our cancellation policy (cancelled less than 4 hours before session).';
 
   return shell(
     greeting(opts.clientName) +
     label('Cancellation') +
-    h1('Consultation cancelled') +
+    h1(opts.byConsultant ? 'Your consultant had to cancel' : 'Consultation cancelled') +
+    (opts.byConsultant ? p(`We are sorry: your consultant has cancelled this session. Their reason: ${opts.reason.replace(/[<>&]/g, '')}`) : '') +
     infoTable([
       row('Refund', opts.refundAmount > 0 ? `$${opts.refundAmount.toFixed(2)} (${opts.refundPercent}%)` : 'None applicable', true),
     ]) +

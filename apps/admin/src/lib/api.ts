@@ -404,6 +404,18 @@ export const api = {
     return request<any[]>(`/consultations/admin/sessions${q ? `?${q}` : ''}`);
   },
 
+  moveSession: (bookingId: string, slotId: string) =>
+    request<any>(`/consultations/admin/bookings/${bookingId}/reschedule`, { method: 'POST', body: JSON.stringify({ slotId }) }),
+
+  cancelSession: (bookingId: string, reason: string) =>
+    request<{ refundAmount: number }>(`/consultations/admin/bookings/${bookingId}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
+
+  markSessionNoShow: (bookingId: string, note?: string) =>
+    request<any>(`/consultations/admin/bookings/${bookingId}/no-show`, { method: 'POST', body: JSON.stringify({ note }) }),
+
+  getOpenSlots: (consultantId: string) =>
+    request<any[]>(`/consultations/slots/${consultantId}`),
+
   markSessionCompleted: (bookingId: string, caseNote?: string) =>
     request<any>(`/consultations/admin/bookings/${bookingId}/complete`, { method: 'POST', body: JSON.stringify({ caseNote }) }),
 

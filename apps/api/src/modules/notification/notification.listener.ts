@@ -584,8 +584,9 @@ export class NotificationListener {
   async onConsultationRescheduled(payload: {
     bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
     consultantName: string; consultantEmail?: string | null;
-    oldStart: string; newStart: string; durationMins: number;
+    oldStart: string; newStart: string; durationMins: number; movedBy?: 'client' | 'consultant';
   }) {
+    const byConsultant = payload.movedBy === 'consultant';
     const when = (iso: string) => new Date(iso).toLocaleString('en-GB', {
       timeZone: 'Africa/Douala', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
@@ -598,7 +599,7 @@ export class NotificationListener {
           T.shell(
             T.greeting(payload.clientName) +
             T.label('Session moved') +
-            T.h1('Your session has a new time') +
+            T.h1(byConsultant ? 'Your consultant moved your session' : 'Your session has a new time') +
             T.infoTable([
               T.row('Consultant', escapeHtml(payload.consultantName)),
               T.row('New time', `<strong>${when(payload.newStart)} WAT</strong>`),
@@ -606,6 +607,7 @@ export class NotificationListener {
               T.row('Duration', `${payload.durationMins} min`, true),
             ]) +
             T.p('Your payment carries over; there is nothing more to pay. Any join link from an earlier email no longer works, so please join from your portal.') +
+            (byConsultant ? T.p('If the new time does not suit you, open My sessions to move or cancel it, or reply to this email.') : '') +
             T.btn('Open my sessions', `${portalUrl}/bookings`),
           ),
           payload.clientName,
@@ -620,6 +622,8 @@ export class NotificationListener {
     } catch (err) {
       this.logger.error(`Failed to tell the client about moved booking ${payload.bookingId}: ${err}`);
     }
+    // The consultant does not need telling about a move they made themselves.
+    if (byConsultant) return;
     try {
       await this.notificationService.sendEmail(
         payload.consultantEmail || adminAlertEmail(),
@@ -644,10 +648,11 @@ export class NotificationListener {
   @OnEvent('consultation.cancelled')
   async onConsultationCancelled(payload: {
     bookingId: string; clientName: string; clientEmail: string; clientPhone: string;
-    refundAmount: number; refundPercent: number; reason: string;
+    refundAmount: number; refundPercent: number; reason: string; byConsultant?: boolean;
   }) {
     const refundMsg = payload.refundAmount > 0
       ? `Refund of $${payload.refundAmount.toFixed(2)} (${payload.refundPercent}%) will be processed in 5–7 business days.`
+      : payload.byConsultant ? 'It was a free session, so there is nothing to refund.'
       : 'No refund applicable (cancelled less than 4 hours before session).';
 
     await Promise.all([
@@ -659,6 +664,7 @@ export class NotificationListener {
           refundAmount: payload.refundAmount,
           refundPercent: payload.refundPercent,
           reason: payload.reason,
+          byConsultant: payload.byConsultant,
         }),
         payload.clientName,
         undefined,
@@ -666,7 +672,7 @@ export class NotificationListener {
       ),
       this.notificationService.sendWhatsApp(
         payload.clientPhone,
-        `MJN Healthcare: Your consultation has been cancelled. ${refundMsg}`,
+        `MJN Healthcare: Your consultation has been cancelled${payload.byConsultant ? ` by your consultant (${payload.reason})` : ''}. ${refundMsg}`,
       ),
     ]);
   }

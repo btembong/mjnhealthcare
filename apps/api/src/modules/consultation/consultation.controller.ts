@@ -1,8 +1,8 @@
-import { CurrentUser, AuthUser } from '../auth/access';
+import { CurrentUser, AuthUser, isConsultant } from '../auth/access';
 import { AccessService } from '../auth/access.service';
 import {
   Controller, Get, Post, Patch, Delete, Param, Body, Query,
-  UseGuards, Req, HttpCode, HttpStatus,
+  UseGuards, Req, HttpCode, HttpStatus, ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -32,6 +32,15 @@ export class ConsultationController {
     private readonly svc: ConsultationService,
     private readonly access: AccessService,
   ) {}
+
+  /** A consultant acts only on their own sessions; an admin on any. */
+  private async assertOwnSession(user: AuthUser, bookingId: string) {
+    const consultantId = await this.svc.bookingConsultantId(bookingId);
+    if (!isConsultant(user)) return;
+    if (!(await this.access.consultantIds(user)).has(consultantId)) {
+      throw new ForbiddenException('You do not have access to this record.');
+    }
+  }
 
   // ── Public ──────────────────────────────────────────────────────────────────
 
@@ -221,19 +230,19 @@ export class ConsultationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'CONSULTANT')
   @Get('admin/sessions')
-  listSessions(@Query('consultantId') consultantId?: string, @Query('status') status?: string, @Req() req?: any) {
-    // Consultants only see their own sessions
-    const user = req?.user;
-    const scopedConsultantId = user?.role?.toUpperCase() === 'CONSULTANT' ? user.sub : consultantId;
-    return this.svc.listSessions(scopedConsultantId, status);
+  async listSessions(@CurrentUser() user: AuthUser, @Query('consultantId') consultantId?: string, @Query('status') status?: string) {
+    // A consultant sees their own sessions only, whatever the request asks for.
+    const own = isConsultant(user) ? [...(await this.access.consultantIds(user))] : null;
+    return this.svc.listSessions(own, consultantId, status);
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'CONSULTANT')
   @Get('admin/bookings/:id/join')
-  getHostJoinInfo(@Param('id') id: string, @Req() req: any) {
-    return this.svc.getHostJoinInfo(id, req.user?.name ?? req.user?.email ?? 'Consultant');
+  async getHostJoinInfo(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.assertOwnSession(user, id);
+    return this.svc.getHostJoinInfo(id, user.email ?? 'Consultant');
   }
 
   @ApiBearerAuth()
@@ -241,8 +250,39 @@ export class ConsultationController {
   @Roles('ADMIN', 'CONSULTANT')
   @Post('admin/bookings/:id/complete')
   @HttpCode(HttpStatus.OK)
-  markCompleted(@Param('id') id: string, @Body() body: { caseNote?: string }) {
+  async markCompleted(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { caseNote?: string }) {
+    await this.assertOwnSession(user, id);
     return this.svc.markCompleted(id, body?.caseNote);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Post('admin/bookings/:id/reschedule')
+  @HttpCode(HttpStatus.OK)
+  async staffReschedule(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { slotId: string }) {
+    await this.assertOwnSession(user, id);
+    return this.svc.rescheduleByStaff(id, String(body?.slotId ?? ''));
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Post('admin/bookings/:id/cancel')
+  @HttpCode(HttpStatus.OK)
+  async staffCancel(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { reason: string }) {
+    await this.assertOwnSession(user, id);
+    return this.svc.cancelByStaff(id, String(body?.reason ?? ''));
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
+  @Post('admin/bookings/:id/no-show')
+  @HttpCode(HttpStatus.OK)
+  async staffNoShow(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { note?: string }) {
+    await this.assertOwnSession(user, id);
+    return this.svc.markNoShow(id, body?.note);
   }
 
   @ApiBearerAuth()

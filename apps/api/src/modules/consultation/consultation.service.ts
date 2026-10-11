@@ -147,19 +147,34 @@ export class ConsultationService {
    * The client moves a confirmed session to another free time with the same consultant.
    * Allowed once, and only more than 24 hours before the session; the payment stays as it is.
    */
-  async rescheduleBooking(bookingId: string, clientEmail: string, newSlotId: string) {
+  rescheduleBooking(bookingId: string, clientEmail: string, newSlotId: string) {
+    return this.moveBooking(bookingId, newSlotId, { clientEmail });
+  }
+
+  /** The consultant (or an admin) moves a session. The client's own one free move is not used up. */
+  rescheduleByStaff(bookingId: string, newSlotId: string) {
+    return this.moveBooking(bookingId, newSlotId, { byStaff: true });
+  }
+
+  private async moveBooking(bookingId: string, newSlotId: string, by: { clientEmail?: string; byStaff?: boolean }) {
     const booking = await this.db.consultationBooking.findUnique({
       where: { id: bookingId },
       include: { slot: true, consultant: true },
     });
-    if (!booking || !sameEmail(booking.clientEmail, clientEmail)) throw new NotFoundException('Booking not found');
+    if (!booking || (!by.byStaff && !sameEmail(booking.clientEmail, by.clientEmail))) throw new NotFoundException('Booking not found');
     if (booking.status !== 'CONFIRMED') throw new BadRequestException('Only a confirmed session can be moved.');
-    if (booking.rescheduleCount >= MAX_CLIENT_RESCHEDULES) {
-      throw new BadRequestException('This session has already been moved once. Message your team to change it again.');
-    }
     const now = new Date();
-    if (booking.slot.startAt.getTime() - now.getTime() <= RESCHEDULE_MIN_HOURS * 60 * 60 * 1000) {
-      throw new BadRequestException('A session can only be moved more than 24 hours before it starts.');
+    if (by.byStaff) {
+      if (booking.slot.startAt.getTime() + booking.slot.durationMinutes * 60000 < now.getTime()) {
+        throw new BadRequestException('This session has already ended.');
+      }
+    } else {
+      if (booking.rescheduleCount >= MAX_CLIENT_RESCHEDULES) {
+        throw new BadRequestException('This session has already been moved once. Message your team to change it again.');
+      }
+      if (booking.slot.startAt.getTime() - now.getTime() <= RESCHEDULE_MIN_HOURS * 60 * 60 * 1000) {
+        throw new BadRequestException('A session can only be moved more than 24 hours before it starts.');
+      }
     }
     if (newSlotId === booking.slotId) throw new BadRequestException('Choose a different time.');
 
@@ -185,7 +200,7 @@ export class ConsultationService {
       await this.db.$transaction([
         this.db.consultationBooking.update({
           where: { id: bookingId },
-          data: { slotId: newSlotId, rescheduleCount: { increment: 1 }, rescheduledAt: now },
+          data: { slotId: newSlotId, rescheduledAt: now, ...(by.byStaff ? {} : { rescheduleCount: { increment: 1 } }) },
         }),
         this.db.consultationSlot.update({
           where: { id: oldSlotId },
@@ -225,6 +240,7 @@ export class ConsultationService {
       oldStart: oldStart.toISOString(),
       newStart: target.startAt.toISOString(),
       durationMins: target.durationMinutes,
+      movedBy: by.byStaff ? 'consultant' : 'client',
     });
 
     return { id: bookingId, startAt: target.startAt, durationMinutes: target.durationMinutes };
@@ -858,6 +874,12 @@ export class ConsultationService {
       include: { consultant: true, slot: true },
     });
     if (!booking) throw new NotFoundException('Booking not found');
+    if (booking.status === 'COMPLETED') {
+      // Already counted: only add or replace the note.
+      if (caseNote) await this.db.consultationBooking.update({ where: { id: bookingId }, data: { caseNote } });
+      return { success: true };
+    }
+    if (booking.status !== 'CONFIRMED') throw new BadRequestException('Only a confirmed session can be marked complete.');
 
     await this.db.consultationBooking.update({
       where: { id: bookingId },
@@ -995,19 +1017,103 @@ export class ConsultationService {
     });
   }
 
-  async listSessions(consultantId?: string, status?: string) {
-    return this.db.consultationBooking.findMany({
+  /**
+   * Sessions for the staff console. `onlyConsultantIds` limits a consultant to their own;
+   * an admin passes null and may narrow to one consultant.
+   */
+  async listSessions(onlyConsultantIds: string[] | null, consultantId?: string, status?: string) {
+    const bookings = await this.db.consultationBooking.findMany({
       where: {
-        ...(consultantId ? { slot: { consultantId } } : {}),
+        ...(onlyConsultantIds ? { consultantId: { in: onlyConsultantIds } } : consultantId ? { consultantId } : {}),
         ...(status ? { status: status as any } : {}),
       },
-      include: {
-        slot: {
-          include: { consultant: { select: { id: true, name: true } } },
-        },
+      select: {
+        id: true, status: true, consultationCategory: true, clientName: true, clientEmail: true, clientPhone: true,
+        preSessionNote: true, caseNote: true, amountPaid: true, refundAmount: true, rescheduleCount: true,
+        rescheduledAt: true, joinedAt: true, completedAt: true, noShowAt: true, createdAt: true, consultantId: true,
+        dailyRoomUrl: true,
+        slot: { select: { id: true, startAt: true, durationMinutes: true, isFree: true, consultant: { select: { id: true, name: true } } } },
       },
       orderBy: { createdAt: 'desc' },
     });
+    // Link each session to the client's account when they have one, so staff can open it.
+    const emails = [...new Set(bookings.map((b) => b.clientEmail.toLowerCase()))];
+    const people = emails.length
+      ? await this.db.person.findMany({ where: { email: { in: emails, mode: 'insensitive' } }, select: { id: true, email: true } })
+      : [];
+    const personByEmail = new Map(people.map((p) => [(p.email ?? '').toLowerCase(), p.id]));
+    return bookings.map(({ dailyRoomUrl, ...b }) => ({
+      ...b,
+      hasRoom: !!dailyRoomUrl,
+      personId: personByEmail.get(b.clientEmail.toLowerCase()) ?? null,
+    }));
+  }
+
+  /** The consultant a booking belongs to, for access checks. */
+  async bookingConsultantId(bookingId: string): Promise<string> {
+    const booking = await this.db.consultationBooking.findUnique({ where: { id: bookingId }, select: { consultantId: true } });
+    if (!booking) throw new NotFoundException('Booking not found');
+    return booking.consultantId;
+  }
+
+  /**
+   * The consultant (or an admin) cancels. The client did not choose this, so they are refunded
+   * in full whatever the timing, and the time is not offered to anyone else.
+   */
+  async cancelByStaff(bookingId: string, reason: string) {
+    const why = (reason ?? '').trim();
+    if (!why) throw new BadRequestException('Give the client a reason for the cancellation.');
+    const booking = await this.db.consultationBooking.findUnique({ where: { id: bookingId }, include: { slot: true } });
+    if (!booking) throw new NotFoundException('Booking not found');
+    if (booking.status !== 'CONFIRMED') throw new BadRequestException('Only a confirmed session can be cancelled.');
+    const refundAmount = Number(booking.amountPaid);
+
+    await this.db.$transaction([
+      this.db.consultationBooking.update({
+        where: { id: bookingId },
+        data: { status: 'CANCELLED', refundAmount, refundedAt: new Date() },
+      }),
+      this.db.consultationSlot.update({
+        where: { id: booking.slotId },
+        data: { status: 'CANCELLED', reservedUntil: null, reservedBy: null },
+      }),
+    ]);
+
+    this.events.emit('consultation.cancelled', {
+      bookingId,
+      clientName: booking.clientName,
+      clientEmail: booking.clientEmail,
+      clientPhone: booking.clientPhone,
+      refundAmount,
+      refundPercent: refundAmount > 0 ? 100 : 0,
+      reason: why,
+      byConsultant: true,
+    });
+    return { refundAmount };
+  }
+
+  /** The consultant records that the client did not come, without waiting for the nightly check. */
+  async markNoShow(bookingId: string, note?: string) {
+    const booking = await this.db.consultationBooking.findUnique({ where: { id: bookingId }, include: { slot: true, consultant: true } });
+    if (!booking) throw new NotFoundException('Booking not found');
+    if (booking.status !== 'CONFIRMED') throw new BadRequestException('Only a confirmed session can be marked as missed.');
+    // Give the client ten minutes' grace before a session can be called missed.
+    if (Date.now() < booking.slot.startAt.getTime() + 10 * 60 * 1000) {
+      throw new BadRequestException('A session can be marked as missed from 10 minutes after its start time.');
+    }
+    await this.db.consultationBooking.update({
+      where: { id: bookingId },
+      data: { status: 'NO_SHOW', noShowAt: new Date(), ...(note?.trim() ? { caseNote: note.trim() } : {}) },
+    });
+    this.events.emit('consultation.no_show', {
+      bookingId,
+      clientName: booking.clientName,
+      clientEmail: booking.clientEmail,
+      clientPhone: booking.clientPhone,
+      consultantName: booking.consultant.name,
+      sessionStart: booking.slot.startAt.toISOString(),
+    });
+    return { success: true };
   }
 
   // ── Availability rules CRUD ─────────────────────────────────────────────────

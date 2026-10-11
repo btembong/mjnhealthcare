@@ -208,10 +208,12 @@ export const TOURS_FR: Record<string, TourDef> = {
   'admin.sessions': {
     title: 'Séances',
     steps: [
-      { target: 'page-title', title: 'Séances de consultation', body: 'Les consultations réservées, passées et à venir.' },
-      { target: 'sessions-stats', title: "En un coup d'œil", body: 'Les séances à venir, confirmées et terminées, et les revenus correspondants.' },
-      { target: 'sessions-filters', title: 'Filtrer et changer de vue', body: "Filtrez par statut, et passez du calendrier à la liste." },
-      { title: 'Animer et clôturer', body: "Rejoignez une séance en tant qu'hôte depuis cette page. Lorsque vous la marquez comme terminée, une courte note de dossier vous est demandée." },
+      { target: 'page-title', title: 'Vos séances', body: "Les consultations réservées avec vous. Un consultant voit les siennes ; un administrateur voit celles de tous et peut filtrer par consultant." },
+      { target: 'sessions-stats', title: "En un coup d'œil", body: "Le nombre de séances aujourd'hui et cette semaine, et celles qui attendent encore une note. Les heures sont affichées dans votre fuseau horaire." },
+      { target: 'sessions-next', skipIfMissing: true, title: 'Votre prochaine séance', body: "La personne que vous recevez, ce dont elle souhaite parler, et le bouton « Join as host ». Il s'active 15 minutes avant le début." },
+      { target: 'sessions-filters', title: 'Trouver une séance', body: "« Upcoming », « Needs a note », « Past » et « Cancelled & missed ». « Needs a note » liste les séances terminées qui n'ont pas encore été rédigées." },
+      { title: 'Déplacer ou annuler', body: "Ouvrez une séance pour la déplacer vers un autre de vos créneaux libres, ou pour l'annuler en indiquant un motif. Le client est prévenu dans les deux cas. Si vous annulez, il est remboursé intégralement." },
+      { title: 'Clôturer une séance', body: "Marquez-la comme terminée et rédigez une courte note pour l'équipe. Si le client ne s'est pas présenté, utilisez « Client did not attend » à partir de 10 minutes après le début ; une séance manquée n'est pas remboursée." },
     ],
   },
   'admin.approvals': {
