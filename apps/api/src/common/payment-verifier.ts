@@ -55,7 +55,9 @@ export const paymentVerifier = {
       });
       const token = ((await authRes.json()) as any)?.data?.token;
       if (!token) throw new Error('no token');
-      const res = await fetch(`${baseUrl}/xp021/v1/request/${encodeURIComponent(requestId)}`, {
+      // Tranzak's lookup is "details?requestId=…". The older "/request/<id>" form answers "Page not found"
+      // for every payment, which is why lookups used to come back empty.
+      const res = await fetch(`${baseUrl}/xp021/v1/request/details?requestId=${encodeURIComponent(requestId)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       data = await res.json();
@@ -64,7 +66,10 @@ export const paymentVerifier = {
       throw new PaymentLookupError('Tranzak could not be reached. Try again in a minute.');
     }
     const resource = data?.data ?? data?.resource ?? {};
-    const status = typeof resource.status === 'string' ? resource.status.toUpperCase() : null;
+    const state = typeof resource.status === 'string' ? resource.status.toUpperCase() : null;
+    // Tranzak adds its reason to a failure ("TXN_EXPIRED"); staff see it beside the status.
+    const reason = typeof resource.errorMessage === 'string' && resource.errorMessage ? resource.errorMessage : null;
+    const status = state && reason && state !== 'SUCCESSFUL' ? `${state} (${reason})` : state;
     // The answer must be about the payment we asked for.
     if (resource.requestId && resource.requestId !== requestId) {
       throw new PaymentLookupError('Tranzak answered about a different payment.');
@@ -73,8 +78,8 @@ export const paymentVerifier = {
       provider: 'tranzak',
       ref: requestId,
       status,
-      paid: status === 'SUCCESSFUL',
-      failed: !!status && TRANZAK_FAILED.includes(status),
+      paid: state === 'SUCCESSFUL',
+      failed: !!state && TRANZAK_FAILED.includes(state),
       amount: resource.amount ?? null,
       currency: resource.currencyCode ?? null,
       ourRef: typeof resource.mchTransactionRef === 'string' ? resource.mchTransactionRef : null,
