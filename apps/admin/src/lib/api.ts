@@ -562,22 +562,31 @@ export const api = {
     request<any>(`/engagements/milestones/${milestoneId}/complete`, { method: 'PATCH' }),
 
   // ── Support Tickets (admin) ───────────────────────────────────────────────
-  getAllTickets: (status?: string) =>
-    request<any[]>(`/tickets${status ? `?status=${status}` : ''}`),
+  /** The requests this member of staff may see, with whose turn it is. */
+  getSupportRequests: () => request<any[]>('/tickets'),
 
   getTicket: (id: string) => request<any>(`/tickets/${id}`),
+
+  getTicketAssignees: () => request<{ id: string; name: string; role: string }[]>('/tickets/staff/assignees'),
+
+  getTicketUploadUrl: (fileName: string) =>
+    request<{ url: string; key: string }>('/tickets/attachment-url', { method: 'POST', body: JSON.stringify({ fileName }) }),
 
   getTicketAttachmentUrl: (replyId: string) =>
     request<{ url: string; name: string }>(`/tickets/replies/${replyId}/attachment-url`),
 
-  replyToTicket: (id: string, content: string) =>
-    request<any>(`/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify({ content }) }),
+  /** `internal` saves a note only staff see; `solve` sends the reply and marks the request solved. */
+  replyToTicket: (id: string, input: { content: string; attachment?: { key: string; name: string; type?: string }; internal?: boolean; solve?: boolean }) =>
+    request<any>(`/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify(input) }),
 
-  updateTicketStatus: (id: string, status: string, assignedConsultantId?: string) =>
-    request<any>(`/tickets/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, assignedConsultantId }) }),
+  updateTicketStatus: (id: string, status: 'RESOLVED' | 'IN_PROGRESS') =>
+    request<any>(`/tickets/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
-  updateTicketPriority: (id: string, priority: string) =>
-    request<any>(`/tickets/${id}/priority`, { method: 'PATCH', body: JSON.stringify({ priority }) }),
+  assignTicket: (id: string, staffId: string | null) =>
+    request<any>(`/tickets/${id}/assign`, { method: 'PATCH', body: JSON.stringify({ staffId }) }),
+
+  setTicketUrgent: (id: string, urgent: boolean) =>
+    request<any>(`/tickets/${id}/urgent`, { method: 'PATCH', body: JSON.stringify({ urgent }) }),
 
   // ── Campaigns (admin) ─────────────────────────────────────────────────────
   getCampaigns: (status?: string) =>

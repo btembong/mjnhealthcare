@@ -456,10 +456,11 @@ export const TOURS_FR: Record<string, TourDef> = {
   'admin.tickets': {
     title: "Demandes d'assistance",
     steps: [
-      { target: 'page-title', title: "Demandes d'assistance des clients", body: 'Les questions et les problèmes signalés par les clients depuis leur portail.' },
-      { target: 'tix-stats', title: 'Par statut', body: 'Le nombre de demandes par statut. Sélectionnez-en un pour filtrer la liste.' },
-      { target: 'tix-list', title: 'Demandes', body: 'Sélectionnez une demande pour ouvrir sa conversation.' },
-      { target: 'tix-thread', skipIfMissing: true, title: 'Répondre et mettre à jour', body: 'Répondez au client, et réglez le statut et la priorité au fil du traitement.' },
+      { target: 'page-header', title: "Demandes d'assistance des clients", body: "Les questions et les problèmes que les clients signalent depuis la page « Obtenir de l'aide » de leur portail. La ligne sous le titre indique combien attendent et depuis quand." },
+      { target: 'tix-filters', title: 'À qui le tour', body: "« Needs reply » signifie que le client a écrit en dernier. « Waiting on client » signifie que c'est nous. Vous pouvez aussi filtrer par sujet, ou n'afficher que les demandes qui vous sont attribuées." },
+      { target: 'tix-list', title: "La plus longue attente d'abord", body: "Les clients qui attendent depuis le plus longtemps sont en haut, les demandes urgentes au-dessus. Un point orange signifie plus de 24 heures. Les consultants et les agents voient leurs propres clients ; les demandes de confidentialité sont réservées aux administrateurs." },
+      { target: 'tix-thread', title: 'Répondre, ou laisser une note', body: "« Reply to client » envoie un e-mail au client ; vous pouvez joindre un fichier. « Note for staff » n'est visible que par l'équipe — le client ne la voit jamais et n'en est pas informé. Répondre à une demande sans responsable vous l'attribue." },
+      { title: 'Terminer', body: "« Send and mark solved » clôt la demande avec votre réponse. Le client peut la rouvrir en répondant dans les 14 jours. Utilisez « Urgent » pour faire remonter une demande, et « Assigned to » pour la confier à un collègue." },
     ],
   },
   'admin.pathways': {

@@ -40,6 +40,7 @@ const PAGE_TOURS: Record<string, string> = {
   '/campaigns': 'admin.campaigns',
   '/surveys': 'admin.surveys',
   '/tickets': 'admin.tickets',
+  '/officer/support': 'admin.tickets',
   '/pathways': 'admin.pathways',
 };
 
@@ -528,12 +529,13 @@ const TOURS: Record<string, TourDef> = {
     ],
   },
   'admin.tickets': {
-    title: 'Support tickets',
+    title: 'Support requests',
     steps: [
-      { target: 'page-title', title: 'Client support requests', body: 'Questions and problems clients have raised from their portal.' },
-      { target: 'tix-stats', title: 'By status', body: 'Counts by status. Select one to filter the list.' },
-      { target: 'tix-list', title: 'Tickets', body: 'Select a ticket to open its conversation.' },
-      { target: 'tix-thread', skipIfMissing: true, title: 'Reply and update', body: 'Reply to the client, and set the status and priority as you work on it.' },
+      { target: 'page-header', title: 'Client support requests', body: 'Questions and problems clients raise from the Get help page of their portal. The line under the title says how many are waiting and for how long.' },
+      { target: 'tix-filters', title: 'Whose turn it is', body: 'Needs reply means the client wrote last. Waiting on client means we did. You can also filter by topic, or show only requests assigned to you.' },
+      { target: 'tix-list', title: 'Longest wait first', body: 'Clients who have waited longest are at the top, urgent ones above them. An orange dot means more than 24 hours. Consultants and officers see their own clients; privacy requests go to admins only.' },
+      { target: 'tix-thread', title: 'Reply, or leave a note', body: 'Reply to client emails the client; you can attach a file. Note for staff is seen only by staff — the client is never shown it or told about it. Replying to a request nobody owns assigns it to you.' },
+      { title: 'Finishing', body: 'Send and mark solved closes the request with your reply. The client can reopen it by answering within 14 days. Use Urgent to push a request to the top, and Assigned to to hand it to a colleague.' },
     ],
   },
   'admin.pathways': {

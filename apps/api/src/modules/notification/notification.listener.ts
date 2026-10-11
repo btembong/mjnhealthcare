@@ -626,11 +626,18 @@ export class NotificationListener {
   @OnEvent('ticket.client_replied')
   async onTicketClientReplied(payload: {
     ticketId: string; subject: string; content: string; reopened: boolean; clientName: string; clientEmail?: string | null;
+    assigneeId?: string | null;
   }) {
     try {
       const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
-      await this.notificationService.sendEmail(
-        adminAlertEmail(),
+      // The member of staff who owns the request hears about it too, not only the shared inbox.
+      const owner = payload.assigneeId
+        ? await this.db.person.findUnique({ where: { id: payload.assigneeId }, select: { email: true, isActive: true } })
+        : null;
+      const to = [adminAlertEmail(), owner?.isActive ? owner.email : null]
+        .filter((e, i, all): e is string => !!e && all.findIndex((x) => (x ?? '').toLowerCase() === e.toLowerCase()) === i);
+      for (const address of to) await this.notificationService.sendEmail(
+        address,
         `${payload.reopened ? 'Reopened' : 'Client replied'}: ${payload.subject}`,
         T.shell(
           T.label(payload.reopened ? 'Support request reopened' : 'Support request') +

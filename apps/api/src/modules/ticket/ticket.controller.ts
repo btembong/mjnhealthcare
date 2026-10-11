@@ -1,10 +1,10 @@
-import { CurrentUser, AuthUser, isAdmin, isStaff } from '../auth/access';
+import { CurrentUser, AuthUser, RolesOnly, isAdmin, isStaff } from '../auth/access';
 import { AccessService } from '../auth/access.service';
 import {
   Controller, Get, Post, Patch, Param, Body, Query, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, MaxLength, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, MaxLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -29,7 +29,22 @@ class CreateTicketDto {
 class ReplyDto {
   @IsOptional() @IsString() @MaxLength(5000) content?: string;
   @IsOptional() @ValidateNested() @Type(() => AttachmentDto) attachment?: AttachmentDto;
+  /** Staff only: a note the client never sees. */
+  @IsOptional() @IsBoolean() internal?: boolean;
+  /** Staff only: send the reply and mark the request solved. */
+  @IsOptional() @IsBoolean() solve?: boolean;
 }
+
+class AssignDto {
+  @IsOptional() @IsString() staffId?: string | null;
+}
+
+class UrgentDto {
+  @IsBoolean() urgent: boolean;
+}
+
+/** The staff who work support requests. Which requests each may see is decided per request. */
+const SupportStaff = () => RolesOnly('ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER');
 
 class AttachmentUploadDto {
   @IsString() fileName: string;
@@ -77,20 +92,29 @@ export class TicketController {
   @Get('replies/:replyId/attachment-url')
   async getAttachmentViewUrl(@CurrentUser() user: AuthUser, @Param('replyId') replyId: string) {
     await this.access.assertTicket(user, await this.ticketService.replyTicketId(replyId));
+    // Checked before anything is logged or signed: a client cannot open a staff note's file.
+    await this.ticketService.getAttachmentViewUrl(replyId, isStaff(user));
     await this.compliance.logAuditEvent({
       actorId: user.id,
       action: 'ticket_attachment_viewed',
       resourceType: 'ticket_reply',
       resourceId: replyId,
     });
-    return this.ticketService.getAttachmentViewUrl(replyId);
+    return this.ticketService.getAttachmentViewUrl(replyId, isStaff(user));
+  }
+
+  @ApiOperation({ summary: 'Staff a request can be assigned to' })
+  @SupportStaff()
+  @Get('staff/assignees')
+  assignees() {
+    return this.ticketService.assignableStaff();
   }
 
   @ApiOperation({ summary: 'Get a ticket by id' })
   @Get(':id')
   async getOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     await this.access.assertTicket(user, id);
-    return this.ticketService.getTicket(id);
+    return this.ticketService.getTicket(id, isStaff(user));
   }
 
   @ApiOperation({ summary: 'Reply to a ticket' })
@@ -99,7 +123,11 @@ export class TicketController {
     await this.access.assertTicket(user, id);
     // Anyone who is not staff is writing as the client.
     const role = !isStaff(user) ? TicketAuthorRole.CLIENT : isAdmin(user) ? TicketAuthorRole.ADMIN : TicketAuthorRole.CONSULTANT;
-    return this.ticketService.replyToTicket(id, user.id, role, dto.content ?? '', dto.attachment);
+    const staff = isStaff(user);
+    return this.ticketService.replyToTicket(id, user.id, role, dto.content ?? '', dto.attachment, {
+      internal: staff && dto.internal === true,
+      solve: staff && dto.solve === true,
+    });
   }
 
   @ApiOperation({ summary: 'Client: record that the request has been opened and read' })
@@ -119,27 +147,37 @@ export class TicketController {
   }
 
   // Admin routes
-  @ApiOperation({ summary: 'List all tickets (admin/consultant)' })
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'CONSULTANT')
+  @ApiOperation({ summary: 'The staff inbox: requests this member of staff may see' })
+  @SupportStaff()
   @Get()
-  getAll(@Query('status') status?: TicketStatus) {
-    return this.ticketService.getAllTickets(status);
+  async getAll(@CurrentUser() user: AuthUser) {
+    // Admins see everything. Consultants and officers see their own clients' requests, and no privacy requests.
+    const scope = isAdmin(user) ? null : await this.access.consultantScope(user);
+    if (!isAdmin(user) && !scope) return [];
+    return this.ticketService.listForStaff(scope ? { canSeePerson: (id) => scope.canSeePerson(id) } : null);
   }
 
-  @ApiOperation({ summary: 'Update ticket status' })
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'CONSULTANT')
+  @ApiOperation({ summary: 'Mark solved, or reopen' })
+  @SupportStaff()
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto) {
-    return this.ticketService.updateTicketStatus(id, dto.status, dto.assignedConsultantId);
+  async updateStatus(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateStatusDto) {
+    await this.access.assertTicket(user, id);
+    return this.ticketService.updateTicketStatus(id, dto.status);
   }
 
-  @ApiOperation({ summary: 'Update ticket priority' })
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'CONSULTANT')
-  @Patch(':id/priority')
-  updatePriority(@Param('id') id: string, @Body() dto: UpdatePriorityDto) {
-    return this.ticketService.updatePriority(id, dto.priority);
+  @ApiOperation({ summary: 'Give the request to a member of staff, or to nobody' })
+  @SupportStaff()
+  @Patch(':id/assign')
+  async assign(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: AssignDto) {
+    await this.access.assertTicket(user, id);
+    return this.ticketService.assign(id, dto.staffId || null);
+  }
+
+  @ApiOperation({ summary: 'Flag or unflag as urgent' })
+  @SupportStaff()
+  @Patch(':id/urgent')
+  async setUrgent(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UrgentDto) {
+    await this.access.assertTicket(user, id);
+    return this.ticketService.setUrgent(id, dto.urgent);
   }
 }

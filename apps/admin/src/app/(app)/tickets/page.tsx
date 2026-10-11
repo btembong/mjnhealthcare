@@ -1,705 +1,453 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import { Skeleton } from '@mjn/ui';
-import {
-  Headset, CircleNotch, PaperPlaneTilt, X,
-  MagnifyingGlass, ChatCircle, CheckCircle, Clock,
-  FileText, CreditCard, BookOpen, Certificate,
-  CaretDown, ArrowLeft, Warning, User,
-} from '@mjn/ui';
+import { PageHeader, Skeleton } from '@mjn/ui';
+import { MagnifyingGlass, CircleNotch, X, ArrowLeft, PaperPlaneTilt, FileText, Headset, Plus } from '@mjn/ui';
 import { api } from '../../../lib/api';
+import { useAdmin } from '../../../contexts/admin-context';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Shape and helpers ─────────────────────────────────────────────────────────
 
-const STATUS_OPTIONS = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'] as const;
-const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH'] as const;
-
-const STATUS_META: Record<string, { label: string; dot: string; badge: string }> = {
-  OPEN:        { label: 'Open',        dot: 'bg-blue-400',    badge: 'bg-blue-50 text-blue-700 border-blue-200' },
-  IN_PROGRESS: { label: 'In Progress', dot: 'bg-amber-400',   badge: 'bg-amber-50 text-amber-700 border-amber-200' },
-  RESOLVED:    { label: 'Resolved',    dot: 'bg-emerald-400', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  CLOSED:      { label: 'Closed',      dot: 'bg-muted-foreground', badge: 'bg-muted text-muted-foreground border-border' },
+type Turn = 'us' | 'client' | 'solved';
+type Staff = { id: string; name: string };
+type Row = {
+  id: string; subject: string; category: string; urgent: boolean; turn: Turn; waitingSince: string | null; lastActivityAt: string;
+  createdAt: string; person: { id: string; name: string; email: string } | null; assignedTo: Staff | null; preview: string; notes: number; privacyDueAt: string | null;
+};
+type Reply = {
+  id: string; authorId: string; authorRole: string; authorName: string | null; content: string; internal: boolean; createdAt: string;
+  attachment: { name: string; type: string; isImage: boolean } | null;
+};
+type Detail = Omit<Row, 'person' | 'preview' | 'notes'> & {
+  status: string; replies: Reply[]; engagementId: string | null;
+  person: { id: string; name: string; email: string; phone?: string | null } | null;
 };
 
-const PRIORITY_META: Record<string, { label: string; badge: string }> = {
-  LOW:    { label: 'Low',    badge: 'bg-muted text-muted-foreground border-border' },
-  MEDIUM: { label: 'Medium', badge: 'bg-amber-50 text-amber-700 border-amber-200' },
-  HIGH:   { label: 'High',   badge: 'bg-rose-50 text-rose-700 border-rose-200' },
+const TOPIC: Record<string, string> = {
+  DOCUMENT: 'Documents', PAYMENT: 'Payments', LICENSING: 'Licensing', EXAM_PREP: 'Exam prep',
+  GENERAL: 'General', ACCOUNT: 'Account', SESSIONS: 'Sessions', PRIVACY: 'Privacy',
 };
+const TABS = [['us', 'Needs reply'], ['client', 'Waiting on client'], ['solved', 'Solved'], ['all', 'All']] as const;
+type Tab = (typeof TABS)[number][0];
+/** The portal tells clients "usually replies within one working day". */
+const OVERDUE_HOURS = 24;
+const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.doc,.docx';
+const FILE_MAX_MB = 20;
 
-const CATEGORY_META: Record<string, { label: string; icon: React.ReactNode }> = {
-  GENERAL:   { label: 'General',   icon: <Headset className="h-3.5 w-3.5" /> },
-  DOCUMENT:  { label: 'Document',  icon: <FileText className="h-3.5 w-3.5" /> },
-  PAYMENT:   { label: 'Payment',   icon: <CreditCard className="h-3.5 w-3.5" /> },
-  LICENSING: { label: 'Licensing', icon: <Certificate className="h-3.5 w-3.5" /> },
-  EXAM_PREP: { label: 'Exam Prep', icon: <BookOpen className="h-3.5 w-3.5" /> },
-};
+const card = 'rounded-2xl border border-border bg-white shadow-sm';
+const heading = 'text-xs font-bold uppercase tracking-widest text-muted-foreground';
+const btnPrimary = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-primary/90 disabled:opacity-40';
+const btnOutline = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-bold text-foreground transition-colors hover:bg-muted/60 disabled:opacity-40';
+const field = 'w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+const chip = (on: boolean) => `rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${on ? 'border-primary bg-primary text-white' : 'border-border bg-white text-muted-foreground hover:border-primary/40'}`;
 
-const QUICK_REPLIES = [
-  'We have received your request and are looking into it.',
-  'Please upload the required document to your portal vault.',
-  'Your case has been updated. Please check your portal for details.',
-  'This issue has been resolved. Let us know if you need further assistance.',
-  'We will get back to you within 24 hours.',
-];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatLabel(s: string) {
-  return s?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ?? '';
+function Dot({ className }: { className: string }) {
+  return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${className}`} />;
 }
-
-function timeAgo(ts: string) {
-  const diff = Date.now() - new Date(ts).getTime();
-  const mins = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return `${days}d ago`;
+/** "40 min", "5 h", "2 d" — how long something has been going on. */
+function span(iso: string, now: number) {
+  const mins = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000));
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 48) return `${hours} h`;
+  return `${Math.floor(hours / 24)} d`;
 }
-
-function formatFull(ts: string) {
-  return new Date(ts).toLocaleString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+function overdue(r: { turn: Turn; waitingSince: string | null }, now: number) {
+  return r.turn === 'us' && !!r.waitingSince && now - new Date(r.waitingSince).getTime() > OVERDUE_HOURS * 3600000;
 }
-
-function formatDateSep(ts: string) {
-  const d = new Date(ts);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+function day(iso: string) {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
-
-function isSameDay(a: string, b: string) {
-  return new Date(a).toDateString() === new Date(b).toDateString();
+function dayTime(iso: string) {
+  return new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
-
-function initials(name?: string) {
-  if (!name) return '??';
-  return name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+function fileProblem(file: File) {
+  if (!/\.(pdf|jpe?g|png|docx?)$/i.test(file.name)) return 'Only PDF, JPG, PNG and Word files can be sent.';
+  if (file.size > FILE_MAX_MB * 1024 * 1024) return `That file is larger than ${FILE_MAX_MB} MB.`;
+  return '';
 }
-
-// ── Stat card (clickable filter) ──────────────────────────────────────────────
-
-function StatCard({
-  label, value, color, active, onClick,
-}: { label: string; value: number; color: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-2xl border shadow-sm px-5 py-4 text-left flex items-center gap-4 transition-all hover:shadow-md ${
-        active ? 'border-primary/30 bg-primary/5' : 'border-border bg-white'
-      }`}
-    >
-      <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${color}`} />
-      <div>
-        <p className="text-2xl font-bold text-foreground leading-none">{value}</p>
-        <p className="text-xs text-muted-foreground mt-1">{label}</p>
-      </div>
-    </button>
-  );
-}
-
-// ── Ticket row ────────────────────────────────────────────────────────────────
-
-function TicketRow({
-  ticket, selected, onClick,
-}: { ticket: any; selected: boolean; onClick: () => void }) {
-  const status = STATUS_META[ticket.status] ?? STATUS_META.OPEN;
-  const priority = PRIORITY_META[ticket.priority] ?? PRIORITY_META.LOW;
-  const cat = CATEGORY_META[ticket.category] ?? CATEGORY_META.GENERAL;
-  const replies: any[] = ticket.replies ?? [];
-  const lastReply = replies[replies.length - 1];
-  const needsReply = lastReply?.authorRole === 'CLIENT' || replies.length === 0;
-
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left px-4 py-3.5 border-b border-border/60 transition-colors hover:bg-muted/30 ${
-        selected ? 'bg-primary/5 border-l-2 border-l-primary' : ''
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        {/* Client avatar */}
-        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold mt-0.5 ${
-          selected ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
-        }`}>
-          {initials(ticket.person?.name)}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <p className={`text-sm font-semibold truncate flex-1 ${selected ? 'text-primary' : 'text-foreground'}`}>
-              {ticket.subject}
-            </p>
-            {needsReply && ticket.status !== 'CLOSED' && ticket.status !== 'RESOLVED' && (
-              <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" title="Awaiting reply" />
-            )}
-          </div>
-
-          <p className="text-xs text-muted-foreground truncate mb-1.5">
-            {ticket.person?.name ?? 'Unknown'} · {ticket.person?.email ?? ''}
-          </p>
-
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${status.badge}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-              {status.label}
-            </span>
-            {ticket.priority && ticket.priority !== 'LOW' && (
-              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priority.badge}`}>
-                {ticket.priority === 'HIGH' && <Warning className="h-2.5 w-2.5" />}
-                {priority.label}
-              </span>
-            )}
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              {cat.icon} {cat.label}
-            </span>
-            <span className="text-[10px] text-muted-foreground ml-auto">{timeAgo(ticket.updatedAt ?? ticket.createdAt)}</span>
-          </div>
-
-          {lastReply && (
-            <p className="mt-1 text-xs text-muted-foreground truncate">
-              {lastReply.authorRole === 'CLIENT' ? ticket.person?.name?.split(' ')[0] ?? 'Client' : 'You'}: {lastReply.content}
-            </p>
-          )}
-        </div>
-      </div>
-    </button>
-  );
-}
-
-// ── Thread panel ──────────────────────────────────────────────────────────────
-
-function ThreadPanel({
-  ticket,
-  onClose,
-  onReply,
-  onStatusChange,
-  onPriorityChange,
-}: {
-  ticket: any;
-  onClose: () => void;
-  onReply: (ticketId: string, content: string) => Promise<void>;
-  onStatusChange: (ticketId: string, status: string) => Promise<void>;
-  onPriorityChange: (ticketId: string, priority: string) => Promise<void>;
-}) {
-  const [compose, setCompose] = useState('');
-  const [sending, setSending] = useState(false);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const status = STATUS_META[ticket.status] ?? STATUS_META.OPEN;
-  const priority = PRIORITY_META[ticket.priority] ?? PRIORITY_META.LOW;
-  const cat = CATEGORY_META[ticket.category] ?? CATEGORY_META.GENERAL;
-  const replies: any[] = ticket.replies ?? [];
-  const isClosed = ticket.status === 'CLOSED';
-
-  useEffect(() => {
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-  }, [ticket.id, replies.length]);
-
-  function autoResize(el: HTMLTextAreaElement) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+async function openFile(replyId: string) {
+  // Opened before the request so the browser does not treat it as a pop-up.
+  const win = window.open('about:blank', '_blank');
+  if (win) win.opener = null;
+  try {
+    const { url } = await api.getTicketAttachmentUrl(replyId);
+    if (win) win.location.href = url; else window.location.href = url;
+  } catch {
+    win?.close();
+    toast.error('The file could not be opened.');
   }
-
-  async function handleSend() {
-    const text = compose.trim();
-    if (!text || sending) return;
-    setSending(true);
-    try {
-      await onReply(ticket.id, text);
-      setCompose('');
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function quickStatus(status: string) {
-    setUpdatingStatus(true);
-    try { await onStatusChange(ticket.id, status); } finally { setUpdatingStatus(false); }
-  }
-
-  return (
-    <div className="flex flex-col h-full bg-white">
-
-      {/* Header */}
-      <div className="shrink-0 bg-[#0F4C81] px-5 py-3.5 border-b border-[#0d3d6a]">
-        <div className="flex items-start gap-3">
-          {/* Mobile back */}
-          <button onClick={onClose} className="lg:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors mt-0.5">
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-
-          {/* Client info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-bold text-white">
-                {initials(ticket.person?.name)}
-              </div>
-              <div className="min-w-0">
-                <p className="font-semibold text-white text-sm leading-tight truncate">{ticket.subject}</p>
-                <p className="text-xs text-white/60 truncate">
-                  {ticket.person?.name ?? 'Unknown'} · {ticket.person?.email ?? '—'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Desktop close */}
-          <button onClick={onClose} className="hidden lg:flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {/* Meta row */}
-        <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${status.badge}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-            {status.label}
-          </span>
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priority.badge}`}>
-            {priority.label} priority
-          </span>
-          <span className="flex items-center gap-1 text-[10px] text-white/50">
-            {cat.icon} {cat.label}
-          </span>
-          <span className="text-[10px] text-white/40 ml-auto">{formatFull(ticket.createdAt)}</span>
-        </div>
-      </div>
-
-      {/* Admin controls bar */}
-      <div className="shrink-0 flex items-center gap-3 border-b border-border bg-muted/20 px-4 py-2.5 flex-wrap">
-        {/* Status */}
-        <div className="flex items-center gap-1.5">
-          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Status</label>
-          <div className="relative">
-            <select
-              value={ticket.status}
-              onChange={(e) => quickStatus(e.target.value)}
-              disabled={updatingStatus}
-              className="h-7 appearance-none rounded-lg border border-border bg-white pl-2.5 pr-6 text-xs font-medium outline-none focus:border-primary cursor-pointer"
-            >
-              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{formatLabel(s)}</option>)}
-            </select>
-            <CaretDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-          </div>
-        </div>
-
-        {/* Priority */}
-        <div className="flex items-center gap-1.5">
-          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Priority</label>
-          <div className="relative">
-            <select
-              value={ticket.priority ?? 'LOW'}
-              onChange={(e) => onPriorityChange(ticket.id, e.target.value)}
-              className="h-7 appearance-none rounded-lg border border-border bg-white pl-2.5 pr-6 text-xs font-medium outline-none focus:border-primary cursor-pointer"
-            >
-              {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{formatLabel(p)}</option>)}
-            </select>
-            <CaretDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-          </div>
-        </div>
-
-        <div className="flex-1" />
-
-        {/* Quick action buttons */}
-        {ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED' && (
-          <button
-            onClick={() => quickStatus('RESOLVED')}
-            disabled={updatingStatus}
-            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-          >
-            {updatingStatus ? <CircleNotch className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" weight="fill" />}
-            Mark Resolved
-          </button>
-        )}
-        {ticket.status !== 'CLOSED' && (
-          <button
-            onClick={() => quickStatus('CLOSED')}
-            disabled={updatingStatus}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
-          >
-            Close
-          </button>
-        )}
-
-        {updatingStatus && <CircleNotch className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-0.5" style={{ background: '#f0f2f5' }}>
-        {replies.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <ChatCircle className="h-10 w-10 text-muted-foreground/20 mb-2" weight="fill" />
-            <p className="text-sm text-muted-foreground">No replies yet.</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Reply below to start the conversation with this client.</p>
-          </div>
-        ) : (
-          replies.map((reply, i) => {
-            const isAdmin = reply.authorRole !== 'CLIENT';
-            const prev = replies[i - 1];
-            const next = replies[i + 1];
-            const showDate = !prev || !isSameDay(prev.createdAt, reply.createdAt);
-            const isLastInGroup = !next || next.authorRole !== reply.authorRole;
-
-            return (
-              <div key={reply.id ?? i}>
-                {showDate && (
-                  <div className="flex items-center justify-center my-3">
-                    <span className="rounded-full bg-white/90 border border-black/5 px-3 py-1 text-[11px] text-muted-foreground font-medium shadow-sm">
-                      {formatDateSep(reply.createdAt)}
-                    </span>
-                  </div>
-                )}
-
-                <div className={`flex items-end gap-1.5 mb-0.5 ${isAdmin ? 'flex-row-reverse' : 'flex-row'}`}>
-                  {/* Avatar */}
-                  <div className="h-6 w-6 shrink-0">
-                    {isLastInGroup && (
-                      <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${
-                        isAdmin ? 'bg-primary' : 'bg-[#00A896]'
-                      }`}>
-                        {isAdmin ? 'MJ' : initials(ticket.person?.name)}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bubble */}
-                  <div className={`max-w-[72%] px-3.5 py-2.5 shadow-sm text-sm leading-relaxed ${
-                    isAdmin
-                      ? 'bg-[#0F4C81] text-white rounded-2xl rounded-br-sm'
-                      : 'bg-white text-foreground rounded-2xl rounded-bl-sm'
-                  } ${!isLastInGroup ? (isAdmin ? 'rounded-br-2xl' : 'rounded-bl-2xl') : ''}`}>
-                    {reply.content && <p className="whitespace-pre-wrap break-words">{reply.content}</p>}
-                    {reply.attachment && (
-                      <button
-                        onClick={async () => {
-                          // Opened before the request so the browser does not treat it as a pop-up.
-                          const win = window.open('about:blank', '_blank');
-                          if (win) win.opener = null;
-                          try {
-                            const { url } = await api.getTicketAttachmentUrl(reply.id);
-                            if (win) win.location.href = url; else window.location.href = url;
-                          } catch { win?.close(); toast.error('The file could not be opened.'); }
-                        }}
-                        className="mt-1.5 flex w-full items-center gap-2 rounded-xl border border-current/20 px-3 py-2 text-left text-xs font-semibold underline-offset-2 hover:underline"
-                      >
-                        <span className="min-w-0 flex-1 truncate">📎 {reply.attachment.name}</span>
-                      </button>
-                    )}
-                    {isLastInGroup && (
-                      <p className={`text-[10px] mt-1 ${isAdmin ? 'text-white/50 text-right' : 'text-muted-foreground/50'}`}>
-                        {new Date(reply.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                        {isAdmin && <span className="ml-1">· You</span>}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Quick replies */}
-      <div className="shrink-0 flex gap-2 overflow-x-auto px-4 py-2 bg-white border-t border-border/50 scrollbar-hide">
-        {QUICK_REPLIES.map((qr) => (
-          <button
-            key={qr}
-            onClick={() => { setCompose(qr); textareaRef.current?.focus(); }}
-            className="whitespace-nowrap shrink-0 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-foreground hover:bg-muted hover:border-primary/30 transition-colors"
-          >
-            {qr.length > 40 ? qr.slice(0, 40) + '…' : qr}
-          </button>
-        ))}
-      </div>
-
-      {/* Compose */}
-      {isClosed ? (
-        <div className="shrink-0 border-t border-border bg-white px-5 py-4 text-center">
-          <p className="text-xs text-muted-foreground">
-            Ticket is closed. Reopen by changing status above.
-          </p>
-        </div>
-      ) : (
-        <div className="shrink-0 flex items-end gap-2 border-t border-border bg-white px-4 py-3">
-          <div className="relative flex-1">
-            <textarea
-              ref={textareaRef}
-              value={compose}
-              onChange={(e) => { setCompose(e.target.value); autoResize(e.target); }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder={`Reply to ${ticket.person?.name?.split(' ')[0] ?? 'client'}…`}
-              rows={1}
-              className="w-full resize-none rounded-full border border-border bg-[#f0f2f5] px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 max-h-[120px] leading-relaxed"
-            />
-            {compose.length > 300 && (
-              <span className={`absolute bottom-2 right-4 text-[10px] ${compose.length > 1000 ? 'text-rose-500' : 'text-muted-foreground/50'}`}>
-                {compose.length}/1000
-              </span>
-            )}
-          </div>
-          <button
-            onClick={handleSend}
-            disabled={!compose.trim() || sending}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0F4C81] text-white hover:bg-[#0d3d6a] disabled:opacity-40 transition-colors shadow-sm"
-          >
-            {sending
-              ? <CircleNotch className="h-4 w-4 animate-spin" />
-              : <PaperPlaneTilt className="h-4 w-4" weight="fill" />
-            }
-          </button>
-        </div>
-      )}
-    </div>
-  );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function AdminTicketsPage() {
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>('');
+export default function SupportRequestsPage() {
+  const { me } = useAdmin();
+  const role = (me?.role as string)?.toUpperCase();
+  const isAdmin = role === 'ADMIN';
+  const isOfficer = role === 'PROCESSING_OFFICER';
+
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const [tab, setTab] = useState<Tab>('us');
   const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  // The list carries only each request's latest message; the whole conversation is loaded when one is opened.
-  const [full, setFull] = useState<Record<string, any>>({});
-  const loadFull = (id: string) => api.getTicket(id).then((t) => setFull((prev) => ({ ...prev, [id]: t }))).catch(() => {});
+  const [topic, setTopic] = useState('');
+  const [owner, setOwner] = useState<'all' | 'mine' | 'none'>('all');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [staff, setStaff] = useState<Staff[]>([]);
 
-  useEffect(() => { if (selectedId) loadFull(selectedId); }, [selectedId]);
-  useEffect(() => {
-    // A link from an alert email opens that request directly.
-    const wanted = new URLSearchParams(window.location.search).get('ticket');
-    if (wanted) setSelectedId(wanted);
+  const load = useCallback(async () => {
+    try {
+      setRows(await api.getSupportRequests() as Row[]);
+      setNow(Date.now());
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    }
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    api.getAllTickets(statusFilter || undefined)
-      .then(setTickets)
-      .catch((err) => toast.error(err.message))
-      .finally(() => setLoading(false));
-  }, [statusFilter]);
+    load();
+    api.getTicketAssignees().then(setStaff).catch(() => setStaff([]));
+    // A link from an alert email opens that request directly.
+    const wanted = new URLSearchParams(window.location.search).get('ticket');
+    if (wanted) { setOpenId(wanted); setTab('all'); }
+    const t = setInterval(load, 60000);
+    return () => clearInterval(t);
+  }, [load]);
 
-  async function handleReply(ticketId: string, content: string) {
-    const reply = await api.replyToTicket(ticketId, content);
-    loadFull(ticketId);
-    setTickets((prev) => prev.map((t) =>
-      t.id === ticketId
-        ? { ...t, replies: [...(t.replies ?? []), reply], status: t.status === 'OPEN' ? 'IN_PROGRESS' : t.status, updatedAt: new Date().toISOString() }
-        : t,
-    ));
-    toast.success('Reply sent.');
-  }
-
-  async function handleStatusChange(ticketId: string, status: string) {
-    await api.updateTicketStatus(ticketId, status);
-    setTickets((prev) => prev.map((t) =>
-      t.id === ticketId ? { ...t, status, updatedAt: new Date().toISOString() } : t,
-    ));
-    toast.success(`Status set to ${formatLabel(status)}.`);
-  }
-
-  async function handlePriorityChange(ticketId: string, priority: string) {
-    await api.updateTicketPriority(ticketId, priority);
-    setTickets((prev) => prev.map((t) =>
-      t.id === ticketId ? { ...t, priority } : t,
-    ));
-    toast.success(`Priority set to ${formatLabel(priority)}.`);
-  }
-
-  // Stats (always from all loaded tickets — ignore search)
-  const stats = {
-    open:       tickets.filter((t) => t.status === 'OPEN').length,
-    inProgress: tickets.filter((t) => t.status === 'IN_PROGRESS').length,
-    resolved:   tickets.filter((t) => t.status === 'RESOLVED').length,
-    closed:     tickets.filter((t) => t.status === 'CLOSED').length,
-    needsReply: tickets.filter((t) => {
-      const replies: any[] = t.replies ?? [];
-      const last = replies[replies.length - 1];
-      return (last?.authorRole === 'CLIENT' || replies.length === 0) && t.status !== 'CLOSED' && t.status !== 'RESOLVED';
-    }).length,
-  };
-
-  // Filtered + searched list
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return tickets.filter((t) => {
-      if (!q) return true;
-      return (
-        t.subject?.toLowerCase().includes(q) ||
-        t.person?.name?.toLowerCase().includes(q) ||
-        t.person?.email?.toLowerCase().includes(q) ||
-        t.category?.toLowerCase().includes(q)
-      );
+  const all = rows ?? [];
+  const count = (t: Tab) => (t === 'all' ? all.length : all.filter((r) => r.turn === t).length);
+  const q = search.trim().toLowerCase();
+  const shown = useMemo(() => {
+    const list = all.filter((r) =>
+      (tab === 'all' || r.turn === tab) &&
+      (!topic || r.category === topic) &&
+      (owner === 'all' || (owner === 'mine' ? r.assignedTo?.id === me?.id : !r.assignedTo)) &&
+      (!q || r.subject.toLowerCase().includes(q) || (r.person?.name ?? '').toLowerCase().includes(q) || (r.person?.email ?? '').toLowerCase().includes(q)));
+    // Waiting clients: urgent first, then whoever has waited longest. Everything else: newest activity first.
+    return list.sort((a, b) => {
+      if (a.turn === 'us' && b.turn === 'us') {
+        if (a.urgent !== b.urgent) return a.urgent ? -1 : 1;
+        return new Date(a.waitingSince ?? a.createdAt).getTime() - new Date(b.waitingSince ?? b.createdAt).getTime();
+      }
+      if ((a.turn === 'us') !== (b.turn === 'us')) return a.turn === 'us' ? -1 : 1;
+      return new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime();
     });
-  }, [tickets, search]);
+  }, [all, tab, topic, owner, q, me?.id]);
 
-  const listed = tickets.find((t) => t.id === selectedId) ?? null;
-  const selected = selectedId && (listed || full[selectedId]) ? { ...(full[selectedId] ?? {}), ...(listed ?? {}), replies: full[selectedId]?.replies ?? listed?.replies ?? [] } : null;
+  const waiting = all.filter((r) => r.turn === 'us');
+  const oldest = waiting.reduce<string | null>((o, r) => (r.waitingSince && (!o || r.waitingSince < o) ? r.waitingSince : o), null);
+  const privacy = all.filter((r) => r.privacyDueAt).length;
+  const topics = [...new Set(all.map((r) => r.category))];
 
-  const TABS = [
-    { key: '',            label: 'All' },
-    { key: 'OPEN',        label: 'Open' },
-    { key: 'IN_PROGRESS', label: 'In Progress' },
-    { key: 'RESOLVED',    label: 'Resolved' },
-    { key: 'CLOSED',      label: 'Closed' },
-  ];
+  if (failed && !rows) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Support requests" />
+        <div className={`${card} p-10 text-center`}>
+          <p className="text-sm font-bold text-foreground">Support requests could not be loaded.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Check your connection and try again.</p>
+          <button onClick={load} className={`${btnPrimary} mt-4`}>Try again</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-5 h-[calc(100vh-5rem)]">
+    <div className="space-y-5">
+      <PageHeader
+        title="Support requests"
+        subtitle={!rows ? 'Questions and problems clients raise from their portal.'
+          : waiting.length === 0 ? 'No client is waiting for a reply.'
+          : `${waiting.length} ${waiting.length === 1 ? 'needs' : 'need'} a reply${oldest ? ` · the oldest has waited ${span(oldest, now)}` : ''}${privacy ? ` · ${privacy} privacy ${privacy === 1 ? 'request' : 'requests'} open` : ''}`}
+      />
 
-      {/* Page header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h1 data-tour="page-title" className="text-xl font-bold text-foreground">Support Tickets</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Client support requests · manage and respond</p>
+      <div data-tour="tix-filters" className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {TABS.map(([key, label]) => <button key={key} onClick={() => setTab(key)} className={chip(tab === key)}>{label} <span className="ml-1 opacity-70">{count(key)}</span></button>)}
         </div>
-        {stats.needsReply > 0 && (
-          <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
-            <Warning className="h-4 w-4 shrink-0" />
-            <span className="font-semibold">{stats.needsReply}</span> ticket{stats.needsReply !== 1 ? 's' : ''} awaiting reply
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative sm:w-72">
+            <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search subject, name or email" className={`${field} pl-9`} />
           </div>
-        )}
-      </div>
-
-      {/* Stat bar (clickable filters) */}
-      <div data-tour="tix-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
-        <StatCard label="Open"        value={stats.open}       color="bg-blue-400"    active={statusFilter === 'OPEN'}        onClick={() => setStatusFilter(statusFilter === 'OPEN'        ? '' : 'OPEN')} />
-        <StatCard label="In Progress" value={stats.inProgress} color="bg-amber-400"   active={statusFilter === 'IN_PROGRESS'} onClick={() => setStatusFilter(statusFilter === 'IN_PROGRESS' ? '' : 'IN_PROGRESS')} />
-        <StatCard label="Resolved"    value={stats.resolved}   color="bg-emerald-400" active={statusFilter === 'RESOLVED'}    onClick={() => setStatusFilter(statusFilter === 'RESOLVED'    ? '' : 'RESOLVED')} />
-        <StatCard label="Closed"      value={stats.closed}     color="bg-muted-foreground" active={statusFilter === 'CLOSED'} onClick={() => setStatusFilter(statusFilter === 'CLOSED'      ? '' : 'CLOSED')} />
-      </div>
-
-      {/* Filter tabs + search */}
-      <div className="flex items-center gap-4 shrink-0 border-b border-border">
-        <div className="flex gap-1 overflow-x-auto flex-1">
-          {TABS.map(({ key, label }) => {
-            const count = key === '' ? tickets.length : tickets.filter((t) => t.status === key).length;
-            return (
-              <button
-                key={key}
-                onClick={() => setStatusFilter(key)}
-                className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors -mb-px ${
-                  statusFilter === key
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {label}
-                {count > 0 && (
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                    statusFilter === key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Search */}
-        <div className="relative shrink-0 mb-1">
-          <MagnifyingGlass className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search client, subject…"
-            className="h-8 w-52 rounded-full border border-border bg-muted/30 pl-8 pr-3 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2">
-              <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-            </button>
-          )}
+          <select value={topic} onChange={(e) => setTopic(e.target.value)} aria-label="Topic" className={`${field} sm:w-44`}>
+            <option value="">All topics</option>
+            {topics.map((t) => <option key={t} value={t}>{TOPIC[t] ?? t}</option>)}
+          </select>
+          <select value={owner} onChange={(e) => setOwner(e.target.value as typeof owner)} aria-label="Assigned to" className={`${field} sm:w-44`}>
+            <option value="all">Everyone’s</option>
+            <option value="mine">Assigned to me</option>
+            <option value="none">Unassigned</option>
+          </select>
         </div>
       </div>
 
-      {/* Two-pane */}
-      <div className="flex flex-1 overflow-hidden rounded-2xl border border-border shadow-sm min-h-0">
-
-        {/* Left: ticket list */}
-        <div data-tour="tix-list" className={`${selected ? 'hidden lg:flex' : 'flex'} flex-col w-full lg:w-80 xl:w-96 shrink-0 border-r border-border bg-white overflow-hidden`}>
-
-          {loading ? (
-            <div className="p-4 space-y-3">
-              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <Headset className="h-12 w-12 text-muted-foreground/20 mb-3" />
-              <p className="font-semibold text-foreground text-sm">No tickets found</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {search ? `No results for "${search}"` : 'No tickets match this filter.'}
-              </p>
+      <div className={`${card} grid overflow-hidden lg:h-[calc(100vh-290px)] lg:min-h-[480px] lg:grid-cols-[360px_1fr]`}>
+        {/* ── List ── */}
+        <div data-tour="tix-list" className={`${openId ? 'hidden lg:block' : 'block'} overflow-y-auto border-border lg:border-r`}>
+          {!rows ? (
+            <div className="space-y-2 p-3">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
+          ) : shown.length === 0 ? (
+            <div className="p-8 text-center">
+              <Headset className="mx-auto mb-3 h-9 w-9 text-muted-foreground/50" />
+              <p className="text-sm font-bold text-foreground">{q || topic || owner !== 'all' ? 'No requests match.' : tab === 'us' ? 'Nobody is waiting for a reply.' : 'Nothing here.'}</p>
+              {!isAdmin && all.length === 0 && <p className="mt-1 text-xs text-muted-foreground">You see requests from your own clients. Privacy requests go to admins.</p>}
             </div>
           ) : (
-            <>
-              <div className="px-4 py-2.5 border-b border-border/60 bg-muted/10">
-                <p className="text-xs text-muted-foreground font-medium">
-                  {filtered.length} ticket{filtered.length !== 1 ? 's' : ''}
-                  {search && ` matching "${search}"`}
-                </p>
-              </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-border/40">
-                {filtered.map((ticket) => (
-                  <TicketRow
-                    key={ticket.id}
-                    ticket={ticket}
-                    selected={selectedId === ticket.id}
-                    onClick={() => setSelectedId(ticket.id)}
-                  />
-                ))}
-              </div>
-            </>
+            <ul className="divide-y divide-border">
+              {shown.map((r) => {
+                const late = overdue(r, now);
+                return (
+                  <li key={r.id}>
+                    <button onClick={() => setOpenId(r.id)} aria-current={openId === r.id} className={`w-full px-4 py-3 text-left transition-colors ${openId === r.id ? 'bg-primary/5' : 'hover:bg-muted/30'}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <Dot className={r.turn === 'us' ? (late || r.urgent ? 'bg-accent' : 'bg-primary') : r.turn === 'client' ? 'bg-muted-foreground/40' : 'bg-secondary'} />
+                          <span className="truncate text-sm font-bold text-foreground">{r.person?.name ?? 'Client'}</span>
+                          {r.urgent && <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Urgent</span>}
+                        </span>
+                        <span className={`shrink-0 text-xs ${late ? 'font-bold text-foreground' : 'text-muted-foreground'}`}>
+                          {r.turn === 'us' && r.waitingSince ? `waited ${span(r.waitingSince, now)}` : r.turn === 'solved' ? 'solved' : `${span(r.lastActivityAt, now)} ago`}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-sm text-foreground">{r.subject}</p>
+                      {r.preview && <p className="truncate text-xs text-muted-foreground">{r.preview}</p>}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {TOPIC[r.category] ?? r.category} · {r.assignedTo ? r.assignedTo.name : 'unassigned'}
+                        {r.privacyDueAt && <span className="font-bold text-foreground"> · answer by {day(r.privacyDueAt)}</span>}
+                        {r.notes > 0 && <span> · {r.notes} staff {r.notes === 1 ? 'note' : 'notes'}</span>}
+                      </p>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
 
-        {/* Right: thread panel */}
-        <div data-tour="tix-thread" className={`${selected ? 'flex' : 'hidden lg:flex'} flex-1 flex-col overflow-hidden`}>
-          {selected ? (
-            <ThreadPanel
-              ticket={selected}
-              onClose={() => setSelectedId(null)}
-              onReply={handleReply}
-              onStatusChange={handleStatusChange}
-              onPriorityChange={handlePriorityChange}
+        {/* ── Conversation ── */}
+        <div data-tour="tix-thread" className={`${openId ? 'flex' : 'hidden lg:flex'} min-h-0 flex-col`}>
+          {openId ? (
+            <Conversation
+              key={openId}
+              id={openId}
+              meId={me?.id ?? ''}
+              staff={staff}
+              now={now}
+              caseHref={(engagementId) => (isOfficer ? `/officer/cases/${engagementId}` : `/caseload/${engagementId}`)}
+              clientHref={isOfficer ? null : (personId) => `/clients/${personId}`}
+              onBack={() => setOpenId(null)}
+              onChanged={load}
             />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center text-center p-8 bg-[#f0f2f5]">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm mb-4">
-                <ChatCircle className="h-8 w-8 text-primary/40" weight="fill" />
-              </div>
-              <p className="font-semibold text-foreground">Select a ticket</p>
-              <p className="text-sm text-muted-foreground mt-1 max-w-xs">
-                Choose a ticket from the list to read the thread and reply to the client.
-              </p>
-              {stats.needsReply > 0 && (
-                <p className="mt-3 text-xs text-rose-600 font-medium">
-                  {stats.needsReply} ticket{stats.needsReply !== 1 ? 's need' : ' needs'} your reply
-                </p>
-              )}
+            <div className="flex flex-1 flex-col items-center justify-center p-10 text-center">
+              <Headset className="mb-3 h-10 w-10 text-muted-foreground/40" />
+              <p className="text-sm font-bold text-foreground">Choose a request to read it.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Clients who have waited longest are at the top.</p>
             </div>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+// ── One request ───────────────────────────────────────────────────────────────
+
+function Conversation({ id, meId, staff, now, caseHref, clientHref, onBack, onChanged }: {
+  id: string; meId: string; staff: Staff[]; now: number;
+  caseHref: (engagementId: string) => string; clientHref: ((personId: string) => string) | null;
+  onBack: () => void; onChanged: () => void;
+}) {
+  const [d, setD] = useState<Detail | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [mode, setMode] = useState<'reply' | 'note'>('reply');
+  const [text, setText] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState('');
+  const fileInput = useRef<HTMLInputElement>(null);
+  const bottom = useRef<HTMLDivElement>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setD(await api.getTicket(id) as Detail);
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    }
+  }, [id]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { bottom.current?.scrollIntoView({ block: 'end' }); }, [d?.replies.length]);
+
+  async function change(key: string, work: () => Promise<unknown>, done: string) {
+    setBusy(key);
+    try {
+      await work();
+      if (done) toast.success(done);
+      await load();
+      onChanged();
+    } catch (e: any) {
+      toast.error(e.message ?? 'That could not be saved.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  function pick(f: File | undefined) {
+    if (!f) return;
+    const problem = fileProblem(f);
+    if (problem) { toast.error(problem); return; }
+    setFile(f);
+  }
+
+  async function send(solve: boolean) {
+    if (!text.trim() && !file) return;
+    setBusy(solve ? 'solve' : 'send');
+    try {
+      let attachment: { key: string; name: string; type?: string } | undefined;
+      if (file) {
+        const { url, key } = await api.getTicketUploadUrl(file.name);
+        const put = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type || 'application/octet-stream' } });
+        if (!put.ok) throw new Error('The file could not be uploaded. Try again.');
+        attachment = { key, name: file.name, type: file.type };
+      }
+      await api.replyToTicket(id, { content: text.trim(), attachment, internal: mode === 'note', solve: mode === 'reply' && solve });
+      setText('');
+      setFile(null);
+      toast.success(mode === 'note' ? 'Note saved. The client cannot see it.' : solve ? 'Reply sent and request marked solved.' : 'Reply sent. The client has been emailed.');
+      await load();
+      onChanged();
+    } catch (e: any) {
+      toast.error(e.message ?? 'The message could not be sent.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  if (failed) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-10 text-center">
+        <p className="text-sm font-bold text-foreground">This request could not be opened.</p>
+        <p className="mt-1 text-sm text-muted-foreground">It may belong to another consultant’s client, or be a privacy request.</p>
+        <div className="mt-4 flex gap-2"><button onClick={onBack} className={btnOutline}>Back to the list</button><button onClick={load} className={btnPrimary}>Try again</button></div>
+      </div>
+    );
+  }
+  if (!d) return <div className="space-y-3 p-5"><Skeleton className="h-16 rounded-xl" /><Skeleton className="h-40 rounded-xl" /></div>;
+
+  const solved = d.turn === 'solved';
+  const late = overdue(d, now);
+  const assignees = d.assignedTo && !staff.some((s) => s.id === d.assignedTo!.id) ? [...staff, d.assignedTo] : staff;
+
+  return (
+    <>
+      <header className="shrink-0 space-y-3 border-b border-border p-4">
+        <div className="flex items-start gap-2">
+          <button onClick={onBack} aria-label="Back to the list" className="mt-0.5 rounded-lg p-1 text-muted-foreground hover:bg-muted lg:hidden"><ArrowLeft className="h-4 w-4" /></button>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold text-foreground">{d.subject}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {d.person?.name ?? 'Client'} · {d.person?.email}{d.person?.phone ? ` · ${d.person.phone}` : ''} · {TOPIC[d.category] ?? d.category} · raised {day(d.createdAt)}
+            </p>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs">
+              <span className="inline-flex items-center gap-1.5 font-bold text-foreground">
+                <Dot className={solved ? 'bg-secondary' : d.turn === 'us' ? (late ? 'bg-accent' : 'bg-primary') : 'bg-muted-foreground/40'} />
+                {solved ? 'Solved' : d.turn === 'us' ? `Needs a reply${d.waitingSince ? ` · client has waited ${span(d.waitingSince, now)}` : ''}` : 'Waiting on the client'}
+              </span>
+              {d.privacyDueAt && <span className="font-bold text-foreground">· Privacy request: answer by {day(d.privacyDueAt)}</span>}
+              {d.engagementId && <Link href={caseHref(d.engagementId)} className="font-bold text-primary hover:underline">Open case</Link>}
+              {d.person && clientHref && <Link href={clientHref(d.person.id)} className="font-bold text-primary hover:underline">Open client</Link>}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            Assigned to
+            <select
+              value={d.assignedTo?.id ?? ''}
+              disabled={!!busy}
+              onChange={(e) => change('assign', () => api.assignTicket(id, e.target.value || null), e.target.value ? 'Assigned.' : 'Unassigned.')}
+              className="rounded-lg border border-border bg-white px-2 py-1.5 text-xs font-bold text-foreground outline-none focus:border-primary"
+            >
+              <option value="">Nobody</option>
+              {assignees.map((s) => <option key={s.id} value={s.id}>{s.id === meId ? `${s.name} (me)` : s.name}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+            <input type="checkbox" checked={d.urgent} disabled={!!busy} onChange={(e) => change('urgent', () => api.setTicketUrgent(id, e.target.checked), '')} className="h-4 w-4 accent-[#0F4C81]" /> Urgent
+          </label>
+          <span className="ml-auto">
+            {solved
+              ? <button onClick={() => change('status', () => api.updateTicketStatus(id, 'IN_PROGRESS'), 'Reopened.')} disabled={!!busy} className={btnOutline}>Reopen</button>
+              : <button onClick={() => change('status', () => api.updateTicketStatus(id, 'RESOLVED'), 'Marked solved. The client has been emailed.')} disabled={!!busy} className={btnOutline}>{busy === 'status' && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} Mark solved</button>}
+          </span>
+        </div>
+      </header>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-muted/20 p-4">
+        {d.replies.map((r) => {
+          const fromClient = r.authorRole === 'CLIENT';
+          return (
+            <div key={r.id} className={`flex ${fromClient ? 'justify-start' : 'justify-end'}`}>
+              <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${r.internal ? 'border border-dashed border-muted-foreground/40 bg-muted' : fromClient ? 'border border-border bg-white' : 'bg-primary/10'}`}>
+                <p className="text-[11px] font-bold text-muted-foreground">
+                  {r.internal && <span className="uppercase tracking-wide text-foreground">Note for staff · </span>}
+                  {r.authorName ?? (fromClient ? 'Client' : 'Staff')}{r.authorId === meId ? ' (me)' : ''} · {dayTime(r.createdAt)}
+                </p>
+                {r.content && <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">{r.content}</p>}
+                {r.attachment && (
+                  <button onClick={() => openFile(r.id)} className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-muted/60">
+                    <FileText className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{r.attachment.name}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottom} />
+      </div>
+
+      <footer className="shrink-0 space-y-2 border-t border-border p-4">
+        <div className="flex gap-2" role="tablist" aria-label="What to write">
+          <button role="tab" aria-selected={mode === 'reply'} onClick={() => setMode('reply')} className={chip(mode === 'reply')}>Reply to client</button>
+          <button role="tab" aria-selected={mode === 'note'} onClick={() => setMode('note')} className={chip(mode === 'note')}>Note for staff</button>
+        </div>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={3}
+          maxLength={5000}
+          aria-label={mode === 'note' ? 'Note for staff' : 'Reply to the client'}
+          placeholder={mode === 'note' ? 'Only staff can see this. The client is not told.' : 'Write a reply. The client is emailed.'}
+          className={`${field} ${mode === 'note' ? 'border-dashed bg-muted/40' : ''}`}
+        />
+        {file && (
+          <p className="flex items-center gap-2 text-xs text-foreground">
+            <FileText className="h-3.5 w-3.5 text-muted-foreground" /> <span className="truncate">{file.name}</span>
+            <button onClick={() => setFile(null)} aria-label="Remove the file" className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+          </p>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <input ref={fileInput} type="file" accept={FILE_ACCEPT} className="hidden" onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
+            <button onClick={() => fileInput.current?.click()} disabled={!!busy} className={btnOutline}><Plus className="h-3.5 w-3.5" /> Attach a file</button>
+          </div>
+          <div className="flex gap-2">
+            {mode === 'reply' && !solved && (
+              <button onClick={() => send(true)} disabled={!!busy || (!text.trim() && !file)} className={btnOutline}>{busy === 'solve' && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} Send and mark solved</button>
+            )}
+            <button onClick={() => send(false)} disabled={!!busy || (!text.trim() && !file)} className={btnPrimary}>
+              {busy === 'send' ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <PaperPlaneTilt className="h-3.5 w-3.5" />} {mode === 'note' ? 'Save note' : 'Send reply'}
+            </button>
+          </div>
+        </div>
+        {solved && mode === 'reply' && <p className="text-xs text-muted-foreground">This request is solved. A reply is still emailed to the client but does not reopen it.</p>}
+      </footer>
+    </>
   );
 }

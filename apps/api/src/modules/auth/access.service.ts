@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '@mjn/database';
-import { AuthUser, isCaseScoped, isConsultant, isOfficer, isStaff } from './access';
+import { AuthUser, isCaseScoped, isConsultant, isOfficer, isStaff, isAdmin } from './access';
 
 export type ConsultantScope = {
   canSeeEngagement: (engagement: { consultantId?: string | null; officerId?: string | null }) => boolean;
@@ -166,11 +166,19 @@ export class AccessService {
     if (!isStaff(user)) throw new ForbiddenException(DENIED);
   }
 
+  /**
+   * Support requests. The person who raised one can always open it. Admins see all of them.
+   * Consultants and processing officers see their own clients' requests, but never privacy
+   * requests (account deletion, data copies) — those are for admins. Other staff see none.
+   */
   async assertTicket(user: AuthUser, ticketId: string): Promise<void> {
-    if (isStaff(user)) return;
-    const ticket = await this.db.supportTicket.findUnique({ where: { id: ticketId }, select: { personId: true } });
+    const ticket = await this.db.supportTicket.findUnique({ where: { id: ticketId }, select: { personId: true, category: true } });
     if (!ticket) throw new NotFoundException('Ticket not found.');
-    if (ticket.personId !== user.id) throw new ForbiddenException(DENIED);
+    if (ticket.personId === user.id) return;
+    if (isAdmin(user)) return;
+    if (!isCaseScoped(user) || ticket.category === 'PRIVACY') throw new ForbiddenException(DENIED);
+    const scope = await this.consultantScope(user);
+    if (!scope || !scope.canSeePerson(ticket.personId)) throw new ForbiddenException(DENIED);
   }
 
   async assertStudyItem(user: AuthUser, itemId: string): Promise<void> {

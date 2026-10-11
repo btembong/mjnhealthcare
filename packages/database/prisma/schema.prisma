@@ -1146,7 +1146,8 @@ model SupportTicket {
   category             TicketCategory @default(GENERAL)
   status               TicketStatus   @default(OPEN)
   priority             TicketPriority @default(MEDIUM)
-  assignedConsultantId String?
+  urgent               Boolean        @default(false)
+  assignedConsultantId String?        // the staff member (Person id) who owns the request
   resolvedAt           DateTime?
   clientSeenAt         DateTime?
   createdAt            DateTime       @default(now())
@@ -1167,6 +1168,7 @@ model TicketReply {
   attachmentKey  String?
   attachmentName String?
   attachmentType String?
+  internal   Boolean          @default(false) // a note for staff: never shown or emailed to the client
   createdAt  DateTime         @default(now())
 
   @@map("ticket_replies")

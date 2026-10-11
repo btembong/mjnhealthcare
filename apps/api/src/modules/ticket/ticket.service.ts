@@ -15,7 +15,15 @@ const SOLVED: string[] = [TicketStatus.RESOLVED, TicketStatus.CLOSED];
 
 export type TicketAttachment = { key: string; name: string; type?: string };
 
+// Privacy requests (a copy of their data, deleting their account) should be answered within this long.
+const PRIVACY_DUE_DAYS = 30;
+const ASSIGNABLE_ROLES = ['ADMIN', 'CONSULTANT', 'PROCESSING_OFFICER'];
+
+/** What a member of staff may see: everything, or only some clients' requests and no privacy requests. */
+export type TicketScope = null | { canSeePerson: (personId: string) => boolean };
+
 type StoredReply = {
+  internal?: boolean;
   attachmentKey: string | null;
   attachmentName: string | null;
   attachmentType: string | null;
@@ -58,14 +66,25 @@ export class TicketService {
    * Adds whose turn it is: 'us' when the client wrote last, 'client' when we did, 'solved' when closed.
    * `unread` is true when we replied and the client has not opened the request since.
    */
-  private present(ticket: any) {
-    const replies: StoredReply[] = ticket.replies ?? [];
-    const last = replies.reduce<StoredReply | null>((latest, r) => (!latest || r.createdAt > latest.createdAt ? r : latest), null);
+  private present(ticket: any, forStaff = false) {
+    const everything: StoredReply[] = ticket.replies ?? [];
+    const visible = everything.filter((r) => !r.internal);
+    // A client never receives a staff note, in any form.
+    const replies = forStaff ? everything : visible;
+    const last = visible.reduce<StoredReply | null>((latest, r) => (!latest || r.createdAt > latest.createdAt ? r : latest), null);
     const solved = SOLVED.includes(ticket.status);
     const fromUs = !!last && last.authorRole !== TicketAuthorRole.CLIENT;
     const solvedAt: Date | null = solved ? ticket.resolvedAt ?? ticket.updatedAt ?? null : null;
+    // How long the client has been waiting: since the first thing they wrote that we have not answered.
+    let waitingSince: Date | null = null;
+    if (!solved && !fromUs) {
+      const ordered = [...visible].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      for (let i = ordered.length - 1; i >= 0 && ordered[i].authorRole === TicketAuthorRole.CLIENT; i--) waitingSince = ordered[i].createdAt;
+      waitingSince = waitingSince ?? ticket.createdAt;
+    }
     return {
       ...ticket,
+      waitingSince,
       replies: replies.map((r) => this.presentReply(r)),
       turn: solved ? 'solved' : fromUs ? 'client' : 'us',
       unread: !solved && fromUs && (!ticket.clientSeenAt || ticket.clientSeenAt < (last as StoredReply).createdAt),
@@ -135,16 +154,37 @@ export class TicketService {
     return tickets.map((t) => this.present(t)).sort((a, b) => b.lastActivityAt.getTime() - a.lastActivityAt.getTime());
   }
 
-  async getTicket(ticketId: string) {
+  async getTicket(ticketId: string, forStaff = false) {
     const ticket = await this.db.supportTicket.findUnique({
       where: { id: ticketId },
       include: {
         replies: { orderBy: { createdAt: 'asc' } },
-        person: { select: { id: true, name: true, email: true } },
+        person: { select: { id: true, name: true, email: true, phone: true } },
       },
     });
     if (!ticket) throw new NotFoundException('Ticket not found');
-    return this.present(ticket);
+    if (!forStaff) return this.present(ticket);
+
+    // Staff also see who wrote each message, who owns the request, and where the client's case is.
+    const authorIds = [...new Set([...ticket.replies.map((r) => r.authorId), ticket.assignedConsultantId].filter(Boolean) as string[])];
+    const [people, engagement] = await Promise.all([
+      authorIds.length ? this.db.person.findMany({ where: { id: { in: authorIds } }, select: { id: true, name: true } }) : [],
+      this.db.engagement.findFirst({ where: { personId: ticket.personId }, orderBy: { createdAt: 'desc' }, select: { id: true } }),
+    ]);
+    const nameOf = new Map(people.map((p) => [p.id, p.name]));
+    const shown = this.present(ticket, true);
+    return {
+      ...shown,
+      replies: shown.replies.map((r: any) => ({ ...r, authorName: nameOf.get(r.authorId) ?? null })),
+      assignedTo: ticket.assignedConsultantId ? { id: ticket.assignedConsultantId, name: nameOf.get(ticket.assignedConsultantId) ?? 'Former staff member' } : null,
+      engagementId: engagement?.id ?? null,
+      privacyDueAt: this.privacyDue(ticket),
+    };
+  }
+
+  private privacyDue(ticket: { category: string; status: string; createdAt: Date }): Date | null {
+    if (ticket.category !== TicketCategory.PRIVACY || SOLVED.includes(ticket.status)) return null;
+    return new Date(ticket.createdAt.getTime() + PRIVACY_DUE_DAYS * 86400000);
   }
 
   /** The client has opened the request, so a reply from us is no longer unread. */
@@ -154,16 +194,36 @@ export class TicketService {
     return { ok: true };
   }
 
-  async replyToTicket(ticketId: string, authorId: string, authorRole: TicketAuthorRole, content: string, attachment?: TicketAttachment | null) {
+  async replyToTicket(
+    ticketId: string, authorId: string, authorRole: TicketAuthorRole, content: string, attachment?: TicketAttachment | null,
+    options: { internal?: boolean; solve?: boolean } = {},
+  ) {
     const text = (content ?? '').trim();
     if (!text && !attachment) throw new BadRequestException('Write a message or attach a file.');
     this.checkAttachment(attachment, authorId);
+
+    // A note for staff: saved in the conversation, and nothing else happens. The client is not
+    // told, the request does not change hands, and it stays whoever's turn it was.
+    if (options.internal) {
+      if (authorRole === TicketAuthorRole.CLIENT) throw new BadRequestException('Only staff can add a note.');
+      const exists = await this.db.supportTicket.findUnique({ where: { id: ticketId }, select: { id: true } });
+      if (!exists) throw new NotFoundException('Ticket not found');
+      const note = await this.db.ticketReply.create({
+        data: {
+          ticketId, authorId, authorRole, content: text, internal: true,
+          attachmentKey: attachment?.key ?? null,
+          attachmentName: attachment ? (attachment.name || 'Attachment').slice(0, 200) : null,
+          attachmentType: attachment?.type?.slice(0, 100) ?? null,
+        },
+      });
+      return this.presentReply(note);
+    }
 
     const ticket = await this.db.supportTicket.findUnique({
       where: { id: ticketId },
       include: {
         person: { select: { id: true, name: true, email: true, locale: true } },
-        replies: { orderBy: { createdAt: 'desc' }, take: 1, select: { authorRole: true, createdAt: true } },
+        replies: { where: { internal: false }, orderBy: { createdAt: 'desc' }, take: 1, select: { authorRole: true, createdAt: true } },
       },
     });
     if (!ticket) throw new NotFoundException('Ticket not found');
@@ -189,13 +249,18 @@ export class TicketService {
     });
 
     // Only a reply from us moves a new request to "in progress"; the client's own follow-up does not.
-    const status = reopened ? TicketStatus.OPEN
+    const solving = !fromClient && options.solve === true;
+    const status = solving ? TicketStatus.RESOLVED
+      : reopened ? TicketStatus.OPEN
       : !fromClient && ticket.status === TicketStatus.OPEN ? TicketStatus.IN_PROGRESS
       : ticket.status;
     await this.db.supportTicket.update({
       where: { id: ticketId },
       data: {
         status,
+        ...(solving ? { resolvedAt: new Date() } : {}),
+        // Whoever answers a request nobody owns becomes its owner.
+        ...(!fromClient && !ticket.assignedConsultantId ? { assignedConsultantId: authorId } : {}),
         ...(reopened ? { resolvedAt: null } : {}),
         ...(fromClient ? { clientSeenAt: new Date() } : {}),
         updatedAt: new Date(),
@@ -211,6 +276,7 @@ export class TicketService {
         this.events.emit('ticket.client_replied', {
           ticketId, subject: ticket.subject, content: summary, reopened,
           clientName: ticket.person?.name ?? 'A client', clientEmail: ticket.person?.email ?? null,
+          assigneeId: ticket.assignedConsultantId ?? null,
         });
       }
     } else {
@@ -238,25 +304,74 @@ export class TicketService {
     return reply.ticketId;
   }
 
-  /** A link to a message's file that stops working after five minutes. */
-  async getAttachmentViewUrl(replyId: string) {
-    const reply = await this.db.ticketReply.findUnique({ where: { id: replyId }, select: { attachmentKey: true, attachmentName: true } });
-    if (!reply?.attachmentKey) throw new NotFoundException('This message has no file.');
+  /** A link to a message's file that stops working after five minutes. Staff notes open for staff only. */
+  async getAttachmentViewUrl(replyId: string, forStaff = false) {
+    const reply = await this.db.ticketReply.findUnique({ where: { id: replyId }, select: { attachmentKey: true, attachmentName: true, internal: true } });
+    if (!reply?.attachmentKey || (reply.internal && !forStaff)) throw new NotFoundException('This message has no file.');
     const url = await this.s3.getSignedUrlPromise('getObject', { Bucket: process.env.R2_BUCKET_NAME, Key: reply.attachmentKey, Expires: 300 });
     return { url, name: reply.attachmentName ?? 'Attachment' };
   }
 
-  // Admin endpoints
-  async getAllTickets(status?: TicketStatus) {
+  // ── Staff ──────────────────────────────────────────────────────────────────
+
+  /** The staff inbox: every request this person may see, with whose turn it is and how long the client has waited. */
+  async listForStaff(scope: TicketScope) {
     const tickets = await this.db.supportTicket.findMany({
-      where: status ? { status } : undefined,
+      where: scope ? { category: { not: TicketCategory.PRIVACY } } : undefined,
       include: {
         person: { select: { id: true, name: true, email: true } },
-        replies: { orderBy: { createdAt: 'desc' }, take: 1 },
+        replies: { select: { authorRole: true, createdAt: true, internal: true, content: true, attachmentKey: true, attachmentName: true, attachmentType: true } },
       },
-      orderBy: { updatedAt: 'desc' },
     });
-    return tickets.map((t) => this.present(t));
+    const mine = scope ? tickets.filter((t) => scope.canSeePerson(t.personId)) : tickets;
+    const staffIds = [...new Set(mine.map((t) => t.assignedConsultantId).filter(Boolean) as string[])];
+    const staff = staffIds.length ? await this.db.person.findMany({ where: { id: { in: staffIds } }, select: { id: true, name: true } }) : [];
+    const nameOf = new Map(staff.map((s) => [s.id, s.name]));
+
+    return mine.map((t) => {
+      const shown = this.present(t, true);
+      const lastVisible = [...t.replies].filter((r) => !r.internal).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+      return {
+        id: t.id,
+        subject: t.subject,
+        category: t.category,
+        urgent: t.urgent,
+        turn: shown.turn as 'us' | 'client' | 'solved',
+        waitingSince: shown.waitingSince as Date | null,
+        lastActivityAt: shown.lastActivityAt as Date,
+        createdAt: t.createdAt,
+        person: t.person,
+        assignedTo: t.assignedConsultantId ? { id: t.assignedConsultantId, name: nameOf.get(t.assignedConsultantId) ?? 'Former staff member' } : null,
+        preview: (lastVisible?.content || (lastVisible?.attachmentName ? `File: ${lastVisible.attachmentName}` : '')).slice(0, 140),
+        notes: t.replies.filter((r) => r.internal).length,
+        privacyDueAt: this.privacyDue(t),
+      };
+    });
+  }
+
+  /** Who a request can be given to. */
+  async assignableStaff() {
+    return this.db.person.findMany({
+      where: { role: { in: ASSIGNABLE_ROLES as any[] }, isActive: true },
+      select: { id: true, name: true, role: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async assign(ticketId: string, staffId: string | null) {
+    if (staffId) {
+      const staff = await this.db.person.findUnique({ where: { id: staffId }, select: { role: true, isActive: true } });
+      if (!staff || !staff.isActive || !ASSIGNABLE_ROLES.includes(staff.role as string)) {
+        throw new BadRequestException('Choose an active member of staff.');
+      }
+    }
+    await this.db.supportTicket.update({ where: { id: ticketId }, data: { assignedConsultantId: staffId } });
+    return { assignedTo: staffId };
+  }
+
+  async setUrgent(ticketId: string, urgent: boolean) {
+    await this.db.supportTicket.update({ where: { id: ticketId }, data: { urgent, priority: urgent ? TicketPriority.HIGH : TicketPriority.MEDIUM } });
+    return { urgent };
   }
 
   async updateTicketStatus(ticketId: string, status: TicketStatus, assignedConsultantId?: string) {
@@ -270,7 +385,8 @@ export class TicketService {
       data: {
         status,
         assignedConsultantId,
-        resolvedAt: status === TicketStatus.RESOLVED ? new Date() : undefined,
+        // Reopening clears the solved date, so the 14-day reply window starts again next time.
+        resolvedAt: SOLVED.includes(status) ? (SOLVED.includes(before.status) ? undefined : new Date()) : null,
       },
     });
     // Tell the client once, when we close a request they had open.

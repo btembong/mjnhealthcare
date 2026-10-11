@@ -43,6 +43,7 @@ function useSidebarSections(
       {
         items: [
           { label: 'My Work', href: '/officer', icon: ChartLineUp },
+          { label: 'Support Requests', href: '/officer/support', icon: Headset },
           { label: 'My Caseload', href: '/officer/caseload', icon: UsersThree },
           { label: 'Escalations', href: '/officer/escalations', icon: Warning },
         ],
@@ -63,6 +64,7 @@ function useSidebarSections(
           { label: 'My Dashboard', href: '/', icon: ChartLineUp },
           { label: 'My Caseload', href: '/caseload', icon: UsersThree },
           { label: 'Messages', href: '/messages', icon: ChatCircle },
+          { label: 'Support Requests', href: '/tickets', icon: Headset },
           { label: 'Sessions', href: '/sessions', icon: VideoCamera },
           { label: 'Free Consultations', href: '/free-slots', icon: CalendarBlank },
           { label: 'Documents', href: '/documents', icon: FileText, badge: counts.pendingDocs > 0 ? String(counts.pendingDocs) : undefined },
@@ -159,7 +161,7 @@ function useSidebarSections(
         { label: 'Blog & Articles', href: '/blog', icon: Newspaper },
         { label: 'Campaigns', href: '/campaigns', icon: MegaphoneSimple },
         { label: 'Surveys', href: '/surveys', icon: ClipboardText },
-        { label: 'Support Tickets', href: '/tickets', icon: Headset },
+        { label: 'Support Requests', href: '/tickets', icon: Headset },
       ],
     },
     {
