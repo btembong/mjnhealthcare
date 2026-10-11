@@ -142,6 +142,19 @@ export class OrderController {
     });
   }
 
+  @ApiOperation({ summary: "The logged-in client's own orders, for their payments page" })
+  @Get('my/payments')
+  myPayments(@CurrentUser() user: AuthUser) {
+    return this.orderService.getClientPayments(user.id);
+  }
+
+  @ApiOperation({ summary: 'Cancel an order that was started and not paid' })
+  @Post(':id/cancel')
+  async cancelUnpaid(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertOrder(user, id);
+    return this.orderService.cancelUnpaidOrder(id);
+  }
+
   @ApiOperation({ summary: 'Get all orders (admin)' })
   @StaffOnly()
   @Get('admin')

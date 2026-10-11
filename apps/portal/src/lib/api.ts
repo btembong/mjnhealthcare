@@ -120,6 +120,11 @@ export const api = {
   getOrdersByPerson: (personId: string) =>
     request<any[]>(`/orders/person/${personId}`),
 
+  getMyPayments: () => request<any[]>('/orders/my/payments'),
+
+  cancelOrder: (orderId: string) =>
+    request<{ cancelled: boolean }>(`/orders/${orderId}/cancel`, { method: 'POST' }),
+
   getServicePlan: (engagementId: string) =>
     request<any>(`/orders/service-plan/${engagementId}`),
 

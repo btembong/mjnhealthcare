@@ -150,6 +150,7 @@ async function findSecret() {
   else {
     await check('client reads own record, no password field', client, '/persons/' + a, 200, true);
     await check('client reads own orders', client, '/orders/person/' + a, 200);
+    await check('client reads own payments page', client, '/orders/my/payments', 200);
     await check('client reads own cases', client, '/engagements/client/' + a, 200);
     await check('client reads own bookings', client, '/bookings/person/' + a, 200);
     for (const p of ['/persons', '/engagements', '/orders/admin', '/documents', '/reports/finance', '/admin/payments/stats',

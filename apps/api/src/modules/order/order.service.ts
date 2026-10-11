@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Optional } from '@nestjs/common';
+import { Injectable, BadRequestException, Optional, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
@@ -17,6 +17,9 @@ export type InstallmentConfig = {
   triggerStageId?: string;        // stage completion triggers 2nd payment
   dueDate?: Date;                 // or fixed date for 2nd payment
 };
+
+// How long after a payment is started we keep telling the client it is being confirmed.
+const PAYMENT_CONFIRM_MINUTES = 15;
 
 @Injectable()
 export class OrderService {
@@ -406,6 +409,76 @@ export class OrderService {
     });
   }
 
+  /**
+   * A client's own payments page: each order with what it is for, whether a receipt exists,
+   * and whether a payment was started recently and is still being confirmed.
+   */
+  async getClientPayments(personId: string) {
+    const orders: any[] = await (this.db.order as any).findMany({
+      where: { OR: [{ personId }, { engagement: { personId } }] },
+      select: {
+        id: true, createdAt: true, status: true, orderType: true, paymentMode: true, stageId: true, engagementId: true,
+        subtotal: true, taxRate: true, taxAmount: true, total: true,
+        lineItems: {
+          select: {
+            id: true, priceCharged: true, nonRefundable: true, nonRefundableReason: true,
+            serviceItem: { select: { name: true } },
+            variant: { select: { variantKey: true } },
+          },
+        },
+        receipts: { select: { id: true, issuedAt: true }, orderBy: { issuedAt: 'desc' }, take: 1 },
+        paymentAttempts: { select: { createdAt: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const now = Date.now();
+    return orders.map((o) => {
+      const attempt = o.paymentAttempts[0]?.createdAt as Date | undefined;
+      const minutes = attempt ? (now - attempt.getTime()) / 60000 : null;
+      return {
+        id: o.id,
+        createdAt: o.createdAt,
+        status: o.status,
+        orderType: o.orderType,
+        engagementId: o.engagementId,
+        subtotal: Number(o.subtotal),
+        taxRate: Number(o.taxRate),
+        taxAmount: Number(o.taxAmount),
+        total: Number(o.total),
+        lineItems: o.lineItems.map((li: any) => ({
+          id: li.id,
+          name: li.serviceItem?.name ?? 'Service',
+          variant: li.variant?.variantKey ?? null,
+          price: Number(li.priceCharged),
+          nonRefundable: !!li.nonRefundable,
+          nonRefundableReason: li.nonRefundableReason ?? null,
+        })),
+        receiptIssuedAt: o.receipts[0]?.issuedAt ?? null,
+        // An unpaid order the client can cancel themselves: one they created, not one a stage raised.
+        canCancel: o.status === 'PENDING' && !o.stageId,
+        // 'confirming': a payment was started in the last 15 minutes and we have not heard back yet.
+        // 'unconfirmed': one was started longer ago and never confirmed.
+        payment: o.status !== 'PENDING' || minutes === null ? 'none' : minutes < PAYMENT_CONFIRM_MINUTES ? 'confirming' : 'unconfirmed',
+        paymentStartedAt: o.status === 'PENDING' ? attempt ?? null : null,
+      };
+    });
+  }
+
+  /**
+   * The owner drops an order they started and did not pay, so they can choose again.
+   * If a payment for it still arrives, the order is marked paid as usual.
+   */
+  async cancelUnpaidOrder(orderId: string) {
+    const order: any = await (this.db.order as any).findUnique({ where: { id: orderId }, select: { status: true, stageId: true } });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.status !== 'PENDING') throw new BadRequestException('Only an unpaid order can be cancelled.');
+    if (order.stageId) {
+      throw new BadRequestException('This invoice was raised for a stage of your plan. Message your team if it should be changed.');
+    }
+    await (this.db.order as any).update({ where: { id: orderId }, data: { status: 'CANCELLED' } });
+    return { cancelled: true };
+  }
+
   async getAllOrders(): Promise<any> {
     return (this.db.order as any).findMany({
       include: {
@@ -435,6 +508,14 @@ export class OrderService {
       byStage[key].items.push(item);
       byStage[key].stageTotal += Number(item.priceUsd);
     }
+
+    // Plan rows hold the service's id only; add its name so the plan can be read.
+    const itemIds = [...new Set(plan.map((p) => p.serviceItemId as string))];
+    const services: any[] = itemIds.length
+      ? await (this.db.serviceItem as any).findMany({ where: { id: { in: itemIds } }, select: { id: true, name: true } })
+      : [];
+    const nameOf = new Map(services.map((s) => [s.id, s.name]));
+    for (const item of plan) item.name = nameOf.get(item.serviceItemId) ?? 'Service';
 
     const stages = Object.values(byStage);
     const grandTotal = stages.reduce((s: number, st: any) => s + st.stageTotal, 0);

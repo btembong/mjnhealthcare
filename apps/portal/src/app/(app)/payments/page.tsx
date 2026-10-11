@@ -1,873 +1,497 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { PageHeader, Badge, Skeleton } from '@mjn/ui';
-import {
-  CreditCard, CheckCircle, CaretDown, CaretUp,
-  Receipt, Clock, TrendUp, DownloadSimple,
-  ArrowRight, ShoppingCart, Confetti,
-  Coins, FilePdf, Printer, ChatText, Folder, CircleNotch,
-  CaretLeft, CaretRight,
-} from '@mjn/ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { Skeleton } from '@mjn/ui';
+import { CheckCircle, Check, CaretDown, CaretUp, CircleNotch, CreditCard, DownloadSimple, Headset, X } from '@mjn/ui';
+import { toast } from 'sonner';
 import { useUser } from '../../../contexts/user-context';
 import { api } from '../../../lib/api';
-import { toast } from 'sonner';
-import {
-  useReactTable,
-  getCoreRowModel,
-  getPaginationRowModel,
-  createColumnHelper,
-} from '@tanstack/react-table';
 
-const ORDERS_PAGE_SIZE = 8;
+// ── Wording (the page follows the client's preferred language) ────────────────
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
-async function downloadReceiptPdf(orderId: string, createdAt: string): Promise<void> {
-  const token = localStorage.getItem('mjn_token');
-  const res = await fetch(`${API_BASE}/orders/${orderId}/receipt/pdf`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new Error(`Server returned ${res.status}`);
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `mjn-receipt-${new Date(createdAt).toISOString().slice(0, 10)}-${orderId.slice(-6)}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 100);
-}
+type Locale = 'en' | 'fr';
+
+const TEXT = {
+  en: {
+    title: 'Payments',
+    headline: (paid: string, total: string) => `${paid} paid of ${total}`,
+    toPayShort: (a: string) => `${a} to pay`,
+    nothingYet: 'Nothing to pay yet.',
+    toPayNow: 'To pay now',
+    tax: 'Tax',
+    total: 'Total',
+    pay: (a: string) => `Pay ${a}`,
+    opening: 'Opening payment…',
+    cancelOrder: 'Cancel this order',
+    howCharged: 'Charged in CFA francs at today’s rate, by mobile money or card. You get a receipt by email.',
+    upToDate: 'You are up to date. Nothing to pay right now.',
+    noOrders: 'You have not been asked to pay for anything yet.',
+    checkout: 'Choose services',
+    confirming: (a: string) => `We are confirming your payment of ${a}.`,
+    confirmingSub: 'This usually takes a minute. You do not need to pay again.',
+    checkAgain: 'Check again',
+    unconfirmed: 'We could not confirm a payment for this order.',
+    unconfirmedSub: 'If money left your account, contact us before paying again.',
+    getHelp: 'Get help',
+    payFailed: 'The payment page could not be opened. Please try again.',
+    plan: 'Your plan',
+    planSub: 'pay per stage',
+    planStatus: { PAID: 'Paid', INVOICED: 'To pay', PENDING: 'Later' } as Record<string, string>,
+    history: 'Payments and receipts',
+    noHistory: 'Your payments and receipts will appear here.',
+    status: { PENDING: 'To pay', PAID: 'Paid', PARTIALLY_PAID: 'Part paid', CANCELLED: 'Cancelled' } as Record<string, string>,
+    engagementFee: 'Engagement fee',
+    more: (n: number) => `+${n} more`,
+    receipt: 'Receipt',
+    receiptFailed: 'The receipt could not be downloaded. Please try again.',
+    receiptNotReady: 'The receipt is not ready yet. Try again in a minute.',
+    nonRefundable: 'Non-refundable',
+    details: 'Details',
+    consultations: 'Consultations',
+    consult: { HEALTH: 'Health consultation', CAREER: 'Career consultation', BOTH: 'Consultation' } as Record<string, string>,
+    refunded: 'Refunded',
+    partRefunded: 'Part refunded',
+    paid: 'Paid',
+    summary: 'Summary',
+    sPaid: 'Paid',
+    sToPay: 'To pay',
+    sLater: 'Later stages',
+    sTotal: 'Total agreed',
+    good: 'Good to know',
+    rules: [
+      ['How you pay', 'By mobile money or card. Prices are in US dollars and the charge is made in CFA francs at the day’s rate.'],
+      ['Receipts', 'Emailed after each payment, and kept on this page.'],
+      ['Refunds', 'Fees we pay to licensing bodies on your behalf cannot be refunded. Each one is marked on its order.'],
+    ],
+    help: 'Need help?',
+    helpBody: 'For a question about a payment or a receipt, our support team answers fastest.',
+    cancelTitle: 'Cancel this order?',
+    cancelBody: 'Nothing has been charged. Cancelling lets you choose your services again.',
+    cancelLate: 'If you already paid for it and the payment arrives, the order is still marked as paid.',
+    keep: 'Keep order',
+    cancelled: 'Order cancelled. You can choose your services again.',
+    cancelFailed: 'The order could not be cancelled.',
+    loadFailed: 'Your payments could not be loaded. Check your connection and reload the page.',
+  },
+  fr: {
+    title: 'Paiements',
+    headline: (paid: string, total: string) => `${paid} payés sur ${total}`,
+    toPayShort: (a: string) => `${a} à régler`,
+    nothingYet: 'Rien à régler pour le moment.',
+    toPayNow: 'À régler maintenant',
+    tax: 'Taxe',
+    total: 'Total',
+    pay: (a: string) => `Payer ${a}`,
+    opening: 'Ouverture du paiement…',
+    cancelOrder: 'Annuler cette commande',
+    howCharged: 'Débité en francs CFA au taux du jour, par mobile money ou par carte. Vous recevez un reçu par e-mail.',
+    upToDate: 'Vous êtes à jour. Rien à régler pour le moment.',
+    noOrders: 'Aucun paiement ne vous a encore été demandé.',
+    checkout: 'Choisir mes services',
+    confirming: (a: string) => `Nous confirmons votre paiement de ${a}.`,
+    confirmingSub: 'Cela prend généralement une minute. Inutile de payer à nouveau.',
+    checkAgain: 'Vérifier à nouveau',
+    unconfirmed: 'Nous n’avons pas pu confirmer de paiement pour cette commande.',
+    unconfirmedSub: 'Si votre compte a été débité, contactez-nous avant de payer à nouveau.',
+    getHelp: 'Obtenir de l’aide',
+    payFailed: 'La page de paiement n’a pas pu s’ouvrir. Veuillez réessayer.',
+    plan: 'Votre plan',
+    planSub: 'paiement par étape',
+    planStatus: { PAID: 'Payé', INVOICED: 'À régler', PENDING: 'Plus tard' } as Record<string, string>,
+    history: 'Paiements et reçus',
+    noHistory: 'Vos paiements et vos reçus apparaîtront ici.',
+    status: { PENDING: 'À régler', PAID: 'Payé', PARTIALLY_PAID: 'Payé en partie', CANCELLED: 'Annulé' } as Record<string, string>,
+    engagementFee: 'Frais d’engagement',
+    more: (n: number) => `+${n} autres`,
+    receipt: 'Reçu',
+    receiptFailed: 'Le reçu n’a pas pu être téléchargé. Veuillez réessayer.',
+    receiptNotReady: 'Le reçu n’est pas encore prêt. Réessayez dans une minute.',
+    nonRefundable: 'Non remboursable',
+    details: 'Détails',
+    consultations: 'Consultations',
+    consult: { HEALTH: 'Consultation santé', CAREER: 'Consultation carrière', BOTH: 'Consultation' } as Record<string, string>,
+    refunded: 'Remboursé',
+    partRefunded: 'Remboursé en partie',
+    paid: 'Payé',
+    summary: 'Résumé',
+    sPaid: 'Payé',
+    sToPay: 'À régler',
+    sLater: 'Étapes suivantes',
+    sTotal: 'Total convenu',
+    good: 'Bon à savoir',
+    rules: [
+      ['Comment payer', 'Par mobile money ou par carte. Les prix sont en dollars américains et le débit se fait en francs CFA au taux du jour.'],
+      ['Reçus', 'Envoyés par e-mail après chaque paiement, et conservés sur cette page.'],
+      ['Remboursements', 'Les frais que nous réglons pour vous auprès des organismes ne sont pas remboursables. Chacun est signalé sur sa commande.'],
+    ],
+    help: 'Besoin d’aide ?',
+    helpBody: 'Pour une question sur un paiement ou un reçu, notre équipe d’assistance répond le plus vite.',
+    cancelTitle: 'Annuler cette commande ?',
+    cancelBody: 'Rien n’a été débité. L’annulation vous permet de choisir à nouveau vos services.',
+    cancelLate: 'Si vous l’avez déjà payée et que le paiement nous parvient, la commande sera tout de même marquée comme payée.',
+    keep: 'Garder la commande',
+    cancelled: 'Commande annulée. Vous pouvez choisir à nouveau vos services.',
+    cancelFailed: 'La commande n’a pas pu être annulée.',
+    loadFailed: 'Vos paiements n’ont pas pu être chargés. Vérifiez votre connexion et rechargez la page.',
+  },
+};
+type Text = (typeof TEXT)['en'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function statusLabel(s: string) {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
+const DOT: Record<string, string> = { PENDING: 'bg-accent', PAID: 'bg-secondary', PARTIALLY_PAID: 'bg-accent', CANCELLED: 'bg-muted-foreground/40' };
+const PLAN_DOT: Record<string, string> = { PAID: 'bg-secondary', INVOICED: 'bg-accent', PENDING: 'border border-muted-foreground/50' };
+
+const card = 'rounded-2xl border border-border bg-white shadow-sm';
+const heading = 'text-xs font-bold uppercase tracking-widest text-muted-foreground';
+const btnPrimary = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-primary/90 disabled:opacity-40';
+const btnOutline = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-bold text-foreground transition-colors hover:bg-muted/60 disabled:opacity-40';
+
+function Dot({ className }: { className: string }) {
+  return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${className}`} />;
+}
+function money(n: number) {
+  return `$${Number(n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+function short(n: number) {
+  return `$${Number(n ?? 0).toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+}
+/** What an order is for, in a few words. */
+function orderLabel(order: any, t: Text) {
+  const names: string[] = (order.lineItems ?? []).map((li: any) => li.name as string);
+  const main = names.filter((n) => !/^engagement fee$/i.test(n));
+  if (main.length === 0) return t.engagementFee;
+  return main.length === 1 ? main[0] : `${main[0]} ${t.more(main.length - 1)}`;
+}
+async function downloadReceipt(order: any) {
+  const token = localStorage.getItem('mjn_token');
+  const res = await fetch(`${API_BASE}/orders/${order.id}/receipt/pdf`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw new Error(String(res.status));
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mjn-receipt-${new Date(order.createdAt).toISOString().slice(0, 10)}-${order.id.slice(-6)}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function orderStatusVariant(status: string): 'success' | 'warning' | 'outline' | 'destructive' {
-  if (status === 'PAID') return 'success';
-  if (status === 'PARTIALLY_PAID') return 'warning';
-  if (status === 'CANCELLED') return 'destructive';
-  return 'outline';
-}
-
-function paymentModeLabel(mode: string) {
-  if (mode === 'INSTALLMENT') return 'Instalment plan';
-  if (mode === 'PAY_PER_STAGE') return 'Pay-per-stage';
-  return 'Full payment';
-}
-
-function shortDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-// ── Skeleton ──────────────────────────────────────────────────────────────────
-
-function PaymentsSkeleton() {
+function OrderLines({ order, t }: { order: any; t: Text }) {
   return (
-    <div className="space-y-6">
-      <div><Skeleton className="h-7 w-36 mb-2" /><Skeleton className="h-4 w-72" /></div>
-      <div className="flex gap-6 items-start">
-        <div className="flex-1 min-w-0 space-y-6">
-          <div className="grid gap-4 sm:grid-cols-3">
-            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
-          </div>
-          <Skeleton className="h-44 rounded-2xl" />
-          <Skeleton className="h-64 rounded-2xl" />
-        </div>
-        <div className="hidden xl:block w-[288px] shrink-0 space-y-4">
-          <Skeleton className="h-56 rounded-2xl" />
-          <Skeleton className="h-36 rounded-2xl" />
-          <Skeleton className="h-44 rounded-2xl" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Instalment mini-badge ─────────────────────────────────────────────────────
-
-function InstalmentBadge({ paid, total }: { paid: number; total: number }) {
-  const pct = Math.round((paid / total) * 100);
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex gap-0.5">
-        {Array.from({ length: total }).map((_, i) => (
-          <div
-            key={i}
-            className={`h-2 w-4 rounded-full ${i < paid ? 'bg-primary' : 'bg-muted'}`}
-          />
-        ))}
-      </div>
-      <span className="text-xs font-semibold text-muted-foreground">{paid}/{total}</span>
-      <span className="text-xs text-muted-foreground">({pct}%)</span>
-    </div>
-  );
-}
-
-// ── Payment Progress Ring ─────────────────────────────────────────────────────
-
-function ProgressRing({ pct }: { pct: number }) {
-  const r = 42;
-  const circ = 2 * Math.PI * r; // 263.89
-  const dash = (pct / 100) * circ;
-  return (
-    <div className="relative flex items-center justify-center">
-      <svg width="120" height="120" viewBox="0 0 100 100" className="-rotate-90">
-        <circle
-          cx="50" cy="50" r={r}
-          fill="none" stroke="currentColor" strokeWidth="10"
-          className="text-muted"
-        />
-        <circle
-          cx="50" cy="50" r={r}
-          fill="none" stroke="currentColor" strokeWidth="10"
-          className="text-primary"
-          strokeDasharray={`${dash} ${circ}`}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dasharray 0.9s ease' }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold text-foreground leading-none">{pct}%</span>
-        <span className="text-xs text-muted-foreground mt-0.5">paid</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Right Sidebar ─────────────────────────────────────────────────────────────
-
-function RightSidebar({
-  overallPct,
-  totalPaid,
-  grandTotal,
-  dueOrder,
-  amountDue,
-  dueItems,
-  orders,
-  router,
-  onPayNow,
-  paying,
-  onDownload,
-  downloadingId,
-}: {
-  overallPct: number;
-  totalPaid: number;
-  grandTotal: number;
-  dueOrder: any;
-  amountDue: number;
-  dueItems: any[];
-  orders: any[];
-  router: ReturnType<typeof useRouter>;
-  onPayNow: (orderId: string) => void;
-  paying: boolean;
-  onDownload: (orderId: string, createdAt: string) => void;
-  downloadingId: string | null;
-}) {
-  const paidOrders = orders.filter((o) => o.status === 'PAID');
-
-  return (
-    <div className="hidden xl:block w-[288px] shrink-0 sticky top-6 self-start space-y-4">
-
-      {/* Payment progress ring */}
-      <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">
-          Payment Progress
-        </p>
-        <ProgressRing pct={overallPct} />
-        <div className="mt-4 space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Paid</span>
-            <span className="font-semibold text-foreground">${totalPaid.toLocaleString()}</span>
-          </div>
-          {grandTotal > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Total agreed</span>
-              <span className="font-semibold text-foreground">${grandTotal.toLocaleString()}</span>
-            </div>
-          )}
-          {grandTotal > 0 && totalPaid < grandTotal && (
-            <div className="flex items-center justify-between text-sm border-t border-border pt-2">
-              <span className="text-muted-foreground">Remaining</span>
-              <span className="font-semibold text-foreground">
-                ${(grandTotal - totalPaid).toLocaleString()}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Next payment due */}
-      {dueOrder && (
-        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-            Next Payment Due
+    <div className="space-y-1.5 text-sm">
+      {(order.lineItems ?? []).map((li: any) => (
+        <div key={li.id}>
+          <p className="flex justify-between gap-3 text-foreground">
+            <span className="min-w-0">{li.name}{li.variant ? <span className="text-muted-foreground"> ({li.variant})</span> : null}</span>
+            <span className="shrink-0 tabular-nums">{money(li.price)}</span>
           </p>
-          <p className="text-3xl font-bold text-foreground leading-tight">
-            ${amountDue.toLocaleString()}
-          </p>
-          {dueItems.length > 0 && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Instalment {dueItems[0].installmentPlan.installmentsPaid + 1} of{' '}
-              {dueItems[0].installmentPlan.totalInstallments}
-            </p>
-          )}
-          <button
-            onClick={() => onPayNow(dueOrder.id)}
-            disabled={paying}
-            className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors active:scale-[0.98] disabled:opacity-60"
-          >
-            {paying ? <CircleNotch className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
-            Pay Now
-          </button>
+          {li.nonRefundable && <p className="text-xs text-muted-foreground">{t.nonRefundable}{li.nonRefundableReason ? `: ${li.nonRefundableReason}` : ''}</p>}
         </div>
+      ))}
+      {order.taxAmount > 0 && (
+        <p className="flex justify-between gap-3 text-muted-foreground"><span>{t.tax} ({+(order.taxRate * 100).toFixed(2)}%)</span><span className="tabular-nums">{money(order.taxAmount)}</span></p>
       )}
-
-      {/* Receipts & export */}
-      <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-          Documents
-        </p>
-        <div className="space-y-1.5">
-          <button
-            onClick={() => window.print()}
-            className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <Printer className="h-4 w-4 text-primary shrink-0" />
-            <span className="flex-1 text-left">Export statement</span>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-
-          {paidOrders.length > 0 ? (
-            paidOrders.map((order) => (
-              <button
-                key={order.id}
-                onClick={() => onDownload(order.id, order.createdAt)}
-                disabled={downloadingId === order.id}
-                className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors disabled:opacity-60"
-              >
-                {downloadingId === order.id
-                  ? <CircleNotch className="h-4 w-4 text-primary shrink-0 animate-spin" />
-                  : <FilePdf className="h-4 w-4 text-primary shrink-0" />}
-                <span className="flex-1 min-w-0 truncate text-left">
-                  Receipt · {shortDate(order.createdAt)}
-                </span>
-                <DownloadSimple className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              </button>
-            ))
-          ) : (
-            <p className="text-xs text-muted-foreground text-center py-3">
-              Receipts appear here once payment is confirmed.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Quick actions */}
-      <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-          Quick Actions
-        </p>
-        <div className="space-y-1.5">
-          <button
-            onClick={() => router.push('/case')}
-            className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <ChatText className="h-4 w-4 text-primary shrink-0" />
-            Message consultant
-          </button>
-          <button
-            onClick={() => router.push('/checkout')}
-            className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <ShoppingCart className="h-4 w-4 text-primary shrink-0" />
-            Go to checkout
-          </button>
-          <button
-            onClick={() => router.push('/documents')}
-            className="w-full flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-          >
-            <Folder className="h-4 w-4 text-primary shrink-0" />
-            My documents
-          </button>
-        </div>
-      </div>
+      <p className="flex justify-between gap-3 border-t border-border/70 pt-1.5 font-bold text-foreground"><span>{t.total}</span><span className="tabular-nums">{money(order.total)}</span></p>
     </div>
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PaymentsPage() {
-  const router = useRouter();
-  const { orders, engagement, loading, me } = useUser();
-  const [servicePlan, setServicePlan] = useState<any>(null);
-  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
-  const [paying, setPaying] = useState(false);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const { engagement, consultationBookings, loading, me } = useUser();
+  const locale: Locale = me?.locale === 'fr' ? 'fr' : 'en';
+  const t = TEXT[locale];
+  const day = (d: string | Date) => new Date(d).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-  async function handleDownload(orderId: string, createdAt: string) {
-    setDownloadingId(orderId);
-    try {
-      await downloadReceiptPdf(orderId, createdAt);
-      toast.success('Receipt downloaded successfully.');
-    } catch (err: any) {
-      if (err?.message?.includes('404')) {
-        toast.error('Receipt not available yet. Please try again after payment is confirmed.');
-      } else {
-        toast.error('Could not download receipt. Please try again.');
-      }
-    } finally {
-      setDownloadingId(null);
-    }
-  }
+  const [orders, setOrders] = useState<any[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [plan, setPlan] = useState<any>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [paying, setPaying] = useState('');
+  const [receiptFor, setReceiptFor] = useState('');
+  const [cancelling, setCancelling] = useState<any | null>(null);
+  const [busy, setBusy] = useState(false);
+  const eid: string | undefined = engagement?.id;
 
-  async function handleResumePayment(orderId: string) {
-    setPaying(true);
+  const load = useCallback(async () => {
     try {
-      const result = await api.initiatePayment(orderId, me?.phone, me?.email);
-      if (result.redirectUrl) {
-        window.location.href = result.redirectUrl;
-      } else {
-        toast.error('Payment link unavailable. Please contact support.');
-      }
+      setOrders((await api.getMyPayments()) ?? []);
+      setFailed(false);
     } catch {
-      toast.error('Could not initiate payment. Please try again or contact support.');
+      setFailed(true);
+    }
+  }, []);
+
+  useEffect(() => { if (me) load(); }, [me, load]);
+  useEffect(() => {
+    setPlan(null);
+    if (eid) api.getServicePlan(eid).then(setPlan).catch(() => {});
+  }, [eid]);
+
+  // While a payment is being confirmed, look again on its own.
+  const confirming = (orders ?? []).some((o) => o.payment === 'confirming');
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setInterval(load, 20_000);
+    return () => clearInterval(timer);
+  }, [confirming, load]);
+
+  const list = orders ?? [];
+  const due = useMemo(() => list.filter((o) => o.status === 'PENDING').sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), [list]);
+  const paid = list.filter((o) => o.status === 'PAID').reduce((s, o) => s + o.total, 0);
+  const toPay = due.reduce((s, o) => s + o.total, 0);
+  const stages: any[] = plan?.stages ?? [];
+  // Stages of the plan that have not been invoiced yet.
+  const later = stages.filter((s) => s.status === 'PENDING').reduce((sum, s) => sum + Number(s.stageTotal ?? 0), 0);
+  const agreed = paid + toPay + later;
+  const pct = agreed > 0 ? Math.round((paid / agreed) * 100) : 0;
+  const consults = (consultationBookings ?? [])
+    .filter((c: any) => Number(c.amountPaid ?? 0) > 0 && c.status !== 'AWAITING_PAYMENT' && c.slot?.startAt)
+    .sort((a: any, b: any) => new Date(b.slot.startAt).getTime() - new Date(a.slot.startAt).getTime());
+
+  async function pay(order: any) {
+    setPaying(order.id);
+    try {
+      const result = await api.initiatePayment(order.id, me?.phone, me?.email);
+      if (result.redirectUrl) { window.location.href = result.redirectUrl; return; }
+      toast.error(t.payFailed);
+    } catch {
+      toast.error(t.payFailed);
+    }
+    setPaying('');
+  }
+  async function receipt(order: any) {
+    setReceiptFor(order.id);
+    try {
+      await downloadReceipt(order);
+    } catch (e: any) {
+      toast.error(e?.message === '404' ? t.receiptNotReady : t.receiptFailed);
     } finally {
-      setPaying(false);
+      setReceiptFor('');
+    }
+  }
+  async function confirmCancel() {
+    if (!cancelling) return;
+    setBusy(true);
+    try {
+      await api.cancelOrder(cancelling.id);
+      toast.success(t.cancelled);
+      setCancelling(null);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message && !/^Request failed/.test(e.message) ? e.message : t.cancelFailed);
+    } finally {
+      setBusy(false);
     }
   }
 
-  useEffect(() => {
-    if (!engagement) return;
-    api.getServicePlan(engagement.id).then(setServicePlan).catch(() => {});
-  }, [engagement]);
-
-  const totalPaid = orders
-    .filter((o) => o.status === 'PAID')
-    .reduce((sum, o) => sum + Number(o.total), 0);
-
-  const totalOutstanding = orders
-    .filter((o) => o.status === 'PENDING' || o.status === 'PARTIALLY_PAID')
-    .reduce((sum, o) => sum + Number(o.total), 0);
-
-  const grandTotal = servicePlan?.grandTotal ? Number(servicePlan.grandTotal) : totalPaid + totalOutstanding;
-  const overallPct = grandTotal > 0 ? Math.round((totalPaid / grandTotal) * 100) : 0;
-
-  // TanStack Table for orders pagination
-  const orderColHelper = createColumnHelper<any>();
-  const orderCols = [orderColHelper.display({ id: 'order', cell: (info) => info.row.original })];
-  const orderTable = useReactTable({
-    data: orders,
-    columns: orderCols,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: ORDERS_PAGE_SIZE } },
-  });
-  const paginatedOrders = orderTable.getRowModel().rows.map((r) => r.original);
-  const { pageIndex: orderPageIndex, pageSize: orderPageSize } = orderTable.getState().pagination;
-  const orderPageCount = orderTable.getPageCount();
-
-  if (loading) return <PaymentsSkeleton />;
-
-  // Outstanding order (first pending/partial)
-  const dueOrder = orders.find((o) => o.status === 'PENDING' || o.status === 'PARTIALLY_PAID');
-  const dueItems = (dueOrder?.lineItems ?? []).filter(
-    (li: any) => li.installmentPlan && li.installmentPlan.installmentsPaid < li.installmentPlan.totalInstallments
-  );
-  const amountDue = dueOrder
-    ? dueItems.length > 0
-      ? dueItems.reduce((s: number, li: any) => s + Number(li.priceCharged ?? 0), 0)
-      : Number(dueOrder.amountDueNow ?? dueOrder.total ?? 0)
-    : 0;
+  if (loading || (orders === null && !failed)) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-12 w-64 rounded-xl" />
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
+          <div className="space-y-4"><Skeleton className="h-48 rounded-2xl" /><Skeleton className="h-64 rounded-2xl" /></div>
+          <Skeleton className="h-64 rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Payments"
-        subtitle="Track your invoices, payment history, and service plan."
-      />
+    <div className="space-y-4">
+      <div data-tour="page-header">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{t.title}</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {agreed > 0 ? <>{t.headline(short(paid), short(agreed))}{toPay > 0 && <> · <span className="font-semibold text-foreground">{t.toPayShort(short(toPay))}</span></>}</> : t.nothingYet}
+        </p>
+      </div>
 
-      <div className="flex gap-6 items-start">
+      {failed && <div className={`${card} px-5 py-4 text-sm text-muted-foreground`}>{t.loadFailed}</div>}
 
-        {/* ── Main column ──────────────────────────────────────────────── */}
-        <div className="flex-1 min-w-0 space-y-6">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
+        <div className="min-w-0 space-y-4">
+          {/* To pay now */}
+          <div data-tour="pay-due" className="space-y-4">
+            {due.length === 0 ? (
+              <section className={`${card} flex flex-wrap items-center justify-between gap-3 px-5 py-4`}>
+                <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <CheckCircle weight="fill" className="h-4 w-4 shrink-0 text-secondary" /> {list.length === 0 ? t.noOrders : t.upToDate}
+                </p>
+                {list.length === 0 && <Link href="/checkout" className={btnPrimary}>{t.checkout}</Link>}
+              </section>
+            ) : due.map((order) => (
+              <section key={order.id} className={`${card} p-5`}>
+                <h2 className={heading}>{t.toPayNow}</h2>
+                <p className="mt-2 text-3xl font-extrabold tabular-nums text-foreground">{money(order.total)}</p>
+                <div className="mt-3 max-w-lg"><OrderLines order={order} t={t} /></div>
 
-          {/* Outstanding payment banner */}
-          {dueOrder ? (
-            <div data-tour="pay-due" className="relative overflow-hidden rounded-2xl border border-border bg-white p-5 shadow-sm">
-              <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-primary/5" />
-              <div className="relative">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                      <CreditCard className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Payment outstanding</p>
-                      <p className="text-2xl font-bold text-foreground leading-tight">
-                        ${amountDue.toLocaleString()}
+                {order.payment === 'confirming' ? (
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 py-3">
+                    <p className="flex min-w-0 items-start gap-2.5 text-sm text-foreground">
+                      <CircleNotch className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" />
+                      <span><span className="block font-bold">{t.confirming(short(order.total))}</span><span className="block text-muted-foreground">{t.confirmingSub}</span></span>
+                    </p>
+                    <button onClick={load} className={btnOutline}>{t.checkAgain}</button>
+                  </div>
+                ) : (
+                  <>
+                    {order.payment === 'unconfirmed' && (
+                      <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-accent/15 px-4 py-3 text-sm text-foreground">
+                        <Dot className="mt-1.5 bg-accent" />
+                        <span><span className="block font-bold">{t.unconfirmed}</span><span className="block">{t.unconfirmedSub} <Link href="/tickets" className="font-bold text-primary hover:underline">{t.getHelp}</Link></span></span>
                       </p>
-                      {dueItems.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Instalment {dueItems[0].installmentPlan.installmentsPaid + 1} of{' '}
-                          {dueItems[0].installmentPlan.totalInstallments}
-                        </p>
-                      )}
+                    )}
+                    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+                      <button onClick={() => pay(order)} disabled={!!paying} className={`${btnPrimary} w-full px-6 py-2.5 text-sm sm:w-auto`}>
+                        {paying === order.id ? <CircleNotch className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />} {paying === order.id ? t.opening : t.pay(short(order.total))}
+                      </button>
+                      {order.canCancel && <button onClick={() => setCancelling(order)} disabled={!!paying} className="text-xs font-bold text-muted-foreground hover:text-foreground">{t.cancelOrder}</button>}
                     </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => handleResumePayment(dueOrder.id)}
-                      disabled={paying}
-                      className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors active:scale-[0.98] disabled:opacity-60"
-                    >
-                      {paying ? <CircleNotch className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
-                      Pay now
-                    </button>
-                    <button
-                      onClick={() => setExpandedOrder(dueOrder.id)}
-                      className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors"
-                    >
-                      <Receipt className="h-4 w-4" /> View invoice
-                    </button>
-                  </div>
-                </div>
-
-                {dueItems.length > 0 && (
-                  <div className="mt-5 space-y-3">
-                    {dueItems.map((li: any) => {
-                      const paid = li.installmentPlan.installmentsPaid;
-                      const total = li.installmentPlan.totalInstallments;
-                      const pct = Math.round((paid / total) * 100);
-                      return (
-                        <div key={li.id}>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-semibold text-foreground">
-                              {li.serviceItem?.name ?? 'Service'}
-                            </span>
-                            <span className="text-xs font-medium text-muted-foreground">
-                              {paid}/{total} paid · {pct}%
-                            </span>
-                          </div>
-                          <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-2.5 rounded-full bg-primary transition-all duration-700"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                    <p className="mt-3 text-xs text-muted-foreground">{t.howCharged}</p>
+                  </>
                 )}
-              </div>
-            </div>
-          ) : orders.length > 0 && totalOutstanding === 0 ? (
-            <div className="flex items-center gap-4 rounded-2xl border border-border bg-white px-5 py-4 shadow-sm">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                <Confetti weight="fill" className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-foreground">All payments up to date</p>
-                <p className="text-xs text-muted-foreground">You have no outstanding balances. Your receipts are available in the panel.</p>
-              </div>
-            </div>
-          ) : null}
-
-          {/* Stat cards */}
-          <div data-tour="pay-stats" className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-border bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Paid</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">${totalPaid.toLocaleString()}</p>
-                </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50">
-                  <CheckCircle weight="fill" className="h-5 w-5 text-primary" />
-                </div>
-              </div>
-              {grandTotal > 0 && (
-                <div className="mt-3">
-                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                    <div className="h-1.5 rounded-full bg-primary transition-all duration-700" style={{ width: `${overallPct}%` }} />
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{overallPct}% of total</p>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-border bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Outstanding</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">${totalOutstanding.toLocaleString()}</p>
-                </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50">
-                  <Clock className="h-5 w-5 text-muted-foreground" />
-                </div>
-              </div>
-              {totalOutstanding > 0 && dueOrder && (
-                <button
-                  onClick={() => handleResumePayment(dueOrder.id)}
-                  disabled={paying}
-                  className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors disabled:opacity-60"
-                >
-                  Pay now <ArrowRight className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-border bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Invoices</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{orders.length}</p>
-                </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50">
-                  <Receipt className="h-5 w-5 text-primary" />
-                </div>
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                {orders.filter((o) => o.status === 'PAID').length} paid ·{' '}
-                {orders.filter((o) => o.status !== 'PAID' && o.status !== 'CANCELLED').length} pending
-              </p>
-            </div>
+              </section>
+            ))}
           </div>
 
-          {/* Service plan */}
-          {servicePlan && servicePlan.stages?.length > 0 && (
-            <div data-tour="pay-plan" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-              <div className="border-b border-border bg-muted/20 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TrendUp className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold text-foreground">Agreed Service Plan</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">{paymentModeLabel(servicePlan.paymentMode ?? 'FULL')}</Badge>
-                  {grandTotal > 0 && (
-                    <span className="text-xs text-muted-foreground">{overallPct}% paid</span>
-                  )}
-                </div>
-              </div>
-
-              {grandTotal > 0 && (
-                <div className="px-6 pt-4 pb-2">
-                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-2 rounded-full bg-primary transition-all duration-700"
-                      style={{ width: `${overallPct}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-xs text-muted-foreground">Paid: ${totalPaid.toLocaleString()}</span>
-                    <span className="text-xs text-muted-foreground">Total: ${grandTotal.toLocaleString()}</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="px-6 pb-6 pt-3 space-y-3">
-                {servicePlan.stages.map((stage: any, i: number) => {
-                  const stageTotal = Number(stage.total ?? 0);
-                  const isCompleted = stageTotal > 0 && totalPaid >= stageTotal;
-                  const isCurrent = !isCompleted && i === servicePlan.stages.findIndex(
-                    (s: any) => Number(s.total ?? 0) > 0 && totalPaid < Number(s.total ?? 0)
-                  );
-
-                  return (
-                    <div key={i} className={`rounded-xl border p-4 transition-colors ${
-                      isCurrent ? 'border-primary/30 bg-primary/5' : 'border-border bg-white'
-                    }`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                            isCompleted
-                              ? 'bg-primary/20 text-primary'
-                              : isCurrent
-                              ? 'bg-primary text-white ring-4 ring-primary/20'
-                              : 'bg-muted text-muted-foreground'
-                          }`}>
-                            {isCompleted ? <CheckCircle className="h-4 w-4" weight="bold" /> : i + 1}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">{stage.stageLabel ?? `Stage ${i + 1}`}</p>
-                            <p className="text-xs text-muted-foreground">{stage.items?.length ?? 0} service{stage.items?.length !== 1 ? 's' : ''}</p>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-bold text-foreground">${stageTotal.toLocaleString()}</p>
-                          {isCompleted ? (
-                            <span className="text-xs font-semibold text-primary">Paid</span>
-                          ) : isCurrent ? (
-                            <span className="text-xs font-semibold text-primary">Current</span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Upcoming</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {stage.items?.length > 0 && (
-                        <div className="mt-3 space-y-1 border-t border-border/50 pt-3 pl-11">
-                          {stage.items.map((item: any, j: number) => (
-                            <div key={j} className="flex items-center justify-between text-xs text-muted-foreground">
-                              <span>{item.name}</span>
-                              <span className="font-medium">${Number(item.price ?? 0).toLocaleString()}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+          {/* Plan */}
+          {stages.length > 0 && (
+            <section data-tour="pay-plan" className={`${card} overflow-hidden`}>
+              <div className="border-b border-border px-5 py-3.5"><h2 className={heading}>{t.plan} <span className="normal-case tracking-normal">· {t.planSub}</span></h2></div>
+              <ul className="divide-y divide-border/70">
+                {stages.map((s, i) => (
+                  <li key={s.stage?.id ?? i} className="px-5 py-3.5">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${s.status === 'PAID' ? 'bg-secondary text-white' : s.status === 'INVOICED' ? 'bg-primary' : 'border-2 border-border'}`}>{s.status === 'PAID' && <Check className="h-3 w-3" />}</span>
+                      <span className="min-w-0 flex-1 text-sm font-semibold text-foreground">{s.stage?.label ?? `${i + 1}`}</span>
+                      <span className="text-sm font-bold tabular-nums text-foreground">{short(Number(s.stageTotal ?? 0))}</span>
+                      <span className="inline-flex w-20 items-center gap-1.5 text-xs font-semibold text-foreground"><Dot className={PLAN_DOT[s.status] ?? 'bg-muted'} /> {t.planStatus[s.status] ?? s.status}</span>
                     </div>
-                  );
-                })}
-
-                {servicePlan.grandTotal != null && (
-                  <div className="flex items-center justify-between rounded-xl bg-primary px-5 py-4 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <Coins className="h-4 w-4 text-white/80" />
-                      <span className="text-sm font-semibold text-white">Grand Total</span>
-                    </div>
-                    <span className="text-xl font-bold text-white">${Number(servicePlan.grandTotal).toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-            </div>
+                    {(s.items ?? []).length > 0 && (
+                      <ul className="ml-8 mt-1.5 space-y-0.5">
+                        {s.items.map((item: any) => (
+                          <li key={item.id} className="flex justify-between gap-3 text-xs text-muted-foreground"><span className="min-w-0 truncate">{item.name}</span><span className="shrink-0 tabular-nums">{short(Number(item.priceUsd ?? 0))}</span></li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <p className="flex justify-between gap-3 border-t border-border px-5 py-3 text-sm font-bold text-foreground"><span>{t.total}</span><span className="tabular-nums">{short(Number(plan.grandTotal ?? 0))}</span></p>
+            </section>
           )}
 
-          {/* Invoice history */}
-          <div data-tour="pay-invoices" className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-border bg-muted/20 px-6 py-4 flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-foreground">Invoice History</h3>
-                {orders.length > 0 && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{orders.length} invoice{orders.length !== 1 ? 's' : ''}</p>
-                )}
-              </div>
-            </div>
-
-            {orders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50">
-                  <CreditCard className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h4 className="font-semibold text-foreground">No invoices yet</h4>
-                <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                  Your invoices will appear here once your engagement is active and your payment plan is set up.
-                </p>
-                <button
-                  onClick={() => router.push('/checkout')}
-                  className="mt-5 flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
-                >
-                  <ShoppingCart className="h-4 w-4" /> Go to checkout
-                </button>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {paginatedOrders.map((order) => {
-                  const isExpanded = expandedOrder === order.id;
-                  const isPending = order.status === 'PENDING' || order.status === 'PARTIALLY_PAID';
-
-                  const instalmentItems = (order.lineItems ?? []).filter((li: any) => li.installmentPlan);
-                  const totalInstalments = instalmentItems.reduce(
-                    (s: number, li: any) => s + (li.installmentPlan?.totalInstallments ?? 0), 0
-                  );
-                  const paidInstalments = instalmentItems.reduce(
-                    (s: number, li: any) => s + (li.installmentPlan?.installmentsPaid ?? 0), 0
-                  );
-
+          {/* Payments and receipts */}
+          <section data-tour="pay-invoices" className={`${card} overflow-hidden`}>
+            <div className="border-b border-border px-5 py-3.5"><h2 className={heading}>{t.history}</h2></div>
+            {list.length === 0 ? <p className="px-5 py-8 text-center text-sm text-muted-foreground">{t.noHistory}</p> : (
+              <ul className="divide-y divide-border/70">
+                {list.map((order) => {
+                  const open = expanded === order.id;
                   return (
-                    <div key={order.id}>
-                      <button
-                        onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
-                        className="w-full flex items-center gap-4 px-6 py-4 text-left hover:bg-muted/20 transition-colors"
-                      >
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted/50">
-                          <Receipt className="h-5 w-5 text-muted-foreground" />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-semibold text-foreground">
-                              {order.orderType === 'standalone' ? 'À la carte order' : 'Engagement order'}
-                            </p>
-                            <Badge variant={orderStatusVariant(order.status)} className="text-xs">
-                              {statusLabel(order.status)}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {shortDate(order.createdAt)}
-                            {' · '}{order.lineItems?.length ?? 0} service{order.lineItems?.length !== 1 ? 's' : ''}
-                            {order.paymentMode && order.paymentMode !== 'FULL' && ` · ${paymentModeLabel(order.paymentMode)}`}
-                          </p>
-                          {totalInstalments > 0 && (
-                            <div className="mt-1.5">
-                              <InstalmentBadge paid={paidInstalments} total={totalInstalments} />
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-3 shrink-0">
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-foreground">${Number(order.total).toLocaleString()}</p>
-                            {isPending && order.amountDueNow != null && (
-                              <p className="text-xs font-semibold text-muted-foreground">
-                                ${Number(order.amountDueNow).toLocaleString()} due
-                              </p>
-                            )}
-                          </div>
-                          {isExpanded
-                            ? <CaretUp className="h-4 w-4 text-muted-foreground" />
-                            : <CaretDown className="h-4 w-4 text-muted-foreground" />
-                          }
-                        </div>
-                      </button>
-
-                      {isExpanded && (
-                        <div className="border-t border-border bg-muted/10 px-6 py-5 space-y-4">
-                          {order.lineItems?.length > 0 ? (
-                            <div className="space-y-2">
-                              {order.lineItems.map((item: any) => (
-                                <div key={item.id} className="flex items-start justify-between rounded-xl bg-white px-4 py-3 border border-border gap-3">
-                                  <div className="min-w-0">
-                                    <p className="text-sm font-medium text-foreground">
-                                      {item.serviceItem?.name ?? 'Service'}
-                                    </p>
-                                    {item.variant && (
-                                      <p className="text-xs text-muted-foreground capitalize">{item.variant.variantKey}</p>
-                                    )}
-                                    {item.installmentPlan && (
-                                      <div className="mt-2">
-                                        <InstalmentBadge
-                                          paid={item.installmentPlan.installmentsPaid}
-                                          total={item.installmentPlan.totalInstallments}
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="text-right shrink-0">
-                                    <p className="text-sm font-semibold text-foreground">
-                                      ${Number(item.priceCharged).toLocaleString()}
-                                    </p>
-                                  </div>
-                                </div>
-                              ))}
-
-                              <div className="space-y-1 px-1 pt-1">
-                                {order.taxAmount != null && Number(order.taxAmount) > 0 && (
-                                  <div className="flex justify-between text-xs text-muted-foreground">
-                                    <span>Tax ({Number(order.taxRate) * 100}%)</span>
-                                    <span>${Number(order.taxAmount).toLocaleString()}</span>
-                                  </div>
-                                )}
-                                <div className="flex justify-between text-sm font-bold text-foreground border-t border-border pt-2">
-                                  <span>Total</span>
-                                  <span>${Number(order.total).toLocaleString()}</span>
-                                </div>
-                                {order.amountDueNow != null && order.status !== 'PAID' && (
-                                  <div className="flex justify-between text-sm font-semibold rounded-xl border border-border bg-muted/30 px-3 py-2.5 mt-2">
-                                    <span className="text-foreground">Due now</span>
-                                    <span className="text-primary font-bold">${Number(order.amountDueNow).toLocaleString()}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">No line items recorded.</p>
-                          )}
-
-                          <div className="flex flex-wrap items-center gap-3 pt-1">
-                            {order.status === 'PAID' && (
-                              <button
-                                onClick={() => handleDownload(order.id, order.createdAt)}
-                                disabled={downloadingId === order.id}
-                                className="flex items-center gap-2 rounded-xl border border-border bg-white px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/50 hover:border-primary/30 transition-colors disabled:opacity-60"
-                              >
-                                {downloadingId === order.id
-                                  ? <CircleNotch className="h-4 w-4 text-primary animate-spin" />
-                                  : <FilePdf className="h-4 w-4 text-primary" />}
-                                {downloadingId === order.id ? 'Downloading…' : 'Download receipt'}
-                                {downloadingId !== order.id && <DownloadSimple className="h-3.5 w-3.5 text-muted-foreground" />}
-                              </button>
-                            )}
-
-                            {isPending && (
-                              <button
-                                onClick={() => handleResumePayment(order.id)}
-                                disabled={paying}
-                                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 transition-colors active:scale-[0.98] disabled:opacity-60"
-                              >
-                                {paying ? <CircleNotch className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
-                                Pay now
-                                <ArrowRight className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <li key={order.id} className={order.status === 'CANCELLED' ? 'opacity-60' : ''}>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5">
+                        <button onClick={() => setExpanded(open ? null : order.id)} aria-expanded={open} aria-label={t.details} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                          <span className="w-24 shrink-0 text-xs text-muted-foreground">{day(order.createdAt)}</span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{orderLabel(order, t)}</span>
+                          {open ? <CaretUp className="h-4 w-4 shrink-0 text-muted-foreground" /> : <CaretDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                        </button>
+                        <span className="text-sm font-bold tabular-nums text-foreground">{short(order.total)}</span>
+                        <span className="inline-flex w-24 items-center gap-1.5 text-xs font-semibold text-foreground"><Dot className={DOT[order.status] ?? 'bg-muted'} /> {t.status[order.status] ?? order.status}</span>
+                        {order.status === 'PAID' && (
+                          <button onClick={() => receipt(order)} disabled={receiptFor === order.id} className={btnOutline}>
+                            {receiptFor === order.id ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <DownloadSimple className="h-3.5 w-3.5" />} {t.receipt}
+                          </button>
+                        )}
+                      </div>
+                      {open && <div className="border-t border-border/70 bg-muted/30 px-5 py-4"><div className="max-w-lg"><OrderLines order={order} t={t} /></div></div>}
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
+          </section>
 
-            {/* Pagination controls */}
-            {orders.length > 0 && (
-              <div className="flex items-center justify-between border-t border-border px-6 py-3">
-                <p className="text-xs text-muted-foreground">
-                  {orderPageIndex * orderPageSize + 1}–{Math.min((orderPageIndex + 1) * orderPageSize, orders.length)} of {orders.length}
-                </p>
-                {orderPageCount > 1 && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => orderTable.previousPage()}
-                      disabled={!orderTable.getCanPreviousPage()}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
-                    >
-                      <CaretLeft className="h-3.5 w-3.5" />
-                    </button>
-                    {Array.from({ length: orderPageCount }, (_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => orderTable.setPageIndex(i)}
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
-                          i === orderPageIndex ? 'bg-primary text-white' : 'border border-border text-muted-foreground hover:bg-muted'
-                        }`}
-                      >
-                        {i + 1}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => orderTable.nextPage()}
-                      disabled={!orderTable.getCanNextPage()}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
-                    >
-                      <CaretRight className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          {/* Consultations */}
+          {consults.length > 0 && (
+            <section data-tour="pay-consults" className={`${card} overflow-hidden`}>
+              <div className="border-b border-border px-5 py-3.5"><h2 className={heading}>{t.consultations}</h2></div>
+              <ul className="divide-y divide-border/70">
+                {consults.map((c: any) => {
+                  const amount = Number(c.amountPaid);
+                  const refund = Number(c.refundAmount ?? 0);
+                  return (
+                    <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5">
+                      <span className="w-24 shrink-0 text-xs text-muted-foreground">{day(c.slot.startAt)}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{t.consult[c.consultationCategory] ?? t.consult.BOTH}{c.slot.consultant?.name ? <span className="font-normal text-muted-foreground"> · {c.slot.consultant.name}</span> : null}</span>
+                      <span className="text-sm font-bold tabular-nums text-foreground">{short(amount)}</span>
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                        <Dot className={refund > 0 ? 'bg-muted-foreground/40' : 'bg-secondary'} />
+                        {refund >= amount ? t.refunded : refund > 0 ? `${t.partRefunded} ${short(refund)}` : t.paid}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
         </div>
 
-        {/* ── Right sidebar ────────────────────────────────────────────── */}
-        <RightSidebar
-          overallPct={overallPct}
-          totalPaid={totalPaid}
-          grandTotal={grandTotal}
-          dueOrder={dueOrder}
-          amountDue={amountDue}
-          dueItems={dueItems}
-          orders={orders}
-          router={router}
-          onPayNow={handleResumePayment}
-          paying={paying}
-          onDownload={handleDownload}
-          downloadingId={downloadingId}
-        />
+        {/* Side panel */}
+        <aside className="space-y-4">
+          {agreed > 0 && (
+            <section data-tour="pay-stats" className={`${card} p-5`}>
+              <h2 className={`mb-3 ${heading}`}>{t.summary}</h2>
+              <div className="flex items-center gap-3">
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-secondary transition-all duration-700" style={{ width: `${pct}%` }} /></div>
+                <span className="text-sm font-bold text-foreground">{pct}%</span>
+              </div>
+              <dl className="mt-3 text-sm">
+                {[[t.sPaid, paid], [t.sToPay, toPay], ...(later > 0 ? [[t.sLater, later]] : [])].map(([label, value]) => (
+                  <div key={label as string} className="flex justify-between gap-3 py-1"><dt className="text-muted-foreground">{label}</dt><dd className="font-semibold tabular-nums text-foreground">{short(value as number)}</dd></div>
+                ))}
+                <div className="mt-1 flex justify-between gap-3 border-t border-border/70 pt-2"><dt className="font-bold text-foreground">{t.sTotal}</dt><dd className="font-bold tabular-nums text-foreground">{short(agreed)}</dd></div>
+              </dl>
+            </section>
+          )}
+          <section className={`${card} p-5`}>
+            <h2 className={`mb-3 ${heading}`}>{t.good}</h2>
+            <dl className="space-y-3">
+              {t.rules.map(([name, body]) => (
+                <div key={name}><dt className="text-sm font-bold text-foreground">{name}</dt><dd className="text-sm text-muted-foreground">{body}</dd></div>
+              ))}
+            </dl>
+          </section>
+          <section className={`${card} p-5`}>
+            <h2 className="flex items-center gap-2 text-sm font-bold text-foreground"><Headset className="h-4 w-4 text-primary" /> {t.help}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t.helpBody}</p>
+            <Link href="/tickets" className={`${btnOutline} mt-3 w-full`}>{t.getHelp}</Link>
+          </section>
+        </aside>
       </div>
+
+      {/* Cancel an unpaid order */}
+      {cancelling && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={() => setCancelling(null)}>
+          <div role="dialog" aria-modal="true" aria-label={t.cancelTitle} className="w-full rounded-t-2xl border border-border bg-white p-6 shadow-xl sm:max-w-md sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <h2 className="text-base font-bold text-foreground">{t.cancelTitle}</h2>
+              <button onClick={() => setCancelling(null)} aria-label={t.keep} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+            </div>
+            <p className="rounded-xl bg-muted/50 px-4 py-2.5 text-sm font-semibold text-foreground">{orderLabel(cancelling, t)} · {short(cancelling.total)}</p>
+            <p className="mt-3 text-sm text-foreground">{t.cancelBody}</p>
+            {cancelling.payment !== 'none' && <p className="mt-2 text-sm text-muted-foreground">{t.cancelLate}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setCancelling(null)} className={btnOutline}>{t.keep}</button>
+              <button onClick={confirmCancel} disabled={busy} className={btnPrimary}>{busy && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} {t.cancelOrder}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
