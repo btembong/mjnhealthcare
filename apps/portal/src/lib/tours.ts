@@ -266,7 +266,7 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
         {
           target: 'pay-due',
           title: "What you owe now",
-          body: "Anything to pay appears here with what it is for and one Pay button. After you pay, this card tells you while we confirm it, so you do not pay twice.",
+          body: "Anything to pay appears here with what it is for and one Pay button. Choose mobile money or an international card first. After you pay, this card tells you while we confirm it, so you do not pay twice.",
         },
         {
           target: 'pay-plan',
@@ -594,7 +594,7 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
         {
           target: 'pay-due',
           title: "Ce que vous devez maintenant",
-          body: "Tout montant à régler apparaît ici avec son détail et un seul bouton pour payer. Après votre paiement, cette carte vous indique que nous le confirmons, pour éviter de payer deux fois.",
+          body: "Tout montant à régler apparaît ici avec son détail et un seul bouton pour payer. Choisissez d'abord mobile money ou carte internationale. Après votre paiement, cette carte vous indique que nous le confirmons, pour éviter de payer deux fois.",
         },
         {
           target: 'pay-plan',

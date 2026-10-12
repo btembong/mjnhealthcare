@@ -28,6 +28,18 @@ const RESCHEDULE_MIN_HOURS = 24;
 
 const sameEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
+/** The address, if it is on the portal or the website; anything else is dropped so we never send a payer elsewhere. */
+function ownSiteUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  try {
+    const origin = new URL(url).origin;
+    const ours = [process.env.PORTAL_URL ?? 'http://localhost:3002', process.env.WEB_URL ?? 'http://localhost:3001'].map((u) => new URL(u).origin);
+    return ours.includes(origin) ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 @Injectable()
 export class ConsultationService {
   private readonly logger = new Logger(ConsultationService.name);
@@ -477,7 +489,7 @@ export class ConsultationService {
             quantity: 1,
           }],
           success_url: `${stripeReturnBase}&session_id={CHECKOUT_SESSION_ID}&provider=stripe`,
-          cancel_url: `${webUrl}/consult`,
+          cancel_url: ownSiteUrl(dto.cancelUrl) ?? `${webUrl}/consult`,
           customer_email: dto.clientEmail,
           metadata: { bookingId: booking.id },
         });

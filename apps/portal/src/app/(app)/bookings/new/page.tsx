@@ -269,6 +269,7 @@ export default function BookNewPage() {
   const [tz, setTz] = useState(detectTimezone);
   const [note, setNote] = useState('');
   const [consent, setConsent] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState<'tranzak' | 'stripe'>('tranzak');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -344,6 +345,8 @@ export default function BookNewPage() {
     else router.push('/bookings');
   }
 
+  const isFree = !!selectedSlot?.isFree || Number(consultant?.priceUsd ?? 0) === 0;
+
   async function handleBook() {
     if (!selectedSlot || !me?.email) return;
     setSubmitting(true); setError('');
@@ -361,6 +364,8 @@ export default function BookNewPage() {
           preSessionNote: note.trim() || undefined,
           recordingConsent: consent,
           returnUrl: `${portalUrl}/bookings/confirmed`,
+          cancelUrl: `${portalUrl}/bookings`,
+          provider: isFree ? undefined : paymentProvider,
         }),
       });
       if (!res.ok) {
@@ -722,6 +727,30 @@ export default function BookNewPage() {
                 />
               </div>
 
+              {/* How to pay */}
+              {!isFree && (
+                <fieldset>
+                  <legend className="mb-1.5 block text-sm font-semibold text-foreground">How would you like to pay?</legend>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {([
+                      ['tranzak', 'Mobile Money / African Card', 'MTN MoMo, Orange Money, African bank cards · Charged in XAF'],
+                      ['stripe', 'International Card', 'Visa, Mastercard, Amex from any country · Charged in USD'],
+                    ] as const).map(([id, label, sub]) => {
+                      const on = paymentProvider === id;
+                      return (
+                        <label key={id} className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition-all ${on ? 'border-primary bg-primary/5' : 'border-border bg-white hover:border-primary/30'}`}>
+                          <input type="radio" name="pay-with" value={id} checked={on} onChange={() => setPaymentProvider(id)} className="mt-0.5 h-4 w-4 shrink-0 accent-primary" />
+                          <span>
+                            <span className="block text-sm font-semibold text-foreground">{label}</span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">{sub}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
+
               {/* Recording consent */}
               <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-border bg-muted/20 p-4 hover:bg-muted/30 transition-colors">
                 <input
@@ -747,13 +776,15 @@ export default function BookNewPage() {
                 {submitting ? (
                   <><CircleNotch className="h-4 w-4 animate-spin" /> Processing…</>
                 ) : (
-                  <>Confirm & Pay ${Number(consultant?.priceUsd ?? 0).toFixed(2)} <ArrowRight className="h-4 w-4" /></>
+                  <>{isFree ? 'Confirm booking' : `Confirm & Pay $${Number(consultant?.priceUsd ?? 0).toFixed(2)}`} <ArrowRight className="h-4 w-4" /></>
                 )}
               </button>
 
-              <p className="text-xs text-center text-muted-foreground">
-                Secure payment via Tranzak. You will be redirected to complete payment and returned here when done.
-              </p>
+              {!isFree && (
+                <p className="text-xs text-center text-muted-foreground">
+                  Secure payment via {paymentProvider === 'stripe' ? 'Stripe' : 'Tranzak'}. You will be redirected to complete payment and returned here when done.
+                </p>
+              )}
             </div>
           )}
         </div>

@@ -19,6 +19,8 @@ export class BookConsultationDto {
   @IsBoolean() recordingConsent!: boolean;
   @IsOptional() @IsString() preSessionNote?: string;
   @IsOptional() @IsUrl() returnUrl?: string;
+  // Where a client who backs out of the card page is sent. Only our own sites are accepted.
+  @IsOptional() @IsString() cancelUrl?: string;
   @IsOptional() @IsEnum(['tranzak', 'stripe']) provider?: 'tranzak' | 'stripe';
   // Token the slot was held under before the client's email was known.
   @IsOptional() @IsString() holdToken?: string;

@@ -24,7 +24,15 @@ const TEXT = {
     pay: (a: string) => `Pay ${a}`,
     opening: 'Opening payment…',
     cancelOrder: 'Cancel this order',
-    howCharged: 'Charged in CFA francs at today’s rate, by mobile money or card. You get a receipt by email.',
+    payWith: 'How would you like to pay?',
+    methods: {
+      tranzak: ['Mobile Money / African card', 'MTN MoMo, Orange Money, African bank cards'],
+      stripe: ['International card', 'Visa, Mastercard, Amex from any country'],
+    },
+    howCharged: {
+      tranzak: 'Charged in CFA francs at today’s rate. You get a receipt by email.',
+      stripe: 'Charged in US dollars to your card. You get a receipt by email.',
+    },
     upToDate: 'You are up to date. Nothing to pay right now.',
     noOrders: 'You have not been asked to pay for anything yet.',
     checkout: 'Choose services',
@@ -62,7 +70,7 @@ const TEXT = {
     sTotal: 'Total agreed',
     good: 'Good to know',
     rules: [
-      ['How you pay', 'By mobile money or card. Prices are in US dollars and the charge is made in CFA francs at the day’s rate.'],
+      ['How you pay', 'By mobile money or card. Prices are in US dollars. Mobile money and African cards are charged in CFA francs at the day’s rate; international cards are charged in US dollars.'],
       ['Receipts', 'Emailed after each payment, and kept on this page.'],
       ['Refunds', 'Fees we pay to licensing bodies on your behalf cannot be refunded. Each one is marked on its order.'],
     ],
@@ -87,7 +95,15 @@ const TEXT = {
     pay: (a: string) => `Payer ${a}`,
     opening: 'Ouverture du paiement…',
     cancelOrder: 'Annuler cette commande',
-    howCharged: 'Débité en francs CFA au taux du jour, par mobile money ou par carte. Vous recevez un reçu par e-mail.',
+    payWith: 'Comment souhaitez-vous payer ?',
+    methods: {
+      tranzak: ['Mobile Money / carte africaine', 'MTN MoMo, Orange Money, cartes bancaires africaines'],
+      stripe: ['Carte internationale', 'Visa, Mastercard, Amex de tout pays'],
+    },
+    howCharged: {
+      tranzak: 'Débité en francs CFA au taux du jour. Vous recevez un reçu par e-mail.',
+      stripe: 'Débité en dollars américains sur votre carte. Vous recevez un reçu par e-mail.',
+    },
     upToDate: 'Vous êtes à jour. Rien à régler pour le moment.',
     noOrders: 'Aucun paiement ne vous a encore été demandé.',
     checkout: 'Choisir mes services',
@@ -125,7 +141,7 @@ const TEXT = {
     sTotal: 'Total convenu',
     good: 'Bon à savoir',
     rules: [
-      ['Comment payer', 'Par mobile money ou par carte. Les prix sont en dollars américains et le débit se fait en francs CFA au taux du jour.'],
+      ['Comment payer', 'Par mobile money ou par carte. Les prix sont en dollars américains. Le mobile money et les cartes africaines sont débités en francs CFA au taux du jour ; les cartes internationales en dollars américains.'],
       ['Reçus', 'Envoyés par e-mail après chaque paiement, et conservés sur cette page.'],
       ['Remboursements', 'Les frais que nous réglons pour vous auprès des organismes ne sont pas remboursables. Chacun est signalé sur sa commande.'],
     ],
@@ -216,6 +232,7 @@ export default function PaymentsPage() {
   const [plan, setPlan] = useState<any>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [paying, setPaying] = useState('');
+  const [provider, setProvider] = useState<'tranzak' | 'stripe'>('tranzak');
   const [receiptFor, setReceiptFor] = useState('');
   const [cancelling, setCancelling] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
@@ -266,7 +283,7 @@ export default function PaymentsPage() {
   async function pay(order: any) {
     setPaying(order.id);
     try {
-      const result = await api.initiatePayment(order.id, me?.phone, me?.email);
+      const result = await api.initiatePayment(order.id, me?.phone, me?.email, provider);
       if (result.redirectUrl) { window.location.href = result.redirectUrl; return; }
       toast.error(t.payFailed);
     } catch {
@@ -361,13 +378,24 @@ export default function PaymentsPage() {
                         <span><span className="block font-bold">{t.unconfirmed}</span><span className="block">{t.unconfirmedSub} <Link href="/tickets?topic=PAYMENT" className="font-bold text-primary hover:underline">{t.getHelp}</Link></span></span>
                       </p>
                     )}
+                    <fieldset className="mt-4 max-w-lg" disabled={!!paying}>
+                      <legend className="mb-1.5 text-xs font-bold text-foreground">{t.payWith}</legend>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {(['tranzak', 'stripe'] as const).map((id) => (
+                          <label key={id} className={`flex cursor-pointer items-start gap-2.5 rounded-xl border-2 px-3.5 py-3 transition-colors ${provider === id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30'}`}>
+                            <input type="radio" name={`pay-with-${order.id}`} checked={provider === id} onChange={() => setProvider(id)} className="mt-0.5 h-4 w-4 shrink-0 accent-primary" />
+                            <span><span className="block text-sm font-semibold text-foreground">{t.methods[id][0]}</span><span className="block text-xs text-muted-foreground">{t.methods[id][1]}</span></span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
                     <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
                       <button onClick={() => pay(order)} disabled={!!paying} className={`${btnPrimary} w-full px-6 py-2.5 text-sm sm:w-auto`}>
                         {paying === order.id ? <CircleNotch className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />} {paying === order.id ? t.opening : t.pay(short(order.total))}
                       </button>
                       {order.canCancel && <button onClick={() => setCancelling(order)} disabled={!!paying} className="text-xs font-bold text-muted-foreground hover:text-foreground">{t.cancelOrder}</button>}
                     </div>
-                    <p className="mt-3 text-xs text-muted-foreground">{t.howCharged}</p>
+                    <p className="mt-3 text-xs text-muted-foreground">{t.howCharged[provider]}</p>
                   </>
                 )}
               </section>
