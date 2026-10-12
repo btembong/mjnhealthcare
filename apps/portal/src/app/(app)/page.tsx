@@ -9,7 +9,7 @@ import {
   CheckCircle, Clock, WarningCircle, TrendUp, ArrowRight,
   Sparkle, Buildings, Student, X, PaperPlaneTilt, ChatCircle,
   UploadSimple, CaretRight, Shield, ShoppingCart,
-  IdentificationCard, Certificate, XCircle,
+  IdentificationCard, Certificate, XCircle, Signature,
 } from '@mjn/ui';
 import { useUser } from '../../contexts/user-context';
 import { api } from '../../lib/api';
@@ -66,6 +66,11 @@ function DashboardSkeleton() {
   );
 }
 
+/** The letter has been sent to the client and is still waiting for their signature. */
+function letterToSign(engagement: any) {
+  return !!engagement?.letterUrl && !engagement.letterSignedAt && !['COMPLETED', 'TERMINATED'].includes(engagement.status);
+}
+
 // ── Next Action Banner ────────────────────────────────────────────────────────
 
 function NextActionBanner({ engagement, documents, orders, me, onNavigate }: {
@@ -78,6 +83,13 @@ function NextActionBanner({ engagement, documents, orders, me, onNavigate }: {
       icon: Student, title: 'Complete your profile',
       sub: 'Add your name and profession so your consultant can get started.',
       cta: 'Complete profile', href: '/settings',
+    },
+    {
+      show: letterToSign(engagement),
+      action: true,
+      icon: Signature, title: 'Sign your engagement letter',
+      sub: 'Read and sign it to activate your case. You cannot pay until it is signed.',
+      cta: 'Sign now', href: `/sign/${engagement?.id}`,
     },
     {
       show: (() => { const exp = documents.filter((d) => { if (!d.expiryDate) return false; return Math.ceil((new Date(d.expiryDate).getTime() - Date.now()) / 86400000) <= 14; }); return exp.length > 0; })(),
@@ -1057,7 +1069,7 @@ export default function PortalDashboard() {
 
   const onboardingSteps = [
     { label: 'Complete profile',        sub: 'Name & profession',              done: !!(me?.name && me.name !== me.email && me.profession), href: '/settings' },
-    { label: 'Sign engagement letter',  sub: 'Formal agreement with MJN',      done: !!engagement, href: '/case' },
+    { label: 'Sign engagement letter',  sub: 'Formal agreement with MJN',      done: !!engagement?.letterSignedAt, href: letterToSign(engagement) ? `/sign/${engagement.id}` : '/case' },
     { label: 'Upload documents',        sub: 'Passport, credentials, etc.',    done: documents.length > 0, href: '/documents' },
     { label: 'Select services',         sub: 'View catalog & checkout',        done: orders.length > 0, href: '/checkout' },
   ];

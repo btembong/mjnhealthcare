@@ -391,6 +391,7 @@ export default function CaseDetailPage() {
   const staffName = me?.name || me?.email || 'Staff';
 
   const [engagement, setEngagement] = useState<any>(null);
+  const canSendLetter = (isAdmin || role === 'CONSULTANT') && !engagement?.letterSignedAt && !['COMPLETED', 'TERMINATED'].includes(engagement?.status);
   const [summary, setSummary] = useState<any>(null);
   const [ctx, setCtx] = useState<any>(null);
   const [consultants, setConsultants] = useState<any[]>([]);
@@ -580,7 +581,7 @@ export default function CaseDetailPage() {
     : first.key === 'message' ? { text: `${person.name ?? 'The client'} is waiting for a reply.`, action: { label: 'Reply', run: () => setTab('messages') } }
     : first.key === 'documents' ? { text: `${pendingDocs.length || ''} document${pendingDocs.length === 1 ? ' is' : 's are'} waiting for review.`.trim(), action: { label: 'Review documents', run: () => setTab('documents') } }
     : first.key === 'consultant' ? { text: 'No consultant is assigned to this case.', action: isAdmin ? { label: 'Assign consultant', run: () => setDialog('consultant') } : undefined }
-    : first.key === 'letter' ? { text: 'The engagement letter is not signed. The client cannot pay until it is.', action: isAdmin ? { label: 'Send letter', run: sendLetter } : undefined }
+    : first.key === 'letter' ? { text: 'The engagement letter is not signed. The client cannot pay until it is.', action: canSendLetter ? { label: engagement.letterUrl ? 'Send letter again' : 'Send letter', run: sendLetter } : undefined }
     : first.key === 'payment' ? { text: `${first.label}.`, action: { label: 'View payments', run: () => setTab('payments') } }
     : { text: `The client needs to replace ${first.label.replace(' to replace', '')}.`, action: { label: 'View documents', run: () => setTab('documents') } };
 
@@ -633,6 +634,7 @@ export default function CaseDetailPage() {
                 {[
                   { label: 'AI summary of this case', icon: Sparkle, show: true, run: summarise },
                   { label: busy === 'draft' ? 'Drafting…' : 'AI draft update for client', icon: Note, show: true, run: draftUpdate },
+                  { label: engagement.letterUrl ? 'Send engagement letter again' : 'Send engagement letter', icon: PaperPlaneRight, show: canSendLetter, run: () => { setMenuOpen(false); sendLetter(); } },
                   { label: engagement.consultantId ? 'Reassign consultant' : 'Assign consultant', icon: Flag, show: isAdmin, run: () => { setMenuOpen(false); setDialog('consultant'); } },
                   { label: engagement.officerId ? 'Change officer' : 'Assign officer', icon: Flag, show: canAssignOfficer, run: () => { setMenuOpen(false); setPickOfficer(engagement.officerId ?? ''); setDialog('officer'); api.listOfficers().then((l) => setOfficers(l ?? [])).catch(() => {}); } },
                   { label: 'Change status', icon: Flag, show: isAdmin, run: () => { setMenuOpen(false); setNewStatus(''); setReason(''); setDialog('status'); } },
@@ -949,7 +951,7 @@ export default function CaseDetailPage() {
           <div className="p-4">
             <h3 className="mb-2.5 text-xs font-bold uppercase tracking-widest text-muted-foreground">Key facts</h3>
             {[
-              ['Letter', engagement.letterSignedAt ? `Signed ${day(engagement.letterSignedAt)}` : 'Not signed'],
+              ['Letter', engagement.letterSignedAt ? `Signed ${day(engagement.letterSignedAt)}` : engagement.letterUrl ? 'Sent, not signed' : 'Not sent yet'],
               ['Paid', `${money(paid)} of ${money(total)}`],
               ['Documents', `${documents.filter((d) => d.status === 'VERIFIED').length} of ${documents.length} verified`],
               ['Last activity', ago(summary?.lastActivityAt)],

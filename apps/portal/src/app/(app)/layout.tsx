@@ -98,13 +98,13 @@ function NotificationBell({ count }: { count: number }) {
     });
   });
 
-  if (engagement && engagement.letterStatus !== 'SIGNED' && engagement.letterUrl) {
+  if (engagement && !engagement.letterSignedAt && engagement.letterUrl) {
     notifs.push({
       icon: Signature,
       color: 'text-amber-500',
       text: 'Engagement letter pending',
       sub: 'Sign to activate your case',
-      href: '/case',
+      href: `/sign/${engagement.id}`,
     });
   }
 
@@ -195,7 +195,7 @@ function PortalShell({ children }: { children: React.ReactNode }) {
     return Math.ceil((new Date(d.expiryDate).getTime() - Date.now()) / 86400000) <= 30;
   }).length;
   const pendingPayments = orders.filter((o) => o.status === 'PENDING' || o.status === 'PARTIALLY_PAID').length;
-  const pendingLetter = engagement && engagement.letterStatus !== 'SIGNED' && engagement.letterUrl ? 1 : 0;
+  const pendingLetter = engagement && !engagement.letterSignedAt && engagement.letterUrl ? 1 : 0;
   const alertCount = rejectedDocs + expiringDocs + pendingPayments + pendingLetter;
 
   // Profile completion
