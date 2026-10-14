@@ -6,6 +6,7 @@ import { PdfService } from '../order/pdf.service';
 import * as T from './email-templates';
 import { findConsultantContact } from '../../common/consultant-contact';
 import { adminAlertEmail } from '../../common/admin-alert';
+import { MANUAL_METHODS as MANUAL_METHOD_LABELS } from '../../common/manual-methods';
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -27,8 +28,10 @@ export class NotificationListener {
     orderId: string;
     receiptId?: string;
     engagement?: { person: { name: string; email?: string | null; phone?: string | null } };
+    person?: { name: string; email?: string | null; phone?: string | null };
   }) {
-    const person = payload.engagement?.person;
+    // Orders bought without a case carry the person directly.
+    const person = payload.engagement?.person ?? payload.person;
     if (!person) return;
 
     // Generate PDF receipt attachment
@@ -50,6 +53,7 @@ export class NotificationListener {
             total: Number(snap.total ?? 0),
             amountDueNow: snap.amountDueNow ?? null,
             paymentMode: snap.paymentMode,
+            paidBy: snap.paidBy,
           });
           pdfAttachment = { name: `mjn-receipt-${payload.orderId.slice(-8)}.pdf`, content: pdfBuffer };
         }
@@ -969,6 +973,77 @@ export class NotificationListener {
     await this.notificationService.sendEmail(
       person.email,
       fr ? `Remboursement de ${amount} — MJN Healthcare` : `Refund of ${amount} — MJN Healthcare`,
+      html, person.name, undefined, 'billing',
+    );
+  }
+
+  /** Finance recorded money received by hand; an admin has to confirm it before the client is told. */
+  @OnEvent('payment.manual_awaiting_confirmation')
+  async onManualPaymentAwaitingConfirmation(payload: { orderId: string; amountUsd: number; method: string; recordedById: string }) {
+    const [found, recorder] = await Promise.all([
+      this.orderClient(payload.orderId),
+      this.db.person.findUnique({ where: { id: payload.recordedById }, select: { name: true, email: true } }),
+    ]);
+    const client = found ? escapeHtml(found.person.name ?? found.person.email) : 'A client';
+    const link = `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/payments?order=${payload.orderId}`;
+    const html = T.shell(
+      T.label('Payment to confirm') +
+      T.h1(`$${payload.amountUsd.toFixed(2)} waiting for your confirmation`) +
+      T.p(`${escapeHtml(recorder?.name ?? recorder?.email ?? 'A member of the finance team')} recorded a payment received outside Tranzak and Stripe. The client gets a receipt only once an admin confirms it.`) +
+      T.infoTable([
+        T.row('Client', client),
+        T.row('Amount', `$${payload.amountUsd.toFixed(2)}`),
+        T.row('Received by', escapeHtml(payload.method), true),
+      ]) +
+      T.notice('Before confirming, check the money in the bank account or the till, not only the proof the client sent.', 'warning') +
+      T.btn('Open the payment', link),
+    );
+    await this.notificationService.sendEmail(adminAlertEmail(), `Payment to confirm: $${payload.amountUsd.toFixed(2)} from ${found?.person.name ?? 'a client'}`, html, undefined, undefined, 'billing');
+  }
+
+  /** An admin confirmed part of an order received by hand: the client hears what arrived and what is left. */
+  @OnEvent('payment.manual_part_received')
+  async onManualPartReceived(payload: { orderId: string; amountUsd: number; receivedUsd: number; leftUsd: number; method: string; reference: string | null }) {
+    const found = await this.orderClient(payload.orderId);
+    if (!found) return;
+    const { person, fr, total, services } = found;
+    const usd = (n: number) => `$${n.toFixed(2)}`;
+    const method = escapeHtml(MANUAL_METHOD_LABELS[payload.method]?.[fr ? 'fr' : 'en'] ?? payload.method);
+    const ref = payload.reference ? escapeHtml(payload.reference) : '—';
+    const portal = `${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments`;
+    const html = fr
+      ? T.shell(
+          T.p(`Bonjour <strong>${escapeHtml(person.name)}</strong>,`) +
+          T.label('Paiement reçu') +
+          T.h1(`Nous avons reçu ${usd(payload.amountUsd)}`) +
+          T.p('Merci. Ce montant est enregistré sur votre commande. Votre reçu vous sera envoyé dès que la totalité sera réglée.') +
+          T.infoTable([
+            T.row('Services', services),
+            T.row('Mode de paiement', method),
+            T.row('Référence', ref),
+            T.row('Reçu à ce jour', `${usd(payload.receivedUsd)} sur ${usd(total)}`),
+            T.row('Reste à régler', `<strong>${usd(payload.leftUsd)}</strong>`, true),
+          ]) +
+          T.btn('Voir mes paiements', portal),
+          'Vous recevez cet e-mail car vous avez un dossier chez MJN Healthcare.',
+        )
+      : T.shell(
+          T.greeting(person.name) +
+          T.label('Payment received') +
+          T.h1(`We received ${usd(payload.amountUsd)}`) +
+          T.p('Thank you. This amount is recorded on your order. Your receipt is sent once the order is paid in full.') +
+          T.infoTable([
+            T.row('Services', services),
+            T.row('Paid by', method),
+            T.row('Reference', ref),
+            T.row('Received so far', `${usd(payload.receivedUsd)} of ${usd(total)}`),
+            T.row('Still to pay', `<strong>${usd(payload.leftUsd)}</strong>`, true),
+          ]) +
+          T.btn('See my payments', portal),
+        );
+    await this.notificationService.sendEmail(
+      person.email,
+      fr ? `Paiement de ${usd(payload.amountUsd)} reçu — MJN Healthcare` : `Payment of ${usd(payload.amountUsd)} received — MJN Healthcare`,
       html, person.name, undefined, 'billing',
     );
   }

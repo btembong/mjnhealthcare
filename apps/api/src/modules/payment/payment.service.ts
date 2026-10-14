@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 import { OrderService } from '../order/order.service';
@@ -66,7 +66,11 @@ export class PaymentService {
       };
     }
 
-    const amountUsd = Number(order.total);
+    // Only what is still owed: part of the order may already have arrived by bank transfer or cash.
+    const received = await this.db.manualPayment.aggregate({ where: { orderId, status: 'CONFIRMED' }, _sum: { amountUsd: true } });
+    const amountUsd = Math.round((Number(order.total) - Number(received._sum.amountUsd ?? 0)) * 100) / 100;
+    if (order.status !== 'PENDING') throw new BadRequestException('This order is not waiting for payment.');
+    if (amountUsd <= 0) throw new BadRequestException('Nothing is left to pay on this order.');
     const returnUrl = `${process.env.PORTAL_URL ?? 'http://localhost:3002'}/payments/confirmed?orderId=${orderId}`;
 
     const itemNames: string[] = (order.lineItems ?? [])

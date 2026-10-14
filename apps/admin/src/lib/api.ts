@@ -681,6 +681,24 @@ export const api = {
   recordPaymentRefund: (orderId: string, input: { amount: number; reason: string; method: string }) =>
     request<{ message: string; full: boolean }>(`/admin/payments/order/${orderId}/refund`, { method: 'POST', body: JSON.stringify(input) }),
 
+  // Money received by hand (bank transfer, cash…). Finance and admins record; an admin confirms.
+  getManualProofUploadUrl: (orderId: string, fileName: string) =>
+    request<{ url: string; key: string }>(`/admin/payments/order/${orderId}/manual/proof-upload-url`, { method: 'POST', body: JSON.stringify({ fileName }) }),
+
+  recordManualPayment: (orderId: string, input: {
+    method: string; amount: number; currency: string; rate?: number | null; receivedAt: string; reference?: string; note?: string;
+    proof?: { key: string; name: string; type?: string } | null; seenInAccount: boolean; allowDuplicate?: boolean;
+  }) =>
+    request<{ message: string; status: string; paid?: boolean }>(`/admin/payments/order/${orderId}/manual`, { method: 'POST', body: JSON.stringify(input) }),
+
+  confirmManualPayment: (id: string) =>
+    request<{ message: string; paid?: boolean }>(`/admin/payments/manual/${id}/confirm`, { method: 'POST' }),
+
+  voidManualPayment: (id: string, reason: string) =>
+    request<{ message: string }>(`/admin/payments/manual/${id}/void`, { method: 'POST', body: JSON.stringify({ reason }) }),
+
+  getManualProofUrl: (id: string) => request<{ url: string; name: string }>(`/admin/payments/manual/${id}/proof-url`),
+
   getPaymentsExportUrl: (params?: { search?: string; kind?: string; state?: string; dateFrom?: string; dateTo?: string }) => {
     const qs = new URLSearchParams();
     for (const [key, value] of Object.entries(params ?? {})) if (value) qs.set(key, value);

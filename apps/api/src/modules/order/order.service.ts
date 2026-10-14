@@ -11,6 +11,8 @@ const TAX_RATE = 0.0325; // 3.25%
 
 export type CartLineInput = { serviceItemId: string; variantKey?: string };
 export type PaymentModeType = 'FULL' | 'INSTALLMENT' | 'PAY_PER_STAGE';
+/** One payment received outside the payment providers, as printed on the receipt. */
+export type ReceiptPaidBy = { method: string; reference: string | null; receivedAt: string; amountUsd: number; amount: number; currency: string };
 
 export type InstallmentConfig = {
   firstPercent: number;           // e.g. 50 → pay 50% now
@@ -313,17 +315,18 @@ export class OrderService {
    * Marks an order paid and does everything that follows from it: receipt, email, plan stages.
    * Two callers arriving together (a provider notice and the page the client returns to) share
    * one run, so there is never a second receipt or a second email. `attemptRef` names the payment
-   * attempt that went through, when it is known.
+   * attempt that went through, when it is known. `paidBy` lists money received outside the payment
+   * providers, printed on the receipt.
    */
-  markPaid(orderId: string, attemptRef?: string): Promise<any> {
+  markPaid(orderId: string, attemptRef?: string, paidBy?: ReceiptPaidBy[]): Promise<any> {
     const running = this.marking.get(orderId);
     if (running) return running;
-    const run = this.markPaidOnce(orderId, attemptRef).finally(() => this.marking.delete(orderId));
+    const run = this.markPaidOnce(orderId, attemptRef, paidBy).finally(() => this.marking.delete(orderId));
     this.marking.set(orderId, run);
     return run;
   }
 
-  private async markPaidOnce(orderId: string, attemptRef?: string): Promise<any> {
+  private async markPaidOnce(orderId: string, attemptRef?: string, paidBy?: ReceiptPaidBy[]): Promise<any> {
     // The payment provider can tell us about the same payment more than once. An order that is
     // already paid and has its receipt is left alone: no second receipt, no second email.
     const already: any = await (this.db.order as any).findUnique({
@@ -365,12 +368,14 @@ export class OrderService {
       taxRate: Number(order.taxRate),
       taxAmount: Number(order.taxAmount),
       total: Number(order.total),
+      ...(paidBy?.length ? { paidBy } : {}),
     };
 
     const receipt = await this.db.receipt.create({ data: { orderId, snapshot } });
 
-    // The attempt that went through; when nobody can say which, the newest.
-    const attempt = await this.db.paymentAttempt.findFirst({
+    // The attempt that went through; when nobody can say which, the newest. Money recorded by
+    // staff came through no attempt, so none is marked.
+    const attempt = attemptRef?.startsWith('manual:') ? null : await this.db.paymentAttempt.findFirst({
       where: attemptRef ? { orderId, providerRef: attemptRef } : { orderId },
       orderBy: { createdAt: 'desc' },
       select: { id: true },
@@ -380,6 +385,7 @@ export class OrderService {
     this.events.emit('payment.completed', {
       orderId,
       receiptId: receipt.id,
+      manual: !!paidBy?.length,
       orderType: order.orderType,
       paymentMode: order.paymentMode,
       person: { name: person.name, email: person.email, phone: person.phone },
@@ -465,6 +471,8 @@ export class OrderService {
         },
         receipts: { select: { id: true, issuedAt: true }, orderBy: { issuedAt: 'desc' }, take: 1 },
         paymentAttempts: { select: { createdAt: true, status: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+        // Only confirmed money is shown to the client; how it was recorded stays with the staff.
+        manualPayments: { where: { status: 'CONFIRMED' }, select: { amountUsd: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -472,6 +480,9 @@ export class OrderService {
     return orders.map((o) => {
       const attempt = o.paymentAttempts[0]?.createdAt as Date | undefined;
       const minutes = attempt ? (now - attempt.getTime()) / 60000 : null;
+      const received = o.status === 'PENDING'
+        ? Math.round(o.manualPayments.reduce((s: number, p: any) => s + Number(p.amountUsd), 0) * 100) / 100
+        : 0;
       return {
         id: o.id,
         createdAt: o.createdAt,
@@ -493,8 +504,12 @@ export class OrderService {
         receiptIssuedAt: o.receipts[0]?.issuedAt ?? null,
         refundAmount: o.refundAmount == null ? null : Number(o.refundAmount),
         refundedAt: o.refundedAt ?? null,
-        // An unpaid order the client can cancel themselves: one they created, not one a stage raised.
-        canCancel: o.status === 'PENDING' && !o.stageId,
+        // Part of an unpaid order already received by bank transfer or cash, and what is left to pay.
+        received,
+        due: Math.max(0, Math.round((Number(o.total) - received) * 100) / 100),
+        // An unpaid order the client can cancel themselves: one they created, not one a stage raised,
+        // and not one we have already received money for.
+        canCancel: o.status === 'PENDING' && !o.stageId && received === 0,
         // 'failed': the provider says the last attempt ended and no money was taken.
         // 'confirming': a payment was started in the last 15 minutes and we have not heard back yet.
         // 'unconfirmed': one was started longer ago and the provider has still not given a final answer.
@@ -517,6 +532,8 @@ export class OrderService {
     if (order.stageId) {
       throw new BadRequestException('This invoice was raised for a stage of your plan. Message your team if it should be changed.');
     }
+    const paidInPart = await this.db.manualPayment.count({ where: { orderId, status: { in: ['RECORDED', 'CONFIRMED'] } } });
+    if (paidInPart > 0) throw new BadRequestException('We have already received a payment for this order. Message your team if it should be changed.');
     await (this.db.order as any).update({ where: { id: orderId }, data: { status: 'CANCELLED' } });
     return { cancelled: true };
   }

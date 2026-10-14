@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 import { OrderService } from '../order/order.service';
 import { ConsultationService } from '../consultation/consultation.service';
+import { ManualPaymentService } from './manual-payment.service';
 import { paymentVerifier, belongsTo, providerOfRef, PaymentLookupError, PAID_ELSEWHERE } from '../../common/payment-verifier';
 
 export type PaymentKind = 'order' | 'consultation';
@@ -10,9 +11,10 @@ export type PaymentKind = 'order' | 'consultation';
  * Where a payment stands, in the words the Payments page uses:
  * waiting = nothing paid yet, and nothing for staff to do · checking = unpaid, and the automatic
  * check could not settle it, so a person needs to look · paid · part_refunded · refunded ·
- * cancelled (never paid).
+ * cancelled (never paid) · to_confirm = unpaid order with money recorded by hand that an admin
+ * has not confirmed yet.
  */
-export type PaymentState = 'waiting' | 'checking' | 'paid' | 'part_refunded' | 'refunded' | 'cancelled';
+export type PaymentState = 'waiting' | 'checking' | 'to_confirm' | 'paid' | 'part_refunded' | 'refunded' | 'cancelled';
 
 export interface PaymentRow {
   id: string;
@@ -30,6 +32,9 @@ export interface PaymentRow {
   startedAt: Date | null;
   paidAt: Date | null;
   attempts: PaymentAttemptInfo[];
+  /** Orders only: dollars received by hand and confirmed, and how many recorded payments wait for an admin. */
+  received: number;
+  toConfirm: number;
 }
 
 /** One try at paying: who it went through, and what that provider last told us about it. */
@@ -66,6 +71,7 @@ export class PaymentAdminService {
     private readonly events: EventEmitter2,
     private readonly orders: OrderService,
     private readonly consultations: ConsultationService,
+    private readonly manual: ManualPaymentService,
   ) {}
 
   // ── Reading ─────────────────────────────────────────────────────────────────
@@ -136,15 +142,16 @@ export class PaymentAdminService {
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const net = (r: PaymentRow) => r.amount - r.refund;
     const received = rows.filter((r) => r.paidAt && r.state !== 'cancelled');
-    const waiting = rows.filter((r) => r.state === 'waiting' || r.state === 'checking');
+    const waiting = rows.filter((r) => r.state === 'waiting' || r.state === 'checking' || r.state === 'to_confirm');
     return {
       receivedThisMonth: round(received.filter((r) => r.paidAt! >= monthStart).reduce((s, r) => s + net(r), 0)),
       // The dashboard's "Revenue MTD" tile reads this name.
       revenueMtd: round(received.filter((r) => r.paidAt! >= monthStart).reduce((s, r) => s + net(r), 0)),
       receivedTotal: round(received.reduce((s, r) => s + net(r), 0)),
-      waitingTotal: round(waiting.reduce((s, r) => s + r.amount, 0)),
+      waitingTotal: round(waiting.reduce((s, r) => s + r.amount - r.received, 0)),
       waitingCount: waiting.length,
       checkingCount: rows.filter((r) => r.state === 'checking').length,
+      toConfirmCount: rows.filter((r) => r.state === 'to_confirm').length,
       refundedTotal: round(rows.reduce((s, r) => s + r.refund, 0)),
     };
   }
@@ -173,6 +180,7 @@ export class PaymentAdminService {
         refundedAt: order.refundedAt ?? null,
         engagementId: order.engagementId ?? null,
         forStage: !!order.stageId,
+        manualPayments: await this.manual.forOrder(id),
       };
     } else {
       const booking: any = await this.db.consultationBooking.findUnique({
@@ -254,6 +262,9 @@ export class PaymentAdminService {
       const name = result.provider === 'stripe' ? 'Stripe' : 'Tranzak';
       if (!result.paid) throw new BadRequestException(`${name} does not show this as paid (it says ${result.status ?? 'nothing'}).`);
       via = result.provider;
+    } else if (kind === 'order') {
+      // Money that arrived another way is recorded with its details, through Record a payment.
+      throw new BadRequestException('Use Record a payment to enter money received by bank transfer, cash or another way.');
     } else if (note.length < 5) {
       throw new BadRequestException('Say how the money was received (for example: bank transfer on 12 October, reference …).');
     }
@@ -261,7 +272,7 @@ export class PaymentAdminService {
     if (kind === 'order') {
       // A payment can land after the client cancelled an unpaid order; it still counts.
       const cancelledUnpaid = row.state === 'cancelled';
-      if (!['waiting', 'checking'].includes(row.state) && !(cancelledUnpaid && via !== 'manual')) {
+      if (!['waiting', 'checking', 'to_confirm'].includes(row.state) && !(cancelledUnpaid && via !== 'manual')) {
         throw new BadRequestException(row.state === 'paid' ? 'This order is already paid.' : 'This order is closed and cannot be marked as paid.');
       }
       await this.orders.markPaid(id, input?.ref);
@@ -294,10 +305,13 @@ export class PaymentAdminService {
     const row = await this.rowOf(kind, id);
 
     if (kind === 'order') {
-      if (!['waiting', 'checking'].includes(row.state)) {
+      if (!['waiting', 'checking', 'to_confirm'].includes(row.state)) {
         throw new BadRequestException(row.state === 'paid' || row.state === 'part_refunded'
           ? 'This order has been paid. Record a refund instead.'
           : 'This order is already closed.');
+      }
+      if (row.received > 0 || row.toConfirm > 0) {
+        throw new BadRequestException('Money has been recorded on this order. Void those payments first, or keep the order open.');
       }
       await this.db.order.update({ where: { id }, data: { status: 'CANCELLED', cancelReason: why } });
       this.events.emit('order.cancelled_by_staff', { orderId: id, reason: why });
@@ -380,15 +394,15 @@ export class PaymentAdminService {
       return `"${(/^[=+\-@]/.test(text) ? `'${text}` : text).replace(/"/g, '""')}"`;
     };
     const label: Record<PaymentState, string> = {
-      waiting: 'Waiting for payment', checking: 'Needs checking', paid: 'Paid', part_refunded: 'Part refunded', refunded: 'Refunded', cancelled: 'Cancelled',
+      waiting: 'Waiting for payment', checking: 'Needs checking', to_confirm: 'Payment to confirm', paid: 'Paid', part_refunded: 'Part refunded', refunded: 'Refunded', cancelled: 'Cancelled',
     };
     const rows = await this.list(filters);
-    const header = ['Date', 'Type', 'Client', 'Email', 'Phone', 'For', 'Amount USD', 'Refunded USD', 'Net USD', 'Status', 'Paid on', 'Payment reference', 'ID'];
+    const header = ['Date', 'Type', 'Client', 'Email', 'Phone', 'For', 'Amount USD', 'Received by hand USD', 'Refunded USD', 'Net USD', 'Status', 'Paid on', 'Payment reference', 'ID'];
     const body = rows.map((r) => [
       r.createdAt.toISOString().slice(0, 10),
       r.kind === 'order' ? 'Order' : 'Consultation',
       r.clientName, r.clientEmail, r.clientPhone ?? '', r.summary,
-      r.amount.toFixed(2), r.refund.toFixed(2), (r.paidAt && r.state !== 'cancelled' ? r.amount - r.refund : 0).toFixed(2),
+      r.amount.toFixed(2), r.received.toFixed(2), r.refund.toFixed(2), (r.paidAt && r.state !== 'cancelled' ? r.amount - r.refund : 0).toFixed(2),
       label[r.state], r.paidAt ? r.paidAt.toISOString().slice(0, 10) : '', r.attempts[0]?.ref ?? '', r.id,
     ].map(cell).join(','));
     return [header.map(cell).join(','), ...body].join('\n');
@@ -405,6 +419,7 @@ export class PaymentAdminService {
       orderBy: { createdAt: 'desc' as const },
     },
     receipts: { select: { issuedAt: true }, orderBy: { issuedAt: 'asc' as const }, take: 1 },
+    manualPayments: { where: { status: { in: ['RECORDED', 'CONFIRMED'] } }, select: { status: true, amountUsd: true } },
   };
 
   private async rowOf(kind: PaymentKind, id: string): Promise<PaymentRow> {
@@ -448,9 +463,13 @@ export class PaymentAdminService {
       }));
     const startedAt: Date | null = attempts[0]?.at ?? null;
     const refund = Number(o.refundAmount ?? 0);
+    const manual: any[] = o.manualPayments ?? [];
+    const received = o.status === 'PENDING' ? round(manual.filter((m) => m.status === 'CONFIRMED').reduce((s, m) => s + Number(m.amountUsd), 0)) : 0;
+    const toConfirm = o.status === 'PENDING' ? manual.filter((m) => m.status === 'RECORDED').length : 0;
     const state: PaymentState =
       o.status === 'PAID' ? (refund > 0 ? 'part_refunded' : 'paid')
       : o.status === 'CANCELLED' ? (refund > 0 ? 'refunded' : 'cancelled')
+      : toConfirm > 0 ? 'to_confirm'
       : this.unpaidState(attempts[0], o.createdAt, now, false);
     const names: string[] = (o.lineItems ?? []).map((li: any) => li.serviceItem?.name ?? 'Service');
     return {
@@ -470,6 +489,8 @@ export class PaymentAdminService {
       // Refunded orders were paid first; cancelled ones never were.
       paidAt: o.paidAt ?? (o.status === 'PAID' || refund > 0 ? o.receipts?.[0]?.issuedAt ?? o.createdAt : null),
       attempts,
+      received,
+      toConfirm,
     };
   }
 
@@ -508,6 +529,8 @@ export class PaymentAdminService {
       // Bookings confirmed before payment dates were kept fall back to the day they were made.
       paidAt: everPaid ? b.paidAt ?? b.createdAt : null,
       attempts,
+      received: 0,
+      toConfirm: 0,
     };
   }
 

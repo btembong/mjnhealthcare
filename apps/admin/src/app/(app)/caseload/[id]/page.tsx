@@ -836,6 +836,9 @@ export default function CaseDetailPage() {
                         ))}
                       </div>
                       {o.receipts?.length > 0 && <p className="mt-2 text-xs text-muted-foreground">{o.receipts.length} receipt{o.receipts.length !== 1 ? 's' : ''} issued</p>}
+                      {o.status === 'PENDING' && (isAdmin || role === 'FINANCE') && (
+                        <Link href={`/payments?order=${o.id}`} className="mt-2 inline-flex text-xs font-bold text-primary hover:underline">Record a payment received by bank transfer or cash →</Link>
+                      )}
                     </div>
                   ))}
                 </div>

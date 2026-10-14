@@ -210,6 +210,7 @@ export class OrderController {
       total: Number(snap.total ?? 0),
       amountDueNow: snap.amountDueNow ?? null,
       paymentMode: snap.paymentMode,
+      paidBy: snap.paidBy,
     });
 
     const filename = `mjn-receipt-${id.slice(-8)}.pdf`;

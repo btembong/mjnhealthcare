@@ -10,7 +10,7 @@ import { useAdmin } from '../../../contexts/admin-context';
 
 // ── Shape and helpers ─────────────────────────────────────────────────────────
 
-type State = 'waiting' | 'checking' | 'paid' | 'part_refunded' | 'refunded' | 'cancelled';
+type State = 'waiting' | 'checking' | 'to_confirm' | 'paid' | 'part_refunded' | 'refunded' | 'cancelled';
 type Kind = 'order' | 'consultation';
 type Attempt = {
   provider: string; ref: string; at: string;
@@ -26,18 +26,29 @@ type Row = {
   id: string; kind: Kind; state: State; status: string; clientName: string; clientEmail: string; clientPhone: string | null;
   personId: string | null; amount: number; refund: number; summary: string; createdAt: string; startedAt: string | null; paidAt: string | null;
   attempts: Attempt[];
+  /** Orders: dollars received by hand and confirmed, and recorded payments waiting for an admin. */
+  received: number; toConfirm: number;
+};
+/** Money received outside Tranzak and Stripe, recorded by staff. */
+type Manual = {
+  id: string; method: string; methodLabel: string; amount: number; currency: string; rate: number | null; amountUsd: number;
+  receivedAt: string; reference: string | null; note: string | null; proof: { name: string; type: string } | null;
+  status: 'RECORDED' | 'CONFIRMED' | 'VOIDED'; recordedBy: string | null; recordedById: string; recordedAt: string;
+  confirmedBy: string | null; confirmedAt: string | null; voidedBy: string | null; voidedAt: string | null; voidReason: string | null;
 };
 type Detail = Row & {
   lines: { name: string; price: number }[];
   history: { at: string; by: string; action: string; note: string | null; amount: number | null; method: string | null }[];
   subtotal?: number; taxAmount?: number; receiptIssuedAt?: string | null; cancelReason?: string | null; refundReason?: string | null;
   refundedAt?: string | null; consultantName?: string | null; sessionStart?: string | null; forStage?: boolean;
+  manualPayments?: Manual[];
 };
 type Check = { ref: string; provider?: string; status: string | null; paid: boolean; amount: number | null; currency: string | null };
 const providerName = (p?: string) => (p === 'stripe' ? 'Stripe' : 'Tranzak');
 
 const STATE: Record<State, { label: string; dot: string }> = {
   checking:      { label: 'Needs checking',      dot: 'bg-accent' },
+  to_confirm:    { label: 'Payment to confirm',  dot: 'bg-primary' },
   waiting:       { label: 'Waiting for payment', dot: 'bg-primary' },
   paid:          { label: 'Paid',                dot: 'bg-secondary' },
   part_refunded: { label: 'Paid, part refunded', dot: 'bg-secondary' },
@@ -45,6 +56,7 @@ const STATE: Record<State, { label: string; dot: string }> = {
   cancelled:     { label: 'Cancelled, not paid', dot: 'bg-muted-foreground/40' },
 };
 const TABS = [
+  ['confirm', 'To confirm', ['to_confirm']],
   ['checking', 'Needs checking', ['checking']],
   ['waiting', 'Waiting', ['waiting']],
   ['received', 'Received', ['paid', 'part_refunded']],
@@ -56,7 +68,14 @@ const ACTION: Record<string, string> = {
   recorded_paid: 'Recorded as paid', cancelled: 'Cancelled', refunded: 'Refund recorded',
   confirmed_auto: 'Confirmed as paid', auto_cancelled: 'Cancelled: the payment did not go through',
   paid_after_cancel: 'Paid after it was cancelled — full refund owed',
+  manual_recorded: 'Payment recorded by hand', manual_confirmed: 'Payment confirmed', manual_voided: 'Recorded payment voided',
+  manual_proof_viewed: 'Proof of payment opened',
 };
+const MANUAL_METHODS: [string, string][] = [
+  ['BANK_TRANSFER', 'Bank transfer'], ['CASH', 'Cash at our office'], ['MOBILE_MONEY', 'Mobile money to our number'], ['CHEQUE', 'Cheque'], ['OTHER', 'Other'],
+];
+const PROOF_EXT = /\.(pdf|jpe?g|png)$/i;
+const MAX_PROOF = 20 * 1024 * 1024;
 
 const card = 'rounded-2xl border border-border bg-white shadow-sm';
 const heading = 'text-xs font-bold uppercase tracking-widest text-muted-foreground';
@@ -85,6 +104,10 @@ function ago(iso: string, now: number) {
 }
 /** The one line under the status that says when. */
 function when(r: Row, now: number) {
+  if (r.state === 'to_confirm') {
+    const n = r.toConfirm === 1 ? '1 payment' : `${r.toConfirm} payments`;
+    return `${n} recorded by hand, waiting for an admin${r.received > 0 ? ` · ${money(r.received)} already confirmed` : ''}`;
+  }
   const last = r.attempts[0];
   const provider = last?.provider === 'stripe' ? 'Stripe' : 'Tranzak';
   if (r.state === 'checking') {
@@ -140,7 +163,10 @@ function Modal({ title, sub, onClose, children }: { title: string; sub?: string;
 
 export default function PaymentsPage() {
   const { me } = useAdmin();
-  const canChange = (me?.role as string)?.toUpperCase() === 'ADMIN';
+  const role = (me?.role as string)?.toUpperCase() ?? '';
+  const canChange = role === 'ADMIN';
+  // Finance staff may record money received by hand; an admin confirms it.
+  const canRecord = canChange || role === 'FINANCE';
 
   const [rows, setRows] = useState<Row[] | null>(null);
   const [stats, setStats] = useState<any>(null);
@@ -164,15 +190,19 @@ export default function PaymentsPage() {
       setStats(summary);
       setNow(Date.now());
       setFailed(false);
-      // Land on the work that needs doing, the first time only.
+      // Land on the work that needs doing, the first time only. A link can open one order.
       if (!tabChosen.current) {
         tabChosen.current = true;
-        if ((list as Row[]).some((r) => r.state === 'checking')) setTab('checking');
+        const linked = new URLSearchParams(window.location.search).get('order');
+        const target = linked ? (list as Row[]).find((r) => r.kind === 'order' && r.id === linked) : undefined;
+        if (target) setOpen({ row: target, autoCheck: false });
+        if (canChange && (list as Row[]).some((r) => r.state === 'to_confirm')) setTab('confirm');
+        else if ((list as Row[]).some((r) => r.state === 'checking')) setTab('checking');
       }
     } catch {
       setFailed(true);
     }
-  }, [filters]);
+  }, [filters, canChange]);
 
   useEffect(() => {
     const t = setTimeout(load, 300);
@@ -277,7 +307,7 @@ export default function PaymentsPage() {
           <div className={`${card} p-10 text-center`}>
             <Receipt className="mx-auto mb-3 h-9 w-9 text-muted-foreground/50" />
             <p className="text-sm font-bold text-foreground">
-              {filtering ? 'No payments match.' : tab === 'checking' ? 'Nothing needs checking.' : tab === 'waiting' ? 'Nothing is waiting to be paid.' : 'No payments here yet.'}
+              {filtering ? 'No payments match.' : tab === 'confirm' ? 'No payments are waiting to be confirmed.' : tab === 'checking' ? 'Nothing needs checking.' : tab === 'waiting' ? 'Nothing is waiting to be paid.' : 'No payments here yet.'}
             </p>
             {tab === 'checking' && !filtering && <p className="mt-1 text-sm text-muted-foreground">The system checks unpaid payments with Tranzak and Stripe by itself. One appears here only when that check cannot settle it: the provider has not answered for a while, or the payment has no reference to check.</p>}
           </div>
@@ -297,10 +327,13 @@ export default function PaymentsPage() {
                   <span className="md:w-28 md:text-right">
                     <span className="block text-sm font-bold tabular-nums text-foreground">{money(r.amount)}</span>
                     {r.refund > 0 && <span className="block text-xs text-muted-foreground">{money(r.refund)} refunded</span>}
+                    {r.received > 0 && <span className="block text-xs text-muted-foreground">{money(r.received)} received</span>}
                   </span>
                 </button>
                 <div className="md:w-40 md:text-right">
-                  {r.state === 'checking' && r.attempts[0]
+                  {r.state === 'to_confirm' && canChange
+                    ? <button onClick={() => setOpen({ row: r, autoCheck: false })} className={btnPrimary}>Review and confirm</button>
+                    : r.state === 'checking' && r.attempts[0]
                     ? <button onClick={() => setOpen({ row: r, autoCheck: true })} className={btnPrimary}><ArrowClockwise className="h-3.5 w-3.5" /> Check with {providerName(r.attempts[0].provider)}</button>
                     : <button onClick={() => setOpen({ row: r, autoCheck: false })} className={btnOutline}>Open</button>}
                 </div>
@@ -316,6 +349,8 @@ export default function PaymentsPage() {
           row={open.row}
           autoCheck={open.autoCheck}
           canChange={canChange}
+          canRecord={canRecord}
+          meId={me?.id ?? ''}
           onClose={() => setOpen(null)}
           onChanged={load}
         />
@@ -326,9 +361,9 @@ export default function PaymentsPage() {
 
 // ── One payment ───────────────────────────────────────────────────────────────
 
-type Mode = null | 'hand' | 'cancel' | 'refund';
+type Mode = null | 'hand' | 'manual' | 'cancel' | 'refund';
 
-function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: Row; autoCheck: boolean; canChange: boolean; onClose: () => void; onChanged: () => void }) {
+function PaymentPanel({ row, autoCheck, canChange, canRecord, meId, onClose, onChanged }: { row: Row; autoCheck: boolean; canChange: boolean; canRecord: boolean; meId: string; onClose: () => void; onChanged: () => void }) {
   const [d, setD] = useState<Detail | null>(null);
   const [failed, setFailed] = useState(false);
   const [checks, setChecks] = useState<Record<string, Check>>({});
@@ -390,7 +425,9 @@ function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: 
     setMode(next);
   }
 
-  const unpaid = d ? d.state === 'waiting' || d.state === 'checking' : false;
+  const unpaid = d ? d.state === 'waiting' || d.state === 'checking' || d.state === 'to_confirm' : false;
+  const manual = d?.manualPayments ?? [];
+  const settled = async (message: string) => { toast.success(message); setMode(null); onChanged(); await load(); };
   const refundable = d ? d.kind === 'order' && d.status === 'PAID' : false;
   const paidConsultation = d ? d.kind === 'consultation' && d.status === 'CONFIRMED' : false;
   const left = d ? d.amount - d.refund : 0;
@@ -418,6 +455,7 @@ function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: 
             <div className="text-right">
               <p className="text-xl font-bold tabular-nums text-foreground">{money(d.amount)}</p>
               {d.refund > 0 && <p className="text-xs text-muted-foreground">{money(d.refund)} refunded</p>}
+              {unpaid && d.received > 0 && <p className="text-xs text-muted-foreground">{money(d.received)} received · {money(Math.max(0, d.amount - d.received))} left</p>}
             </div>
           </div>
 
@@ -483,6 +521,10 @@ function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: 
             )}
           </section>
 
+          {d.kind === 'order' && manual.length > 0 && (
+            <ManualList payments={manual} orderUnpaid={unpaid} canChange={canChange} meId={meId} onDone={settled} />
+          )}
+
           {d.history.length > 0 && (
             <section>
               <p className={heading}>What staff did</p>
@@ -511,6 +553,8 @@ function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: 
               </div>
             </section>
           )}
+
+          {mode === 'manual' && <ManualForm d={d} onCancel={() => setMode(null)} onDone={settled} />}
 
           {mode === 'cancel' && (
             <section className="rounded-xl bg-muted/40 p-4">
@@ -559,18 +603,258 @@ function PaymentPanel({ row, autoCheck, canChange, onClose, onChanged }: { row: 
               {canChange ? (
                 <>
                   <div className="flex flex-wrap gap-2">
-                    {(unpaid || paidConsultation) && <button onClick={() => start('cancel')} className={btnOutline}>{paidConsultation ? 'Cancel and refund' : d.kind === 'order' ? 'Cancel order' : 'Cancel booking'}</button>}
+                    {(unpaid || paidConsultation) && !(d.kind === 'order' && (d.received > 0 || d.toConfirm > 0)) && <button onClick={() => start('cancel')} className={btnOutline}>{paidConsultation ? 'Cancel and refund' : d.kind === 'order' ? 'Cancel order' : 'Cancel booking'}</button>}
                     {refundable && left > 0 && <button onClick={() => start('refund')} className={btnOutline}>Record a refund</button>}
                   </div>
-                  {unpaid && <button onClick={() => start('hand')} className={btnOutline}>Record a payment by hand</button>}
+                  {unpaid && (d.kind === 'order'
+                    ? <button onClick={() => start('manual')} className={btnPrimary}>Record a payment</button>
+                    : <button onClick={() => start('hand')} className={btnOutline}>Record a payment by hand</button>)}
                 </>
               ) : (
-                <p className="text-xs text-muted-foreground">You can view and check payments. Only an admin can record, cancel or refund one.</p>
+                <>
+                  <p className="text-xs text-muted-foreground">You can view, check and record payments. An admin confirms what you record, and cancels or refunds.</p>
+                  {canRecord && unpaid && d.kind === 'order' && <button onClick={() => start('manual')} className={btnPrimary}>Record a payment</button>}
+                </>
               )}
             </div>
           )}
         </div>
       )}
     </Modal>
+  );
+}
+
+// ── Money received by hand ────────────────────────────────────────────────────
+
+/** Opens a short-lived file link in a new tab without the browser treating it as a pop-up. */
+async function openInNewTab(getUrl: () => Promise<string>) {
+  const win = window.open('about:blank', '_blank');
+  if (win) win.opener = null;
+  try {
+    const url = await getUrl();
+    if (win) win.location.href = url; else window.location.href = url;
+  } catch (e: any) {
+    win?.close();
+    toast.error(e.message ?? 'The file could not be opened.');
+  }
+}
+
+function todayLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function asReceived(p: Manual) {
+  return p.currency === 'USD' ? money(p.amountUsd) : `${p.amount.toLocaleString('en-US')} XAF = ${money(p.amountUsd)}`;
+}
+
+function ManualList({ payments, orderUnpaid, canChange, meId, onDone }: {
+  payments: Manual[]; orderUnpaid: boolean; canChange: boolean; meId: string; onDone: (message: string) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState('');
+  const [confirming, setConfirming] = useState('');
+  const [voiding, setVoiding] = useState('');
+  const [reason, setReason] = useState('');
+
+  async function act(key: string, work: () => Promise<{ message: string }>) {
+    setBusy(key);
+    try {
+      const res = await work();
+      setConfirming(''); setVoiding(''); setReason('');
+      await onDone(res.message);
+    } catch (e: any) {
+      toast.error(e.message ?? 'That did not work. Try again.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  return (
+    <section>
+      <p className={heading}>Received by hand</p>
+      <ul className="mt-2 space-y-2">
+        {payments.map((p) => {
+          const canConfirm = canChange && p.status === 'RECORDED' && orderUnpaid;
+          const canVoid = p.status !== 'VOIDED' && (p.status === 'RECORDED' ? canChange || p.recordedById === meId : canChange && orderUnpaid);
+          return (
+            <li key={p.id} className={`rounded-xl border border-border p-3 ${p.status === 'VOIDED' ? 'opacity-60' : ''}`}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground">{p.methodLabel} · {asReceived(p)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Received {day(p.receivedAt)}{p.reference ? <> · ref <span className="font-mono">{p.reference}</span></> : null}{p.currency === 'XAF' && p.rate ? ` · rate ${p.rate}` : ''}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {p.status === 'RECORDED' && <>Recorded by {p.recordedBy} {dayTime(p.recordedAt)}. <span className="font-bold text-foreground">Waiting for an admin to confirm.</span></>}
+                    {p.status === 'CONFIRMED' && <>Recorded by {p.recordedBy}, confirmed by {p.confirmedBy} {p.confirmedAt ? dayTime(p.confirmedAt) : ''}.</>}
+                    {p.status === 'VOIDED' && <>Voided by {p.voidedBy}{p.voidReason ? `: ${p.voidReason}` : ''}. It does not count.</>}
+                  </p>
+                  {p.note && <p className="mt-0.5 text-xs text-muted-foreground">Note: {p.note}</p>}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {p.proof && <button onClick={() => openInNewTab(async () => (await api.getManualProofUrl(p.id)).url)} className={btnOutline}>View proof</button>}
+                  {canConfirm && confirming !== p.id && <button onClick={() => { setConfirming(p.id); setVoiding(''); }} disabled={!!busy} className={btnPrimary}>Confirm</button>}
+                  {canVoid && voiding !== p.id && <button onClick={() => { setVoiding(p.id); setConfirming(''); setReason(''); }} disabled={!!busy} className={btnOutline}>Void</button>}
+                </div>
+              </div>
+              {confirming === p.id && (
+                <div className="mt-3 rounded-lg bg-muted/40 p-3">
+                  <p className="text-sm text-foreground">Confirm {money(p.amountUsd)} received by {p.methodLabel.toLowerCase()}?</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Check it in the bank account or the till first. Once confirmed it counts towards the order, and the client is emailed.</p>
+                  <div className="mt-2 flex justify-end gap-2">
+                    <button onClick={() => setConfirming('')} className={btnOutline}>Go back</button>
+                    <button onClick={() => act('confirm' + p.id, () => api.confirmManualPayment(p.id))} disabled={!!busy} className={btnPrimary}>{busy === 'confirm' + p.id && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} Yes, the money is there</button>
+                  </div>
+                </div>
+              )}
+              {voiding === p.id && (
+                <div className="mt-3 rounded-lg bg-muted/40 p-3">
+                  <label className={heading} htmlFor={`void-${p.id}`}>Why is this being voided?</label>
+                  <input id={`void-${p.id}`} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="For example: recorded twice" className={`${field} mt-1.5`} />
+                  <div className="mt-2 flex justify-end gap-2">
+                    <button onClick={() => setVoiding('')} className={btnOutline}>Go back</button>
+                    <button onClick={() => act('void' + p.id, () => api.voidManualPayment(p.id, reason.trim()))} disabled={!!busy || reason.trim().length < 3} className={btnPrimary}>{busy === 'void' + p.id && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} Void payment</button>
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function ManualForm({ d, onCancel, onDone }: { d: Detail; onCancel: () => void; onDone: (message: string) => Promise<void> }) {
+  const [method, setMethod] = useState('BANK_TRANSFER');
+  const [currency, setCurrency] = useState<'XAF' | 'USD'>('XAF');
+  const [amount, setAmount] = useState('');
+  const [rate, setRate] = useState('');
+  const [receivedAt, setReceivedAt] = useState(todayLocal());
+  const [reference, setReference] = useState('');
+  const [note, setNote] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [uploaded, setUploaded] = useState<{ key: string; name: string; type?: string; for: File } | null>(null);
+  const [seen, setSeen] = useState(false);
+  const [duplicate, setDuplicate] = useState(false);
+  const [allowDuplicate, setAllowDuplicate] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const waiting = (d.manualPayments ?? []).filter((p) => p.status === 'RECORDED').reduce((s, p) => s + p.amountUsd, 0);
+  const owed = Math.max(0, Math.round((d.amount - d.received - waiting) * 100) / 100);
+  const num = /^\d+(\.\d{1,2})?$/.test(amount.replace(/[\s,]/g, '')) ? Number(amount.replace(/[\s,]/g, '')) : NaN;
+  const rateNum = Number(rate);
+  const usd = currency === 'USD' ? num : rateNum > 0 ? Math.round((num / rateNum) * 100) / 100 : NaN;
+  const after = Math.round((d.received + waiting + (Number.isFinite(usd) ? usd : 0)) * 100) / 100;
+  const tooMuch = Number.isFinite(usd) && usd > owed + 1;
+  const fileProblem = file ? (file.size > MAX_PROOF ? 'That file is larger than 20 MB.' : !PROOF_EXT.test(file.name) ? 'Proof must be a PDF, JPG or PNG file.' : '') : '';
+  const ready = Number.isFinite(usd) && usd > 0 && !tooMuch && !!receivedAt && seen && !fileProblem
+    && (method !== 'BANK_TRANSFER' || reference.trim().length > 0)
+    && (currency === 'USD' || (rateNum >= 300 && rateNum <= 2000))
+    && (!duplicate || allowDuplicate);
+
+  async function submit() {
+    setBusy(true);
+    try {
+      let proof: { key: string; name: string; type?: string } | null = null;
+      if (file) {
+        if (uploaded?.for === file) proof = uploaded;
+        else {
+          const { url, key } = await api.getManualProofUploadUrl(d.id, file.name);
+          const put = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type || 'application/octet-stream' } });
+          if (!put.ok) throw new Error('The proof file could not be uploaded. Please try again.');
+          proof = { key, name: file.name, type: file.type };
+          setUploaded({ ...proof, for: file });
+        }
+      }
+      const res = await api.recordManualPayment(d.id, {
+        method, amount: num, currency, rate: currency === 'XAF' ? rateNum : null, receivedAt,
+        reference: reference.trim() || undefined, note: note.trim() || undefined, proof, seenInAccount: seen,
+        allowDuplicate: duplicate && allowDuplicate,
+      });
+      await onDone(res.message);
+    } catch (e: any) {
+      if (/already recorded on/i.test(e.message ?? '')) setDuplicate(true);
+      toast.error(e.message ?? 'The payment could not be recorded.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl bg-muted/40 p-4">
+      <p className="text-sm font-bold text-foreground">Record a payment</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        For money that did not come through Tranzak or Stripe: a bank transfer, cash, mobile money sent to our number, a cheque.
+        Clients send their proof to billing@mjnhealthcare.com. {owed > 0 ? `${money(owed)} is still owed on this order.` : 'Nothing more is owed once the payments waiting for confirmation are counted.'}
+      </p>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className={heading} htmlFor="mp-method">Received by</label>
+          <select id="mp-method" value={method} onChange={(e) => setMethod(e.target.value)} className={`${field} mt-1.5`}>
+            {MANUAL_METHODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={heading} htmlFor="mp-date">Date received</label>
+          <input id="mp-date" type="date" value={receivedAt} max={todayLocal()} onChange={(e) => setReceivedAt(e.target.value)} className={`${field} mt-1.5`} />
+        </div>
+        <div>
+          <label className={heading} htmlFor="mp-amount">Amount received</label>
+          <div className="mt-1.5 flex gap-2">
+            <input id="mp-amount" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder={currency === 'XAF' ? '270000' : '450.00'} className={field} />
+            <select aria-label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value as 'XAF' | 'USD')} className={`${field} w-24`}>
+              <option value="XAF">XAF</option>
+              <option value="USD">USD</option>
+            </select>
+          </div>
+        </div>
+        {currency === 'XAF' ? (
+          <div>
+            <label className={heading} htmlFor="mp-rate">Rate you got (XAF per $1)</label>
+            <input id="mp-rate" value={rate} onChange={(e) => setRate(e.target.value)} inputMode="decimal" placeholder="600" className={`${field} mt-1.5`} />
+          </div>
+        ) : <div />}
+        <div>
+          <label className={heading} htmlFor="mp-ref">Reference{method === 'BANK_TRANSFER' ? '' : ' (optional)'}</label>
+          <input id="mp-ref" value={reference} onChange={(e) => { setReference(e.target.value); setDuplicate(false); setAllowDuplicate(false); }} placeholder="As shown on the bank statement" className={`${field} mt-1.5`} />
+        </div>
+        <div>
+          <label className={heading} htmlFor="mp-proof">Proof the client sent (optional)</label>
+          <input id="mp-proof" type="file" accept="application/pdf,image/jpeg,image/png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="mt-1.5 block w-full text-xs text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-foreground" />
+          {fileProblem && <p className="mt-1 text-xs font-bold text-foreground" role="alert">{fileProblem}</p>}
+        </div>
+      </div>
+
+      <label className={`${heading} mt-3 block`} htmlFor="mp-note">Note (staff only)</label>
+      <input id="mp-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="For example: seen on the Afriland statement of 14 October" className={`${field} mt-1.5`} />
+
+      <div className="mt-3 rounded-lg bg-white px-3 py-2 text-sm" aria-live="polite">
+        {Number.isFinite(usd) && usd > 0 ? (
+          <>
+            <p className="text-foreground">This payment: <span className="font-bold">{money(usd)}</span>{currency === 'XAF' ? ` (${num.toLocaleString('en-US')} XAF at ${rateNum})` : ''}</p>
+            <p className="text-muted-foreground">After this {money(after)} of {money(d.amount)}{after >= d.amount - 0.5 ? ' · the order will be paid in full' : ` · ${money(Math.max(0, d.amount - after))} still to pay`}</p>
+          </>
+        ) : <p className="text-muted-foreground">Enter the amount{currency === 'XAF' ? ' and the rate' : ''} to see what it adds up to.</p>}
+        {tooMuch && <p className="mt-1 font-bold text-foreground" role="alert">That is more than the {money(owed)} still owed.</p>}
+      </div>
+
+      {duplicate && (
+        <label className="mt-3 flex items-start gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={allowDuplicate} onChange={(e) => setAllowDuplicate(e.target.checked)} className="mt-0.5 h-4 w-4 accent-primary" />
+          <span>This reference is already used on another payment. I have checked: this is a different payment.</span>
+        </label>
+      )}
+      <label className="mt-3 flex items-start gap-2 text-sm text-foreground">
+        <input type="checkbox" checked={seen} onChange={(e) => setSeen(e.target.checked)} className="mt-0.5 h-4 w-4 accent-primary" />
+        <span>I have seen this money in our account or till. <span className="text-muted-foreground">A screenshot from the client is not enough.</span></span>
+      </label>
+
+      <div className="mt-3 flex justify-end gap-2">
+        <button onClick={onCancel} className={btnOutline}>Go back</button>
+        <button onClick={submit} disabled={busy || !ready} className={btnPrimary}>{busy && <CircleNotch className="h-3.5 w-3.5 animate-spin" />} Record payment</button>
+      </div>
+    </section>
   );
 }

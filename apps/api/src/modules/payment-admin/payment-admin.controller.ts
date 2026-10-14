@@ -5,6 +5,7 @@ import {
 import { Response } from 'express';
 import { PaymentAdminService, PaymentKind } from './payment-admin.service';
 import { PaymentSweepService } from './payment-sweep.service';
+import { ManualPaymentService, ManualPaymentInput } from './manual-payment.service';
 
 function kindOf(value: string): PaymentKind {
   if (value !== 'order' && value !== 'consultation') throw new BadRequestException('Unknown payment type.');
@@ -22,6 +23,7 @@ export class PaymentAdminController {
   constructor(
     private readonly service: PaymentAdminService,
     private readonly sweep: PaymentSweepService,
+    private readonly manual: ManualPaymentService,
   ) {}
 
   @Get('stats')
@@ -53,6 +55,39 @@ export class PaymentAdminController {
     @Query('dateTo') dateTo?: string,
   ) {
     return this.service.list({ search, kind, dateFrom, dateTo });
+  }
+
+  // ── Money received by hand (orders) ──
+  // Finance and admins record; only an admin confirms, which is when the client is told.
+
+  @Post('order/:id/manual/proof-upload-url')
+  @HttpCode(200)
+  proofUploadUrl(@Param('id') id: string, @Body() body: { fileName: string }) {
+    return this.manual.proofUploadUrl(id, String(body?.fileName ?? ''));
+  }
+
+  @Post('order/:id/manual')
+  @HttpCode(200)
+  recordManual(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: ManualPaymentInput) {
+    return this.manual.record(user, id, body ?? ({} as ManualPaymentInput));
+  }
+
+  @AdminOnly()
+  @Post('manual/:id/confirm')
+  @HttpCode(200)
+  confirmManual(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.manual.confirm(user, id);
+  }
+
+  @Post('manual/:id/void')
+  @HttpCode(200)
+  voidManual(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { reason: string }) {
+    return this.manual.void(user, id, String(body?.reason ?? ''));
+  }
+
+  @Get('manual/:id/proof-url')
+  proofUrl(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.manual.proofUrl(user, id);
   }
 
   @Get(':kind/:id')

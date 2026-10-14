@@ -30,6 +30,7 @@ export class EngagementClientViewService {
           select: {
             status: true, total: true, amountDueNow: true,
             installmentSchedules: { select: { amount: true, status: true } },
+            manualPayments: { where: { status: 'CONFIRMED' }, select: { amountUsd: true } },
           },
         },
       },
@@ -89,12 +90,16 @@ export class EngagementClientViewService {
     let paid = 0;
     let due = 0;
     for (const o of engagement.orders) {
+      // A cancelled order is neither owed nor part of what was agreed.
+      if (o.status === 'CANCELLED') continue;
       total += num(o.total);
       const unpaidLater = o.installmentSchedules.filter((i) => i.status !== 'PAID').reduce((s, i) => s + num(i.amount), 0);
       const invoiced = o.installmentSchedules.filter((i) => i.status === 'INVOICED').reduce((s, i) => s + num(i.amount), 0);
+      // Part of an unpaid order may have arrived by bank transfer or cash.
+      const byHand = o.manualPayments.reduce((s, m) => s + num(m.amountUsd), 0);
       if (o.status === 'PAID') paid += num(o.total);
       else if (o.status === 'PARTIALLY_PAID') { paid += Math.max(0, num(o.total) - unpaidLater); due += invoiced; }
-      else due += o.amountDueNow != null ? num(o.amountDueNow) : num(o.total);
+      else { paid += byHand; due += Math.max(0, (o.amountDueNow != null ? num(o.amountDueNow) : num(o.total)) - byHand); }
     }
 
     // What the client has to do, most blocking first.

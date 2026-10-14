@@ -122,7 +122,7 @@ export class ReportOverviewService {
       return { month: start.slice(0, 7), received: net(received.filter((r) => within(r.paidAt, from, to))) };
     });
 
-    const waiting = rows.filter((r) => r.state === 'waiting' || r.state === 'checking');
+    const waiting = rows.filter((r) => r.state === 'waiting' || r.state === 'checking' || r.state === 'to_confirm');
     return {
       received: net(inPeriod),
       receivedBefore: net(before),

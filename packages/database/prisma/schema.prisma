@@ -316,8 +316,41 @@ model Order {
   receipts             Receipt[]
   paymentAttempts      PaymentAttempt[]
   installmentSchedules InstallmentSchedule[]
+  manualPayments       ManualPayment[]
 
   @@map("orders")
+}
+
+/// Money received outside Tranzak and Stripe (bank transfer, cash…), recorded by staff.
+/// It counts towards the order only once CONFIRMED by an admin; a mistake is VOIDED, never deleted.
+model ManualPayment {
+  id            String    @id @default(cuid())
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id])
+  method        String    // BANK_TRANSFER | CASH | MOBILE_MONEY | CHEQUE | OTHER
+  amount        Decimal   @db.Decimal(14, 2) // in `currency`, as it arrived
+  currency      String    // XAF | USD
+  rate          Decimal?  @db.Decimal(12, 4) // XAF per USD actually obtained, when currency is XAF
+  amountUsd     Decimal   @db.Decimal(10, 2)
+  receivedAt    DateTime
+  reference     String?
+  proofKey      String?   // private storage key; never sent to a browser
+  proofName     String?
+  proofType     String?
+  note          String?
+  status        String    @default("RECORDED") // RECORDED | CONFIRMED | VOIDED
+  recordedById  String
+  recordedAt    DateTime  @default(now())
+  confirmedById String?
+  confirmedAt   DateTime?
+  voidedById    String?
+  voidedAt      DateTime?
+  voidReason    String?
+
+  @@index([orderId])
+  @@index([reference])
+  @@index([status])
+  @@map("manual_payments")
 }
 
 model OrderLineItem {

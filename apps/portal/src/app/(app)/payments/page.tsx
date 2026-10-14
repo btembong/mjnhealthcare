@@ -19,6 +19,7 @@ const TEXT = {
     toPayShort: (a: string) => `${a} to pay`,
     nothingYet: 'Nothing to pay yet.',
     toPayNow: 'To pay now',
+    receivedSoFar: (r: string, t: string) => `${r} already received of ${t}`,
     tax: 'Tax',
     total: 'Total',
     pay: (a: string) => `Pay ${a}`,
@@ -90,6 +91,7 @@ const TEXT = {
     toPayShort: (a: string) => `${a} à régler`,
     nothingYet: 'Rien à régler pour le moment.',
     toPayNow: 'À régler maintenant',
+    receivedSoFar: (r: string, t: string) => `${r} déjà reçus sur ${t}`,
     tax: 'Taxe',
     total: 'Total',
     pay: (a: string) => `Payer ${a}`,
@@ -269,8 +271,10 @@ export default function PaymentsPage() {
 
   const list = orders ?? [];
   const due = useMemo(() => list.filter((o) => o.status === 'PENDING').sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), [list]);
-  const paid = list.filter((o) => o.status === 'PAID').reduce((s, o) => s + o.total, 0);
-  const toPay = due.reduce((s, o) => s + o.total, 0);
+  // An unpaid order may already be partly paid by bank transfer or cash: only the rest is owed.
+  const left = (o: any) => Number(o.due ?? o.total);
+  const paid = list.filter((o) => o.status === 'PAID').reduce((s, o) => s + o.total, 0) + due.reduce((s, o) => s + Number(o.received ?? 0), 0);
+  const toPay = due.reduce((s, o) => s + left(o), 0);
   const stages: any[] = plan?.stages ?? [];
   // Stages of the plan that have not been invoiced yet.
   const later = stages.filter((s) => s.status === 'PENDING').reduce((sum, s) => sum + Number(s.stageTotal ?? 0), 0);
@@ -353,14 +357,15 @@ export default function PaymentsPage() {
             ) : due.map((order) => (
               <section key={order.id} className={`${card} p-5`}>
                 <h2 className={heading}>{t.toPayNow}</h2>
-                <p className="mt-2 text-3xl font-extrabold tabular-nums text-foreground">{money(order.total)}</p>
+                <p className="mt-2 text-3xl font-extrabold tabular-nums text-foreground">{money(left(order))}</p>
+                {Number(order.received ?? 0) > 0 && <p className="mt-0.5 text-sm text-muted-foreground">{t.receivedSoFar(money(order.received), money(order.total))}</p>}
                 <div className="mt-3 max-w-lg"><OrderLines order={order} t={t} /></div>
 
                 {order.payment === 'confirming' ? (
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 py-3">
                     <p className="flex min-w-0 items-start gap-2.5 text-sm text-foreground">
                       <CircleNotch className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" />
-                      <span><span className="block font-bold">{t.confirming(short(order.total))}</span><span className="block text-muted-foreground">{t.confirmingSub}</span></span>
+                      <span><span className="block font-bold">{t.confirming(short(left(order)))}</span><span className="block text-muted-foreground">{t.confirmingSub}</span></span>
                     </p>
                     <button onClick={recheck} className={btnOutline}>{t.checkAgain}</button>
                   </div>
@@ -391,7 +396,7 @@ export default function PaymentsPage() {
                     </fieldset>
                     <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
                       <button onClick={() => pay(order)} disabled={!!paying} className={`${btnPrimary} w-full px-6 py-2.5 text-sm sm:w-auto`}>
-                        {paying === order.id ? <CircleNotch className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />} {paying === order.id ? t.opening : t.pay(short(order.total))}
+                        {paying === order.id ? <CircleNotch className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />} {paying === order.id ? t.opening : t.pay(short(left(order)))}
                       </button>
                       {order.canCancel && <button onClick={() => setCancelling(order)} disabled={!!paying} className="text-xs font-bold text-muted-foreground hover:text-foreground">{t.cancelOrder}</button>}
                     </div>

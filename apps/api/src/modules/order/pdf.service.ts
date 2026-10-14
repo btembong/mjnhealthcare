@@ -21,6 +21,7 @@ export class PdfService {
     total: number;
     amountDueNow?: number | null;
     paymentMode?: string;
+    paidBy?: { method: string; reference: string | null; receivedAt: string; amountUsd: number; amount: number; currency: string }[];
   }): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({ margin: 60, size: 'A4' });
@@ -159,6 +160,20 @@ export class PdfService {
       if (snapshot.amountDueNow != null && snapshot.amountDueNow < snapshot.total) {
         drawTotalRow('Paid now', `$${snapshot.amountDueNow.toFixed(2)}`, true);
         drawTotalRow('Balance due later', `$${(snapshot.total - snapshot.amountDueNow).toFixed(2)}`);
+      }
+
+      // ── How it was paid, when it came outside the payment providers ──────
+      if (snapshot.paidBy?.length) {
+        y += 10;
+        doc.fillColor(MUTED).fontSize(7.5).font('Helvetica-Bold').text('PAID BY', L, y);
+        y += 12;
+        for (const p of snapshot.paidBy) {
+          const on = new Date(p.receivedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+          const asReceived = p.currency === 'USD' ? '' : ` (${p.amount.toLocaleString('en-US')} ${p.currency})`;
+          doc.fillColor(INK).fontSize(8.5).font('Helvetica')
+            .text(`${p.method}${p.reference ? ` · ref ${p.reference}` : ''} · ${on} · $${p.amountUsd.toFixed(2)}${asReceived}`, L, y, { width: W });
+          y += 13;
+        }
       }
 
       // ── Payment note ─────────────────────────────────────────────────────
