@@ -6,6 +6,7 @@ import { PdfService } from '../order/pdf.service';
 import * as T from './email-templates';
 import { findConsultantContact } from '../../common/consultant-contact';
 import { adminAlertEmail } from '../../common/admin-alert';
+import { localeForEmail } from '../../common/email-locale';
 import { MANUAL_METHODS as MANUAL_METHOD_LABELS } from '../../common/manual-methods';
 
 const escapeHtml = (s: string) =>
@@ -279,11 +280,35 @@ export class NotificationListener {
     const portalUrl = process.env.PORTAL_URL ?? 'http://localhost:3002';
     const note = payload.officerNote ? ` Note from officer: "${payload.officerNote}"` : '';
     if (person.email) {
+      const fr = person.locale === 'fr';
+      const name = T.esc(person.name ?? (fr ? 'client' : 'there'));
+      const form = T.esc(payload.documentType);
+      const officerNote = payload.officerNote ? T.quote(T.esc(payload.officerNote)) : '';
+      const html = fr
+        ? T.shell(
+            T.greetingFr(name) +
+            T.label('Formulaire à remplir') +
+            T.h1('Votre chargé de dossier vous a envoyé un formulaire') +
+            T.p('Merci de le télécharger, de le remplir et de nous le renvoyer depuis votre espace client.') +
+            T.infoTable([T.row('Formulaire', `<strong>${form}</strong>`, true)]) +
+            (officerNote ? T.p('Message de votre chargé de dossier :') + officerNote : '') +
+            T.btn('Ouvrir le formulaire', `${portalUrl}/documents`),
+            T.FOOTER_FR,
+          )
+        : T.shell(
+            T.greeting(name) +
+            T.label('Form to complete') +
+            T.h1('Your officer has sent you a form') +
+            T.p('Please download it, fill it in and send it back from your client portal.') +
+            T.infoTable([T.row('Form', `<strong>${form}</strong>`, true)]) +
+            (officerNote ? T.p('A note from your officer:') + officerNote : '') +
+            T.btn('Open the form', `${portalUrl}/documents`),
+          );
       await this.notificationService.sendEmail(
         person.email,
-        `Action Required: Form to Complete — MJN Healthcare`,
-        `<p>Dear ${person.name ?? 'Client'},</p><p>Your processing officer has sent you a blank form that needs to be completed and returned. The form type is: <strong>${payload.documentType}</strong>.${note ? `</p><p>${note}` : ''}</p><p>Please log in to your portal to download, complete, and return the form.</p><p><a href="${portalUrl}/documents">View & Return Form →</a></p>`,
-        person.name,
+        fr ? 'Formulaire à remplir — MJN Healthcare' : 'A form to complete — MJN Healthcare',
+        html,
+        person.name ?? undefined,
       );
     }
     if (person.phone) {
@@ -300,11 +325,23 @@ export class NotificationListener {
     const officer = await this.db.person.findUnique({ where: { id: payload.officerId } });
     if (!officer?.email) return;
     const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
+    const client = await this.db.person.findUnique({ where: { id: payload.personId }, select: { name: true, email: true } });
     await this.notificationService.sendEmail(
       officer.email,
-      `Form Returned by Client — MJN Healthcare`,
-      `<p>Dear ${officer.name ?? 'Officer'},</p><p>A client has returned the completed form for: <strong>${payload.documentType}</strong>. Please review it in your case queue.</p><p><a href="${adminUrl}/officer/caseload">Review Now →</a></p>`,
-      officer.name,
+      `Form returned: ${payload.documentType}${client?.name ? ` — ${client.name}` : ''}`,
+      T.shell(
+        T.greeting(T.esc(officer.name ?? 'there')) +
+        T.label('Form returned') +
+        T.h1('A client sent back a completed form') +
+        T.infoTable([
+          T.row('Client', T.esc(client?.name ?? client?.email ?? 'Client')),
+          T.row('Form', `<strong>${T.esc(payload.documentType)}</strong>`, true),
+        ]) +
+        T.p('Check it and continue the case.') +
+        T.btn('Open the case', payload.engagementId ? `${adminUrl}/officer/cases/${payload.engagementId}` : `${adminUrl}/officer/caseload`),
+        'Sent to you as the processing officer on this case.',
+      ),
+      officer.name ?? undefined,
     );
   }
 
@@ -1406,11 +1443,17 @@ export class NotificationListener {
     if (consultant.email) {
       await this.notificationService.sendEmail(
         consultant.email,
-        `Action required: Officer update needs your approval`,
-        `<p>Hi ${consultant.name ?? 'Consultant'},</p>
-<p>A processing officer has drafted a sensitive client update for <strong>${payload.clientName}</strong> that requires your approval before it is sent.</p>
-<blockquote style="border-left:4px solid #0F4C81;padding:8px 16px;background:#f5f5f5;">${payload.content}</blockquote>
-<p><a href="${adminUrl}/approvals" style="background:#0F4C81;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Review &amp; Approve</a></p>`,
+        `Update to approve for ${payload.clientName}`,
+        T.shell(
+          T.greeting(T.esc(consultant.name ?? 'there')) +
+          T.label('Approval needed') +
+          T.h1('An officer’s client update needs your approval') +
+          T.p(`A processing officer has written an update for <strong>${T.esc(payload.clientName)}</strong>. It is sent to the client only once you approve it.`) +
+          T.quote(T.esc(payload.content)) +
+          T.btn('Review the update', `${adminUrl}/approvals`),
+          'Sent to you as the consultant on this case.',
+        ),
+        consultant.name ?? undefined,
       );
     }
 
@@ -1505,20 +1548,43 @@ export class NotificationListener {
   }) {
     const time = new Date(payload.slotStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
     const consultantLine = payload.consultantName ? ` with ${payload.consultantName}` : '';
-    const joinBtn = payload.roomUrl
-      ? `<p><a href="${payload.roomUrl}" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px;">Join Session</a></p>`
-      : '<p>Your advisor will share the video link shortly before the session.</p>';
 
     // Reminder to client
     if (payload.leadEmail) {
+      const fr = (await localeForEmail(this.db, payload.leadEmail)) === 'fr';
+      const inFr: Record<string, string> = { '24 hours': '24 heures', '1 hour': '1 heure', '15 minutes': '15 minutes' };
+      const label = fr ? inFr[payload.timeLabel] ?? payload.timeLabel : payload.timeLabel;
+      const name = T.esc(payload.leadName);
+      const advisor = payload.consultantName ? T.esc(payload.consultantName) : '';
+      const when = T.doualaWhen(payload.slotStart, fr);
+      const html = fr
+        ? T.shell(
+            T.greetingFr(name) +
+            T.label('Consultation gratuite') +
+            T.h1(`Votre consultation commence dans ${label}`) +
+            T.infoTable([
+              ...(advisor ? [T.row('Conseiller', `<strong>${advisor}</strong>`)] : []),
+              T.row('Quand', `<strong>${when}</strong> (heure de Douala)`, true),
+            ]) +
+            (payload.roomUrl ? T.btn('Rejoindre la séance', payload.roomUrl) : T.p('Votre conseiller vous enverra le lien vidéo peu avant la séance.')) +
+            T.pSmall('Pour changer d’heure, répondez à cet e-mail au moins 2 heures avant.'),
+            T.FOOTER_FR,
+          )
+        : T.shell(
+            T.greeting(name) +
+            T.label('Free consultation') +
+            T.h1(`Your consultation starts in ${label}`) +
+            T.infoTable([
+              ...(advisor ? [T.row('Advisor', `<strong>${advisor}</strong>`)] : []),
+              T.row('When', `<strong>${when}</strong> (Douala time)`, true),
+            ]) +
+            (payload.roomUrl ? T.btn('Join the session', payload.roomUrl) : T.p('Your advisor will send the video link shortly before the session.')) +
+            T.pSmall('To change the time, reply to this email at least 2 hours before.'),
+          );
       await this.notificationService.sendEmail(
         payload.leadEmail,
-        `Reminder: Your Free Consultation is in ${payload.timeLabel}`,
-        `<p>Hi <strong>${payload.leadName}</strong>,</p>
-        <p>Just a reminder — your free MJN Healthcare consultation${consultantLine} starts in <strong>${payload.timeLabel}</strong>.</p>
-        <p><strong>When:</strong> ${time} WAT</p>
-        ${joinBtn}
-        <p style="color:#888;font-size:13px;">If you need to reschedule, please reply to this email at least 2 hours before.</p>`,
+        fr ? `Rappel : votre consultation gratuite dans ${label}` : `Reminder: your free consultation is in ${label}`,
+        html,
         payload.leadName,
       );
     }
@@ -1532,16 +1598,22 @@ export class NotificationListener {
 
     // Reminder to consultant
     if (payload.consultantEmail) {
-      const hostBtn = payload.hostUrl
-        ? `<p><a href="${payload.hostUrl}" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px;">Join as Host</a></p>`
-        : '';
       await this.notificationService.sendEmail(
         payload.consultantEmail,
-        `[Reminder] Free Consult with ${payload.leadName} in ${payload.timeLabel}`,
-        `<p>Hi ${payload.consultantName ?? 'there'},</p>
-        <p>Your free consultation with <strong>${payload.leadName}</strong> starts in <strong>${payload.timeLabel}</strong> (${time} WAT).</p>
-        <p>Client contact: ${payload.leadEmail}${payload.leadPhone ? ` · ${payload.leadPhone}` : ''}</p>
-        ${hostBtn}`,
+        `Free consultation with ${payload.leadName} in ${payload.timeLabel}`,
+        T.shell(
+          T.greeting(T.esc(payload.consultantName ?? 'there')) +
+          T.label('Free consultation') +
+          T.h1(`Your session with ${T.esc(payload.leadName)} starts in ${payload.timeLabel}`) +
+          T.infoTable([
+            T.row('When', `<strong>${T.doualaWhen(payload.slotStart)}</strong> (Douala time)`),
+            T.row('Email', T.esc(payload.leadEmail)),
+            T.row('Phone', T.esc(payload.leadPhone ?? '—'), true),
+          ]) +
+          (payload.hostUrl ? T.btn('Join as host', payload.hostUrl) : ''),
+          'Sent to you as the advisor for this consultation.',
+        ),
+        payload.consultantName ?? undefined,
       );
     }
     this.logger.log(`Free consult reminder (${payload.timeLabel}) sent for ${payload.leadEmail}`);
@@ -1725,15 +1797,20 @@ export class NotificationListener {
     // Notify admin to follow up
     await this.notificationService.sendEmail(
       adminAlertEmail(),
-      `[Lead] Free Consult Completed — ${payload.clientName} — Follow Up`,
-      `<p>A free consultation has been marked complete. The 48-hour follow-up (with 10% discount code) has been queued.</p>
-      <ul>
-        <li><strong>Client:</strong> ${payload.clientName} (${payload.clientEmail})</li>
-        <li><strong>Consultant:</strong> ${payload.consultantName}</li>
-        <li><strong>Discount Code:</strong> ${payload.discountCode} (expires ${expiry})</li>
-        ${payload.caseNote ? `<li><strong>Case Note:</strong> ${payload.caseNote}</li>` : ''}
-      </ul>
-      <p><a href="${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads">View Lead →</a></p>`,
+      `Free consultation done — follow up with ${payload.clientName}`,
+      T.shell(
+        T.label('Lead') +
+        T.h1('A free consultation was completed') +
+        T.p('The 48-hour follow-up with a 10% discount code has been queued for the client.') +
+        T.infoTable([
+          T.row('Client', `${T.esc(payload.clientName)}<br><span style="color:#6B7A90;">${T.esc(payload.clientEmail)}</span>`),
+          T.row('Consultant', T.esc(payload.consultantName)),
+          T.row('Discount code', `<span style="font-family:monospace;">${T.esc(payload.discountCode)}</span> · expires ${expiry}`, !payload.caseNote),
+          ...(payload.caseNote ? [T.row('Case note', T.esc(payload.caseNote), true)] : []),
+        ]) +
+        T.btn('Open leads', `${process.env.ADMIN_URL ?? 'http://localhost:3004'}/leads`),
+        'Sent to the MJN admin inbox.',
+      ),
     );
     this.logger.log(`Free consult done notifications sent for booking ${payload.bookingId}`);
   }
@@ -1745,13 +1822,31 @@ export class NotificationListener {
   }) {
     const portalUrl = process.env.PORTAL_URL ?? 'http://localhost:3002';
     if (payload.leadEmail) {
+      const person = await this.db.person.findUnique({ where: { id: payload.personId }, select: { locale: true } });
+      const fr = person?.locale === 'fr';
+      const name = T.esc(payload.leadName);
+      const html = fr
+        ? T.shell(
+            T.greetingFr(name) +
+            T.label('Bienvenue') +
+            T.h1('Votre espace client est prêt') +
+            T.p('Votre compte MJN Healthcare a été créé et votre dossier est ouvert.') +
+            T.p('Connectez-vous pour suivre votre dossier, déposer vos documents et réserver vos séances. Il vous suffit de votre adresse e-mail : nous vous envoyons un code de connexion.') +
+            T.btn('Ouvrir mon espace client', `${portalUrl}/login`),
+            T.FOOTER_FR,
+          )
+        : T.shell(
+            T.greeting(name) +
+            T.label('Welcome') +
+            T.h1('Your client portal is ready') +
+            T.p('Your MJN Healthcare account has been created and your case is open.') +
+            T.p('Sign in to follow your case, upload your documents and book sessions. You only need your email address: we send you a sign-in code.') +
+            T.btn('Open my portal', `${portalUrl}/login`),
+          );
       await this.notificationService.sendEmail(
         payload.leadEmail,
-        'Welcome to MJN Healthcare — Your Portal Is Ready',
-        `<p>Hi <strong>${payload.leadName}</strong>,</p>
-        <p>Congratulations! Your MJN Healthcare account has been created and your engagement is now active.</p>
-        <p>You can now log in to the client portal to track your case, upload documents, and book sessions.</p>
-        <p><a href="${portalUrl}/login" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Access Your Portal</a></p>`,
+        fr ? 'Bienvenue chez MJN Healthcare — votre espace client est prêt' : 'Welcome to MJN Healthcare — your portal is ready',
+        html,
         payload.leadName,
         undefined,
         'team',

@@ -4,6 +4,41 @@ import { Job } from 'bull';
 import { Logger } from '@nestjs/common';
 import { NotificationService } from '../notification/notification.service';
 import { DatabaseService } from '@mjn/database';
+import * as T from '../notification/email-templates';
+import { localeForEmail } from '../../common/email-locale';
+
+/** One client reminder, in the client's language. `soon` is the "starts in…" wording. */
+function reminderEmail(fr: boolean, o: { name: string; consultant: string; start: string; roomUrl: string; soon: { en: string; fr: string }; tip?: { en: string; fr: string }; now?: boolean }) {
+  const name = T.esc(o.name);
+  const consultant = T.esc(o.consultant);
+  const when = T.doualaWhen(o.start, fr);
+  return fr
+    ? T.shell(
+        T.greetingFr(name) +
+        T.label('Consultation') +
+        T.h1(o.now ? 'Votre séance commence — vous pouvez rejoindre' : `Votre consultation commence ${o.soon.fr}`) +
+        T.infoTable([
+          T.row('Avec', `<strong>${consultant}</strong>`),
+          T.row('Quand', `<strong>${when}</strong> (heure de Douala)`, true),
+        ]) +
+        (o.tip ? T.p(o.tip.fr) : '') +
+        T.btn(o.now ? 'Rejoindre maintenant' : 'Ouvrir le lien de la séance', o.roomUrl) +
+        T.pSmall('Pour annuler avec remboursement complet, faites-le au moins 24 heures avant depuis votre espace client.'),
+        T.FOOTER_FR,
+      )
+    : T.shell(
+        T.greeting(name) +
+        T.label('Consultation') +
+        T.h1(o.now ? 'Your session is starting — you can join now' : `Your consultation starts ${o.soon.en}`) +
+        T.infoTable([
+          T.row('With', `<strong>${consultant}</strong>`),
+          T.row('When', `<strong>${when}</strong> (Douala time)`, true),
+        ]) +
+        (o.tip ? T.p(o.tip.en) : '') +
+        T.btn(o.now ? 'Join now' : 'Open the session link', o.roomUrl) +
+        T.pSmall('To cancel with a full refund, do it at least 24 hours before, from your client portal.'),
+      );
+}
 
 interface ReminderPayload {
   bookingId: string;
@@ -80,16 +115,17 @@ export class ConsultationReminderProcessor {
     if (!(await this.stillOn(job.data))) return;
     const { clientName, clientEmail, clientPhone, consultantName, sessionStart, roomUrl } = job.data;
     const time = new Date(sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
+    const fr = (await localeForEmail(this.db, clientEmail)) === 'fr';
 
     await Promise.all([
       this.notifications.sendEmail(
         clientEmail,
-        'Your MJN Healthcare Consultation — In 2 Days',
-        `<p>Hi <strong>${clientName}</strong>,</p>
-        <p>A quick heads-up: your consultation with <strong>${consultantName}</strong> is coming up in <strong>2 days</strong> at <strong>${time} WAT</strong>.</p>
-        <p>Please ensure you have a stable internet connection and a quiet space. Your join link will be live 30 minutes before the session.</p>
-        <p><a href="${roomUrl}" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px;">Open Join Link</a></p>
-        <p style="color:#888;font-size:13px;">Need to cancel? Do so at least 24 hours before to receive a full refund.</p>`,
+        fr ? 'Votre consultation MJN Healthcare — dans 2 jours' : 'Your MJN Healthcare consultation — in 2 days',
+        reminderEmail(fr, {
+          name: clientName, consultant: consultantName, start: sessionStart, roomUrl,
+          soon: { en: 'in 2 days', fr: 'dans 2 jours' },
+          tip: { en: 'Plan a quiet place with a steady internet connection. The link opens shortly before the session.', fr: 'Prévoyez un endroit calme avec une connexion stable. Le lien s’ouvre peu avant la séance.' },
+        }),
         clientName,
       ),
       this.notifications.sendWhatsApp(
@@ -105,15 +141,17 @@ export class ConsultationReminderProcessor {
     if (!(await this.stillOn(job.data))) return;
     const { clientName, clientEmail, clientPhone, consultantName, sessionStart, roomUrl } = job.data;
     const time = new Date(sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
+    const fr = (await localeForEmail(this.db, clientEmail)) === 'fr';
 
     await Promise.all([
       this.notifications.sendEmail(
         clientEmail,
-        'Your Consultation Starts in 2 Hours',
-        `<p>Hi <strong>${clientName}</strong>,</p>
-        <p>Your session with <strong>${consultantName}</strong> begins in <strong>2 hours</strong> at <strong>${time} WAT</strong>.</p>
-        <p>Test your camera and microphone now to avoid delays.</p>
-        <p><a href="${roomUrl}" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px;">Join Session</a></p>`,
+        fr ? 'Votre consultation commence dans 2 heures' : 'Your consultation starts in 2 hours',
+        reminderEmail(fr, {
+          name: clientName, consultant: consultantName, start: sessionStart, roomUrl,
+          soon: { en: 'in 2 hours', fr: 'dans 2 heures' },
+          tip: { en: 'Test your camera and microphone now to avoid delays.', fr: 'Testez dès maintenant votre caméra et votre micro pour éviter les retards.' },
+        }),
         clientName,
       ),
       this.notifications.sendWhatsApp(
@@ -129,14 +167,13 @@ export class ConsultationReminderProcessor {
     if (!(await this.stillOn(job.data))) return;
     const { clientName, clientEmail, clientPhone, consultantName, sessionStart, roomUrl } = job.data;
     const time = new Date(sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
+    const fr = (await localeForEmail(this.db, clientEmail)) === 'fr';
 
     await Promise.all([
       this.notifications.sendEmail(
         clientEmail,
-        'Your Session Starts in 15 Minutes — Join Now',
-        `<p>Hi <strong>${clientName}</strong>,</p>
-        <p>Your session with <strong>${consultantName}</strong> starts in <strong>15 minutes</strong> at ${time} WAT. The room is open — you can join now.</p>
-        <p><a href="${roomUrl}" style="background:#00A896;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;display:inline-block;font-size:16px;font-weight:bold;">Join Now →</a></p>`,
+        fr ? 'Votre séance commence dans 15 minutes' : 'Your session starts in 15 minutes — join now',
+        reminderEmail(fr, { name: clientName, consultant: consultantName, start: sessionStart, roomUrl, soon: { en: 'in 15 minutes', fr: 'dans 15 minutes' }, now: true }),
         clientName,
       ),
       this.notifications.sendWhatsApp(
@@ -164,12 +201,20 @@ export class ConsultationReminderProcessor {
 
     await this.notifications.sendEmail(
       recipient,
-      `Upcoming Session in 30 Min — ${clientName} with ${consultantName}`,
-      `<p>Hi <strong>${consultantName}</strong>,</p>
-      <p>You have a consultation with <strong>${clientName}</strong> (<a href="mailto:${clientEmail}">${clientEmail}</a>) starting in <strong>30 minutes</strong> at <strong>${time} WAT</strong>.</p>
-      ${preSessionNote ? `<p><strong>Client's pre-session note:</strong><br/><em>${preSessionNote}</em></p>` : ''}
-      <p>Open the session in your console and click <strong>Join as host</strong> to start the video room:</p>
-      <p><a href="${joinHref}" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Open My Sessions</a></p>`,
+      `Session in 30 minutes — ${clientName} with ${consultantName}`,
+      T.shell(
+        T.greeting(T.esc(consultantName)) +
+        T.label('Consultation') +
+        T.h1(`Your session with ${T.esc(clientName)} starts in 30 minutes`) +
+        T.infoTable([
+          T.row('When', `<strong>${T.doualaWhen(sessionStart)}</strong> (Douala time)`),
+          T.row('Client', `${T.esc(clientName)}<br><a href="mailto:${T.esc(clientEmail)}" style="color:#0F4C81;">${T.esc(clientEmail)}</a>`, true),
+        ]) +
+        (preSessionNote ? T.p('The client’s note before the session:') + T.quote(T.esc(preSessionNote)) : '') +
+        T.p('Open the session in your console and press <strong>Join as host</strong> to start the video room.') +
+        T.btn('Open my sessions', joinHref),
+        consultantEmail ? 'Sent to you as the consultant for this session.' : 'Sent to the admin inbox because this consultant has no email on file.',
+      ),
       consultantName,
     );
     if (!consultantEmail) {
@@ -185,20 +230,34 @@ export class ConsultationReminderProcessor {
   async handleFreeFollowup(job: Job<FollowupPayload>) {
     const { clientName, clientEmail, clientPhone, consultantName, discountCode, discountExpiry } = job.data;
     const expiry = new Date(discountExpiry).toLocaleDateString('en-GB');
+    const expiryFr = new Date(discountExpiry).toLocaleDateString('fr-FR');
+    const fr = (await localeForEmail(this.db, clientEmail)) === 'fr';
     const bookingUrl = `${process.env.WEB_URL ?? 'http://localhost:3001'}/consult`;
 
     await Promise.all([
       this.notifications.sendEmail(
         clientEmail,
-        'How was your free consultation? Book your full session — 10% off',
-        `<p>Hi <strong>${clientName}</strong>,</p>
-        <p>We hope your free consultation with <strong>${consultantName}</strong> was helpful!</p>
-        <p>As a thank-you, here is a <strong>10% discount</strong> on your next full session, valid until <strong>${expiry}</strong>:</p>
-        <p style="text-align:center;margin:24px 0;">
-          <span style="background:#F4A261;color:#fff;padding:12px 28px;border-radius:8px;font-size:22px;font-weight:bold;letter-spacing:2px;">${discountCode}</span>
-        </p>
-        <p>Ready to continue? Book your next session and apply the code at checkout.</p>
-        <p><a href="${bookingUrl}" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Book Full Session</a></p>`,
+        fr ? 'Votre consultation gratuite — 10 % sur votre prochaine séance' : 'How was your free consultation? 10% off your next session',
+        fr
+          ? T.shell(
+              T.greetingFr(T.esc(clientName)) +
+              T.label('Merci') +
+              T.h1('10 % sur votre prochaine séance') +
+              T.p(`Nous espérons que votre consultation gratuite avec <strong>${T.esc(consultantName)}</strong> vous a été utile. Pour vous remercier, voici un code de réduction de 10 % valable jusqu’au <strong>${expiryFr}</strong> :`) +
+              T.codeBox(T.esc(discountCode)) +
+              T.p('Saisissez-le au moment du paiement de votre prochaine séance.') +
+              T.btn('Réserver une séance', bookingUrl),
+              T.FOOTER_FR,
+            )
+          : T.shell(
+              T.greeting(T.esc(clientName)) +
+              T.label('Thank you') +
+              T.h1('10% off your next session') +
+              T.p(`We hope your free consultation with <strong>${T.esc(consultantName)}</strong> was helpful. As a thank-you, here is a 10% discount code, valid until <strong>${expiry}</strong>:`) +
+              T.codeBox(T.esc(discountCode)) +
+              T.p('Enter it when you pay for your next session.') +
+              T.btn('Book a session', bookingUrl),
+            ),
         clientName,
       ),
       this.notifications.sendWhatsApp(
@@ -214,13 +273,13 @@ export class ConsultationReminderProcessor {
   private async _sendClientReminder(data: ReminderPayload, timeLabel: string) {
     const { clientName, clientEmail, clientPhone, consultantName, sessionStart, roomUrl } = data;
     const time = new Date(sessionStart).toLocaleString('en-GB', { timeZone: 'Africa/Douala', hour12: false });
+    const fr = (await localeForEmail(this.db, clientEmail)) === 'fr';
+    const labelFr = ({ '24 hours': '24 heures', '1 hour': '1 heure' } as Record<string, string>)[timeLabel] ?? timeLabel;
     await Promise.all([
       this.notifications.sendEmail(
         clientEmail,
-        `Your Consultation — ${timeLabel} Away`,
-        `<p>Hi <strong>${clientName}</strong>,</p>
-        <p>Your consultation with <strong>${consultantName}</strong> starts in <strong>${timeLabel}</strong> at ${time} WAT.</p>
-        <p><a href="${roomUrl}" style="background:#0F4C81;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Join Session</a></p>`,
+        fr ? `Votre consultation commence dans ${labelFr}` : `Your consultation starts in ${timeLabel}`,
+        reminderEmail(fr, { name: clientName, consultant: consultantName, start: sessionStart, roomUrl, soon: { en: `in ${timeLabel}`, fr: `dans ${labelFr}` } }),
         clientName,
       ),
       this.notifications.sendWhatsApp(clientPhone, `Hi ${clientName}, your consultation with ${consultantName} starts in ${timeLabel} (${time} WAT). Join: ${roomUrl}`),

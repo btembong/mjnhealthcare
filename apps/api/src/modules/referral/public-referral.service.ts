@@ -2,6 +2,9 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { OnEvent } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 import { NotificationService } from '../notification/notification.service';
+import * as T from '../notification/email-templates';
+
+const REFERRER_FOOTER = 'Sent because you joined MJN Refer &amp; Earn. Reply to this email with any questions.';
 
 const PAYOUT_AMOUNT = 20; // $20 flat fee
 
@@ -45,21 +48,16 @@ export class PublicReferralService {
       const link = `${process.env.WEB_URL ?? 'https://mjnhealthcare.com'}/get-started?ref=${code}`;
       await this.notificationService.sendEmail(
         referrer.email,
-        'Your MJN Referral Link is Ready!',
-        `<div style="font-family:sans-serif;max-width:520px;margin:0 auto">
-          <h2 style="color:#0F4C81">Welcome to MJN Refer & Earn, ${referrer.name}!</h2>
-          <p>Your unique referral link is ready. Share it with healthcare professionals looking to advance their careers globally:</p>
-          <div style="background:#f4f4f8;border-radius:8px;padding:16px;margin:16px 0;text-align:center">
-            <a href="${link}" style="color:#0F4C81;font-weight:bold;font-size:16px;word-break:break-all">${link}</a>
-          </div>
-          <p><strong>How it works:</strong></p>
-          <ul>
-            <li>Share your link with anyone interested in MJN Health services</li>
-            <li>When they join and make their first payment, you earn <strong>$20</strong></li>
-            <li>Track your referrals at <a href="${process.env.WEB_URL ?? 'https://mjnhealthcare.com'}/refer/status/${code}">your status page</a></li>
-          </ul>
-          <p style="color:#666;font-size:13px">Questions? Contact us at info@mjnhealthcare.com</p>
-        </div>`,
+        'Your MJN referral link is ready',
+        T.shell(
+          T.greeting(T.esc(referrer.name)) +
+          T.label('Refer & Earn') +
+          T.h1('Your referral link is ready') +
+          T.p('Share it with healthcare professionals who want to work abroad. When someone joins through your link and makes their first payment, you earn <strong>$20</strong>.') +
+          T.notice(`<a href="${link}" style="color:#0F4C81;font-weight:700;word-break:break-all;">${link}</a>`, 'info') +
+          T.btn('See my referrals', `${process.env.WEB_URL ?? 'https://mjnhealthcare.com'}/refer/status/${code}`),
+          REFERRER_FOOTER,
+        ),
         referrer.name,
         undefined,
         'team',
@@ -154,17 +152,20 @@ export class PublicReferralService {
       });
       await this.notificationService.sendEmail(
         referral.referrer.email,
-        'You just earned $20 — someone joined MJN via your link!',
-        `<div style="font-family:sans-serif;max-width:520px;margin:0 auto">
-          <h2 style="color:#0F4C81">Great news, ${referral.referrer.name}!</h2>
-          <p>Someone you referred just made their first payment on MJN Health. You've earned <strong>$20</strong>!</p>
-          <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:16px;margin:16px 0">
-            <p style="margin:0;font-size:18px;font-weight:bold;color:#16a34a">+$20.00 earned</p>
-            <p style="margin:4px 0 0;color:#15803d;font-size:13px">Total conversions: ${totalConverted}</p>
-          </div>
-          <p>Track all your referrals at: <a href="${statusLink}" style="color:#0F4C81;font-weight:bold">${statusLink}</a></p>
-          <p style="color:#666;font-size:13px">Questions? Contact us at info@mjnhealthcare.com</p>
-        </div>`,
+        'You earned $20 — someone joined MJN through your link',
+        T.shell(
+          T.greeting(T.esc(referral.referrer.name)) +
+          T.label('Refer & Earn') +
+          T.h1('You earned $20') +
+          T.p('Someone you referred has just made their first payment with MJN Healthcare.') +
+          T.infoTable([
+            T.row('Earned', `<strong>$${PAYOUT_AMOUNT.toFixed(2)}</strong> ${T.badge('Due to you', 'success')}`),
+            T.row('People who joined', String(totalConverted), true),
+          ]) +
+          T.p('We send your payout by mobile money or bank transfer and email you when it is on its way.') +
+          T.btn('See my referrals', statusLink),
+          REFERRER_FOOTER,
+        ),
         referral.referrer.name,
         undefined,
         'billing',
@@ -214,12 +215,16 @@ export class PublicReferralService {
     if (referral.referrer.email) {
       await this.notificationService.sendEmail(
         referral.referrer.email,
-        'MJN Referral Payout Sent — $20',
-        `<div style="font-family:sans-serif;max-width:520px;margin:0 auto">
-          <h2 style="color:#0F4C81">Your payout has been sent, ${referral.referrer.name}!</h2>
-          <p>We've processed your <strong>$20 referral payout</strong>. Check your mobile money or bank account shortly.</p>
-          <p>Keep sharing: <a href="${process.env.WEB_URL ?? 'https://mjnhealthcare.com'}/refer/status/${referral.referrer.code}" style="color:#0F4C81">View your referrals</a></p>
-        </div>`,
+        'Your $20 referral payout is on its way',
+        T.shell(
+          T.greeting(T.esc(referral.referrer.name)) +
+          T.label('Refer & Earn') +
+          T.h1('Your payout has been sent') +
+          T.p(`We have sent your <strong>$${PAYOUT_AMOUNT.toFixed(2)}</strong> referral payout. It should appear in your mobile money or bank account shortly.`) +
+          T.btn('See my referrals', `${process.env.WEB_URL ?? 'https://mjnhealthcare.com'}/refer/status/${referral.referrer.code}`) +
+          T.pSmall('Keep sharing your link: every person who joins and pays earns you another $20.'),
+          REFERRER_FOOTER,
+        ),
         referral.referrer.name,
         undefined,
         'billing',

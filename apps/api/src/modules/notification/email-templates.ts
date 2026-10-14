@@ -193,6 +193,40 @@ export function notice(text: string, type: 'info' | 'warning' | 'error'): string
   </table>`;
 }
 
+/** Footer line for mail written in French. */
+export const FOOTER_FR = 'Vous recevez cet e-mail car vous avez un dossier chez MJN Healthcare. Répondez à cet e-mail pour toute question.';
+
+export function greetingFr(name: string): string {
+  return `<p style="margin:0 0 24px;font-size:15px;color:#3D4A5C;">Bonjour <strong style="color:${TEXT};">${name}</strong>,</p>`;
+}
+
+/** Text someone typed (a note, a draft), shown as a quote. Pass it already escaped. */
+export function quote(text: string): string {
+  return `<p style="margin:0 0 20px;padding:14px 16px;background:#F5F7FA;border-left:3px solid ${NAVY};border-radius:0 8px 8px 0;font-size:14px;line-height:1.6;color:${TEXT};">${text.replace(/\n/g, '<br>')}</p>`;
+}
+
+/** A code to copy, such as a discount code. */
+export function codeBox(text: string): string {
+  return `<p style="margin:8px 0 24px;text-align:center;"><span style="display:inline-block;background:#EBF2FB;color:${NAVY};padding:12px 28px;border-radius:8px;font-size:22px;font-weight:800;letter-spacing:3px;font-family:monospace;">${text}</span></p>`;
+}
+
+/** Makes text safe to place inside an email. */
+export function esc(value: unknown): string {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** "Tuesday 14 October, 15:00" in Douala time, in English or French. */
+export function doualaWhen(iso: string | Date, fr = false): string {
+  return new Date(iso).toLocaleString(fr ? 'fr-FR' : 'en-GB', {
+    timeZone: 'Africa/Douala', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+}
+
+/** True when the HTML is already a full branded email. */
+export function isShell(html: string): boolean {
+  return html.includes('<title>MJN Healthcare</title>');
+}
+
 // ── Templates ─────────────────────────────────────────────────────────────────
 
 export function tplPaymentConfirmed(opts: {
@@ -863,9 +897,6 @@ export function tplOtp(opts: { otp: string }): string {
 }
 
 // ── Documents reviewed (one notice per review session) ───────────────────────
-
-const esc = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const docName = (type: string) =>
   (type ?? '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());

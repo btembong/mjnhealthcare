@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { DatabaseService } from '@mjn/database';
 import * as Brevo from '@getbrevo/brevo';
+import { isShell, shell } from './email-templates';
 
 // Sender identities. The same Brevo-authenticated domain backs all of them,
 // so no per-address verification is needed. Keyed emails pick a from-identity;
@@ -55,6 +56,11 @@ export class NotificationService {
       }
       email.to = [{ email: to, name }];
       email.subject = subject;
+      // Every email goes out in the MJN layout, even one written without the template helpers.
+      if (!isShell(html)) {
+        this.logger.warn(`Email "${subject}" was built without the MJN template; wrapping it. Build it with the helpers in email-templates.ts.`);
+        html = shell(html);
+      }
       email.htmlContent = html;
 
       if (attachments?.length) {
