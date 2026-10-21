@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { randomBytes } from 'crypto';
+import { S3 } from 'aws-sdk';
 import { DatabaseService } from '@mjn/database';
 import { DailyCoService } from '../consultation/daily-co.service';
 import { calendarFile, WebinarInfo } from './webinar-emails';
@@ -30,6 +31,15 @@ export type RegistrationInput = {
 };
 
 const isAdmin = (a: Actor) => (a.role ?? '').toUpperCase() === 'ADMIN';
+const COVER_TYPES: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+const API_BASE = () => `${process.env.API_URL ?? 'http://localhost:3000'}/api/v1`;
+const WEB_BASE = () => process.env.WEB_URL ?? 'http://localhost:3001';
+
+/** The picture for a webinar: the uploaded cover if there is one, otherwise the one the website draws. */
+export function coverUrl(w: { slug: string; coverKey?: string | null; coverUpdatedAt?: Date | null; updatedAt?: Date }) {
+  if (w.coverKey) return `${API_BASE()}/webinars/public/${w.slug}/cover?v=${(w.coverUpdatedAt ?? new Date(0)).getTime()}`;
+  return `${WEB_BASE()}/webinars/${w.slug}/cover-image?v=${(w.updatedAt ?? new Date(0)).getTime()}`;
+}
 const clean = (v: unknown, max: number) => String(v ?? '').trim().replace(/\s+/g, ' ').slice(0, max);
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -42,6 +52,13 @@ function slugify(title: string) {
 export class WebinarService {
   private readonly logger = new Logger(WebinarService.name);
   private readonly replayLinks = new Map<string, { url: string; expiresAt: Date }>();
+  private readonly s3 = new S3({
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    region: 'auto',
+    signatureVersion: 'v4',
+  });
 
   constructor(
     private readonly db: DatabaseService,
@@ -62,7 +79,29 @@ export class WebinarService {
     return {
       title: w.title, slug: w.slug, startAt: w.startAt, durationMinutes: w.durationMinutes, language: w.language,
       hosts: (w.hosts ?? []).map((h: any) => h.person?.name).filter(Boolean),
+      coverUrl: coverUrl(w),
     };
+  }
+
+  /**
+   * Speaker photos come from consultant profiles. A staff login is matched to its profile by the
+   * link on the profile, or by the same email.
+   */
+  private async photos(rows: any[]): Promise<Map<string, string>> {
+    const people = rows.flatMap((w) => (w.hosts ?? []).map((h: any) => h.person)).filter(Boolean);
+    const ids = [...new Set(people.map((p: any) => p.id))];
+    const emails = [...new Set(people.map((p: any) => (p.email ?? '').toLowerCase()).filter(Boolean))];
+    if (ids.length === 0) return new Map();
+    const profiles = await this.db.consultantProfile.findMany({
+      where: { photoUrl: { not: null }, OR: [{ partnerUserId: { in: ids } }, ...emails.map((e) => ({ email: { equals: e, mode: 'insensitive' as const } }))] },
+      select: { partnerUserId: true, email: true, photoUrl: true },
+    });
+    const out = new Map<string, string>();
+    for (const p of people) {
+      const match = profiles.find((x) => x.partnerUserId === p.id) ?? profiles.find((x) => !!x.email && x.email.toLowerCase() === (p.email ?? '').toLowerCase());
+      if (match?.photoUrl && /^https:\/\//.test(match.photoUrl)) out.set(p.id, match.photoUrl);
+    }
+    return out;
   }
 
   private closesAt(w: { startAt: Date; durationMinutes: number }) {
@@ -144,6 +183,8 @@ export class WebinarService {
       registered: w._count?.registrations ?? 0,
       hosts: (w.hosts ?? []).map((h: any) => ({ id: h.personId, name: h.person?.name ?? h.person?.email ?? 'Staff' })),
       createdById: w.createdById,
+      coverUrl: coverUrl(w),
+      hasOwnCover: !!w.coverKey,
       over: this.isOver(w) && w.status !== 'CANCELLED' && w.status !== 'DRAFT',
       hostOpen: ['PUBLISHED', 'LIVE'].includes(w.status) && now >= w.startAt.getTime() - HOST_OPENS_BEFORE_MIN * 60000 && now <= this.closesAt(w).getTime(),
     };
@@ -365,12 +406,15 @@ export class WebinarService {
 
   // ── Public ──────────────────────────────────────────────────────────────────
 
-  private publicView(w: any) {
+  private publicView(w: any, photos: Map<string, string> = new Map()) {
     const p = this.present(w);
     return {
       slug: p.slug, title: p.title, description: p.description, language: p.language, topic: p.topic,
       startAt: p.startAt, durationMinutes: p.durationMinutes, status: p.over ? 'ENDED' : p.status,
       seatsLeft: Math.max(0, p.capacity - p.registered), hosts: p.hosts.map((h: { name: string }) => h.name),
+      speakers: (w.hosts ?? []).map((h: any) => ({ name: h.person?.name ?? 'MJN Healthcare', photo: photos.get(h.personId) ?? null })),
+      cover: p.coverUrl,
+      hasOwnCover: p.hasOwnCover,
       hasReplay: w.recordingStatus === 'READY',
     };
   }
@@ -382,7 +426,8 @@ export class WebinarService {
       include: this.include,
       orderBy: { startAt: 'asc' },
     });
-    const all = rows.map((w) => this.publicView(w));
+    const photos = await this.photos(rows);
+    const all = rows.map((w) => this.publicView(w, photos));
     return {
       upcoming: all.filter((w) => w.status !== 'ENDED'),
       replays: all.filter((w) => w.status === 'ENDED' && w.hasReplay).reverse(),
@@ -392,7 +437,7 @@ export class WebinarService {
   async getPublic(slug: string) {
     const w = await this.db.webinar.findUnique({ where: { slug }, include: this.include });
     if (!w || w.status === 'DRAFT') throw new NotFoundException('Webinar not found.');
-    return { ...this.publicView(w), cancelled: w.status === 'CANCELLED' };
+    return { ...this.publicView(w, await this.photos([w])), cancelled: w.status === 'CANCELLED' };
   }
 
   /** Saves a seat. Registering twice with the same email keeps one seat and sends the link again. */
@@ -529,6 +574,48 @@ export class WebinarService {
     const link = await this.daily.recordingLink(w.recordingId);
     this.replayLinks.set(w.id, link);
     return { url: link.url };
+  }
+
+  // ── Covers ──────────────────────────────────────────────────────────────────
+
+  /** Where the browser may upload a cover image for this webinar. */
+  async coverUploadUrl(actor: Actor, id: string, fileName: string) {
+    const w = await this.manageable(actor, id);
+    if (w.status === 'CANCELLED') throw new BadRequestException('This webinar was cancelled.');
+    const ext = String(fileName ?? '').split('.').pop()?.toLowerCase() ?? '';
+    if (!COVER_TYPES[ext]) throw new BadRequestException('The cover must be a JPG, PNG or WebP image.');
+    const key = `webinar-covers/${id}/${Date.now()}.${ext === 'jpeg' ? 'jpg' : ext}`;
+    const url = await this.s3.getSignedUrlPromise('putObject', { Bucket: process.env.R2_BUCKET_NAME, Key: key, Expires: 300, ContentType: COVER_TYPES[ext] });
+    return { url, key, contentType: COVER_TYPES[ext] };
+  }
+
+  /** Uses an uploaded image as the cover, or goes back to the drawn one (key = null). */
+  async setCover(actor: Actor, id: string, key: string | null) {
+    const w = await this.manageable(actor, id);
+    if (w.status === 'CANCELLED') throw new BadRequestException('This webinar was cancelled.');
+    if (key !== null && !String(key).startsWith(`webinar-covers/${id}/`)) throw new BadRequestException('That image was not uploaded for this webinar.');
+    if (key) {
+      // Make sure the upload really arrived and is a reasonable size before showing it everywhere.
+      try {
+        const head = await this.s3.headObject({ Bucket: process.env.R2_BUCKET_NAME as string, Key: key }).promise();
+        if ((head.ContentLength ?? 0) > 5 * 1024 * 1024) throw new BadRequestException('The cover is larger than 5 MB. Choose a smaller image.');
+      } catch (err) {
+        if (err instanceof BadRequestException) throw err;
+        throw new BadRequestException('The image did not finish uploading. Please try again.');
+      }
+    }
+    const updated = await this.db.webinar.update({ where: { id }, data: { coverKey: key, coverUpdatedAt: new Date() }, include: this.include });
+    await this.log(actor, id, key ? 'webinar.cover_uploaded' : 'webinar.cover_removed', {});
+    return { ...this.present(updated), message: key ? 'Cover updated. It shows on the website and in shared links.' : 'Back to the automatic cover.' };
+  }
+
+  /** The uploaded cover, streamed from private storage. Covers are public, like the webinar page. */
+  async coverFile(slug: string) {
+    const w = await this.db.webinar.findUnique({ where: { slug }, select: { coverKey: true, status: true } });
+    if (!w?.coverKey || w.status === 'DRAFT') throw new NotFoundException('No cover.');
+    const ext = w.coverKey.split('.').pop()?.toLowerCase() ?? 'jpg';
+    const stream = this.s3.getObject({ Bucket: process.env.R2_BUCKET_NAME as string, Key: w.coverKey }).createReadStream();
+    return { stream, contentType: COVER_TYPES[ext] ?? 'image/jpeg' };
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

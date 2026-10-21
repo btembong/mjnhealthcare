@@ -68,7 +68,6 @@ export default function WebinarsPage() {
           {/* Next session */}
           {next ? (
             <section data-tour="web-next" className={`rise relative overflow-hidden ${card} p-6`}>
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-[#1565C0] to-secondary" />
               <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2"><span className={heading}>Next session</span><StatusPill w={next} /><LangPill lang={next.language} /></div>

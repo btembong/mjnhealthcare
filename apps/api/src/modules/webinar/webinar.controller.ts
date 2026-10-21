@@ -105,6 +105,18 @@ export class WebinarAdminController {
     return this.live.setOffer(user, id, body ?? {});
   }
 
+  @Post(':id/cover-upload-url')
+  @HttpCode(200)
+  coverUploadUrl(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { fileName?: string }) {
+    return this.webinars.coverUploadUrl(user, id, String(body?.fileName ?? ''));
+  }
+
+  @Post(':id/cover')
+  @HttpCode(200)
+  setCover(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { key?: string | null }) {
+    return this.webinars.setCover(user, id, body?.key ? String(body.key) : null);
+  }
+
   @Post(':id/check-recording')
   @HttpCode(200)
   checkRecording(@CurrentUser() user: AuthUser, @Param('id') id: string) {
@@ -131,6 +143,16 @@ export class WebinarPublicController {
   @HttpCode(200)
   register(@Param('slug') slug: string, @Body() body: RegistrationInput) {
     return this.webinars.register(slug, body ?? {});
+  }
+
+  @Get('public/:slug/cover')
+  async cover(@Param('slug') slug: string, @Res() res: Response) {
+    const { stream, contentType } = await this.webinars.coverFile(slug);
+    res.set('Content-Type', contentType);
+    // The address changes whenever the cover does, so it can be kept a long time.
+    res.set('Cache-Control', 'public, max-age=604800, immutable');
+    stream.on('error', () => { if (!res.headersSent) res.status(404); res.end(); });
+    stream.pipe(res);
   }
 
   @Get('public/:slug/replay')

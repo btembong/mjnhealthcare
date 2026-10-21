@@ -12,8 +12,26 @@ export type Webinar = {
   startedAt: string | null; endedAt: string | null; cancelReason: string | null;
   recordingStatus: string | null; replayReadyAt: string | null;
   registered: number; attended?: number; hosts: { id: string; name: string }[]; createdById: string;
-  over: boolean; hostOpen: boolean;
+  over: boolean; hostOpen: boolean; coverUrl: string; hasOwnCover: boolean;
 };
+
+/**
+ * Turns any photo into a 1200×630 cover (the size social networks show), cropped from the centre
+ * and saved as a compact JPEG, so a large phone photo becomes a small file.
+ */
+export async function toCover(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const W = 1200, H = 630;
+  const scale = Math.max(W / bitmap.width, H / bitmap.height);
+  const sw = W / scale, sh = H / scale;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('This browser cannot prepare the image.');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, (bitmap.width - sw) / 2, (bitmap.height - sh) / 2, sw, sh, 0, 0, W, H);
+  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('The image could not be prepared.'))), 'image/jpeg', 0.86));
+}
 
 // ── Styles shared by the webinar screens ──────────────────────────────────────
 export const card = 'rounded-2xl border border-border bg-white shadow-sm';

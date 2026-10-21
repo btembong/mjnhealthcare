@@ -7,8 +7,8 @@ import {
   EnvelopeSimple, Play, ShieldCheck, Users, DownloadSimple,
 } from '@mjn/ui';
 import {
-  API, Countdown, LangPill, LivePill, Speakers, TEXT,
-  doualaDate, doualaTime, localTime, topicIcon, type Lang, type PublicWebinar,
+  API, Avatar, Countdown, Cover, LangPill, LivePill, TEXT,
+  doualaDate, doualaTime, localTime, type Lang, type PublicWebinar,
 } from '../../../components/webinar-kit';
 
 // ── Wording for this page, in the webinar's own language ──────────────────────
@@ -78,7 +78,6 @@ export function WebinarPage({ initial }: { initial: PublicWebinar }) {
   const lang: Lang = w.language;
   const c = COPY[lang];
   const t = TEXT[lang];
-  const Icon = topicIcon(w.topic, w.title);
   const [local, setLocal] = useState<string | null>(null);
   useEffect(() => setLocal(localTime(w.startAt, lang)), [w.startAt, lang]);
 
@@ -102,8 +101,8 @@ export function WebinarPage({ initial }: { initial: PublicWebinar }) {
       {/* ── Header ── */}
       <section className="relative overflow-hidden border-b border-border bg-white pb-10 pt-28">
         <div className="dot-grid pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_at_top_right,black,transparent_65%)]" />
-        <Icon className="drift pointer-events-none absolute -right-10 top-16 hidden h-72 w-72 text-primary/[0.05] lg:block" />
-        <div className="relative mx-auto max-w-6xl px-6">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-6 lg:grid-cols-[1fr_26rem]">
+          <div className="min-w-0">
           <Link href="/resources/webinars" className="rise inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-primary">
             <ArrowLeft className="h-4 w-4" /> {c.back}
           </Link>
@@ -113,7 +112,7 @@ export function WebinarPage({ initial }: { initial: PublicWebinar }) {
             {w.topic && <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">{w.topic}</span>}
           </div>
           <h1 className="rise mt-4 max-w-4xl text-3xl font-extrabold leading-[1.12] tracking-tight text-foreground sm:text-[2.6rem]" style={{ animationDelay: '100ms' }}>{w.title}</h1>
-          <dl className="rise mt-7 grid max-w-4xl grid-cols-2 gap-4 sm:grid-cols-4" style={{ animationDelay: '150ms' }}>
+          <dl className="rise mt-7 grid max-w-4xl grid-cols-2 gap-4" style={{ animationDelay: '150ms' }}>
             {[
               [CalendarBlank, c.when, <span key="d" className="capitalize">{doualaDate(w.startAt, lang)}</span>],
               [Clock, c.time, <span key="t">{doualaTime(w.startAt, lang)} <span className="font-normal text-muted-foreground">{t.douala}</span>{local && <span className="block text-xs font-normal text-muted-foreground">{local} {t.yourTime}</span>}</span>],
@@ -126,6 +125,11 @@ export function WebinarPage({ initial }: { initial: PublicWebinar }) {
               </div>
             ))}
           </dl>
+          </div>
+          <div className="rise relative" style={{ animationDelay: '120ms' }}>
+            <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-primary/15 to-secondary/15 blur-2xl" aria-hidden="true" />
+            <Cover w={w} priority className="relative rounded-2xl shadow-xl ring-1 ring-black/5" />
+          </div>
         </div>
       </section>
 
@@ -148,9 +152,7 @@ export function WebinarPage({ initial }: { initial: PublicWebinar }) {
                 <ul className="mt-4 grid gap-3 sm:grid-cols-2">
                   {w.hosts.map((name, i) => (
                     <li key={name} className="flex items-center gap-3 rounded-2xl border border-border bg-white p-4 shadow-sm">
-                      <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-md ${i % 2 ? 'bg-secondary' : 'bg-primary'}`}>
-                        {name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase()}
-                      </span>
+                      <Avatar name={name} photo={w.speakers?.[i]?.photo ?? null} index={i} className="h-12 w-12 text-sm shadow-md" />
                       <span><span className="block font-bold text-foreground">{name}</span><span className="block text-sm text-muted-foreground">MJN Healthcare</span></span>
                     </li>
                   ))}
@@ -198,7 +200,6 @@ function SideCard({ w, c }: { w: PublicWebinar; c: (typeof COPY)['en'] }) {
   if (w.seatsLeft === 0) return <Notice title={c.full} body={c.fullSub} c={c} />;
   return (
     <div className="rise overflow-hidden rounded-3xl border border-border bg-white shadow-xl" style={{ animationDelay: '120ms' }}>
-      <div className="h-1 bg-gradient-to-r from-primary via-[#1565C0] to-secondary" />
       {w.status === 'LIVE' ? (
         <p className="flex items-center gap-2 bg-primary/[0.06] px-6 py-3 text-sm font-semibold text-primary"><span className="live-dot text-primary" /> {c.liveBanner}</p>
       ) : (

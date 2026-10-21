@@ -2,7 +2,13 @@ import * as T from '../notification/email-templates';
 
 const WEB = () => process.env.WEB_URL ?? 'http://localhost:3001';
 
-export type WebinarInfo = { title: string; slug: string; startAt: Date; durationMinutes: number; language: 'en' | 'fr'; hosts: string[] };
+export type WebinarInfo = { title: string; slug: string; startAt: Date; durationMinutes: number; language: 'en' | 'fr'; hosts: string[]; coverUrl?: string };
+
+/** The webinar's cover at the top of an email, linked to its page. */
+function cover(w: WebinarInfo) {
+  if (!w.coverUrl) return '';
+  return `<a href="${pageUrl(w.slug)}" style="display:block;margin:0 0 24px;"><img src="${w.coverUrl}" width="480" alt="${T.esc(w.title)}" style="display:block;width:100%;max-width:480px;height:auto;border:0;border-radius:10px;" /></a>`;
+}
 export type Seat = { name: string; joinToken: string };
 
 export const joinUrl = (token: string) => `${WEB()}/webinars/join/${token}`;
@@ -66,6 +72,7 @@ export function confirmationEmail(w: WebinarInfo, s: Seat) {
   return {
     subject: f ? `Inscription confirmée : ${w.title}` : `You're registered: ${w.title}`,
     html: shell(w,
+      cover(w) +
       hello(w, s) +
       T.label(f ? 'Webinaire gratuit' : 'Free webinar') +
       T.h1(f ? 'Votre place est réservée' : 'Your seat is saved') +
@@ -86,6 +93,7 @@ export function reminderEmail(w: WebinarInfo, s: Seat, when: '24h' | '1h') {
   return {
     subject: f ? `Rappel : ${w.title} commence ${soon}` : `Reminder: ${w.title} starts ${soon}`,
     html: shell(w,
+      cover(w) +
       hello(w, s) +
       T.label(f ? 'Rappel' : 'Reminder') +
       T.h1(f ? `Votre webinaire commence ${soon}` : `Your webinar starts ${soon}`) +

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Play, Stethoscope, GraduationCap, Globe, Briefcase, Student, MonitorPlay } from '@mjn/ui';
 
 export const API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
@@ -10,7 +11,36 @@ export type PublicWebinar = {
   slug: string; title: string; description: string; language: Lang; topic: string | null;
   startAt: string; durationMinutes: number; status: 'PUBLISHED' | 'LIVE' | 'ENDED' | 'CANCELLED';
   seatsLeft: number; hosts: string[]; hasReplay: boolean; cancelled?: boolean;
+  speakers?: { name: string; photo: string | null }[]; cover?: string; hasOwnCover?: boolean;
 };
+
+/** The webinar's picture: its uploaded cover, or the one this site draws. */
+export function coverSrc(w: Pick<PublicWebinar, 'slug' | 'cover' | 'hasOwnCover'>) {
+  return w.hasOwnCover && w.cover ? w.cover : `/webinars/${w.slug}/cover-image`;
+}
+
+export function Cover({ w, className = '', priority = false, sizes = '(min-width: 1024px) 420px, 100vw' }: { w: PublicWebinar; className?: string; priority?: boolean; sizes?: string }) {
+  const style = `aspect-[1200/630] w-full bg-gradient-to-br from-[#0A2540] via-primary to-[#0E7C8C] object-cover ${className}`;
+  // A drawn cover lives on this site, so it is resized and sent as a light WebP for slow connections.
+  if (!(w.hasOwnCover && w.cover)) {
+    return <Image src={`/webinars/${w.slug}/cover-image`} alt={w.title} width={1200} height={630} sizes={sizes} priority={priority} className={style} />;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={coverSrc(w)}
+      alt={w.title}
+      width={1200}
+      height={630}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
+      className={style}
+    />
+  );
+}
+
+/** Speaker photos in the same order as their names. */
+export const photosOf = (w: PublicWebinar) => (w.speakers ?? []).map((s) => s.photo);
 
 // ── Wording ──────────────────────────────────────────────────────────────────
 
@@ -136,16 +166,22 @@ export function DateTile({ iso, lang, tone = 'light' }: { iso: string; lang: Lan
 
 const initials = (name: string) => name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase();
 
-export function Speakers({ names, lang, compact = false }: { names: string[]; lang: Lang; compact?: boolean }) {
+/** A speaker: their photo when we have one, otherwise their initials. */
+export function Avatar({ name, photo, index = 0, className = '' }: { name: string; photo: string | null; index?: number; className?: string }) {
+  const [broken, setBroken] = useState(false);
+  if (photo && !broken) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={photo} alt={name} loading="lazy" onError={() => setBroken(true)} className={`shrink-0 rounded-full object-cover ${className}`} />;
+  }
+  return <span className={`flex shrink-0 items-center justify-center rounded-full font-bold text-white ${index % 2 ? 'bg-secondary' : 'bg-primary'} ${className}`}>{initials(name)}</span>;
+}
+
+export function Speakers({ names, photos = [], lang, compact = false }: { names: string[]; photos?: (string | null)[]; lang: Lang; compact?: boolean }) {
   if (names.length === 0) return null;
   return (
     <div className="flex items-center gap-3">
       <div className="flex -space-x-2">
-        {names.slice(0, 3).map((n, i) => (
-          <span key={n} className={`flex items-center justify-center rounded-full border-2 border-white font-bold text-white shadow-sm ${compact ? 'h-7 w-7 text-[10px]' : 'h-9 w-9 text-xs'} ${i % 2 ? 'bg-secondary' : 'bg-primary'}`}>
-            {initials(n)}
-          </span>
-        ))}
+        {names.slice(0, 3).map((n, i) => <Avatar key={n} name={n} photo={photos[i] ?? null} index={i} className={`border-2 border-white shadow-sm ${compact ? 'h-7 w-7 text-[10px]' : 'h-9 w-9 text-xs'}`} />)}
       </div>
       <p className={`min-w-0 truncate text-muted-foreground ${compact ? 'text-xs' : 'text-sm'}`}>
         {TEXT[lang].with} <span className="font-semibold text-foreground">{names.join(', ')}</span>

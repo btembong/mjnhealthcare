@@ -713,6 +713,9 @@ export const api = {
   checkWebinarRecording: (id: string) => request<{ status: string; message: string }>(`/webinars/admin/${id}/check-recording`, { method: 'POST' }),
   webinarExportUrl: (id: string) => `${API_BASE}/webinars/admin/${id}/export`,
   webinarLive: (id: string) => request<any>(`/webinars/admin/${id}/live`),
+  webinarCoverUploadUrl: (id: string, fileName: string) =>
+    request<{ url: string; key: string; contentType: string }>(`/webinars/admin/${id}/cover-upload-url`, { method: 'POST', body: JSON.stringify({ fileName }) }),
+  setWebinarCover: (id: string, key: string | null) => request<any>(`/webinars/admin/${id}/cover`, { method: 'POST', body: JSON.stringify({ key }) }),
   moderateWebinarQuestion: (id: string, questionId: string, action: 'answer' | 'reopen' | 'hide' | 'show' | 'pin' | 'unpin') =>
     request<any>(`/webinars/admin/${id}/questions/${questionId}/${action}`, { method: 'POST' }),
   createWebinarPoll: (id: string, data: { question: string; options: string[] }) => request<any>(`/webinars/admin/${id}/polls`, { method: 'POST', body: JSON.stringify(data) }),

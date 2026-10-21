@@ -28,7 +28,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title: w.title,
     description: w.description.slice(0, 160),
     alternates: { canonical: `/webinars/${w.slug}` },
-    openGraph: { title: w.title, description: w.description.slice(0, 200), url: `${SITE}/webinars/${w.slug}`, type: 'website' },
+    openGraph: {
+      title: w.title, description: w.description.slice(0, 200), url: `${SITE}/webinars/${w.slug}`, type: 'website',
+      images: [{ url: w.hasOwnCover && w.cover ? w.cover : `${SITE}/webinars/${w.slug}/cover-image`, width: 1200, height: 630, alt: w.title }],
+    },
+    twitter: { card: 'summary_large_image', title: w.title, description: w.description.slice(0, 200), images: [w.hasOwnCover && w.cover ? w.cover : `${SITE}/webinars/${w.slug}/cover-image`] },
   };
 }
 
@@ -41,6 +45,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     '@type': 'Event',
     name: w.title,
     description: w.description,
+    image: w.hasOwnCover && w.cover ? w.cover : `${SITE}/webinars/${w.slug}/cover-image`,
     startDate: w.startAt,
     endDate: new Date(new Date(w.startAt).getTime() + w.durationMinutes * 60000).toISOString(),
     eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',

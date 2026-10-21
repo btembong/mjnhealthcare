@@ -8,12 +8,12 @@ import { Skeleton } from '@mjn/ui';
 import {
   ArrowLeft, CalendarBlank, Clock, Users, VideoCamera, Copy, ArrowSquareOut, PencilSimple, Prohibit,
   DownloadSimple, MagnifyingGlass, Play, CircleNotch, ArrowClockwise, Question, CheckCircle, Stop,
-  Star, Sparkle, ChartBar, Phone, EnvelopeSimple, Flame,
+  Star, Sparkle, ChartBar, Phone, EnvelopeSimple, Flame, ImageSquare, UploadSimple,
 } from '@mjn/ui';
 import { api } from '../../../../lib/api';
 import { useAdmin } from '../../../../contexts/admin-context';
 import {
-  LangPill, Modal, StatusPill, WebinarForm, btnOutline, btnPrimary, card, field, heading, stage, whenLabel, type Webinar,
+  LangPill, Modal, StatusPill, WebinarForm, btnOutline, btnPrimary, card, field, heading, stage, toCover, whenLabel, type Webinar,
 } from '../../../../components/webinar-kit';
 
 type Registration = {
@@ -104,7 +104,6 @@ export default function WebinarDetailPage() {
 
       {/* Header */}
       <section data-tour="page-header" className={`rise relative overflow-hidden ${card} p-6`}>
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-[#1565C0] to-secondary" />
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2"><StatusPill w={d} /><LangPill lang={d.language} />{d.topic && <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">{d.topic}</span>}</div>
@@ -317,6 +316,8 @@ export default function WebinarDetailPage() {
             )}
           </section>
 
+          <CoverCard d={d} canManage={canManage} onChanged={load} />
+
           <section className={`${card} p-5`}>
             <p className={heading}>About</p>
             <p className="mt-2 line-clamp-[10] whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{d.description}</p>
@@ -350,5 +351,73 @@ export default function WebinarDetailPage() {
         </Modal>
       )}
     </div>
+  );
+}
+
+/** The webinar's picture: drawn automatically from its details, or one the team uploads. */
+function CoverCard({ d, canManage, onChanged }: { d: Detail; canManage: boolean; onChanged: () => Promise<void> }) {
+  const [busy, setBusy] = useState<'' | 'upload' | 'reset'>('');
+  const [preview, setPreview] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const src = preview ?? d.coverUrl;
+
+  async function upload(file: File) {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { toast.error('Choose a JPG, PNG or WebP image.'); return; }
+    if (file.size > 20 * 1024 * 1024) { toast.error('That image is larger than 20 MB.'); return; }
+    setBusy('upload');
+    try {
+      const blob = await toCover(file);
+      setPreview(URL.createObjectURL(blob));
+      const { url, key, contentType } = await api.webinarCoverUploadUrl(d.id, 'cover.jpg');
+      const put = await fetch(url, { method: 'PUT', body: blob, headers: { 'Content-Type': contentType } });
+      if (!put.ok) throw new Error('The image could not be uploaded. Please try again.');
+      const res = await api.setWebinarCover(d.id, key);
+      toast.success(res.message ?? 'Cover updated.');
+      await onChanged();
+    } catch (e: any) {
+      setPreview(null);
+      toast.error(e.message ?? 'The cover could not be changed.');
+    } finally {
+      setBusy('');
+    }
+  }
+  async function reset() {
+    setBusy('reset');
+    try {
+      const res = await api.setWebinarCover(d.id, null);
+      setPreview(null);
+      toast.success(res.message ?? 'Back to the automatic cover.');
+      await onChanged();
+    } catch (e: any) {
+      toast.error(e.message ?? 'The cover could not be changed.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  return (
+    <section data-tour="web-cover" className={`${card} overflow-hidden`}>
+      <div className="relative aspect-[1200/630] bg-gradient-to-br from-[#0A2540] via-primary to-[#0E7C8C]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt="Webinar cover" onLoad={() => setLoaded(true)} className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${loaded || preview ? 'opacity-100' : 'opacity-0'}`} />
+        {busy === 'upload' && <div className="absolute inset-0 flex items-center justify-center bg-black/30"><CircleNotch className="h-7 w-7 animate-spin text-white" /></div>}
+      </div>
+      <div className="p-4">
+        <p className={`${heading} flex items-center gap-1.5`}><ImageSquare className="h-3.5 w-3.5" /> Cover</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {d.hasOwnCover ? 'Your uploaded image.' : 'Drawn automatically from the title, date and speakers. It updates by itself when they change.'} Used on the website, in the emails, and when the link is shared on WhatsApp or social media.
+        </p>
+        {canManage && d.status !== 'CANCELLED' && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <label className={`${btnOutline} cursor-pointer ${busy ? 'pointer-events-none opacity-40' : ''}`}>
+              <UploadSimple className="h-4 w-4" /> {d.hasOwnCover ? 'Replace' : 'Upload your own'}
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={!!busy} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) upload(file); }} />
+            </label>
+            {d.hasOwnCover && <button onClick={reset} disabled={!!busy} className={btnOutline}>{busy === 'reset' && <CircleNotch className="h-4 w-4 animate-spin" />} Use automatic</button>}
+          </div>
+        )}
+        {canManage && <p className="mt-2 text-[11px] text-muted-foreground">Any photo works: it is cropped to the share size (1200 × 630) and made small for slow connections.</p>}
+      </div>
+    </section>
   );
 }

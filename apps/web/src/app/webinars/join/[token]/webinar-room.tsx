@@ -6,7 +6,7 @@ import {
   ArrowRight, CalendarPlus, Clock, Headphones, WifiHigh, Info, SignOut, SidebarSimple, Play, Users,
   CircleNotch, ArrowsClockwise, X, ChatCircle, CalendarBlank, Monitor,
 } from '@mjn/ui';
-import { API, Countdown, LangPill, doualaDate, doualaTime, type Lang, type PublicWebinar } from '../../../../components/webinar-kit';
+import { API, Avatar, Countdown, Cover, LangPill, doualaDate, doualaTime, type Lang, type PublicWebinar } from '../../../../components/webinar-kit';
 import { ENGAGE, NewPollToast, OfferBanner, PollPanel, QuestionsPanel, SurveyCard, useLive } from './engage';
 
 type Attend = {
@@ -144,7 +144,10 @@ function WaitingRoom({ data, token, c, onOpen, onCancelled }: { data: Attend; to
           <Brand />
           <LangPill lang={lang} />
         </div>
-        <div className="rise mt-12 text-center" style={{ animationDelay: '80ms' }}>
+        <div className="rise mx-auto mt-10 max-w-md overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10" style={{ animationDelay: '40ms' }}>
+          <Cover w={w} priority />
+        </div>
+        <div className="rise mt-8 text-center" style={{ animationDelay: '80ms' }}>
           <p className="text-sm font-semibold text-secondary">{c.hello(data.name)}</p>
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">{c.waitingTitle}</h1>
           <p className="mx-auto mt-3 max-w-xl text-lg text-white/70">{w.title}</p>
@@ -357,7 +360,7 @@ function AboutPanel({ w, c }: { w: PublicWebinar; c: (typeof COPY)['en'] }) {
           <ul className="mt-3 space-y-2.5">
             {w.hosts.map((name, i) => (
               <li key={name} className="flex items-center gap-3">
-                <span className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${i % 2 ? 'bg-secondary' : 'bg-primary'}`}>{name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase()}</span>
+                <Avatar name={name} photo={w.speakers?.[i]?.photo ?? null} index={i} className="h-9 w-9 text-xs" />
                 <span className="text-sm font-semibold text-white/90">{name}</span>
               </li>
             ))}
