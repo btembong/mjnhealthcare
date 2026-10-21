@@ -124,20 +124,36 @@ export function WebinarForm({ existing, meId, isAdmin, onClose, onSaved }: {
   const toggle = (id: string) => setHostIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
 
   const ready = title.trim().length >= 5 && description.trim().length >= 20 && !!date && !!time && hostIds.length > 0 && Number(capacity) >= 1;
+  // A webinar goes on the website at least 30 minutes ahead, so people can register.
+  const startMs = date && time ? new Date(fromDouala(date, time)).getTime() : NaN;
+  const tooSoon = Number.isFinite(startMs) && startMs < Date.now() + 30 * 60000;
+  const publishing = !existing || existing.status === 'DRAFT';
 
   async function save(publish: boolean) {
     setBusy(publish ? 'publish' : 'draft');
+    let saved: any = null;
     try {
       const body = { title: title.trim(), description: description.trim(), language, topic: topic || null, startAt: fromDouala(date, time), durationMinutes: duration, capacity: Number(capacity), hostIds };
-      let saved = existing ? await api.updateWebinar(existing.id, body) : await api.createWebinar(body);
-      if (publish && saved.status === 'DRAFT') saved = await api.publishWebinar(saved.id);
-      toast.success(saved.message ?? (publish ? 'Published.' : 'Saved as a draft.'));
-      onSaved(saved);
+      saved = existing ? await api.updateWebinar(existing.id, body) : await api.createWebinar(body);
     } catch (e: any) {
       toast.error(e.message ?? 'It could not be saved.');
-    } finally {
       setBusy('');
+      return;
     }
+    if (publish && saved.status === 'DRAFT') {
+      try {
+        saved = await api.publishWebinar(saved.id);
+      } catch (e: any) {
+        // It is saved; open it as a draft rather than leave the form open, where trying again would make a copy.
+        toast.error(`Saved as a draft but not published: ${e.message ?? 'please try again from the webinar page.'}`);
+        setBusy('');
+        onSaved(saved);
+        return;
+      }
+    }
+    toast.success(saved.message ?? (publish ? 'Published.' : 'Saved as a draft.'));
+    setBusy('');
+    onSaved(saved);
   }
 
   return (
@@ -228,12 +244,17 @@ export function WebinarForm({ existing, meId, isAdmin, onClose, onSaved }: {
           {(!existing || existing.status === 'DRAFT') && (
             <button onClick={() => save(false)} disabled={!ready || !!busy} className={btnOutline}>{busy === 'draft' && <CircleNotch className="h-4 w-4 animate-spin" />} Save draft</button>
           )}
-          <button onClick={() => save(!existing || existing.status === 'DRAFT')} disabled={!ready || !!busy} className={btnPrimary}>
+          <button onClick={() => save(publishing)} disabled={!ready || !!busy || (publishing && tooSoon)} className={btnPrimary}>
             {busy === 'publish' && <CircleNotch className="h-4 w-4 animate-spin" />}
             {!existing || existing.status === 'DRAFT' ? 'Publish' : 'Save changes'}
           </button>
         </div>
         {locked && <p className="-mt-2 text-right text-xs text-muted-foreground">Changing the date or time emails everyone registered.</p>}
+        {publishing && tooSoon && (
+          <p role="alert" className="-mt-2 text-right text-xs font-semibold text-foreground">
+            The start is less than 30 minutes away (Douala time). Choose a later time to publish, or save it as a draft.
+          </p>
+        )}
       </div>
     </Modal>
   );
