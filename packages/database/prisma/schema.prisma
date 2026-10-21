@@ -1607,12 +1607,17 @@ model Webinar {
   recordingId     String?
   recordingStatus String? // WAITING | READY | NONE
   replayReadyAt   DateTime?
+  offerLabel      String?   // the button the host can show, e.g. "Book a free consultation"
+  offerUrl        String?
+  offerVisible    Boolean   @default(false)
   createdById     String
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   hosts         WebinarHost[]
   registrations WebinarRegistration[]
+  questions     WebinarQuestion[]
+  polls         WebinarPoll[]
 
   @@index([status, startAt])
   @@map("webinars")
@@ -1650,9 +1655,73 @@ model WebinarRegistration {
   minutesWatched     Int       @default(0)
   confirmationSentAt DateTime?
   replaySentAt       DateTime?
+  offerClickedAt     DateTime?
+  surveyRating       Int?      // 1 to 5
+  surveyWantsContact Boolean?
+  surveyComment      String?
+  surveyAt           DateTime?
   createdAt          DateTime  @default(now())
 
   @@unique([webinarId, email])
   @@index([webinarId, status])
   @@map("webinar_registrations")
+}
+
+/// A question asked during a webinar. Hidden ones are seen only by hosts.
+model WebinarQuestion {
+  id             String    @id @default(cuid())
+  webinarId      String
+  webinar        Webinar   @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  registrationId String?
+  authorName     String
+  text           String
+  status         String    @default("OPEN") // OPEN | ANSWERED | HIDDEN
+  pinned         Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  answeredAt     DateTime?
+
+  votes WebinarQuestionVote[]
+
+  @@index([webinarId, createdAt])
+  @@map("webinar_questions")
+}
+
+model WebinarQuestionVote {
+  questionId     String
+  question       WebinarQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  registrationId String
+  createdAt      DateTime        @default(now())
+
+  @@id([questionId, registrationId])
+  @@map("webinar_question_votes")
+}
+
+/// A poll the host launches during a webinar.
+model WebinarPoll {
+  id          String    @id @default(cuid())
+  webinarId   String
+  webinar     Webinar   @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  question    String
+  options     String[]
+  status      String    @default("DRAFT") // DRAFT | OPEN | CLOSED
+  showResults Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  openedAt    DateTime?
+  closedAt    DateTime?
+
+  votes WebinarPollVote[]
+
+  @@index([webinarId, createdAt])
+  @@map("webinar_polls")
+}
+
+model WebinarPollVote {
+  pollId         String
+  poll           WebinarPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  registrationId String
+  option         Int
+  createdAt      DateTime    @default(now())
+
+  @@id([pollId, registrationId])
+  @@map("webinar_poll_votes")
 }

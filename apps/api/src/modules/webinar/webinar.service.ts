@@ -80,6 +80,11 @@ export class WebinarService {
     return w;
   }
 
+  /** For other webinar services: the webinar, if this person may run it. */
+  assertCanManage(actor: Actor, id: string) {
+    return this.manageable(actor, id);
+  }
+
   /** Admins manage every webinar; a consultant manages the ones they host or created. */
   private async manageable(actor: Actor, id: string) {
     const w = await this.load(id);
@@ -153,11 +158,29 @@ export class WebinarService {
     return rows.map((w) => ({ ...this.present(w), attended: seen.get(w.id) ?? 0 }));
   }
 
+  /**
+   * How interested someone looks after a webinar. Hot: they asked to be contacted. Warm: they
+   * watched at least half (or 30 minutes), asked a question, clicked the offer, or rated it 4 or 5.
+   */
+  static interest(r: { surveyWantsContact: boolean | null; minutesWatched: number; offerClickedAt: Date | null; surveyRating: number | null }, asked: number, duration: number): 'hot' | 'warm' | null {
+    if (r.surveyWantsContact) return 'hot';
+    if (r.minutesWatched >= Math.min(30, Math.ceil(duration / 2)) || asked > 0 || r.offerClickedAt || (r.surveyRating ?? 0) >= 4) return 'warm';
+    return null;
+  }
+
   async detail(id: string) {
     const w = await this.load(id);
-    const regs = await this.db.webinarRegistration.findMany({ where: { webinarId: id }, orderBy: { createdAt: 'desc' } });
+    const [regs, questions, polls] = await Promise.all([
+      this.db.webinarRegistration.findMany({ where: { webinarId: id }, orderBy: { createdAt: 'desc' } }),
+      this.db.webinarQuestion.findMany({ where: { webinarId: id }, select: { registrationId: true, status: true } }),
+      this.db.webinarPoll.findMany({ where: { webinarId: id, status: { not: 'DRAFT' } }, include: { votes: { select: { option: true } } }, orderBy: { createdAt: 'asc' } }),
+    ]);
     const active = regs.filter((r) => r.status === 'REGISTERED');
     const came = active.filter((r) => r.firstJoinedAt);
+    const asked = new Map<string, number>();
+    for (const q of questions) if (q.registrationId) asked.set(q.registrationId, (asked.get(q.registrationId) ?? 0) + 1);
+    const interest = new Map(active.map((r) => [r.id, WebinarService.interest(r, asked.get(r.id) ?? 0, w.durationMinutes)]));
+    const rated = active.filter((r) => r.surveyRating);
     return {
       ...this.present(w),
       publicUrl: `${process.env.WEB_URL ?? 'http://localhost:3001'}/webinars/${w.slug}`,
@@ -169,10 +192,28 @@ export class WebinarService {
         cancelled: regs.length - active.length,
         newLeads: active.filter((r) => r.leadId && !r.personId).length,
       },
+      engagement: {
+        questions: questions.filter((q) => q.status !== 'HIDDEN').length,
+        answered: questions.filter((q) => q.status === 'ANSWERED').length,
+        pollAnswers: polls.reduce((sum, p) => sum + p.votes.length, 0),
+        offerClicks: active.filter((r) => r.offerClickedAt).length,
+        surveyResponses: rated.length,
+        averageRating: rated.length ? Math.round((rated.reduce((sum, r) => sum + (r.surveyRating ?? 0), 0) / rated.length) * 10) / 10 : null,
+        hot: [...interest.values()].filter((v) => v === 'hot').length,
+        warm: [...interest.values()].filter((v) => v === 'warm').length,
+      },
+      polls: polls.map((p) => {
+        const counts = p.options.map(() => 0);
+        for (const v of p.votes) if (counts[v.option] !== undefined) counts[v.option]++;
+        return { id: p.id, question: p.question, options: p.options, counts, total: p.votes.length };
+      }),
       registrations: regs.map((r) => ({
         id: r.id, name: r.name, email: r.email, phone: r.phone, profession: r.profession, destination: r.destination,
         question: r.question, marketingConsent: r.marketingConsent, status: r.status, createdAt: r.createdAt,
         attended: !!r.firstJoinedAt, minutesWatched: r.minutesWatched, leadId: r.leadId, personId: r.personId, source: r.source,
+        questionsAsked: asked.get(r.id) ?? 0, offerClicked: !!r.offerClickedAt,
+        surveyRating: r.surveyRating, surveyWantsContact: r.surveyWantsContact, surveyComment: r.surveyComment,
+        interest: interest.get(r.id) ?? null,
       })),
     };
   }
@@ -311,10 +352,13 @@ export class WebinarService {
       const text = String(v ?? '');
       return `"${(/^[=+\-@]/.test(text) ? `'${text}` : text).replace(/"/g, '""')}"`;
     };
-    const header = ['Name', 'Email', 'Phone', 'Profession', 'Destination', 'Registered', 'Status', 'Attended', 'Minutes watched', 'Question', 'Marketing consent', 'Source'];
+    const header = ['Name', 'Email', 'Phone', 'Profession', 'Destination', 'Registered', 'Status', 'Attended', 'Minutes watched', 'Interest', 'Questions asked live', 'Clicked offer', 'Rating (1-5)', 'Wants contact', 'Comment', 'Question at registration', 'Marketing consent', 'Source'];
     const body = d.registrations.map((r) => [
       r.name, r.email, r.phone ?? '', r.profession ?? '', r.destination ?? '', r.createdAt.toISOString().slice(0, 16).replace('T', ' '),
-      r.status === 'REGISTERED' ? 'Registered' : 'Cancelled', r.attended ? 'Yes' : 'No', r.minutesWatched, r.question ?? '', r.marketingConsent ? 'Yes' : 'No', r.source ?? '',
+      r.status === 'REGISTERED' ? 'Registered' : 'Cancelled', r.attended ? 'Yes' : 'No', r.minutesWatched,
+      r.interest === 'hot' ? 'Hot' : r.interest === 'warm' ? 'Warm' : '', r.questionsAsked, r.offerClicked ? 'Yes' : 'No',
+      r.surveyRating ?? '', r.surveyWantsContact === true ? 'Yes' : r.surveyWantsContact === false ? 'No' : '', r.surveyComment ?? '',
+      r.question ?? '', r.marketingConsent ? 'Yes' : 'No', r.source ?? '',
     ].map(cell).join(','));
     return [header.map(cell).join(','), ...body].join('\n');
   }

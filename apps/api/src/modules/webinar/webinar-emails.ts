@@ -7,6 +7,7 @@ export type Seat = { name: string; joinToken: string };
 
 export const joinUrl = (token: string) => `${WEB()}/webinars/join/${token}`;
 export const pageUrl = (slug: string) => `${WEB()}/webinars/${slug}`;
+export const feedbackUrl = (token: string) => `${WEB()}/webinars/feedback/${token}`;
 
 const firstName = (name: string) => (name ?? '').trim().split(/\s+/)[0] || name;
 const fr = (w: WebinarInfo) => w.language === 'fr';
@@ -155,6 +156,9 @@ export function replayEmail(w: WebinarInfo, s: Seat, attended: boolean) {
         ? (f ? `Vous pouvez revoir <strong>${T.esc(w.title)}</strong> quand vous le souhaitez.` : `You can watch <strong>${T.esc(w.title)}</strong> again whenever you like.`)
         : (f ? `Vous n’avez pas pu assister à <strong>${T.esc(w.title)}</strong> ? Le replay complet est en ligne.` : `Couldn’t make it to <strong>${T.esc(w.title)}</strong>? The full recording is online.`)) +
       T.btn(f ? 'Regarder le replay' : 'Watch the replay', pageUrl(w.slug)) +
+      T.pSmall(f
+        ? `Votre avis compte : <a href="${feedbackUrl(s.joinToken)}" style="color:#0F4C81;font-weight:700;">dites-nous ce que vous en avez pensé</a> (30 secondes).`
+        : `Your opinion matters: <a href="${feedbackUrl(s.joinToken)}" style="color:#0F4C81;font-weight:700;">tell us what you thought</a> (30 seconds).`) +
       T.divider() +
       T.p(f
         ? 'Vous avez une question sur votre propre dossier ? Réservez une consultation avec un de nos conseillers.'

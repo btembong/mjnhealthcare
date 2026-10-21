@@ -71,7 +71,7 @@ function BotBubble({ content }: { content: string }) {
 export function SupportBot() {
   const pathname = usePathname();
   // Kept out of full-screen experiences: surveys and the webinar room.
-  if (pathname?.startsWith('/survey/') || pathname?.startsWith('/webinars/join/')) return null;
+  if (pathname?.startsWith('/survey/') || pathname?.startsWith('/webinars/join/') || pathname?.startsWith('/webinars/feedback/')) return null;
   return <SupportBotWidget />;
 }
 

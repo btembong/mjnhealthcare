@@ -712,6 +712,13 @@ export const api = {
   endWebinar: (id: string) => request<any>(`/webinars/admin/${id}/end`, { method: 'POST' }),
   checkWebinarRecording: (id: string) => request<{ status: string; message: string }>(`/webinars/admin/${id}/check-recording`, { method: 'POST' }),
   webinarExportUrl: (id: string) => `${API_BASE}/webinars/admin/${id}/export`,
+  webinarLive: (id: string) => request<any>(`/webinars/admin/${id}/live`),
+  moderateWebinarQuestion: (id: string, questionId: string, action: 'answer' | 'reopen' | 'hide' | 'show' | 'pin' | 'unpin') =>
+    request<any>(`/webinars/admin/${id}/questions/${questionId}/${action}`, { method: 'POST' }),
+  createWebinarPoll: (id: string, data: { question: string; options: string[] }) => request<any>(`/webinars/admin/${id}/polls`, { method: 'POST', body: JSON.stringify(data) }),
+  webinarPollAction: (id: string, pollId: string, action: 'open' | 'close' | 'share' | 'unshare' | 'delete') =>
+    request<any>(`/webinars/admin/${id}/polls/${pollId}/${action}`, { method: 'POST' }),
+  setWebinarOffer: (id: string, data: { label?: string; url?: string; visible?: boolean }) => request<any>(`/webinars/admin/${id}/offer`, { method: 'POST', body: JSON.stringify(data) }),
 
   getPaymentsExportUrl: (params?: { search?: string; kind?: string; state?: string; dateFrom?: string; dateTo?: string }) => {
     const qs = new URLSearchParams();

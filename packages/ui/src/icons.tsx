@@ -215,6 +215,7 @@ export const Headphones           = makeIcon('solar:headphones-round-bold', 'sol
 export const WifiHigh             = makeIcon('solar:wi-fi-high-bold');
 export const SidebarSimple        = makeIcon('solar:sidebar-minimalistic-bold');
 export const Broadcast            = makeIcon('solar:stream-bold');
+export const PushPin              = makeIcon('solar:pin-bold');
 export const Package              = makeIcon('solar:box-bold', 'solar:box-bold-duotone');
 export const Swap                 = makeIcon('solar:transfer-horizontal-bold');
 

@@ -7,6 +7,7 @@ import {
   CircleNotch, ArrowsClockwise, X, ChatCircle, CalendarBlank, Monitor,
 } from '@mjn/ui';
 import { API, Countdown, LangPill, doualaDate, doualaTime, type Lang, type PublicWebinar } from '../../../../components/webinar-kit';
+import { ENGAGE, NewPollToast, OfferBanner, PollPanel, QuestionsPanel, SurveyCard, useLive } from './engage';
 
 type Attend = {
   webinar: PublicWebinar; name: string; seatCancelled: boolean;
@@ -97,9 +98,12 @@ export function WebinarRoom({ token }: { token: string }) {
         <Message
           title={c.ended}
           body={c.endedSub}
-          action={<div className="flex flex-wrap justify-center gap-3">
-            {w.hasReplay && <Link href={`/webinars/${w.slug}`} className={btnPrimary}><Play className="h-4 w-4" weight="fill" /> {c.watch}</Link>}
-            <Link href="/consult" className={btnLight}>{c.consultCta}</Link>
+          action={<div className="space-y-6">
+            <div className="flex flex-wrap justify-center gap-3">
+              {w.hasReplay && <Link href={`/webinars/${w.slug}`} className={btnPrimary}><Play className="h-4 w-4" weight="fill" /> {c.watch}</Link>}
+              <Link href="/consult" className={btnLight}>{c.consultCta}</Link>
+            </div>
+            {new Date(w.startAt).getTime() <= Date.now() && <SurveyCard token={token} lang={w.language} />}
           </div>}
         />
       </Screen>
@@ -109,9 +113,12 @@ export function WebinarRoom({ token }: { token: string }) {
   if (left) {
     return (
       <Screen>
-        <Message title={c.left} body={c.leftSub} action={<div className="flex flex-wrap justify-center gap-3">
-          <button onClick={() => { setLeft(false); load(); }} className={btnPrimary}><ArrowsClockwise className="h-4 w-4" /> {c.rejoin}</button>
-          <Link href="/consult" className={btnLight}>{c.consultCta}</Link>
+        <Message title={c.left} body={c.leftSub} action={<div className="space-y-6">
+          <div className="flex flex-wrap justify-center gap-3">
+            <button onClick={() => { setLeft(false); load(); }} className={btnPrimary}><ArrowsClockwise className="h-4 w-4" /> {c.rejoin}</button>
+            <Link href="/consult" className={btnLight}>{c.consultCta}</Link>
+          </div>
+          <SurveyCard token={token} lang={w.language} />
         </div>} />
       </Screen>
     );
@@ -185,14 +192,23 @@ function WaitingRoom({ data, token, c, onOpen, onCancelled }: { data: Attend; to
 
 // ── The live room ──────────────────────────────────────────────────────────────
 
+type Tab = 'qa' | 'polls' | 'about';
+
 function LiveRoom({ data, token, c, onLeave }: { data: Attend; token: string; c: (typeof COPY)['en']; onLeave: () => void }) {
   const w = data.webinar;
   const lang = w.language;
+  const e = ENGAGE[lang];
+  const { state, act } = useLive(token);
   const [panel, setPanel] = useState(true);
+  const [sheet, setSheet] = useState(false);
+  const [tab, setTab] = useState<Tab>('qa');
   const [asking, setAsking] = useState(false);
   const [ready, setReady] = useState(false);
-  const elapsed = useElapsed(data.live ? w.startAt : null);
-  const frame = useRef<HTMLIFrameElement>(null);
+  const [toast, setToast] = useState(false);
+  const [unseenPoll, setUnseenPoll] = useState(false);
+  const seenPoll = useRef<string | null>(null);
+  const elapsed = useElapsed(data.live || state?.status === 'LIVE' ? w.startAt : null);
+  const live = data.live || state?.status === 'LIVE';
 
   // Attendance: one beat a minute while the room is on screen.
   useEffect(() => {
@@ -205,6 +221,50 @@ function LiveRoom({ data, token, c, onLeave }: { data: Attend; token: string; c:
   // Narrow screens start with the video only.
   useEffect(() => { if (window.innerWidth < 1024) setPanel(false); }, []);
 
+  // A newly launched poll is announced unless the viewer is already looking at polls.
+  const pollId = state?.poll?.status === 'OPEN' ? state.poll.id : null;
+  const lookingAtPolls = tab === 'polls' && (panel || sheet);
+  useEffect(() => {
+    if (!pollId || pollId === seenPoll.current) return;
+    seenPoll.current = pollId;
+    if (!lookingAtPolls) { setToast(true); setUnseenPoll(true); }
+  }, [pollId, lookingAtPolls]);
+  useEffect(() => { if (lookingAtPolls) setUnseenPoll(false); }, [lookingAtPolls]);
+
+  function openTab(next: Tab) {
+    setTab(next);
+    setToast(false);
+    if (window.innerWidth < 640) setSheet(true); else setPanel(true);
+  }
+
+  const openQuestions = state?.questions.filter((q) => !q.answered).length ?? 0;
+  const tabs: [Tab, string, number | null, boolean][] = [
+    ['qa', e.qa, openQuestions || null, false],
+    ['polls', e.polls, null, unseenPoll],
+    ['about', e.about, null, false],
+  ];
+
+  const panelBody = (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex gap-1 border-b border-white/10 p-2" role="tablist">
+        {tabs.map(([key, label, count, dot]) => (
+          <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-bold transition-colors ${tab === key ? 'bg-white/12 text-white' : 'text-white/55 hover:text-white'}`}>
+            {label}
+            {count ? <span className="rounded-full bg-white/15 px-1.5 text-[10px] tabular-nums">{count}</span> : null}
+            {dot && <span className="live-dot text-secondary" />}
+          </button>
+        ))}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {!state ? (
+          <div className="flex justify-center p-10 text-white/40"><CircleNotch className="h-6 w-6 animate-spin" /></div>
+        ) : tab === 'qa' ? <QuestionsPanel state={state} act={act} c={e} />
+          : tab === 'polls' ? <PollPanel state={state} act={act} c={e} />
+          : <AboutPanel w={w} c={c} />}
+      </div>
+    </div>
+  );
+
   const src = `${data.roomUrl}?t=${encodeURIComponent(data.token ?? '')}`;
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-[#0B1220] text-white">
@@ -213,15 +273,15 @@ function LiveRoom({ data, token, c, onLeave }: { data: Attend; token: string; c:
         <Brand compact />
         <span className="hidden h-6 w-px bg-white/10 sm:block" />
         <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white/90">{w.title}</p>
-        {data.live ? (
+        {live ? (
           <span className="flex shrink-0 items-center gap-2 rounded-md bg-[#E5484D] px-2 py-1 text-[11px] font-bold uppercase tracking-wider">
-            <span className="live-dot text-white" /> {c.live}{elapsed && <span className="font-mono font-semibold normal-case tracking-normal text-white/90">{elapsed}</span>}
+            <span className="live-dot text-white" /> {c.live}{elapsed && <span className="hidden font-mono font-semibold normal-case tracking-normal text-white/90 sm:inline">{elapsed}</span>}
           </span>
         ) : (
           <span className="shrink-0 rounded-md bg-white/10 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-white/80">{c.soon}</span>
         )}
         <button onClick={() => setPanel((p) => !p)} aria-pressed={panel} aria-label={c.panel} className={`hidden h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors sm:flex ${panel ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10'}`}>
-          <SidebarSimple className="h-4 w-4" /> {c.panel}
+          <SidebarSimple className="h-4 w-4" /> {e.qa}{unseenPoll && !panel && <span className="live-dot text-secondary" />}
         </button>
         <button onClick={() => setAsking(true)} className="flex h-9 shrink-0 items-center gap-2 rounded-lg bg-white/10 px-3 text-sm font-bold text-white transition-colors hover:bg-[#E5484D]">
           <SignOut className="h-4 w-4" /> <span className="hidden sm:inline">{c.leave}</span>
@@ -239,50 +299,41 @@ function LiveRoom({ data, token, c, onLeave }: { data: Attend; token: string; c:
               </div>
             )}
             <iframe
-              ref={frame}
               title={w.title}
               src={src}
               onLoad={() => setReady(true)}
               allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write"
               className={`h-full w-full border-0 transition-opacity duration-500 ${ready ? 'opacity-100' : 'opacity-0'}`}
             />
+            <NewPollToast show={toast} onOpen={() => openTab('polls')} onClose={() => setToast(false)} c={e} />
+            <OfferBanner offer={state?.offer ?? null} onClick={() => { act('offer-click').catch(() => {}); }} />
           </div>
         </main>
 
-        {/* Side panel */}
-        <aside className={`hidden shrink-0 overflow-hidden border-l border-white/10 bg-[#0F1729] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] sm:block ${panel ? 'w-80' : 'w-0 border-l-0'}`}>
-          <div className="flex h-full w-80 flex-col overflow-y-auto p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-white/40">{c.about}</p>
-            <h2 className="mt-2 font-bold leading-snug text-white">{w.title}</h2>
-            <p className="mt-2 flex items-center gap-1.5 text-xs capitalize text-white/50"><Clock className="h-3.5 w-3.5" />{doualaDate(w.startAt, lang)} · {doualaTime(w.startAt, lang)}</p>
-            {w.hosts.length > 0 && (
-              <>
-                <p className="mt-6 text-xs font-bold uppercase tracking-widest text-white/40">{c.speakers}</p>
-                <ul className="mt-3 space-y-2.5">
-                  {w.hosts.map((name, i) => (
-                    <li key={name} className="flex items-center gap-3">
-                      <span className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${i % 2 ? 'bg-secondary' : 'bg-primary'}`}>{name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase()}</span>
-                      <span className="text-sm font-semibold text-white/90">{name}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            <div className="mt-6 flex gap-3 rounded-xl bg-white/[0.05] p-3.5">
-              <ChatCircle className="mt-0.5 h-5 w-5 shrink-0 text-secondary" />
-              <p className="text-xs leading-relaxed text-white/70">{c.askHint}</p>
-            </div>
-            <p className="mt-6 line-clamp-[12] whitespace-pre-line text-sm leading-relaxed text-white/60">{w.description}</p>
-            <div className="mt-auto pt-6">
-              <div className="rounded-2xl bg-gradient-to-br from-primary to-[#1565C0] p-4 shadow-lg">
-                <Users className="h-6 w-6 text-white/80" />
-                <p className="mt-2 text-sm font-bold">{c.consultTitle}</p>
-                <Link href="/consult" target="_blank" className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-primary transition-transform hover:-translate-y-0.5">{c.consultCta} <ArrowRight className="h-3.5 w-3.5" /></Link>
-              </div>
-            </div>
-          </div>
+        {/* Side panel (tablets and up) */}
+        <aside className={`hidden shrink-0 overflow-hidden border-l border-white/10 bg-[#0F1729] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] sm:block ${panel ? 'w-80 xl:w-96' : 'w-0 border-l-0'}`}>
+          <div className="h-full w-80 xl:w-96">{panelBody}</div>
         </aside>
       </div>
+
+      {/* Phones: a bar under the video opens the panel as a sheet */}
+      <nav className="flex shrink-0 gap-2 border-t border-white/10 p-2 sm:hidden">
+        {tabs.map(([key, label, count, dot]) => (
+          <button key={key} onClick={() => openTab(key)} className="relative flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white/[0.06] py-2.5 text-xs font-bold text-white/85">
+            {label}{count ? <span className="rounded-full bg-white/15 px-1.5 text-[10px]">{count}</span> : null}
+            {dot && <span className="live-dot absolute right-3 top-2 text-secondary" />}
+          </button>
+        ))}
+      </nav>
+      {sheet && (
+        <div className="fade fixed inset-0 z-[65] flex items-end bg-black/50 sm:hidden" onClick={() => setSheet(false)}>
+          <div className="rise flex h-[78vh] w-full flex-col overflow-hidden rounded-t-3xl bg-[#0F1729] shadow-2xl" onClick={(ev) => ev.stopPropagation()}>
+            <div className="flex justify-center pt-2.5"><span className="h-1 w-10 rounded-full bg-white/20" /></div>
+            <button onClick={() => setSheet(false)} aria-label="Close" className="absolute right-4 top-3 text-white/50"><X className="h-5 w-5" /></button>
+            <div className="min-h-0 flex-1">{panelBody}</div>
+          </div>
+        </div>
+      )}
 
       {asking && (
         <Dialog title={c.leaveAsk} body={c.leaveBody} onClose={() => setAsking(false)}>
@@ -290,6 +341,37 @@ function LiveRoom({ data, token, c, onLeave }: { data: Attend; token: string; c:
           <button onClick={() => { setAsking(false); onLeave(); }} className="inline-flex items-center gap-2 rounded-xl bg-[#E5484D] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#d13d42]"><SignOut className="h-4 w-4" /> {c.leaveConfirm}</button>
         </Dialog>
       )}
+    </div>
+  );
+}
+
+function AboutPanel({ w, c }: { w: PublicWebinar; c: (typeof COPY)['en'] }) {
+  const lang = w.language;
+  return (
+    <div className="flex min-h-full flex-col p-5">
+      <h2 className="font-bold leading-snug text-white">{w.title}</h2>
+      <p className="mt-2 flex items-center gap-1.5 text-xs capitalize text-white/50"><Clock className="h-3.5 w-3.5" />{doualaDate(w.startAt, lang)} · {doualaTime(w.startAt, lang)}</p>
+      {w.hosts.length > 0 && (
+        <>
+          <p className="mt-6 text-xs font-bold uppercase tracking-widest text-white/40">{c.speakers}</p>
+          <ul className="mt-3 space-y-2.5">
+            {w.hosts.map((name, i) => (
+              <li key={name} className="flex items-center gap-3">
+                <span className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${i % 2 ? 'bg-secondary' : 'bg-primary'}`}>{name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase()}</span>
+                <span className="text-sm font-semibold text-white/90">{name}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="mt-6 whitespace-pre-line text-sm leading-relaxed text-white/60">{w.description}</p>
+      <div className="mt-auto pt-6">
+        <div className="rounded-2xl bg-gradient-to-br from-primary to-[#1565C0] p-4 shadow-lg">
+          <Users className="h-6 w-6 text-white/80" />
+          <p className="mt-2 text-sm font-bold">{c.consultTitle}</p>
+          <Link href="/consult" target="_blank" className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-primary transition-transform hover:-translate-y-0.5">{c.consultCta} <ArrowRight className="h-3.5 w-3.5" /></Link>
+        </div>
+      </div>
     </div>
   );
 }
@@ -315,7 +397,7 @@ const btnLight = 'inline-flex items-center justify-center gap-2 rounded-xl bg-wh
 const btnGhostDark = 'inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10';
 
 /** The dark full-screen backdrop shared by the waiting, ended and message screens. */
-function Screen({ children }: { children: React.ReactNode }) {
+export function Screen({ children }: { children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-[#0B1220]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -359,7 +441,7 @@ function Dialog({ title, body, onClose, children }: { title: string; body: strin
   );
 }
 
-function Brand({ compact = false }: { compact?: boolean }) {
+export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <span className="flex shrink-0 items-center gap-2">
       <span className={`flex items-center justify-center rounded-lg bg-white shadow-sm ${compact ? 'h-8 w-8 p-1' : 'h-10 w-10 p-1.5'}`}>

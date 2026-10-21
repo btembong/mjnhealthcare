@@ -2,12 +2,13 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Res } from 
 import { Response } from 'express';
 import { CurrentUser, AuthUser, RolesOnly } from '../auth/access';
 import { RegistrationInput, WebinarInput, WebinarService } from './webinar.service';
+import { WebinarLiveService } from './webinar-live.service';
 
 /** Admins and consultants run webinars. Consultants change only the ones they host or created. */
 @Controller('webinars/admin')
 @RolesOnly('ADMIN', 'CONSULTANT')
 export class WebinarAdminController {
-  constructor(private readonly webinars: WebinarService) {}
+  constructor(private readonly webinars: WebinarService, private readonly live: WebinarLiveService) {}
 
   @Get()
   list() {
@@ -73,6 +74,37 @@ export class WebinarAdminController {
     return this.webinars.end(user, id);
   }
 
+  // ── During the webinar ──
+
+  @Get(':id/live')
+  liveView(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.live.hostView(user, id);
+  }
+
+  @Post(':id/questions/:questionId/:action')
+  @HttpCode(200)
+  moderate(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('questionId') questionId: string, @Param('action') action: string) {
+    return this.live.moderate(user, id, questionId, action);
+  }
+
+  @Post(':id/polls')
+  @HttpCode(200)
+  createPoll(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { question?: string; options?: string[] }) {
+    return this.live.createPoll(user, id, body ?? {});
+  }
+
+  @Post(':id/polls/:pollId/:action')
+  @HttpCode(200)
+  pollAction(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('pollId') pollId: string, @Param('action') action: string) {
+    return this.live.pollAction(user, id, pollId, action);
+  }
+
+  @Post(':id/offer')
+  @HttpCode(200)
+  offer(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { label?: string; url?: string; visible?: boolean }) {
+    return this.live.setOffer(user, id, body ?? {});
+  }
+
   @Post(':id/check-recording')
   @HttpCode(200)
   checkRecording(@CurrentUser() user: AuthUser, @Param('id') id: string) {
@@ -83,7 +115,7 @@ export class WebinarAdminController {
 /** The website: listing, registration, the personal join page, and replays. No login. */
 @Controller('webinars')
 export class WebinarPublicController {
-  constructor(private readonly webinars: WebinarService) {}
+  constructor(private readonly webinars: WebinarService, private readonly live: WebinarLiveService) {}
 
   @Get('public')
   list(@Query('language') language?: string) {
@@ -121,6 +153,46 @@ export class WebinarPublicController {
   @HttpCode(200)
   cancelSeat(@Param('token') token: string) {
     return this.webinars.cancelSeat(token);
+  }
+
+  @Get('attend/:token/live')
+  liveView(@Param('token') token: string) {
+    return this.live.view(token);
+  }
+
+  @Post('attend/:token/questions')
+  @HttpCode(200)
+  ask(@Param('token') token: string, @Body() body: { text?: string }) {
+    return this.live.ask(token, String(body?.text ?? ''));
+  }
+
+  @Post('attend/:token/questions/:questionId/vote')
+  @HttpCode(200)
+  vote(@Param('token') token: string, @Param('questionId') questionId: string) {
+    return this.live.vote(token, questionId);
+  }
+
+  @Post('attend/:token/polls/:pollId')
+  @HttpCode(200)
+  answerPoll(@Param('token') token: string, @Param('pollId') pollId: string, @Body() body: { option?: number }) {
+    return this.live.answerPoll(token, pollId, Number(body?.option));
+  }
+
+  @Post('attend/:token/offer-click')
+  @HttpCode(200)
+  offerClicked(@Param('token') token: string) {
+    return this.live.offerClicked(token);
+  }
+
+  @Get('attend/:token/survey')
+  survey(@Param('token') token: string) {
+    return this.live.survey(token);
+  }
+
+  @Post('attend/:token/survey')
+  @HttpCode(200)
+  submitSurvey(@Param('token') token: string, @Body() body: { rating?: number; wantsContact?: boolean; comment?: string }) {
+    return this.live.submitSurvey(token, body ?? {});
   }
 
   @Get('attend/:token/calendar.ics')

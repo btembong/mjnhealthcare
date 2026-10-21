@@ -317,9 +317,10 @@ export const TOURS_FR: Record<string, TourDef> = {
     title: 'Un webinaire',
     steps: [
       { target: 'page-header', title: 'Le webinaire', body: "Son statut, sa langue, son horaire et ses intervenants. « Copy link » donne la page d'inscription à partager sur WhatsApp et les réseaux sociaux." },
-      { target: 'web-actions', title: "L'animer", body: "« Enter the room » ouvre la vue intervenant, dès deux heures avant. À l'intérieur, cliquez sur « Go live » au début et « End webinar » à la fin. L'enregistrement démarre dès qu'un intervenant entre." },
+      { target: 'web-actions', title: "L'animer", body: "« Enter the room » ouvre la vue intervenant, dès deux heures avant. À l'intérieur, cliquez sur « Go live » au début et « End webinar » à la fin. L'enregistrement démarre dès qu'un intervenant entre. Le panneau latéral contient les questions (épinglez celle à laquelle vous répondez, marquez-la répondue ou masquez-la), les sondages (rédigez-en un, lancez-le, partagez les résultats) et l'offre (affichez un bouton comme « Réserver une consultation » sur la vidéo)." },
       { target: 'web-stats', title: 'Les chiffres', body: "Inscrits, présents, taux de présence, minutes regardées en moyenne et nombre de nouveaux leads." },
-      { target: 'web-regs', title: 'Les inscrits', body: "Chaque inscrit, sa profession et où il souhaite travailler, et après la séance s'il est venu. « Export » télécharge la liste." },
+      { target: 'web-engagement', title: 'Leur engagement', body: "Questions posées, réponses aux sondages, clics sur l'offre, note moyenne du questionnaire, et nombre de leads chauds et tièdes." },
+      { target: 'web-regs', title: 'Les inscrits', body: "Chaque inscrit, sa profession et où il souhaite travailler, et après la séance s'il est venu. « Hot » : il a demandé à être contacté ; « Warm » : il a regardé au moins la moitié, posé une question, cliqué sur l'offre ou noté 4 ou 5. Le filtre « Interested » les regroupe, et ceux qui ont demandé un contact apparaissent à droite avec leur commentaire, prêts à être appelés." },
       { title: 'Modifications', body: "Changer la date ou l'heure prévient tous les inscrits par e-mail. Une annulation demande un motif, qui leur est communiqué. La langue ne peut plus changer une fois publié." },
     ],
   },

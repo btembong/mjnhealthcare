@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { DatabaseService } from '@mjn/database';
 import { NotificationService } from '../notification/notification.service';
+import * as T from '../notification/email-templates';
+import { adminAlertEmail } from '../../common/admin-alert';
 import { WebinarService } from './webinar.service';
 import {
   calendarFile, cancelledEmail, confirmationEmail, movedEmail, reminderEmail, reminderWhatsApp, replayEmail, Seat,
@@ -82,6 +84,35 @@ export class WebinarListener {
       const { subject, html } = cancelledEmail(info, { name: r.name, joinToken: r.joinToken }, payload.reason);
       await this.mail.sendEmail(r.email, subject, html, r.name, undefined, 'team');
     }, `cancellation (${w.id})`);
+  }
+
+  /** Someone said after a webinar that they would like an advisor to contact them. */
+  @OnEvent('webinar.contact_requested')
+  async onContactRequested(payload: { registrationId: string }) {
+    const r = await this.db.webinarRegistration.findUnique({ where: { id: payload.registrationId }, include: { webinar: { select: { id: true, title: true } } } });
+    if (!r) return;
+    const line = `Asked to be contacted after webinar "${r.webinar.title}"${r.surveyComment ? `: ${r.surveyComment}` : ''}`;
+    if (r.leadId) {
+      const lead = await this.db.lead.findUnique({ where: { id: r.leadId }, select: { notes: true } });
+      await this.db.lead.update({ where: { id: r.leadId }, data: { notes: lead?.notes ? `${line}
+${lead.notes}`.slice(0, 4000) : line } });
+    }
+    const admin = process.env.ADMIN_URL ?? 'http://localhost:3004';
+    const html = T.shell(
+      T.label('Webinar lead') +
+      T.h1(`${T.esc(r.name)} would like to be contacted`) +
+      T.p(`After <strong>${T.esc(r.webinar.title)}</strong>, they asked for an advisor to get in touch.`) +
+      T.infoTable([
+        T.row('Email', T.esc(r.email)),
+        T.row('Phone', T.esc(r.phone ?? '—')),
+        T.row('Profession', T.esc([r.profession, r.destination].filter(Boolean).join(' → ') || '—')),
+        T.row('Rating', r.surveyRating ? `${r.surveyRating} / 5` : '—', !r.surveyComment),
+        ...(r.surveyComment ? [T.row('Comment', T.esc(r.surveyComment), true)] : []),
+      ]) +
+      T.btn('Open the webinar', `${admin}/webinars/${r.webinar.id}`),
+      'Sent to the MJN admin inbox.',
+    );
+    await this.mail.sendEmail(adminAlertEmail(), `Webinar lead: ${r.name} asked to be contacted`, html, undefined, undefined, 'team');
   }
 
   /** Everyone registered gets the replay: a thank-you if they came, "sorry we missed you" if not. */

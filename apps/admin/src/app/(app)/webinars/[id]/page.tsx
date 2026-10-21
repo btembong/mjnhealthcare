@@ -8,6 +8,7 @@ import { Skeleton } from '@mjn/ui';
 import {
   ArrowLeft, CalendarBlank, Clock, Users, VideoCamera, Copy, ArrowSquareOut, PencilSimple, Prohibit,
   DownloadSimple, MagnifyingGlass, Play, CircleNotch, ArrowClockwise, Question, CheckCircle, Stop,
+  Star, Sparkle, ChartBar, Phone, EnvelopeSimple, Flame,
 } from '@mjn/ui';
 import { api } from '../../../../lib/api';
 import { useAdmin } from '../../../../contexts/admin-context';
@@ -19,11 +20,15 @@ type Registration = {
   id: string; name: string; email: string; phone: string | null; profession: string | null; destination: string | null;
   question: string | null; marketingConsent: boolean; status: string; createdAt: string; attended: boolean; minutesWatched: number;
   leadId: string | null; personId: string | null; source: string | null;
+  questionsAsked: number; offerClicked: boolean; surveyRating: number | null; surveyWantsContact: boolean | null; surveyComment: string | null;
+  interest: 'hot' | 'warm' | null;
 };
 type Detail = Webinar & {
   publicUrl: string;
   stats: { registered: number; attended: number; showRate: number; averageMinutes: number; cancelled: number; newLeads: number };
   registrations: Registration[];
+  engagement: { questions: number; answered: number; pollAnswers: number; offerClicks: number; surveyResponses: number; averageRating: number | null; hot: number; warm: number };
+  polls: { id: string; question: string; options: string[]; counts: number[]; total: number }[];
 };
 
 export default function WebinarDetailPage() {
@@ -36,7 +41,7 @@ export default function WebinarDetailPage() {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState('');
   const [find, setFind] = useState('');
-  const [show, setShow] = useState<'all' | 'came' | 'missed'>('all');
+  const [show, setShow] = useState<'all' | 'came' | 'missed' | 'interested'>('all');
 
   const load = useCallback(async () => {
     try { setD(await api.getWebinar(id)); setFailed(false); } catch { setFailed(true); }
@@ -65,10 +70,12 @@ export default function WebinarDetailPage() {
   const regs = useMemo(() => {
     const q = find.trim().toLowerCase();
     return (d?.registrations ?? []).filter((r) => r.status === 'REGISTERED')
-      .filter((r) => show === 'all' || (show === 'came' ? r.attended : !r.attended))
+      .filter((r) => show === 'all' || (show === 'came' ? r.attended : show === 'missed' ? !r.attended : !!r.interest))
+      .sort((a, b) => (show === 'interested' ? Number(b.interest === 'hot') - Number(a.interest === 'hot') : 0))
       .filter((r) => !q || `${r.name} ${r.email} ${r.phone ?? ''} ${r.profession ?? ''}`.toLowerCase().includes(q));
   }, [d, find, show]);
   const questions = useMemo(() => (d?.registrations ?? []).filter((r) => r.status === 'REGISTERED' && r.question), [d]);
+  const hot = useMemo(() => (d?.registrations ?? []).filter((r) => r.status === 'REGISTERED' && r.interest === 'hot'), [d]);
 
   if (failed && !d) return <div className={`${card} p-10 text-center text-sm text-muted-foreground`}>This webinar could not be loaded. <button onClick={load} className="font-bold text-primary hover:underline">Try again</button></div>;
   if (!d) return <div className="space-y-4"><Skeleton className="h-28 rounded-2xl" /><Skeleton className="h-24 rounded-2xl" /><Skeleton className="h-80 rounded-2xl" /></div>;
@@ -148,6 +155,25 @@ export default function WebinarDetailPage() {
         </div>
       )}
 
+      {(s.key === 'over' || s.key === 'live') && d.engagement && (
+        <div data-tour="web-engagement" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {[
+            [Question, 'Questions', `${d.engagement.questions}`, `${d.engagement.answered} answered`],
+            [ChartBar, 'Poll answers', `${d.engagement.pollAnswers}`, `${d.polls.length} ${d.polls.length === 1 ? 'poll' : 'polls'}`],
+            [Sparkle, 'Offer clicks', `${d.engagement.offerClicks}`, 'clicked the button'],
+            [Star, 'Rating', d.engagement.averageRating !== null ? `${d.engagement.averageRating} / 5` : '—', `${d.engagement.surveyResponses} ${d.engagement.surveyResponses === 1 ? 'response' : 'responses'}`],
+            [Flame, 'Hot leads', `${d.engagement.hot}`, 'asked to be contacted'],
+            [CheckCircle, 'Warm leads', `${d.engagement.warm}`, 'engaged strongly'],
+          ].map(([Icon, label, value, sub]: any, i) => (
+            <div key={label} className={`rise ${card} p-4`} style={{ animationDelay: `${i * 40}ms` }}>
+              <p className={`${heading} flex items-center gap-1.5`}><Icon className="h-3.5 w-3.5" />{label}</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{value}</p>
+              <p className="text-xs text-muted-foreground">{sub}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="grid items-start gap-6 xl:grid-cols-[1fr_22rem]">
         {/* Registrations */}
         <section data-tour="web-regs" className={`${card} overflow-hidden`}>
@@ -156,7 +182,7 @@ export default function WebinarDetailPage() {
             <div className="flex flex-wrap items-center gap-2">
               {s.key === 'over' && (
                 <div className="inline-flex rounded-lg border border-border p-0.5">
-                  {([['all', 'All'], ['came', 'Came'], ['missed', 'Missed']] as const).map(([k, l]) => (
+                  {([['all', 'All'], ['came', 'Came'], ['missed', 'Missed'], ['interested', 'Interested']] as const).map(([k, l]) => (
                     <button key={k} onClick={() => setShow(k)} className={`rounded-md px-2.5 py-1 text-xs font-bold transition-colors ${show === k ? 'bg-primary text-white' : 'text-muted-foreground'}`}>{l}</button>
                   ))}
                 </div>
@@ -174,7 +200,7 @@ export default function WebinarDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  <tr><th className="px-5 py-2.5">Person</th><th className="px-3 py-2.5">Profession</th><th className="px-3 py-2.5">Registered</th>{s.key === 'over' && <th className="px-3 py-2.5 text-right">Watched</th>}<th className="px-5 py-2.5 text-right">Lead</th></tr>
+                  <tr><th className="px-5 py-2.5">Person</th><th className="px-3 py-2.5">Profession</th><th className="px-3 py-2.5">Registered</th>{s.key === 'over' && <th className="px-3 py-2.5 text-right">Watched</th>}{s.key === 'over' && <th className="px-3 py-2.5">Interest</th>}<th className="px-5 py-2.5 text-right">Lead</th></tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {regs.map((r) => (
@@ -186,6 +212,14 @@ export default function WebinarDetailPage() {
                       <td className="px-3 py-3 text-muted-foreground">{[r.profession, r.destination].filter(Boolean).join(' → ') || '—'}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-muted-foreground">{new Date(r.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</td>
                       {s.key === 'over' && <td className="whitespace-nowrap px-3 py-3 text-right">{r.attended ? <span className="inline-flex items-center gap-1 font-semibold text-foreground"><CheckCircle className="h-4 w-4 text-secondary" weight="fill" />{r.minutesWatched} min</span> : <span className="text-muted-foreground">Missed</span>}</td>}
+                      {s.key === 'over' && (
+                        <td className="whitespace-nowrap px-3 py-3" title={[r.questionsAsked ? `${r.questionsAsked} question(s)` : '', r.offerClicked ? 'clicked the offer' : '', r.surveyRating ? `rated ${r.surveyRating}/5` : ''].filter(Boolean).join(' · ')}>
+                          {r.interest === 'hot' ? <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-white"><Flame className="h-3 w-3" /> Hot</span>
+                            : r.interest === 'warm' ? <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">Warm</span>
+                            : <span className="text-xs text-muted-foreground">—</span>}
+                          {r.surveyRating ? <span className="ml-2 inline-flex items-center gap-0.5 text-xs text-muted-foreground"><Star className="h-3 w-3 text-accent" weight="fill" />{r.surveyRating}</span> : null}
+                        </td>
+                      )}
                       <td className="px-5 py-3 text-right text-xs">
                         {r.personId ? <Link href={`/clients/${r.personId}`} className="font-bold text-primary hover:underline">Client</Link>
                           : r.leadId ? <Link href="/leads" className="font-bold text-primary hover:underline">Lead</Link> : '—'}
@@ -201,6 +235,53 @@ export default function WebinarDetailPage() {
 
         {/* Side */}
         <aside className="space-y-4">
+          {hot.length > 0 && (
+            <section className={`rise ${card} overflow-hidden`}>
+              <div className="border-b border-border bg-primary/[0.04] px-5 py-3">
+                <p className={`${heading} flex items-center gap-1.5 text-primary`}><Flame className="h-3.5 w-3.5" /> Asked to be contacted · {hot.length}</p>
+              </div>
+              <ul className="divide-y divide-border">
+                {hot.map((r) => (
+                  <li key={r.id} className="px-5 py-3">
+                    <p className="text-sm font-bold text-foreground">{r.name}{r.surveyRating ? <span className="ml-2 inline-flex items-center gap-0.5 text-xs font-semibold text-muted-foreground"><Star className="h-3 w-3 text-accent" weight="fill" />{r.surveyRating}</span> : null}</p>
+                    <p className="text-xs text-muted-foreground">{[r.profession, r.destination].filter(Boolean).join(' → ')}</p>
+                    {r.surveyComment && <p className="mt-1.5 rounded-lg bg-muted/50 px-2.5 py-1.5 text-xs text-foreground">“{r.surveyComment}”</p>}
+                    <div className="mt-2 flex flex-wrap gap-3 text-xs font-bold">
+                      <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1 text-primary hover:underline"><EnvelopeSimple className="h-3.5 w-3.5" /> Email</a>
+                      {r.phone && <a href={`https://wa.me/${r.phone.replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline"><Phone className="h-3.5 w-3.5" /> WhatsApp</a>}
+                      {r.personId ? <Link href={`/clients/${r.personId}`} className="text-primary hover:underline">Client</Link> : r.leadId ? <Link href="/leads" className="text-primary hover:underline">Lead</Link> : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {d.polls?.length > 0 && (
+            <section className={`${card} p-5`}>
+              <p className={`${heading} flex items-center gap-1.5`}><ChartBar className="h-3.5 w-3.5" /> Poll results</p>
+              <div className="mt-3 space-y-5">
+                {d.polls.map((p) => (
+                  <div key={p.id}>
+                    <p className="text-sm font-semibold text-foreground">{p.question}</p>
+                    <ul className="mt-2 space-y-1.5">
+                      {p.options.map((o, i) => {
+                        const pct = p.total ? Math.round((p.counts[i] / p.total) * 100) : 0;
+                        return (
+                          <li key={i} className="text-xs">
+                            <div className="flex justify-between gap-2"><span className="text-foreground">{o}</span><span className="tabular-nums text-muted-foreground">{p.counts[i]} · {pct}%</span></div>
+                            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${pct}%` }} /></div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">{p.total} {p.total === 1 ? 'answer' : 'answers'}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {s.key === 'over' && (
             <section className={`${card} p-5`}>
               <p className={heading}>Recording</p>

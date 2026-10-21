@@ -394,9 +394,10 @@ const TOURS: Record<string, TourDef> = {
     title: 'A webinar',
     steps: [
       { target: 'page-header', title: 'The webinar', body: 'Its status, language, time and hosts. Copy link gives you the registration page to share on WhatsApp and social media.' },
-      { target: 'web-actions', title: 'Running it', body: 'Enter the room opens the host view, from two hours before. Inside, press Go live at the start and End webinar when you finish. Recording starts by itself when a host joins.' },
+      { target: 'web-actions', title: 'Running it', body: 'Enter the room opens the host view, from two hours before. Inside, press Go live at the start and End webinar when you finish. Recording starts by itself when a host joins. The side panel has Q&A (pin a question while you answer it, mark it answered, or hide it), Polls (write one, launch it, share the results), and Offer (show a button such as Book a consultation over the video).' },
       { target: 'web-stats', title: 'The numbers', body: 'Registered, attended, show-up rate, average minutes watched, and how many new leads it brought.' },
-      { target: 'web-regs', title: 'Who registered', body: 'Everyone registered, their profession and where they want to work, and after the session whether they came. Export downloads the list.' },
+      { target: 'web-engagement', title: 'How engaged they were', body: 'Questions asked, poll answers, offer clicks, the average rating from the survey, and how many hot and warm leads came out of it.' },
+      { target: 'web-regs', title: 'Who registered', body: 'Everyone registered, their profession and where they want to work, and after the session whether they came. Hot means they asked to be contacted; warm means they watched at least half, asked a question, clicked the offer or rated it 4 or 5. The Interested filter lists them, and people who asked to be contacted are listed on the right with their comment, ready to call.' },
       { title: 'Changes', body: 'Moving the date or time emails everyone registered. Cancelling asks for a reason, which they are told. The language cannot change once published.' },
     ],
   },
