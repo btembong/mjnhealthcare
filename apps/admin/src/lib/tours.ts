@@ -42,6 +42,7 @@ const PAGE_TOURS: Record<string, string> = {
   '/tickets': 'admin.tickets',
   '/officer/support': 'admin.tickets',
   '/pathways': 'admin.pathways',
+  '/webinars': 'admin.webinars',
 };
 
 const DETAIL_TOURS: [RegExp, string][] = [
@@ -49,6 +50,7 @@ const DETAIL_TOURS: [RegExp, string][] = [
   [/^\/clients\/[^/]+$/, 'admin.client'],
   [/^\/courses\/[^/]+$/, 'admin.course'],
   [/^\/officer\/cases\/[^/]+$/, 'admin.officer.case'],
+  [/^\/webinars\/[^/]+$/, 'admin.webinar'],
 ];
 
 const DASHBOARD_BY_ROLE: Record<string, string> = {
@@ -376,6 +378,26 @@ const TOURS: Record<string, TourDef> = {
       { target: 'page-title', title: 'The money picture', body: 'Revenue and what is owed, in and out.' },
       { target: 'fin-kpis', title: 'Headline figures', body: 'The key totals for the period.' },
       { target: 'fin-tabs', title: 'Sections', body: 'Overview, Outstanding, Payouts, Tax, Receipts, Payroll, Credits and the Client Ledger. Receipts and tax can be exported.' },
+    ],
+  },
+  'admin.webinars': {
+    title: 'Webinars',
+    steps: [
+      { target: 'page-header', title: 'Free webinars', body: 'Live sessions anyone can register for on the website. Each one runs in English or in French. Admins and consultants can create and host them.' },
+      { target: 'page-actions', title: 'Create one', body: 'New webinar: title, language, date and time in Douala time, length, seats, hosts and a description. Publish it and it appears on the website at once, open for registration.' },
+      { target: 'web-next', title: 'Your next session', body: 'The next webinar, with how many people registered. Hosts can enter the room from two hours before the start.' },
+      { target: 'web-list', title: 'Everything else', body: 'Upcoming, drafts, past and cancelled webinars. Past ones show how many came and whether the replay is online.' },
+      { title: 'What happens by itself', body: 'Registrants get a confirmation with a calendar invite, a reminder the day before and an hour before (email and WhatsApp), and the replay afterwards: a thank-you if they came, "sorry we missed you" if not. Each registrant is added to Leads.' },
+    ],
+  },
+  'admin.webinar': {
+    title: 'A webinar',
+    steps: [
+      { target: 'page-header', title: 'The webinar', body: 'Its status, language, time and hosts. Copy link gives you the registration page to share on WhatsApp and social media.' },
+      { target: 'web-actions', title: 'Running it', body: 'Enter the room opens the host view, from two hours before. Inside, press Go live at the start and End webinar when you finish. Recording starts by itself when a host joins.' },
+      { target: 'web-stats', title: 'The numbers', body: 'Registered, attended, show-up rate, average minutes watched, and how many new leads it brought.' },
+      { target: 'web-regs', title: 'Who registered', body: 'Everyone registered, their profession and where they want to work, and after the session whether they came. Export downloads the list.' },
+      { title: 'Changes', body: 'Moving the date or time emails everyone registered. Cancelling asks for a reason, which they are told. The language cannot change once published.' },
     ],
   },
   'admin.payments': {

@@ -212,6 +212,9 @@ export const Question             = makeIcon('solar:question-circle-bold', 'sola
 export const Trophy               = makeIcon('solar:cup-star-bold', 'solar:cup-star-bold-duotone');
 export const Medal                = makeIcon('solar:medal-star-bold', 'solar:medal-star-bold-duotone');
 export const Headphones           = makeIcon('solar:headphones-round-bold', 'solar:headphones-round-bold-duotone');
+export const WifiHigh             = makeIcon('solar:wi-fi-high-bold');
+export const SidebarSimple        = makeIcon('solar:sidebar-minimalistic-bold');
+export const Broadcast            = makeIcon('solar:stream-bold');
 export const Package              = makeIcon('solar:box-bold', 'solar:box-bold-duotone');
 export const Swap                 = makeIcon('solar:transfer-horizontal-bold');
 

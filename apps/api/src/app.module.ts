@@ -32,6 +32,7 @@ import { OfficerModule } from './modules/officer/officer.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { ReferralModule } from './modules/referral/referral.module';
 import { BlogModule } from './modules/blog/blog.module';
+import { WebinarModule } from './modules/webinar/webinar.module';
 
 @Module({
   imports: [
@@ -90,6 +91,7 @@ import { BlogModule } from './modules/blog/blog.module';
     ReportsModule,
     ReferralModule,
     BlogModule,
+    WebinarModule,
     PartnerModule,
     NotificationModule,
     ComplianceModule,

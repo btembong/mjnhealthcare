@@ -699,6 +699,20 @@ export const api = {
 
   getManualProofUrl: (id: string) => request<{ url: string; name: string }>(`/admin/payments/manual/${id}/proof-url`),
 
+  // ── Webinars ──────────────────────────────────────────────────────────────
+  listWebinars: () => request<any[]>('/webinars/admin'),
+  getWebinar: (id: string) => request<any>(`/webinars/admin/${id}`),
+  getWebinarHosts: () => request<{ id: string; name: string | null; email: string | null; role: string }[]>('/webinars/admin/hosts'),
+  createWebinar: (data: Record<string, unknown>) => request<any>('/webinars/admin', { method: 'POST', body: JSON.stringify(data) }),
+  updateWebinar: (id: string, data: Record<string, unknown>) => request<any>(`/webinars/admin/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  publishWebinar: (id: string) => request<any>(`/webinars/admin/${id}/publish`, { method: 'POST' }),
+  cancelWebinar: (id: string, reason: string) => request<{ message: string }>(`/webinars/admin/${id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  webinarHostPass: (id: string) => request<{ roomUrl: string; token: string; status: string }>(`/webinars/admin/${id}/host-pass`, { method: 'POST' }),
+  startWebinar: (id: string) => request<any>(`/webinars/admin/${id}/start`, { method: 'POST' }),
+  endWebinar: (id: string) => request<any>(`/webinars/admin/${id}/end`, { method: 'POST' }),
+  checkWebinarRecording: (id: string) => request<{ status: string; message: string }>(`/webinars/admin/${id}/check-recording`, { method: 'POST' }),
+  webinarExportUrl: (id: string) => `${API_BASE}/webinars/admin/${id}/export`,
+
   getPaymentsExportUrl: (params?: { search?: string; kind?: string; state?: string; dateFrom?: string; dateTo?: string }) => {
     const qs = new URLSearchParams();
     for (const [key, value] of Object.entries(params ?? {})) if (value) qs.set(key, value);

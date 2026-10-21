@@ -70,7 +70,8 @@ function BotBubble({ content }: { content: string }) {
 /** Hidden on survey pages, where it would cover the form controls on phones. */
 export function SupportBot() {
   const pathname = usePathname();
-  if (pathname?.startsWith('/survey/')) return null;
+  // Kept out of full-screen experiences: surveys and the webinar room.
+  if (pathname?.startsWith('/survey/') || pathname?.startsWith('/webinars/join/')) return null;
   return <SupportBotWidget />;
 }
 

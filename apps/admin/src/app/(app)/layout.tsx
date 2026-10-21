@@ -7,7 +7,7 @@ import {
   MagnifyingGlass, VideoCamera, Gavel, GearSix, ClipboardText, Buildings,
   Headset, MegaphoneSimple, MapTrifold, ChartBar, ChatCircle,
   Clipboard, ListChecks, Warning, CheckCircle, BookmarkSimple, Gift, Wallet,
-  Newspaper,
+  Newspaper, MonitorPlay,
 } from '@mjn/ui';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
@@ -67,6 +67,7 @@ function useSidebarSections(
           { label: 'Support Requests', href: '/tickets', icon: Headset },
           { label: 'Sessions', href: '/sessions', icon: VideoCamera },
           { label: 'Free Consultations', href: '/free-slots', icon: CalendarBlank },
+          { label: 'Webinars', href: '/webinars', icon: MonitorPlay },
           { label: 'Documents', href: '/documents', icon: FileText, badge: counts.pendingDocs > 0 ? String(counts.pendingDocs) : undefined },
           { label: 'AI Drafts', href: '/drafts', icon: Robot, badge: counts.pendingDrafts > 0 ? String(counts.pendingDrafts) : undefined },
           { label: 'Approvals', href: '/approvals', icon: CheckCircle },
@@ -145,6 +146,7 @@ function useSidebarSections(
         { label: 'Leads', href: '/leads', icon: UsersFour, badge: counts.leads > 0 ? String(counts.leads) : undefined },
         { label: 'Free Consultations', href: '/free-slots', icon: CalendarBlank },
         { label: 'Sessions', href: '/sessions', icon: VideoCamera },
+        { label: 'Webinars', href: '/webinars', icon: MonitorPlay },
         { label: 'Consultants', href: '/consultants', icon: Briefcase },
         { label: 'Jobs', href: '/jobs', icon: Briefcase },
         { label: 'Partners', href: '/partners', icon: Buildings },

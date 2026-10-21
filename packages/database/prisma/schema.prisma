@@ -153,6 +153,7 @@ model Person {
   referralUses        ReferralUse[]      @relation("ReferralUses")
   creditWallet        CreditWallet?
   publicReferrals     PublicReferral[]   @relation("PublicReferrals")
+  webinarHosting      WebinarHost[]
   referredByCode      String?
 
   @@map("persons")
@@ -716,6 +717,7 @@ model Lead {
   convertedPersonId    String?
   assignedConsultantId String?
   sourceBookingId      String?    // free consultation booking that created this lead
+  source               String?    // where the lead came from, e.g. "webinar"
   discountCode         String?    // 10% post-session offer code
   discountExpiry       DateTime?
   createdAt            DateTime   @default(now())
@@ -1573,4 +1575,84 @@ model SurveyAnswer {
 
   @@index([questionId])
   @@map("survey_answers")
+}
+
+// ─── Webinars (free, public) ──────────────────────────────────────────────────
+
+enum WebinarStatus {
+  DRAFT
+  PUBLISHED
+  LIVE
+  ENDED
+  CANCELLED
+}
+
+/// A free live webinar, run in English or in French, hosted by MJN staff on Daily.co.
+model Webinar {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  title           String
+  description     String
+  language        Locale        @default(en)
+  topic           String?
+  startAt         DateTime
+  durationMinutes Int           @default(60)
+  capacity        Int           @default(100)
+  status          WebinarStatus @default(DRAFT)
+  roomName        String?
+  roomUrl         String?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  cancelReason    String?
+  recordingId     String?
+  recordingStatus String? // WAITING | READY | NONE
+  replayReadyAt   DateTime?
+  createdById     String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  hosts         WebinarHost[]
+  registrations WebinarRegistration[]
+
+  @@index([status, startAt])
+  @@map("webinars")
+}
+
+model WebinarHost {
+  webinarId String
+  webinar   Webinar @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  personId  String
+  person    Person  @relation(fields: [personId], references: [id])
+
+  @@id([webinarId, personId])
+  @@map("webinar_hosts")
+}
+
+/// One person's seat. `joinToken` is their personal link; it is never shown to anyone else.
+model WebinarRegistration {
+  id                 String    @id @default(cuid())
+  webinarId          String
+  webinar            Webinar   @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  name               String
+  email              String
+  phone              String?
+  profession         String?
+  destination        String?
+  question           String?
+  marketingConsent   Boolean   @default(false)
+  joinToken          String    @unique
+  status             String    @default("REGISTERED") // REGISTERED | CANCELLED
+  leadId             String?
+  personId           String?
+  source             String?
+  firstJoinedAt      DateTime?
+  lastSeenAt         DateTime?
+  minutesWatched     Int       @default(0)
+  confirmationSentAt DateTime?
+  replaySentAt       DateTime?
+  createdAt          DateTime  @default(now())
+
+  @@unique([webinarId, email])
+  @@index([webinarId, status])
+  @@map("webinar_registrations")
 }

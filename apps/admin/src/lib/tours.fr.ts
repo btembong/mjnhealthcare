@@ -303,6 +303,26 @@ export const TOURS_FR: Record<string, TourDef> = {
       { target: 'fin-tabs', title: 'Sections', body: "« Overview », « Outstanding », « Payouts », « Tax », « Receipts », « Payroll », « Credits » et « Client Ledger ». Les reçus et les taxes peuvent être exportés." },
     ],
   },
+  'admin.webinars': {
+    title: 'Webinaires',
+    steps: [
+      { target: 'page-header', title: 'Webinaires gratuits', body: "Des séances en direct ouvertes à tous sur le site. Chacune se déroule en anglais ou en français. Les administrateurs et les consultants peuvent les créer et les animer." },
+      { target: 'page-actions', title: 'En créer un', body: "« New webinar » : titre, langue, date et heure de Douala, durée, places, intervenants et description. Publiez-le : il apparaît aussitôt sur le site, ouvert aux inscriptions." },
+      { target: 'web-next', title: 'Votre prochaine séance', body: "Le prochain webinaire et le nombre d'inscrits. Les intervenants peuvent entrer dans la salle deux heures avant le début." },
+      { target: 'web-list', title: 'Tout le reste', body: "Webinaires à venir, brouillons, passés et annulés. Les webinaires passés indiquent combien de personnes sont venues et si le replay est en ligne." },
+      { title: 'Ce qui se fait tout seul', body: "Les inscrits reçoivent une confirmation avec une invitation de calendrier, un rappel la veille et une heure avant (e-mail et WhatsApp), puis le replay : un remerciement s'ils sont venus, « nous ne vous avons pas vu » sinon. Chaque inscrit est ajouté aux Leads." },
+    ],
+  },
+  'admin.webinar': {
+    title: 'Un webinaire',
+    steps: [
+      { target: 'page-header', title: 'Le webinaire', body: "Son statut, sa langue, son horaire et ses intervenants. « Copy link » donne la page d'inscription à partager sur WhatsApp et les réseaux sociaux." },
+      { target: 'web-actions', title: "L'animer", body: "« Enter the room » ouvre la vue intervenant, dès deux heures avant. À l'intérieur, cliquez sur « Go live » au début et « End webinar » à la fin. L'enregistrement démarre dès qu'un intervenant entre." },
+      { target: 'web-stats', title: 'Les chiffres', body: "Inscrits, présents, taux de présence, minutes regardées en moyenne et nombre de nouveaux leads." },
+      { target: 'web-regs', title: 'Les inscrits', body: "Chaque inscrit, sa profession et où il souhaite travailler, et après la séance s'il est venu. « Export » télécharge la liste." },
+      { title: 'Modifications', body: "Changer la date ou l'heure prévient tous les inscrits par e-mail. Une annulation demande un motif, qui leur est communiqué. La langue ne peut plus changer une fois publié." },
+    ],
+  },
   'admin.payments': {
     title: 'Paiements',
     steps: [
