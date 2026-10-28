@@ -310,44 +310,55 @@ export class DocumentService {
     };
   }
 
-  // ── Officer: send blank form to client ───────────────────────────────────
+  // ── Officer → client: documents to keep and forms to return ──────────────
+  //
+  // An officer-sent file is one of two kinds:
+  //  - a document for the client to keep (needsReturn false). Nothing to review: it is VERIFIED.
+  //  - a form to fill in and return (needsReturn true). It stays PENDING_CLIENT while open, however
+  //    many copies come back, and becomes VERIFIED when the officer marks it complete.
+  // The officer's own file never enters the review queue; only the client's returned copies do.
 
   async officerSendDocument(
     engagementId: string,
     officerId: string,
-    data: { type: string; key: string; officerNote?: string },
+    data: { type: string; key: string; officerNote?: string; needsReturn?: boolean },
   ) {
+    const type = (data.type ?? '').trim();
+    if (!type) throw new BadRequestException('Give the document a name.');
     const engagement = await this.db.engagement.findUnique({
       where: { id: engagementId },
       select: { personId: true },
     });
     if (!engagement) throw new NotFoundException('Engagement not found');
+    const needsReturn = data.needsReturn !== false;
 
     const doc = await this.db.document.create({
       data: {
         personId: engagement.personId,
-        type: data.type,
+        type,
         fileUrl: `${process.env.R2_PUBLIC_URL}/${data.key}`,
-        status: 'PENDING_CLIENT',
+        status: needsReturn ? 'PENDING_CLIENT' : 'VERIFIED',
         origin: 'OFFICER_SENT',
+        needsReturn,
         officerId,
         engagementId,
         officerNote: data.officerNote,
+        ...(needsReturn ? {} : { verifiedBy: officerId, verifiedAt: new Date() }),
       },
     });
 
     this.events.emit('document.officer_sent', {
       personId: engagement.personId,
       documentId: doc.id,
-      documentType: data.type,
+      documentType: type,
       officerNote: data.officerNote,
+      needsReturn,
     });
 
     return doc;
   }
 
-  // ── Client: return filled form ────────────────────────────────────────────
-
+  /** The client sends back a filled form, or a corrected copy, until the officer marks it complete. */
   async clientReturnDocument(
     personId: string,
     linkedDocumentId: string,
@@ -356,6 +367,10 @@ export class DocumentService {
     const original = await this.db.document.findUnique({ where: { id: linkedDocumentId } });
     if (!original || original.origin !== 'OFFICER_SENT') throw new NotFoundException('Original document not found');
     if (original.personId !== personId) throw new ForbiddenException('You do not have access to this record.');
+    if (!original.needsReturn) throw new BadRequestException('This document is for you to keep. Nothing needs to be sent back.');
+    if (original.status !== 'PENDING_CLIENT') {
+      throw new BadRequestException('Your officer has already marked this form complete. Send them a message if something needs changing.');
+    }
 
     const doc = await this.db.document.create({
       data: {
@@ -369,16 +384,10 @@ export class DocumentService {
       },
     });
 
-    // Mark original as received
-    await this.db.document.update({
-      where: { id: linkedDocumentId },
-      data: { status: 'PENDING' },
-    });
-
     this.events.emit('document.client_returned', {
       personId,
       documentId: doc.id,
-      documentType: data.type,
+      documentType: original.type,
       officerId: original.officerId,
       engagementId: original.engagementId,
     });
@@ -386,23 +395,79 @@ export class DocumentService {
     return doc;
   }
 
-  // ── Get officer-sent documents for an engagement ─────────────────────────
+  private async officerForm(documentId: string) {
+    const doc = await this.db.document.findUnique({ where: { id: documentId } });
+    if (!doc || doc.origin !== 'OFFICER_SENT' || !doc.needsReturn) throw new NotFoundException('Form not found');
+    return doc;
+  }
 
+  /** The officer has what they need: the client can no longer send copies. */
+  async completeForm(documentId: string, officerId: string) {
+    await this.officerForm(documentId);
+    return this.db.document.update({
+      where: { id: documentId },
+      data: { status: 'VERIFIED', verifiedBy: officerId, verifiedAt: new Date() },
+    });
+  }
+
+  /** Lets the client send copies again (undo of complete). */
+  async reopenForm(documentId: string) {
+    await this.officerForm(documentId);
+    return this.db.document.update({
+      where: { id: documentId },
+      data: { status: 'PENDING_CLIENT', verifiedBy: null, verifiedAt: null },
+    });
+  }
+
+  private static readonly RETURN_SELECT = {
+    select: { id: true, status: true, uploadedAt: true, rejectionReason: true },
+    orderBy: { uploadedAt: 'desc' as const },
+  };
+
+  /** Everything officers sent on a case, each form with the copies returned, newest first. */
   async getOfficerSentDocuments(engagementId: string) {
     return this.db.document.findMany({
       where: { engagementId, origin: 'OFFICER_SENT' },
-      include: { linkedReturns: { select: { id: true, status: true, uploadedAt: true } } },
+      include: { linkedReturns: DocumentService.RETURN_SELECT },
       orderBy: { uploadedAt: 'desc' },
     });
   }
 
-  // ── Get pending-client documents for a person (portal) ───────────────────
-
+  /** The portal's "From your team": documents to keep and forms, with the client's returned copies. */
   async getPendingClientDocuments(personId: string) {
-    return this.db.document.findMany({
-      where: { personId, origin: 'OFFICER_SENT', status: 'PENDING_CLIENT' },
+    const docs = await this.db.document.findMany({
+      where: { personId, origin: 'OFFICER_SENT' },
+      select: {
+        id: true, type: true, status: true, needsReturn: true, officerNote: true, uploadedAt: true,
+        engagementId: true, verifiedAt: true, fileUrl: true,
+        linkedReturns: DocumentService.RETURN_SELECT,
+      },
       orderBy: { uploadedAt: 'desc' },
     });
+    return docs.map(({ fileUrl, ...d }) => ({ ...d, isImage: /\.(jpe?g|png|gif|webp)$/i.test(fileUrl ?? '') }));
+  }
+
+  /** A short-lived link that saves the file under a readable name, e.g. "Passport copy — Jane M.pdf". */
+  async getDownloadUrl(documentId: string) {
+    const doc = await this.db.document.findUnique({
+      where: { id: documentId },
+      select: {
+        fileUrl: true, type: true, origin: true,
+        person: { select: { name: true } },
+        linkedDocument: { select: { type: true } },
+      },
+    });
+    if (!doc) throw new NotFoundException('Document not found');
+    const publicPrefix = process.env.R2_PUBLIC_URL ?? '';
+    const key = publicPrefix ? doc.fileUrl.replace(`${publicPrefix}/`, '') : doc.fileUrl;
+    const fileName = downloadName(doc);
+    const url = await this.s3.getSignedUrlPromise('getObject', {
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key,
+      Expires: 300,
+      ResponseContentDisposition: contentDisposition(fileName),
+    });
+    return { url, fileName };
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
@@ -422,4 +487,33 @@ export class DocumentService {
       );
     }
   }
+}
+
+/** "PASSPORT_COPY" / "visa-form" → "Passport copy" / "Visa form". */
+function readableType(type: string): string {
+  const t = type.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  return t ? t[0].toUpperCase() + t.slice(1) : 'Document';
+}
+
+/** "Jane Ngono Mbah" → "Jane M" (no full stop, so it never runs into the file extension). */
+function shortName(name?: string | null): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  return parts.length === 1 ? parts[0] : `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}`;
+}
+
+function downloadName(doc: { fileUrl: string; type: string; origin: string; person: { name: string | null } | null; linkedDocument: { type: string } | null }): string {
+  const ext = (doc.fileUrl.match(/\.([A-Za-z0-9]{1,5})$/)?.[1] ?? '').toLowerCase();
+  const base = doc.origin === 'CLIENT_RETURN' && doc.linkedDocument
+    ? `${readableType(doc.linkedDocument.type)} (returned)`
+    : readableType(doc.type.replace(/-return$/i, ''));
+  const who = shortName(doc.person?.name);
+  const name = (who ? `${base} — ${who}` : base).replace(/[\/:*?"<>|\r\n]+/g, ' ').trim();
+  return ext ? `${name}.${ext}` : name;
+}
+
+/** Asks the browser to save the file under this name; the plain form is for older browsers. */
+function contentDisposition(fileName: string): string {
+  const plain = fileName.replace(/—/g, '-').replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+  return `attachment; filename="${plain}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }

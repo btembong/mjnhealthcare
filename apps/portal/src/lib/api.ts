@@ -113,6 +113,9 @@ export const api = {
   getDocumentViewUrl: (id: string) =>
     request<{ url: string }>(`/documents/${id}/view-url`),
 
+  getDocumentDownloadUrl: (id: string) =>
+    request<{ url: string; fileName: string }>(`/documents/${id}/download-url`),
+
   removeDocument: (id: string) =>
     request<{ removed: boolean }>(`/documents/${id}`, { method: 'DELETE' }),
 

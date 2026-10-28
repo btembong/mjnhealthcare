@@ -59,7 +59,8 @@ export function MessageBody({ msg, onDark }: { msg: any; onDark: boolean }) {
   const fromClient = msg.senderType === 'CLIENT';
   const [thumb, setThumb] = useState('');
   const [saving, setSaving] = useState<'closed' | 'choosing' | 'busy' | 'done'>('closed');
-  const [docType, setDocType] = useState('');
+  // A file the team sent is named freely; a client's credential is picked from the review types.
+  const [docType, setDocType] = useState(fromClient || !attachment ? '' : attachment.name.replace(/\.[^.]+$/, ''));
 
   useEffect(() => {
     let live = true;
@@ -68,11 +69,13 @@ export function MessageBody({ msg, onDark }: { msg: any; onDark: boolean }) {
   }, [msg.id, attachment?.isImage]);
 
   async function save() {
-    if (!docType) return;
+    if (!docType.trim()) return;
     setSaving('busy');
     try {
-      const r = await api.saveMessageAttachment(msg.id, docType);
-      toast.success(r.alreadySaved ? 'This file is already in the client’s documents.' : 'Saved to the client’s documents. It is now in the review queue.');
+      const r = await api.saveMessageAttachment(msg.id, docType.trim());
+      toast.success(r.alreadySaved ? 'This file is already in the client’s documents.'
+        : r.forClientToKeep ? 'Saved. The client now finds it under “From your team” in My documents.'
+        : 'Saved to the client’s documents. It is now in the review queue.');
       setSaving('done');
     } catch (e: any) {
       toast.error(e.message ?? 'The file was not saved.');
@@ -106,23 +109,28 @@ export function MessageBody({ msg, onDark }: { msg: any; onDark: boolean }) {
             </button>
           )}
 
-          {/* A credential sent in chat only reaches review when staff file it. */}
-          {fromClient && saving === 'closed' && (
-            <button onClick={() => setSaving('choosing')} className="text-xs font-bold text-primary hover:underline">Save to client’s documents</button>
+          {/* A credential sent in chat only reaches review when staff file it; a file the team sent
+              is filed for the client to keep. */}
+          {saving === 'closed' && (
+            <button onClick={() => setSaving('choosing')} className={`text-xs font-bold hover:underline ${onDark ? 'text-white' : 'text-primary'}`}>Save to client’s documents</button>
           )}
-          {fromClient && (saving === 'choosing' || saving === 'busy') && (
+          {(saving === 'choosing' || saving === 'busy') && (
             <div className="flex flex-wrap items-center gap-1.5">
+              {fromClient ? (
               <select aria-label="Document type" value={docType} onChange={(e) => setDocType(e.target.value)} className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-white px-2 text-xs text-foreground outline-none focus:border-primary">
                 <option value="">What is this document?</option>
                 {DOCUMENT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
-              <button onClick={save} disabled={!docType || saving === 'busy'} className="inline-flex h-8 items-center gap-1 rounded-lg bg-primary px-2.5 text-xs font-bold text-white disabled:opacity-40">
+              ) : (
+                <input aria-label="Document name" value={docType} onChange={(e) => setDocType(e.target.value)} maxLength={120} placeholder="Name the client will see" className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-white px-2 text-xs text-foreground outline-none focus:border-primary" />
+              )}
+              <button onClick={save} disabled={!docType.trim() || saving === 'busy'} className={`inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-bold disabled:opacity-40 ${onDark ? 'bg-white text-primary' : 'bg-primary text-white'}`}>
                 {saving === 'busy' && <CircleNotch className="h-3 w-3 animate-spin" />} Save
               </button>
               <button onClick={() => setSaving('closed')} className="h-8 rounded-lg border border-border bg-white px-2.5 text-xs font-bold text-foreground">Cancel</button>
             </div>
           )}
-          {saving === 'done' && <p className="flex items-center gap-1 text-xs font-semibold text-foreground"><Check className="h-3.5 w-3.5 text-secondary" /> In the client’s documents</p>}
+          {saving === 'done' && <p className={`flex items-center gap-1 text-xs font-semibold ${onDark ? 'text-white' : 'text-foreground'}`}><Check className={`h-3.5 w-3.5 ${onDark ? 'text-white' : 'text-secondary'}`} /> In the client’s documents</p>}
         </div>
       )}
     </div>

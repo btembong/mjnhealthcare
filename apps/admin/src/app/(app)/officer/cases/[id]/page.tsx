@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Skeleton } from '@mjn/ui';
 import {
   ArrowLeft, Envelope, Phone, Globe, CheckCircle, CircleNotch, Plus, PaperPlaneRight, FileText,
-  UploadSimple, Note, Lock, Warning, Check, Clock, PencilSimple, Eye,
+  UploadSimple, Note, Lock, Warning, Check, Clock, PencilSimple, Eye, DownloadSimple, ArrowCounterClockwise,
 } from '@mjn/ui';
 import { api } from '../../../../../lib/api';
 import {
@@ -70,7 +70,9 @@ export default function OfficerCasePage() {
 
   // Dialogs
   const [submission, setSubmission] = useState<{ record: any | null } | null>(null);
-  const [dialog, setDialog] = useState<null | 'form' | 'escalate'>(null);
+  // 'form' is filled in and returned; 'keep' is a document for the client to keep.
+  const [dialog, setDialog] = useState<null | 'form' | 'keep' | 'escalate'>(null);
+  const [olderOpen, setOlderOpen] = useState<string | null>(null);
   const [completing, setCompleting] = useState<any | null>(null);
 
   // Notes
@@ -173,6 +175,16 @@ export default function OfficerCasePage() {
     }
   }
 
+  async function downloadDocument(documentId: string) {
+    // The link tells the browser to save the file under a readable name, so the page stays put.
+    try {
+      const { url } = await api.getDocumentDownloadUrl(documentId);
+      window.location.href = url;
+    } catch (e: any) {
+      toast.error(e.message ?? 'The document could not be downloaded.');
+    }
+  }
+
   async function saveNote() {
     const content = noteText.trim();
     if (!content) return;
@@ -188,14 +200,28 @@ export default function OfficerCasePage() {
   async function sendForm() {
     const personId = data?.person?.id;
     if (!formFile || !formType.trim() || !personId) return;
+    const keep = dialog === 'keep';
     const ok = await run('form', async () => {
-      const { url, key } = await api.getUploadUrl(personId, 'officer-form', formFile.name);
+      const { url, key } = await api.getUploadUrl(personId, keep ? 'officer-document' : 'officer-form', formFile.name);
       const put = await fetch(url, { method: 'PUT', body: formFile, headers: { 'Content-Type': formFile.type } });
       if (!put.ok) throw new Error('The file could not be uploaded. Please try again.');
-      await api.officerSendDocument(id, key, formType.trim(), formNote.trim() || undefined);
+      await api.officerSendDocument(id, key, formType.trim(), formNote.trim() || undefined, !keep);
       await load();
-    }, 'Form sent. The client has been notified.');
+    }, keep ? 'Document sent. The client has been notified.' : 'Form sent. The client has been notified.');
     if (ok) { setDialog(null); setFormType(''); setFormNote(''); setFormFile(null); }
+  }
+
+  function openSend(kind: 'form' | 'keep') {
+    setFormType(''); setFormNote(''); setFormFile(null);
+    setDialog(kind);
+  }
+
+  async function setFormComplete(f: any, complete: boolean) {
+    await run(
+      `complete-${f.id}`,
+      () => (complete ? api.completeForm(f.id) : api.reopenForm(f.id)).then(load),
+      complete ? 'Form marked complete. The client can no longer send copies.' : 'Form reopened. The client can send a new copy.',
+    );
   }
 
   async function escalate() {
@@ -244,7 +270,8 @@ export default function OfficerCasePage() {
   const done = milestones.filter((m) => m.completedAt).length;
   const currentStage = milestones.find((m) => !m.completedAt) ?? null;
   const closed = data.status === 'COMPLETED' || data.status === 'TERMINATED';
-  const returnedForms = forms.filter((f) => f.linkedReturns?.length > 0);
+  const sentForms = forms.filter((f) => f.needsReturn !== false);
+  const keptDocs = forms.filter((f) => f.needsReturn === false);
   const openEscalation = escalations.find((e) => e.status === 'OPEN');
   const verifiedDocs = clientDocs.filter((d) => d.status === 'VERIFIED').length;
 
@@ -275,8 +302,12 @@ export default function OfficerCasePage() {
     ...milestones.filter((m) => m.completedAt).map((m) => ({ id: `m${m.id}`, at: new Date(m.completedAt), label: `Stage completed · ${m.label}`, dot: 'bg-secondary' })),
     ...trackings.map((t) => ({ id: `t${t.id}`, at: new Date(t.createdAt), label: `Submission recorded · ${t.portal}`, sub: [t.referenceNumber && `Ref ${t.referenceNumber}`, SUBMISSION_STATUS[t.status]?.label].filter(Boolean).join(' · '), dot: 'bg-primary/40' })),
     ...notes.map((n) => ({ id: `n${n.id}`, at: new Date(n.createdAt), label: `${n.isInternal ? 'Note' : 'Client update'} · ${n.author?.name ?? 'Staff'}`, sub: n.content, dot: 'bg-primary/40', internal: n.isInternal })),
-    ...forms.map((f) => ({ id: `f${f.id}`, at: new Date(f.uploadedAt), label: `Form sent · ${f.type}`, dot: 'bg-primary/40' })),
-    ...returnedForms.map((f) => ({ id: `r${f.id}`, at: new Date(f.linkedReturns[0].uploadedAt), label: `Form returned by client · ${f.type}`, dot: 'bg-secondary' })),
+    ...forms.map((f) => ({ id: `f${f.id}`, at: new Date(f.uploadedAt), label: `${f.needsReturn === false ? 'Document sent' : 'Form sent'} · ${f.type}`, dot: 'bg-primary/40' })),
+    ...sentForms.flatMap((f) => (f.linkedReturns ?? []).map((r: any, i: number, all: any[]) => ({
+      id: `r${r.id}`, at: new Date(r.uploadedAt),
+      label: `${i === all.length - 1 ? 'Form returned by client' : 'Corrected copy from client'} · ${f.type}`, dot: 'bg-secondary',
+    }))),
+    ...sentForms.filter((f) => f.status === 'VERIFIED' && f.verifiedAt).map((f) => ({ id: `c${f.id}`, at: new Date(f.verifiedAt), label: `Form marked complete · ${f.type}`, dot: 'bg-secondary' })),
     ...escalations.flatMap((e) => [
       { id: `e${e.id}`, at: new Date(e.createdAt), label: `Escalated to ${e.consultant?.name ?? 'a consultant'}`, sub: e.reason, dot: 'bg-accent' },
       ...(e.resolvedAt ? [{ id: `x${e.id}`, at: new Date(e.resolvedAt), label: 'Escalation resolved', sub: e.resolution ?? undefined, dot: 'bg-secondary' }] : []),
@@ -304,7 +335,7 @@ export default function OfficerCasePage() {
         </div>
         <div data-tour="ocase-actions" className="flex flex-wrap items-center gap-2">
           <button onClick={() => setSubmission({ record: null })} disabled={closed} className={btnPrimary}><Plus className="h-4 w-4" /> Record submission</button>
-          <button onClick={() => setDialog('form')} disabled={closed} className={btnOutline}><PaperPlaneRight className="h-4 w-4" /> Send form</button>
+          <button onClick={() => openSend('form')} disabled={closed} className={btnOutline}><PaperPlaneRight className="h-4 w-4" /> Send form</button>
           <button onClick={() => openEscalate(data)} disabled={closed} className={btnOutline}><Warning className="h-4 w-4" /> Escalate</button>
         </div>
       </div>
@@ -454,34 +485,99 @@ export default function OfficerCasePage() {
                           <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{title(d.type)}</span>
                           <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-foreground"><Dot className={DOC_STATUS[d.status]?.dot ?? 'bg-muted'} /> {DOC_STATUS[d.status]?.label ?? title(d.status)}</span>
                           <button onClick={() => viewDocument(d.id)} className={btnOutline}><Eye className="h-3.5 w-3.5" /> View</button>
+                          <button onClick={() => downloadDocument(d.id)} className={btnOutline} aria-label={`Download ${title(d.type)}`}><DownloadSimple className="h-3.5 w-3.5" /> Download</button>
                         </div>
                       ))}
                     </div>
                   )}
-                  <p className="mt-3 text-xs text-muted-foreground">The compliance team verifies documents. Each time a document is opened it is recorded in the audit log.</p>
+                  <p className="mt-3 text-xs text-muted-foreground">The compliance team verifies documents. Each time a document is opened or downloaded it is recorded in the audit log.</p>
                 </Section>
               </div>
               <div className="p-5">
-                <Section title="Forms sent to the client" action={<button onClick={() => setDialog('form')} disabled={closed} className={btnOutline}><PaperPlaneRight className="h-3.5 w-3.5" /> Send a form</button>}>
-                  {forms.length === 0 ? <p className="text-sm text-muted-foreground">No forms sent yet. Send a blank form for the client to complete and return.</p> : (
+                <Section title="Forms to fill in and return" action={<button onClick={() => openSend('form')} disabled={closed} className={btnOutline}><PaperPlaneRight className="h-3.5 w-3.5" /> Send a form</button>}>
+                  {sentForms.length === 0 ? <p className="text-sm text-muted-foreground">No forms sent yet. Send a blank form for the client to complete and return.</p> : (
                     <div className="divide-y divide-border/70">
-                      {forms.map((f) => {
-                        const back = f.linkedReturns?.[0];
+                      {sentForms.map((f) => {
+                        const returns: any[] = f.linkedReturns ?? [];
+                        const [latest, ...older] = returns;
+                        const complete = f.status === 'VERIFIED';
+                        const state = complete ? { dot: 'bg-secondary', text: `Complete${f.verifiedAt ? ` · ${day(f.verifiedAt)}` : ''}` }
+                          : !latest ? { dot: 'bg-primary/40', text: `With client since ${day(f.uploadedAt)}` }
+                          : latest.status === 'REJECTED' ? { dot: 'bg-accent', text: 'Copy turned down · waiting for a new one' }
+                          : { dot: 'bg-accent', text: `${returns.length > 1 ? `Copy ${returns.length}` : 'Returned'} ${day(latest.uploadedAt)} · check it` };
                         return (
-                          <div key={f.id} className="flex flex-wrap items-center gap-3 py-2.5">
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-foreground">{f.type}</p>
-                              {f.officerNote && <p className="truncate text-xs text-muted-foreground">{f.officerNote}</p>}
+                          <div key={f.id} className="py-3">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-foreground">{f.type}</p>
+                                {f.officerNote && <p className="truncate text-xs text-muted-foreground">{f.officerNote}</p>}
+                              </div>
+                              <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-foreground"><Dot className={state.dot} /> {state.text}</span>
                             </div>
-                            <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-foreground">
-                              <Dot className={back ? 'bg-secondary' : 'bg-primary/40'} /> {back ? `Returned ${day(back.uploadedAt)}` : `With client since ${day(f.uploadedAt)}`}
-                            </span>
-                            {back && <button onClick={() => viewDocument(back.id)} className={btnOutline}><Eye className="h-3.5 w-3.5" /> Open</button>}
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <button onClick={() => downloadDocument(f.id)} className={btnOutline} title="The blank form you sent"><DownloadSimple className="h-3.5 w-3.5" /> Blank form</button>
+                              {latest && (
+                                <>
+                                  <button onClick={() => viewDocument(latest.id)} className={btnOutline}><Eye className="h-3.5 w-3.5" /> View {returns.length > 1 ? 'latest copy' : 'returned copy'}</button>
+                                  <button onClick={() => downloadDocument(latest.id)} className={btnOutline}><DownloadSimple className="h-3.5 w-3.5" /> Download</button>
+                                </>
+                              )}
+                              {!closed && latest && !complete && (
+                                <button onClick={() => setFormComplete(f, true)} disabled={busy === `complete-${f.id}`} className={btnPrimary}>
+                                  {busy === `complete-${f.id}` ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Mark complete
+                                </button>
+                              )}
+                              {!closed && complete && (
+                                <button onClick={() => setFormComplete(f, false)} disabled={busy === `complete-${f.id}`} className={btnOutline}>
+                                  {busy === `complete-${f.id}` ? <CircleNotch className="h-3.5 w-3.5 animate-spin" /> : <ArrowCounterClockwise className="h-3.5 w-3.5" />} Reopen
+                                </button>
+                              )}
+                              {older.length > 0 && (
+                                <button onClick={() => setOlderOpen(olderOpen === f.id ? null : f.id)} className="text-xs font-bold text-primary hover:underline" aria-expanded={olderOpen === f.id}>
+                                  {olderOpen === f.id ? 'Hide' : 'Show'} {older.length} earlier {older.length === 1 ? 'copy' : 'copies'}
+                                </button>
+                              )}
+                            </div>
+                            {latest?.status === 'REJECTED' && latest.rejectionReason && (
+                              <p className="mt-2 text-xs text-muted-foreground">Reason given: {latest.rejectionReason}</p>
+                            )}
+                            {olderOpen === f.id && (
+                              <ul className="mt-2 space-y-1 border-l-2 border-border pl-3">
+                                {older.map((r, i) => (
+                                  <li key={r.id} className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                    <span className="min-w-0 flex-1">Copy {older.length - i} · {day(r.uploadedAt)} · {DOC_STATUS[r.status]?.label ?? title(r.status)}</span>
+                                    <button onClick={() => viewDocument(r.id)} className="font-bold text-primary hover:underline">View</button>
+                                    <button onClick={() => downloadDocument(r.id)} className="font-bold text-primary hover:underline">Download</button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   )}
+                  <p className="mt-3 text-xs text-muted-foreground">The client can send corrected copies until you mark a form complete. Returned copies also go to the compliance review queue.</p>
+                </Section>
+              </div>
+              <div className="p-5">
+                <Section title="Documents sent to keep" action={<button onClick={() => openSend('keep')} disabled={closed} className={btnOutline}><PaperPlaneRight className="h-3.5 w-3.5" /> Send a document</button>}>
+                  {keptDocs.length === 0 ? <p className="text-sm text-muted-foreground">Nothing sent yet. Send a letter, a receipt or instructions the client only needs to keep. Nothing comes back.</p> : (
+                    <div className="divide-y divide-border/70">
+                      {keptDocs.map((f) => (
+                        <div key={f.id} className="flex flex-wrap items-center gap-3 py-2.5">
+                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-foreground">{f.type}</p>
+                            <p className="truncate text-xs text-muted-foreground">Sent {day(f.uploadedAt)}{f.officerNote ? ` · ${f.officerNote}` : ''}</p>
+                          </div>
+                          <button onClick={() => viewDocument(f.id)} className={btnOutline}><Eye className="h-3.5 w-3.5" /> View</button>
+                          <button onClick={() => downloadDocument(f.id)} className={btnOutline} aria-label={`Download ${f.type}`}><DownloadSimple className="h-3.5 w-3.5" /> Download</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-3 text-xs text-muted-foreground">The client finds these under “From your team” in My documents. Files you send in chat can be added here with “Save to client’s documents”.</p>
                 </Section>
               </div>
             </div>
@@ -644,14 +740,20 @@ export default function OfficerCasePage() {
         />
       )}
 
-      {dialog === 'form' && (
-        <Modal title="Send a form to the client" sub="The client is notified, downloads the form from their portal, completes it and returns it to you." onClose={() => setDialog(null)}>
-          <label htmlFor="form-type" className={fieldLabel}>Form name</label>
-          <input id="form-type" value={formType} onChange={(e) => setFormType(e.target.value)} placeholder="For example DataFlow employment history" className={field} />
-          <label htmlFor="form-note" className={`${fieldLabel} mt-4`}>Instructions for the client (optional)</label>
-          <textarea id="form-note" value={formNote} onChange={(e) => setFormNote(e.target.value)} rows={2} placeholder="What the client needs to do with this form." className={`${field} resize-none`} />
-          <span className={`${fieldLabel} mt-4`}>Blank form</span>
-          <input ref={fileRef} type="file" aria-label="Blank form file" onChange={(e) => setFormFile(e.target.files?.[0] ?? null)} className="hidden" />
+      {(dialog === 'form' || dialog === 'keep') && (
+        <Modal
+          title={dialog === 'keep' ? 'Send a document to the client' : 'Send a form to the client'}
+          sub={dialog === 'keep'
+            ? 'For the client to keep, such as a letter, a receipt or instructions. They are notified and find it under “From your team”. Nothing comes back.'
+            : 'The client is notified, downloads the form from their portal, completes it and returns it to you. They can send corrected copies until you mark it complete.'}
+          onClose={() => setDialog(null)}
+        >
+          <label htmlFor="form-type" className={fieldLabel}>{dialog === 'keep' ? 'Document name' : 'Form name'}</label>
+          <input id="form-type" value={formType} onChange={(e) => setFormType(e.target.value)} placeholder={dialog === 'keep' ? 'For example DataFlow submission receipt' : 'For example DataFlow employment history'} className={field} />
+          <label htmlFor="form-note" className={`${fieldLabel} mt-4`}>{dialog === 'keep' ? 'Message for the client (optional)' : 'Instructions for the client (optional)'}</label>
+          <textarea id="form-note" value={formNote} onChange={(e) => setFormNote(e.target.value)} rows={2} placeholder={dialog === 'keep' ? 'What this document is and when they will need it.' : 'What the client needs to do with this form.'} className={`${field} resize-none`} />
+          <span className={`${fieldLabel} mt-4`}>{dialog === 'keep' ? 'File' : 'Blank form'}</span>
+          <input ref={fileRef} type="file" aria-label={dialog === 'keep' ? 'Document file' : 'Blank form file'} onChange={(e) => setFormFile(e.target.files?.[0] ?? null)} className="hidden" />
           <button type="button" onClick={() => fileRef.current?.click()} className={btnOutline}><UploadSimple className="h-3.5 w-3.5" /> {formFile ? formFile.name : 'Choose file'}</button>
           <div className="mt-5 flex justify-end gap-2">
             <button onClick={() => setDialog(null)} className={btnOutline}>Cancel</button>

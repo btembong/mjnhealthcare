@@ -44,7 +44,7 @@ export class EngagementClientViewService {
       }),
       this.db.document.findMany({
         where: { personId: engagement.personId },
-        select: { id: true, type: true, status: true, origin: true, engagementId: true, rejectionReason: true, officerNote: true, uploadedAt: true },
+        select: { id: true, type: true, status: true, origin: true, engagementId: true, rejectionReason: true, officerNote: true, uploadedAt: true, needsReturn: true, linkedDocumentId: true },
         orderBy: { uploadedAt: 'desc' },
       }),
       this.db.applicationTracking.findMany({
@@ -116,7 +116,10 @@ export class EngagementClientViewService {
         tasks.push({ key: 'replace', docType: name, reason: d.rejectionReason });
       }
       for (const d of documents) {
-        if (d.origin === 'OFFICER_SENT' && d.status === 'PENDING_CLIENT' && d.engagementId === engagement.id) {
+        if (d.origin !== 'OFFICER_SENT' || !d.needsReturn || d.status !== 'PENDING_CLIENT' || d.engagementId !== engagement.id) continue;
+        // A form waits on the client until they return it, and again when the returned copy was turned down.
+        const latest = documents.find((r) => r.linkedDocumentId === d.id);
+        if (!latest || latest.status === 'REJECTED') {
           tasks.push({ key: 'form', docType: d.type, note: d.officerNote });
         }
       }

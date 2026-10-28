@@ -26,14 +26,25 @@ const TEXT = {
     neededNow: 'Needed now',
     readyOf: (a: number, b: number) => `${a} of ${b} ready`,
     notUploaded: 'Not uploaded',
-    forms: 'Forms to complete',
-    formsHelp: 'Download each form, complete it, then return it here.',
+    forms: 'Forms to fill in',
+    formsHelp: 'Download each form, fill it in, then send it back here. You can send a corrected version until your officer marks it complete.',
     from: 'Received',
     downloadForm: 'Download form',
     returnForm: 'Return completed',
     returning: 'Sending…',
     returned: 'Form returned. Your team has been notified.',
     returnFailed: 'The form was not returned. Please try again.',
+    notReturned: 'Not sent back yet',
+    sentBack: (d: string) => `You sent it back on ${d} · your officer is checking it`,
+    sentCopies: (n: number, d: string) => `You sent ${n} versions, the latest on ${d} · your officer is checking it`,
+    needsFix: 'Your copy needs correcting',
+    formDone: 'Complete · nothing more to do',
+    viewMine: 'View my copy',
+    sendCorrected: 'Send a corrected version',
+    corrected: 'Corrected version sent. Your team has been notified.',
+    fromTeam: 'From your team',
+    fromTeamHelp: 'Documents your team sent you to keep. Nothing needs to be sent back.',
+    sentOn: 'Sent',
     status: { VERIFIED: 'Ready', PENDING: 'Being checked', REJECTED: 'To replace', REPLACED: 'Replaced', PENDING_CLIENT: 'With you' } as Record<string, string>,
     filters: { ALL: 'All', REPLACE: 'To replace', CHECKING: 'Being checked', READY: 'Ready', EXPIRING: 'Expiring' },
     search: 'Search documents',
@@ -102,13 +113,24 @@ const TEXT = {
     readyOf: (a: number, b: number) => `${a} sur ${b} prêts`,
     notUploaded: 'Non déposé',
     forms: 'Formulaires à remplir',
-    formsHelp: 'Téléchargez chaque formulaire, remplissez-le, puis renvoyez-le ici.',
+    formsHelp: 'Téléchargez chaque formulaire, remplissez-le, puis renvoyez-le ici. Vous pouvez envoyer une version corrigée tant que votre chargé de dossier ne l’a pas marqué comme terminé.',
     from: 'Reçu le',
     downloadForm: 'Télécharger',
     returnForm: 'Renvoyer rempli',
     returning: 'Envoi…',
     returned: 'Formulaire renvoyé. Votre équipe a été prévenue.',
     returnFailed: 'Le formulaire n’a pas été renvoyé. Veuillez réessayer.',
+    notReturned: 'Pas encore renvoyé',
+    sentBack: (d: string) => `Renvoyé le ${d} · votre chargé de dossier le vérifie`,
+    sentCopies: (n: number, d: string) => `${n} versions envoyées, la dernière le ${d} · votre chargé de dossier la vérifie`,
+    needsFix: 'Votre copie doit être corrigée',
+    formDone: 'Terminé · plus rien à faire',
+    viewMine: 'Voir ma copie',
+    sendCorrected: 'Envoyer une version corrigée',
+    corrected: 'Version corrigée envoyée. Votre équipe a été prévenue.',
+    fromTeam: 'De votre équipe',
+    fromTeamHelp: 'Documents envoyés par votre équipe, à conserver. Rien à renvoyer.',
+    sentOn: 'Envoyé le',
     status: { VERIFIED: 'Prêt', PENDING: 'En vérification', REJECTED: 'À remplacer', REPLACED: 'Remplacé', PENDING_CLIENT: 'Chez vous' } as Record<string, string>,
     filters: { ALL: 'Tous', REPLACE: 'À remplacer', CHECKING: 'En vérification', READY: 'Prêts', EXPIRING: 'Expirent bientôt' },
     search: 'Rechercher un document',
@@ -419,8 +441,13 @@ export default function DocumentsPage() {
 
   const reload = useCallback(async () => { await refresh(); loadExtras(); }, [refresh, loadExtras]);
 
-  // The client's own documents. Blank forms sent by the team are listed separately.
-  const own = useMemo(() => (documents ?? []).filter((d: any) => d.origin !== 'OFFICER_SENT'), [documents]);
+  // The client's own documents. What the team sent, and the copies of forms sent back, are listed separately.
+  const own = useMemo(() => (documents ?? []).filter((d: any) => d.origin !== 'OFFICER_SENT' && d.origin !== 'CLIENT_RETURN'), [documents]);
+  const toKeep = forms.filter((f) => f.needsReturn === false);
+  // Open forms first, then the ones the officer has marked complete.
+  const formList = forms.filter((f) => f.needsReturn !== false)
+    .sort((a, b) => Number(a.status === 'VERIFIED') - Number(b.status === 'VERIFIED'));
+  const formNeedsMe = (f: any) => f.status !== 'VERIFIED' && (!f.linkedReturns?.[0] || f.linkedReturns[0].status === 'REJECTED');
   const expiring = (d: any) => isLive(d) && !!d.expiryDate && daysUntil(d.expiryDate) <= 30;
   const MATCH: Record<Filter, (d: any) => boolean> = {
     ALL: () => true,
@@ -449,14 +476,11 @@ export default function DocumentsPage() {
     try { setPreview({ doc, url: await secureUrl(doc), loading: false }); } catch { setPreview({ doc, url: '', loading: false }); }
   }
   async function download(doc: any) {
-    // Opened before the request so the browser does not treat it as a pop-up.
-    const win = window.open('about:blank', '_blank');
-    if (win) win.opener = null;
+    // The link tells the browser to save the file under a readable name, so the page stays put.
     try {
-      const url = await secureUrl(doc);
-      if (win) win.location.href = url; else window.location.href = url;
+      const { url } = await api.getDocumentDownloadUrl(doc.id);
+      window.location.href = url;
     } catch {
-      win?.close();
       toast.error(t.linkFailed);
     }
   }
@@ -476,13 +500,14 @@ export default function DocumentsPage() {
   }
   async function returnForm(form: any, file: File) {
     if (!me) return;
+    const again = (form.linkedReturns?.length ?? 0) > 0;
     setBusyId(form.id);
     try {
       const { url, key } = await api.getUploadUrl(me.id, `${form.type}-return`, file.name);
       const put = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
       if (!put.ok) throw new Error('upload');
       await api.clientReturnDocument(form.id, key, `${form.type}-return`);
-      toast.success(t.returned);
+      toast.success(again ? t.corrected : t.returned);
       await reload();
     } catch {
       toast.error(t.returnFailed);
@@ -571,33 +596,78 @@ export default function DocumentsPage() {
         </section>
       )}
 
-      {/* Forms to complete */}
-      {forms.length > 0 && (
+      {/* Forms to fill in and send back */}
+      {formList.length > 0 && (
         <section data-tour="docs-forms" className={card}>
           <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
             <div>
               <h2 className={heading}>{t.forms}</h2>
               <p className="mt-0.5 text-xs text-muted-foreground">{t.formsHelp}</p>
             </div>
-            <span className="rounded-full bg-accent px-2 text-xs font-bold text-accent-foreground">{forms.length}</span>
+            {formList.some(formNeedsMe) && <span className="rounded-full bg-accent px-2 text-xs font-bold text-accent-foreground">{formList.filter(formNeedsMe).length}</span>}
           </div>
           <input
             ref={returnRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
             onChange={(e) => { const file = e.target.files?.[0]; if (file && returnFor.current) returnForm(returnFor.current, file); e.target.value = ''; }}
           />
           <ul className="divide-y divide-border/70">
-            {forms.map((form) => (
-              <li key={form.id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-foreground"><FileText className="h-4 w-4" /></span>
+            {formList.map((form) => {
+              const returns: any[] = form.linkedReturns ?? [];
+              const latest = returns[0];
+              const done = form.status === 'VERIFIED';
+              const fix = !done && latest?.status === 'REJECTED';
+              const state = done ? { dot: 'bg-secondary', text: t.formDone }
+                : !latest ? { dot: 'bg-accent', text: t.notReturned }
+                : fix ? { dot: 'bg-accent', text: t.needsFix }
+                : { dot: 'bg-primary/40', text: returns.length > 1 ? t.sentCopies(returns.length, day(latest.uploadedAt)) : t.sentBack(day(latest.uploadedAt)) };
+              return (
+                <li key={form.id} className={`px-5 py-3.5 ${done ? 'opacity-70' : ''}`}>
+                  <div className="flex flex-wrap items-start gap-3">
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-foreground ${done ? 'bg-secondary/15' : 'bg-accent/15'}`}>
+                      {done ? <CheckCircle weight="fill" className="h-4 w-4 text-secondary" /> : <FileText className="h-4 w-4" />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-foreground">{typeLabel(form.type, t)}</p>
+                      {form.officerNote && <p className="text-sm text-muted-foreground">“{form.officerNote}”</p>}
+                      <p className="mt-0.5 text-xs text-muted-foreground">{t.from} {day(form.uploadedAt)}</p>
+                      <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-foreground"><Dot className={state.dot} /> {state.text}</p>
+                      {fix && latest.rejectionReason && <p className="mt-0.5 text-xs text-muted-foreground">“{latest.rejectionReason}”</p>}
+                    </div>
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2 sm:pl-12">
+                    <button onClick={() => download(form)} className={btnOutline}><DownloadSimple className="h-3.5 w-3.5" /> {t.downloadForm}</button>
+                    {latest && <button onClick={() => openPreview({ ...latest, type: form.type })} className={btnOutline}><Eye className="h-3.5 w-3.5" /> {t.viewMine}</button>}
+                    {!done && (
+                      <button disabled={busyId === form.id} onClick={() => { returnFor.current = form; returnRef.current?.click(); }} className={latest && !fix ? btnOutline : btnPrimary}>
+                        <UploadSimple className="h-3.5 w-3.5" /> {busyId === form.id ? t.returning : latest ? t.sendCorrected : t.returnForm}
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {/* From your team: documents to keep */}
+      {toKeep.length > 0 && (
+        <section data-tour="docs-from-team" className={card}>
+          <div className="border-b border-border px-5 py-3.5">
+            <h2 className={heading}>{t.fromTeam}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t.fromTeamHelp}</p>
+          </div>
+          <ul className="divide-y divide-border/70">
+            {toKeep.map((doc) => (
+              <li key={doc.id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><FileText className="h-4 w-4" /></span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-foreground">{typeLabel(form.type, t)}</p>
-                  {form.officerNote && <p className="text-sm text-muted-foreground">“{form.officerNote}”</p>}
-                  <p className="text-xs text-muted-foreground">{t.from} {day(form.uploadedAt)}</p>
+                  <p className="text-sm font-bold text-foreground">{typeLabel(doc.type, t)}</p>
+                  {doc.officerNote && <p className="text-sm text-muted-foreground">“{doc.officerNote}”</p>}
+                  <p className="text-xs text-muted-foreground">{t.sentOn} {day(doc.uploadedAt)}</p>
                 </div>
-                <button onClick={() => download(form)} className={btnOutline}><DownloadSimple className="h-3.5 w-3.5" /> {t.downloadForm}</button>
-                <button disabled={busyId === form.id} onClick={() => { returnFor.current = form; returnRef.current?.click(); }} className={btnPrimary}>
-                  <UploadSimple className="h-3.5 w-3.5" /> {busyId === form.id ? t.returning : t.returnForm}
-                </button>
+                <button onClick={() => openPreview(doc)} className={btnOutline}><Eye className="h-3.5 w-3.5" /> {t.view}</button>
+                <button onClick={() => download(doc)} className={btnPrimary}><DownloadSimple className="h-3.5 w-3.5" /> {t.download}</button>
               </li>
             ))}
           </ul>

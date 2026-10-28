@@ -278,10 +278,11 @@ export class OfficerService {
     const [trackings, forms, notes, escalations] = await Promise.all([
       this.db.applicationTracking.findMany({ where: { engagementId: { in: ids } }, orderBy: { createdAt: 'desc' } }),
       this.db.document.findMany({
-        where: { engagementId: { in: ids }, origin: 'OFFICER_SENT' },
+        // Forms still open; a document sent only for the client to keep needs nothing back.
+        where: { engagementId: { in: ids }, origin: 'OFFICER_SENT', needsReturn: true, status: 'PENDING_CLIENT' },
         select: {
           id: true, type: true, engagementId: true,
-          linkedReturns: { select: { id: true, uploadedAt: true }, orderBy: { uploadedAt: 'desc' } },
+          linkedReturns: { select: { id: true, uploadedAt: true, status: true }, orderBy: { uploadedAt: 'desc' } },
         },
       }),
       this.db.caseNote.findMany({
@@ -363,7 +364,7 @@ export class OfficerService {
         waiting: {
           approvals: myNotes.filter((n) => !n.isInternal && n.requiresApproval && !n.approvedAt).length,
           escalations: openEscalations.get(c.id) ?? 0,
-          forms: myForms.filter((f) => f.linkedReturns.length === 0).length,
+          forms: myForms.filter((f) => !f.linkedReturns[0] || f.linkedReturns[0].status === 'REJECTED').length,
         },
         quiet: c.quiet,
         lastActivityAt: c.lastActivityAt,

@@ -166,6 +166,9 @@ export const api = {
   getDocumentViewUrl: (id: string) =>
     request<{ url: string }>(`/documents/${id}/view-url`),
 
+  getDocumentDownloadUrl: (id: string) =>
+    request<{ url: string; fileName: string }>(`/documents/${id}/download-url`),
+
   getUploadUrl: (personId: string, documentType: string, fileName: string) =>
     request<{ url: string; key: string }>('/documents/upload-url', {
       method: 'POST',
@@ -175,11 +178,17 @@ export const api = {
   getOfficerSentDocuments: (engagementId: string) =>
     request<any[]>(`/documents/officer-sent/${engagementId}`),
 
-  officerSendDocument: (engagementId: string, key: string, documentType: string, officerNote?: string) =>
+  officerSendDocument: (engagementId: string, key: string, documentType: string, officerNote?: string, needsReturn = true) =>
     request<any>('/documents/officer-send', {
       method: 'POST',
-      body: JSON.stringify({ engagementId, key, documentType, officerNote }),
+      body: JSON.stringify({ engagementId, key, documentType, officerNote, needsReturn }),
     }),
+
+  completeForm: (id: string) =>
+    request<any>(`/documents/${id}/complete-form`, { method: 'PATCH' }),
+
+  reopenForm: (id: string) =>
+    request<any>(`/documents/${id}/reopen-form`, { method: 'PATCH' }),
 
   // ── AI Drafts ────────────────────────────────────────────────────────────
   getPendingDrafts: () => request<any[]>('/ai/drafts/pending'),
@@ -762,7 +771,7 @@ export const api = {
     request<{ url: string; name: string }>(`/messages/${messageId}/attachment-url`),
 
   saveMessageAttachment: (messageId: string, documentType: string) =>
-    request<{ documentId: string; alreadySaved: boolean }>(`/messages/${messageId}/save-to-documents`, { method: 'POST', body: JSON.stringify({ documentType }) }),
+    request<{ documentId: string; alreadySaved: boolean; forClientToKeep?: boolean }>(`/messages/${messageId}/save-to-documents`, { method: 'POST', body: JSON.stringify({ documentType }) }),
 
   // ── Officer module ────────────────────────────────────────────────────────
   listOfficers: () => request<any[]>('/admin/officers'),

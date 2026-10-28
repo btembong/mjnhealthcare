@@ -360,6 +360,7 @@ const TOURS: Record<string, TourDef> = {
       { title: 'Submissions and follow-ups', body: 'Give each submission a follow-up date. On that day the case appears under Do first until you update the submission. A submission that is approved or rejected needs no follow-up.' },
       { title: 'Notes and client updates', body: 'An internal note stays with the team. An update for the client is emailed and sent on WhatsApp. Tick “Needs consultant approval first” for anything about eligibility, outcomes or timelines: nothing is sent until a consultant approves it.' },
       { title: 'Marking a stage complete', body: 'On Overview, mark the current stage complete when its work is done. The client sees this in their portal, so you are asked to confirm.' },
+      { title: 'Documents and forms', body: 'On Documents, View or Download anything the client uploaded. “Send a form” is for a form the client fills in and returns: they can send corrected copies until you press Mark complete. “Send a document” is for something they only keep, such as a letter or a receipt. A file you send in chat can be added to their documents with “Save to client’s documents”.' },
       { target: 'ocase-rail', title: 'Client and key facts', body: 'Contact details, who else is on the case, payments, documents, and anything waiting on someone else.' },
     ],
   },

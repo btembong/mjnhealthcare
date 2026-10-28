@@ -456,6 +456,7 @@ model Document {
   linkedDocument    Document?     @relation("DocLink", fields: [linkedDocumentId], references: [id])
   linkedReturns     Document[]    @relation("DocLink")
   officerNote       String?       // instructions the officer attaches to the blank form
+  needsReturn       Boolean       @default(true) // officer-sent: false = for the client to keep, true = a form to fill in and return
 
   @@map("documents")
 }

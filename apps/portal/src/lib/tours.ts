@@ -173,8 +173,14 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
         {
           target: 'docs-forms',
           skipIfMissing: true,
-          title: "Forms to complete",
-          body: "Forms your team has sent you. Download the form, complete it, then return it here.",
+          title: "Forms to fill in",
+          body: "Forms your team has sent you. Download the form, fill it in, then send it back here. If something needs changing, send a corrected version until your officer marks the form complete.",
+        },
+        {
+          target: 'docs-from-team',
+          skipIfMissing: true,
+          title: "From your team",
+          body: "Documents your team sent you to keep, such as letters and receipts. View or download them at any time. Nothing needs to be sent back.",
         },
         {
           target: 'docs-filters',
@@ -502,7 +508,13 @@ const TOURS: Record<TourLocale, Record<string, TourDef>> = {
           target: 'docs-forms',
           skipIfMissing: true,
           title: "Formulaires à remplir",
-          body: "Les formulaires que votre équipe vous a envoyés. Téléchargez le formulaire, remplissez-le, puis renvoyez-le ici.",
+          body: "Les formulaires que votre équipe vous a envoyés. Téléchargez le formulaire, remplissez-le, puis renvoyez-le ici. S’il faut corriger quelque chose, envoyez une version corrigée tant que votre chargé de dossier ne l’a pas marqué comme terminé.",
+        },
+        {
+          target: 'docs-from-team',
+          skipIfMissing: true,
+          title: "De votre équipe",
+          body: "Les documents que votre équipe vous a envoyés pour que vous les gardiez, comme des lettres ou des reçus. Consultez-les ou téléchargez-les à tout moment. Rien à renvoyer.",
         },
         {
           target: 'docs-filters',

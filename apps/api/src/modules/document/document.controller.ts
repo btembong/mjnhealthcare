@@ -118,6 +118,19 @@ export class DocumentController {
     return this.documentService.getViewUrl(id);
   }
 
+  @ApiOperation({ summary: 'Get a presigned link that saves the file under a readable name' })
+  @Get(':id/download-url')
+  async getDownloadUrl(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertDocument(user, id);
+    await this.complianceService.logAuditEvent({
+      actorId: user.id,
+      action: 'document_downloaded',
+      resourceType: 'document',
+      resourceId: id,
+    });
+    return this.documentService.getDownloadUrl(id);
+  }
+
   @ApiOperation({ summary: 'Get presigned R2 upload URL' })
   @Post('upload-url')
   async getUploadUrl(@CurrentUser() user: AuthUser, @Body() body: { personId: string; documentType: string; fileName: string }) {
@@ -139,22 +152,40 @@ export class DocumentController {
     );
   }
 
-  @ApiOperation({ summary: 'Officer: send blank form to client' })
+  @ApiOperation({ summary: 'Officer: send the client a document to keep, or a form to fill in and return' })
   @StaffOnly()
   @Post('officer-send')
   async officerSend(@CurrentUser() user: AuthUser, 
-    @Body() body: { engagementId: string; officerNote?: string; key: string; documentType: string },
+    @Body() body: { engagementId: string; officerNote?: string; key: string; documentType: string; needsReturn?: boolean },
     @Request() req: any,
   ) {
     await this.access.assertEngagement(user, body.engagementId);
     return this.documentService.officerSendDocument(
       body.engagementId,
       req.user.id,
-      { type: body.documentType, key: body.key, officerNote: body.officerNote },
+      { type: body.documentType, key: body.key, officerNote: body.officerNote, needsReturn: body.needsReturn !== false },
     );
   }
 
-  @ApiOperation({ summary: 'Client: return filled form' })
+  @ApiOperation({ summary: 'Officer: mark a form complete, so the client stops sending copies' })
+  @StaffOnly()
+  @Patch(':id/complete-form')
+  async completeForm(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertDocument(user, id);
+    await this.complianceService.logAuditEvent({ actorId: user.id, action: 'form_completed', resourceType: 'document', resourceId: id });
+    return this.documentService.completeForm(id, user.id);
+  }
+
+  @ApiOperation({ summary: 'Officer: open a completed form again for new copies' })
+  @StaffOnly()
+  @Patch(':id/reopen-form')
+  async reopenForm(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertDocument(user, id);
+    await this.complianceService.logAuditEvent({ actorId: user.id, action: 'form_reopened', resourceType: 'document', resourceId: id });
+    return this.documentService.reopenForm(id);
+  }
+
+  @ApiOperation({ summary: 'Client: return a filled form, or a corrected copy' })
   @Post('client-return')
   clientReturn(
     @Body() body: { linkedDocumentId: string; key: string; documentType: string },
@@ -174,7 +205,7 @@ export class DocumentController {
     return this.documentService.getOfficerSentDocuments(engagementId);
   }
 
-  @ApiOperation({ summary: 'Get pending-client documents for portal user' })
+  @ApiOperation({ summary: 'Portal: documents and forms the team sent this client, with returned copies' })
   @Get('pending-for-me')
   getPendingForMe(@Request() req: any) {
     return this.documentService.getPendingClientDocuments(req.user.id);

@@ -202,31 +202,40 @@ export class MessagingService {
   }
 
   /**
-   * Staff file a credential a client sent in chat, so it goes through the normal review.
-   * Nothing sent in chat is filed on its own.
+   * Staff file a chat file into the client's documents. Nothing sent in chat is filed on its own.
+   * A credential the client sent goes through the normal review. A file the team sent becomes a
+   * document for the client to keep, under "From your team" in their portal.
    */
-  async saveAttachmentAsDocument(messageId: string, documentType: string) {
+  async saveAttachmentAsDocument(messageId: string, documentType: string, staffId: string) {
     const type = (documentType ?? '').trim();
     if (!type) throw new BadRequestException('Choose what kind of document this is.');
     const message = await this.db.engagementMessage.findUnique({
       where: { id: messageId },
-      select: { attachmentKey: true, senderType: true, engagement: { select: { personId: true } } },
+      select: { attachmentKey: true, senderType: true, senderId: true, engagementId: true, engagement: { select: { personId: true } } },
     });
     if (!message?.attachmentKey) throw new NotFoundException('This message has no file.');
-    if (message.senderType !== MessageSenderType.CLIENT) {
-      throw new BadRequestException('Only a file the client sent can be saved to their documents.');
-    }
-
     const fileUrl = `${process.env.R2_PUBLIC_URL}/${message.attachmentKey}`;
     const personId = message.engagement.personId;
     const existing = await this.db.document.findFirst({ where: { personId, fileUrl }, select: { id: true } });
     if (existing) return { documentId: existing.id, alreadySaved: true };
 
+    if (message.senderType !== MessageSenderType.CLIENT) {
+      // The client already saw the file in chat, so no separate notice is sent.
+      const doc = await this.db.document.create({
+        data: {
+          personId, type, fileUrl, status: 'VERIFIED', origin: 'OFFICER_SENT', needsReturn: false,
+          officerId: message.senderId ?? staffId, engagementId: message.engagementId,
+          verifiedBy: staffId, verifiedAt: new Date(),
+        },
+      });
+      return { documentId: doc.id, alreadySaved: false, forClientToKeep: true };
+    }
+
     const doc = await this.db.document.create({
       data: { personId, type, fileUrl, status: 'PENDING' },
     });
     this.events.emit('document.uploaded', { documentId: doc.id, personId });
-    return { documentId: doc.id, alreadySaved: false };
+    return { documentId: doc.id, alreadySaved: false, forClientToKeep: false };
   }
 
   private async notifyConsultant(

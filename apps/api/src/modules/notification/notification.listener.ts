@@ -274,7 +274,7 @@ export class NotificationListener {
   }
 
   @OnEvent('document.officer_sent')
-  async onOfficerSentDocument(payload: { personId: string; documentId: string; documentType: string; officerNote?: string }) {
+  async onOfficerSentDocument(payload: { personId: string; documentId: string; documentType: string; officerNote?: string; needsReturn?: boolean }) {
     const person = await this.db.person.findUnique({ where: { id: payload.personId } });
     if (!person) return;
     const portalUrl = process.env.PORTAL_URL ?? 'http://localhost:3002';
@@ -284,7 +284,29 @@ export class NotificationListener {
       const name = T.esc(person.name ?? (fr ? 'client' : 'there'));
       const form = T.esc(payload.documentType);
       const officerNote = payload.officerNote ? T.quote(T.esc(payload.officerNote)) : '';
-      const html = fr
+      const keep = payload.needsReturn === false;
+      const html = keep
+        ? (fr
+          ? T.shell(
+              T.greetingFr(name) +
+              T.label('Document de votre équipe') +
+              T.h1('Votre chargé de dossier vous a envoyé un document') +
+              T.p('Il est à garder : vous n’avez rien à renvoyer. Vous le trouverez dans votre espace client, sous « De votre équipe », pour le consulter ou le télécharger à tout moment.') +
+              T.infoTable([T.row('Document', `<strong>${form}</strong>`, true)]) +
+              (officerNote ? T.p('Message de votre chargé de dossier :') + officerNote : '') +
+              T.btn('Voir le document', `${portalUrl}/documents`),
+              T.FOOTER_FR,
+            )
+          : T.shell(
+              T.greeting(name) +
+              T.label('From your team') +
+              T.h1('Your officer has sent you a document') +
+              T.p('It is yours to keep: nothing needs to be sent back. You will find it in your client portal under “From your team”, to view or download at any time.') +
+              T.infoTable([T.row('Document', `<strong>${form}</strong>`, true)]) +
+              (officerNote ? T.p('A note from your officer:') + officerNote : '') +
+              T.btn('View the document', `${portalUrl}/documents`),
+            ))
+        : fr
         ? T.shell(
             T.greetingFr(name) +
             T.label('Formulaire à remplir') +
@@ -306,16 +328,23 @@ export class NotificationListener {
           );
       await this.notificationService.sendEmail(
         person.email,
-        fr ? 'Formulaire à remplir — MJN Healthcare' : 'A form to complete — MJN Healthcare',
+        keep
+          ? (fr ? 'Un document de votre équipe — MJN Healthcare' : 'A document from your team — MJN Healthcare')
+          : (fr ? 'Formulaire à remplir — MJN Healthcare' : 'A form to complete — MJN Healthcare'),
         html,
         person.name ?? undefined,
       );
     }
     if (person.phone) {
-      await this.notificationService.sendWhatsApp(
-        person.phone,
-        `MJN Healthcare: Action required — your officer has sent a form (${payload.documentType}) for you to complete and return.${note} Log in: ${portalUrl}/documents`,
-      );
+      const fr = person.locale === 'fr';
+      const text = payload.needsReturn === false
+        ? (fr
+          ? `MJN Healthcare : votre chargé de dossier vous a envoyé un document à garder (${payload.documentType}). Rien à renvoyer. Consultez-le ici : ${portalUrl}/documents`
+          : `MJN Healthcare: your officer has sent you a document to keep (${payload.documentType}). Nothing to send back.${note} View it here: ${portalUrl}/documents`)
+        : (fr
+          ? `MJN Healthcare : votre chargé de dossier vous a envoyé un formulaire (${payload.documentType}) à remplir et à renvoyer. Ouvrez-le ici : ${portalUrl}/documents`
+          : `MJN Healthcare: Action required — your officer has sent a form (${payload.documentType}) for you to complete and return.${note} Log in: ${portalUrl}/documents`);
+      await this.notificationService.sendWhatsApp(person.phone, text);
     }
   }
 
@@ -326,18 +355,25 @@ export class NotificationListener {
     if (!officer?.email) return;
     const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:3004';
     const client = await this.db.person.findUnique({ where: { id: payload.personId }, select: { name: true, email: true } });
+    const returned = await this.db.document.findUnique({ where: { id: payload.documentId }, select: { linkedDocumentId: true } });
+    const copies = returned?.linkedDocumentId
+      ? await this.db.document.count({ where: { linkedDocumentId: returned.linkedDocumentId } })
+      : 1;
+    const corrected = copies > 1;
     await this.notificationService.sendEmail(
       officer.email,
-      `Form returned: ${payload.documentType}${client?.name ? ` — ${client.name}` : ''}`,
+      `${corrected ? 'Corrected form' : 'Form returned'}: ${payload.documentType}${client?.name ? ` — ${client.name}` : ''}`,
       T.shell(
         T.greeting(T.esc(officer.name ?? 'there')) +
-        T.label('Form returned') +
-        T.h1('A client sent back a completed form') +
+        T.label(corrected ? 'Corrected copy' : 'Form returned') +
+        T.h1(corrected ? 'A client sent a corrected copy of a form' : 'A client sent back a completed form') +
         T.infoTable([
           T.row('Client', T.esc(client?.name ?? client?.email ?? 'Client')),
           T.row('Form', `<strong>${T.esc(payload.documentType)}</strong>`, true),
         ]) +
-        T.p('Check it and continue the case.') +
+        T.p(corrected
+          ? `This is copy ${copies}. Earlier copies stay on the case. When you have what you need, mark the form complete so the client stops sending copies.`
+          : 'Check it and continue the case. When you have what you need, mark the form complete.') +
         T.btn('Open the case', payload.engagementId ? `${adminUrl}/officer/cases/${payload.engagementId}` : `${adminUrl}/officer/caseload`),
         'Sent to you as the processing officer on this case.',
       ),

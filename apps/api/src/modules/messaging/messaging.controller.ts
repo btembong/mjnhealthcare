@@ -125,12 +125,12 @@ export class MessagingController {
     return this.messagingService.getAttachmentViewUrl(messageId);
   }
 
-  @ApiOperation({ summary: "Staff: file a client's chat attachment as one of their documents" })
+  @ApiOperation({ summary: "Staff: file a chat attachment into the client's documents" })
   @StaffOnly()
   @Post(':messageId/save-to-documents')
   async saveToDocuments(@CurrentUser() user: AuthUser, @Param('messageId') messageId: string, @Body() dto: SaveAttachmentDto) {
     await this.access.assertEngagement(user, await this.messagingService.messageEngagementId(messageId));
-    const result = await this.messagingService.saveAttachmentAsDocument(messageId, dto.documentType);
+    const result = await this.messagingService.saveAttachmentAsDocument(messageId, dto.documentType, user.id);
     await this.compliance.logAuditEvent({
       actorId: user.id,
       action: 'message_attachment_saved_as_document',
