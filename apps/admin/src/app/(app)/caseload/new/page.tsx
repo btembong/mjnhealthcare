@@ -40,7 +40,14 @@ export default function NewEngagementPage() {
   useEffect(() => {
     Promise.allSettled([api.getPersons(), api.getConsultants(true)])
       .then(([rPersons, rConsultants]) => {
-        if (rPersons.status === 'fulfilled') setPersons(rPersons.value ?? []);
+        if (rPersons.status === 'fulfilled') {
+          const list: Person[] = rPersons.value ?? [];
+          setPersons(list);
+          // Arriving from a session ("Set up engagement") picks that client already.
+          const wanted = new URLSearchParams(window.location.search).get('personId');
+          const match = wanted ? list.find((p) => p.id === wanted) : null;
+          if (match) setSelectedPerson(match);
+        }
         if (rConsultants.status === 'fulfilled') setConsultants(rConsultants.value ?? []);
       })
       .finally(() => setLoadingData(false));

@@ -88,7 +88,7 @@ function LeadDrawer({
           {lead.profession && <p><span className="text-muted-foreground">Profession:</span> <span className="capitalize">{lead.profession}</span></p>}
           {lead.destination && <p><span className="text-muted-foreground">Destination:</span> {lead.destination}</p>}
           {lead.serviceInterest && <p><span className="text-muted-foreground">Interest:</span> {lead.serviceInterest}</p>}
-          {lead.sourceBookingId && <p><span className="text-muted-foreground">Source:</span> Free Consultation</p>}
+          {(lead.source === 'paid_consultation' || lead.sourceBookingId) && <p><span className="text-muted-foreground">Source:</span> {lead.source === 'paid_consultation' ? 'Paid consultation' : 'Free Consultation'}</p>}
           {lead.notes && <p><span className="text-muted-foreground">Notes:</span> {lead.notes}</p>}
           <p><span className="text-muted-foreground">Created:</span> {new Date(lead.createdAt).toLocaleDateString()}</p>
         </div>

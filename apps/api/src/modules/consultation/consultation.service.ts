@@ -672,8 +672,12 @@ export class ConsultationService {
 
     await this.scheduleReminders(booking, booking.slot.startAt, dailyRoomUrl);
 
-    // ── Auto-create Lead for free sessions ──────────────────────────────────
+    // ── Leads: every booking reaches the team ───────────────────────────────
     const slotWithFree = await this.db.consultationSlot.findUnique({ where: { id: booking.slotId } });
+    if (!slotWithFree?.isFree) {
+      // A paid booking from someone without a client record used to land nowhere the team looks.
+      await this.recordPaidLead(booking).catch((err) => this.logger.error(`Lead for paid booking ${bookingId} failed: ${err}`));
+    }
     if (slotWithFree?.isFree) {
       const existingLead = await this.db.lead.findFirst({ where: { email: booking.clientEmail } });
       if (existingLead) {
@@ -1183,6 +1187,81 @@ export class ConsultationService {
       hasRoom: !!dailyRoomUrl,
       personId: personByEmail.get(b.clientEmail.toLowerCase()) ?? null,
     }));
+  }
+
+  /**
+   * Someone who paid for a consultation goes on the leads board as Qualified, unless they
+   * already have a client record. No acknowledgement email: the booking confirmation was sent.
+   */
+  private async recordPaidLead(booking: {
+    id: string; clientName: string; clientEmail: string; clientPhone: string; consultationCategory: string;
+  }) {
+    const email = booking.clientEmail.trim();
+    const person = await this.db.person.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } });
+    if (person) return;
+    const existing = await this.db.lead.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (existing) {
+      if (existing.status === 'CONVERTED') return;
+      // Paying moves an earlier lead forward; one already further along is left where it is.
+      const earlier = ['NEW', 'FREE_CONSULT_BOOKED', 'FREE_CONSULT_DONE', 'CONTACTED', 'LOST'].includes(existing.status);
+      await this.db.lead.update({
+        where: { id: existing.id },
+        data: {
+          ...(earlier ? { status: 'QUALIFIED' as any } : {}),
+          phone: existing.phone ?? booking.clientPhone,
+          notes: [existing.notes, `Paid for a consultation on ${new Date().toISOString().slice(0, 10)}.`].filter(Boolean).join('\n'),
+        },
+      });
+      return;
+    }
+    await this.db.lead.create({
+      data: {
+        name: booking.clientName,
+        email,
+        phone: booking.clientPhone,
+        serviceInterest: booking.consultationCategory,
+        status: 'QUALIFIED' as any,
+        sourceBookingId: booking.id,
+        source: 'paid_consultation',
+        notes: 'Paid for a consultation.',
+      },
+    });
+  }
+
+  /**
+   * Staff turn a guest booking into a client record, so an engagement can be set up without
+   * waiting for the client to sign in. Uses the existing record when the email already has one.
+   */
+  async createClientFromBooking(bookingId: string) {
+    const booking = await this.db.consultationBooking.findUnique({
+      where: { id: bookingId },
+      select: { id: true, clientName: true, clientEmail: true, clientPhone: true },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+    const email = booking.clientEmail.trim().toLowerCase();
+    if (!email) throw new BadRequestException('This booking has no email address, so a client record cannot be made from it.');
+
+    let person = await this.db.person.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } });
+    const created = !person;
+    if (!person) {
+      // A phone number can belong to one record only; if another record has it, it is left off.
+      const phone = booking.clientPhone?.trim() || null;
+      const phoneTaken = phone ? await this.db.person.findFirst({ where: { phone }, select: { id: true } }) : null;
+      person = await this.db.person.create({
+        data: { name: booking.clientName.trim() || email, email, phone: phoneTaken ? null : phone, role: 'CANDIDATE' },
+        select: { id: true },
+      });
+    }
+
+    // The lead, if any, is now a client.
+    await this.db.lead.updateMany({
+      where: { email: { equals: email, mode: 'insensitive' }, status: { not: 'CONVERTED' } },
+      data: { status: 'CONVERTED', convertedPersonId: person.id },
+    });
+    return { personId: person.id, created };
   }
 
   /** The consultant a booking belongs to, for access checks. */

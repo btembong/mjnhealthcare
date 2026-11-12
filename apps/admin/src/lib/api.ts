@@ -379,7 +379,7 @@ export const api = {
   updateConsultant: (id: string, data: {
     name?: string; email?: string; specialty?: string; bio?: string; photoUrl?: string;
     consultationCategory?: string; languages?: string[];
-    priceUsd?: number; sessionDurationMins?: number;
+    priceUsd?: number; sessionDurationMins?: number; timezone?: string;
     commissionRate?: number; isActive?: boolean; status?: string;
   }) =>
     request<any>(`/consultations/admin/consultants/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
@@ -462,6 +462,9 @@ export const api = {
 
   cancelSession: (bookingId: string, reason: string) =>
     request<{ refundAmount: number }>(`/consultations/admin/bookings/${bookingId}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
+
+  createClientFromSession: (bookingId: string) =>
+    request<{ personId: string; created: boolean }>(`/consultations/admin/bookings/${bookingId}/create-client`, { method: 'POST' }),
 
   markSessionNoShow: (bookingId: string, note?: string) =>
     request<any>(`/consultations/admin/bookings/${bookingId}/no-show`, { method: 'POST', body: JSON.stringify({ note }) }),

@@ -188,6 +188,20 @@ export default function SessionsPage() {
   }
   const kindOf = (s: Session) => `${KIND[s.kind] ?? 'Consultation'}${s.isFree ? ' · free' : ''}`;
 
+  const [creatingClient, setCreatingClient] = useState('');
+  async function createClient(s: Session) {
+    setCreatingClient(s.id);
+    try {
+      const r = await api.createClientFromSession(s.id);
+      toast.success(r.created ? 'Client record created. You can set up their engagement now.' : 'This email already had a client record. It is now linked.');
+      await load();
+    } catch (e: any) {
+      toast.error(e.message ?? 'The client record was not created.');
+    } finally {
+      setCreatingClient('');
+    }
+  }
+
   async function join(s: Session) {
     setJoining(s.id);
     try {
@@ -478,9 +492,25 @@ export default function SessionsPage() {
                   {open.clientEmail && <p className="flex items-center gap-2"><Envelope className="h-4 w-4 shrink-0 text-muted-foreground" /><span className="min-w-0 select-all truncate">{open.clientEmail}</span></p>}
                   {open.clientPhone && <p className="flex items-center gap-2"><Phone className="h-4 w-4 shrink-0 text-muted-foreground" /><span className="select-all">{open.clientPhone}</span></p>}
                 </div>
-                {open.personId
-                  ? <Link href={`/clients/${open.personId}`} className="mt-2.5 inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">Open client profile <ArrowSquareOut className="h-3.5 w-3.5" /></Link>
-                  : <p className="mt-2 text-xs text-muted-foreground">This person booked as a guest and has no portal account yet.</p>}
+                {open.personId ? (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                    <Link href={`/clients/${open.personId}`} className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">Open client profile <ArrowSquareOut className="h-3.5 w-3.5" /></Link>
+                    <Link href={`/caseload/new?personId=${open.personId}`} className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">Set up engagement <ArrowSquareOut className="h-3.5 w-3.5" /></Link>
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <p className="text-xs text-muted-foreground">Booked as a guest. There is no client record yet, so no engagement can be set up.</p>
+                    {open.status !== 'AWAITING_PAYMENT' && (
+                      <button
+                        onClick={() => createClient(open)}
+                        disabled={creatingClient === open.id}
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+                      >
+                        {creatingClient === open.id ? 'Creating…' : 'Create client record'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </section>
 
               <section className="px-5 py-4">

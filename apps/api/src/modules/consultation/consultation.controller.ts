@@ -293,6 +293,16 @@ export class ConsultationController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'CONSULTANT')
+  @Post('admin/bookings/:id/create-client')
+  @HttpCode(HttpStatus.OK)
+  async createClient(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.assertOwnSession(user, id);
+    return this.svc.createClientFromBooking(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'CONSULTANT')
   @Post('admin/bookings/:id/no-show')
   @HttpCode(HttpStatus.OK)
   async staffNoShow(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: { note?: string }) {
