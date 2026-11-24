@@ -236,7 +236,14 @@ export default function ConsultPage() {
         }),
       });
       if (!res.ok) {
-        const err = await res.json() as { message?: string; statusCode?: number };
+        const err = await res.json() as { message?: string; statusCode?: number; code?: string };
+        // Mobile Money could not be started: switch to card so one more press pays.
+        if (err.code === 'MOMO_UNAVAILABLE') {
+          setPaymentProvider('stripe');
+          setError('Mobile Money is unavailable right now. We have switched you to card payment: press Pay again, or come back later to pay by Mobile Money.');
+          setSubmitting(false);
+          return;
+        }
         // Slot was deleted or taken between page-load and submit — bounce back to time picker
         if (res.status === 404 || (err.message ?? '').toLowerCase().includes('slot not found')) {
           setSelectedSlot(null);

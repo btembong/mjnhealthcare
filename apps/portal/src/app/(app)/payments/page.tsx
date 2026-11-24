@@ -46,6 +46,7 @@ const TEXT = {
     failedSub: 'No money was taken. You can try again when you are ready.',
     getHelp: 'Get help',
     payFailed: 'The payment page could not be opened. Please try again.',
+    momoDown: 'Mobile Money is unavailable right now. Card payment is now selected: press Pay again, or try Mobile Money later.',
     plan: 'Your plan',
     planSub: 'pay per stage',
     planStatus: { PAID: 'Paid', INVOICED: 'To pay', PENDING: 'Later' } as Record<string, string>,
@@ -118,6 +119,7 @@ const TEXT = {
     failedSub: 'Aucun montant n’a été prélevé. Vous pouvez réessayer quand vous le souhaitez.',
     getHelp: 'Obtenir de l’aide',
     payFailed: 'La page de paiement n’a pas pu s’ouvrir. Veuillez réessayer.',
+    momoDown: 'Le paiement Mobile Money est indisponible pour le moment. Le paiement par carte est maintenant sélectionné : cliquez à nouveau sur Payer, ou réessayez Mobile Money plus tard.',
     plan: 'Votre plan',
     planSub: 'paiement par étape',
     planStatus: { PAID: 'Payé', INVOICED: 'À régler', PENDING: 'Plus tard' } as Record<string, string>,
@@ -290,8 +292,9 @@ export default function PaymentsPage() {
       const result = await api.initiatePayment(order.id, me?.phone, me?.email, provider);
       if (result.redirectUrl) { window.location.href = result.redirectUrl; return; }
       toast.error(t.payFailed);
-    } catch {
-      toast.error(t.payFailed);
+    } catch (e: any) {
+      if (e?.code === 'MOMO_UNAVAILABLE') { setProvider('stripe'); toast.error(t.momoDown); }
+      else toast.error(t.payFailed);
     }
     setPaying('');
   }

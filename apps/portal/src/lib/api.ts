@@ -41,7 +41,7 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message ?? `Request failed: ${res.status}`);
+    throw Object.assign(new Error(body.message ?? `Request failed: ${res.status}`), { code: body.code as string | undefined });
   }
 
   const text = await res.text();

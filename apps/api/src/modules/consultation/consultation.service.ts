@@ -1,3 +1,4 @@
+import { momoUnavailable, type GatewayFailure } from '../../common/momo-unavailable';
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
 import { paymentVerifier, belongsTo, isOver, PAID_ELSEWHERE, PAID_AFTER_CANCEL } from '../../common/payment-verifier';
@@ -539,7 +540,7 @@ export class ConsultationService {
       const token = auth.data?.token;
       if (!token) {
         this.logger.error(`Tranzak auth failed for booking ${booking.id}: ${JSON.stringify(auth)}`);
-        throw new Error('Payment gateway authentication failed');
+        throw new Error(`Tranzak refused our login: ${JSON.stringify(auth).slice(0, 300)}`);
       }
 
       const amountUsd = Number(consultant.priceUsd);
@@ -577,7 +578,7 @@ export class ConsultationService {
       const paymentAuthUrl = payData.data?.links?.paymentAuthUrl;
       if (!paymentAuthUrl) {
         this.logger.error(`Tranzak returned no payment URL for booking ${booking.id}: ${JSON.stringify(payData)}`);
-        throw new Error('Payment gateway did not return a redirect URL');
+        throw new Error(`Tranzak did not return a payment page: ${JSON.stringify(payData).slice(0, 300)}`);
       }
 
       this.events.emit('consultation.initiated', {
@@ -604,9 +605,11 @@ export class ConsultationService {
         }),
       ]);
       this.logger.error(`Tranzak payment initiation error for booking ${booking.id}: ${err}`);
-      throw new BadRequestException(
-        err instanceof Error ? err.message : 'Payment could not be initiated. Please try again.',
-      );
+      this.events.emit('payment.gateway_failed', {
+        provider: 'tranzak', where: 'consultation booking', reference: booking.id,
+        detail: err instanceof Error ? err.message : String(err),
+      } satisfies GatewayFailure);
+      throw momoUnavailable();
     }
   }
 

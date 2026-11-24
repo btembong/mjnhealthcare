@@ -512,7 +512,12 @@ export default function CheckoutPage() {
         router.push(`/payments?confirmed=${order.id}`);
       }
     } catch (e: any) {
-      setSubmitError(e.message ?? 'Payment initiation failed. Please try again.');
+      if (e?.code === 'MOMO_UNAVAILABLE') {
+        // The order is already saved; paying again here would create a second one.
+        setSubmitError('Your order is saved, but Mobile Money is unavailable right now. Open Payments to pay this order by card, or by Mobile Money later.');
+      } else {
+        setSubmitError(e.message ?? 'Payment initiation failed. Please try again.');
+      }
       setSubmitting(false);
     }
   }

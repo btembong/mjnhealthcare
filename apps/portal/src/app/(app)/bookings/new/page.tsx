@@ -370,6 +370,13 @@ export default function BookNewPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        // Mobile Money could not be started: switch to card so one more press pays.
+        if (body.code === 'MOMO_UNAVAILABLE') {
+          setPaymentProvider('stripe');
+          setError('Mobile Money is unavailable right now. We have switched you to card payment: press Book again, or come back later to pay by Mobile Money.');
+          setSubmitting(false);
+          return;
+        }
         throw new Error(body.message ?? 'Booking failed. Please try again.');
       }
       const data = await res.json();

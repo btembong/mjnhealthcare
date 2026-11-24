@@ -6,6 +6,7 @@ import { PdfService } from '../order/pdf.service';
 import * as T from './email-templates';
 import { findConsultantContact } from '../../common/consultant-contact';
 import { adminAlertEmail } from '../../common/admin-alert';
+import type { GatewayFailure } from '../../common/momo-unavailable';
 import { localeForEmail } from '../../common/email-locale';
 import { MANUAL_METHODS as MANUAL_METHOD_LABELS } from '../../common/manual-methods';
 
@@ -582,6 +583,43 @@ export class NotificationListener {
       ),
     ]);
     this.logger.log(`Consultation initiated notifications sent for booking ${payload.bookingId}`);
+  }
+
+  // ── Payment gateway down ──────────────────────────────────────────────────
+  // One alert, then quiet for a while: a broken key fails every attempt, and the team needs
+  // to hear once, not once per client. Failures in between are counted into the next alert.
+  private gatewayAlertAt = 0;
+  private gatewayMissed = 0;
+
+  @OnEvent('payment.gateway_failed')
+  async onGatewayFailed(payload: GatewayFailure) {
+    const QUIET_MS = 3 * 60 * 60 * 1000;
+    if (Date.now() - this.gatewayAlertAt < QUIET_MS) { this.gatewayMissed += 1; return; }
+    const earlier = this.gatewayMissed;
+    this.gatewayAlertAt = Date.now();
+    this.gatewayMissed = 0;
+    const when = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Douala', dateStyle: 'medium', timeStyle: 'short' });
+    await this.notificationService.sendEmail(
+      adminAlertEmail(),
+      'Mobile Money payments are failing — MJN Healthcare',
+      T.shell(
+        T.label('Payment alert') +
+        T.h1('Mobile Money payments could not be started') +
+        T.p('Tranzak refused to create a payment, so clients cannot pay by Mobile Money. They are being asked to pay by card or try again later. Clients without a card cannot pay until this is fixed.') +
+        T.infoTable([
+          T.row('When', `${T.esc(when)} (Douala)`),
+          T.row('Where', T.esc(payload.where)),
+          T.row('Reference', T.esc(payload.reference)),
+          ...(earlier > 0 ? [T.row('Earlier failures', `${earlier} since the last alert`)] : []),
+          T.row('Tranzak said', `<code style="font-size:12px;word-break:break-all;">${T.esc(payload.detail.slice(0, 400))}</code>`, true),
+        ]) +
+        T.p('<strong>What to check:</strong> “Authentication Error” (40022) means the Tranzak app ID or key in the API settings is no longer accepted, for example because the key was regenerated for another platform that uses the same Tranzak app. Any other answer usually comes from the Tranzak account itself; contact Tranzak support with the message above.') +
+        T.p('You will get at most one of these emails every 3 hours while the problem lasts.'),
+        'Sent to the MJN team inbox automatically.',
+      ),
+      undefined,
+    );
+    this.logger.warn(`Payment gateway alert sent (${payload.where}, ${payload.reference})`);
   }
 
   @OnEvent('consultation.confirmed')

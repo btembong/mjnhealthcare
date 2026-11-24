@@ -4,6 +4,7 @@ import { DatabaseService } from '@mjn/database';
 import { OrderService } from '../order/order.service';
 import { TranzakProvider } from './providers/tranzak.provider';
 import { StripeProvider } from './providers/stripe.provider';
+import { momoUnavailable, type GatewayFailure } from '../../common/momo-unavailable';
 import { paymentVerifier, belongsTo, isOver, PAID_ELSEWHERE } from '../../common/payment-verifier';
 
 export type OrderPaymentStatus = 'paid' | 'pending' | 'failed' | 'none';
@@ -117,16 +118,26 @@ export class PaymentService {
 
     const description = `MJN Healthcare – ${descriptionDetail} · $${amountUsd.toLocaleString()} USD (${amountXaf.toLocaleString()} XAF)`;
 
-    const result = await this.tranzak.initiatePayment({
-      orderId,
-      amount: amountXaf,
-      currency: 'XAF',
-      description,
-      customerPhone,
-      customerEmail,
-      returnUrl,
-      notifyUrl,
-    });
+    let result: Awaited<ReturnType<TranzakProvider['initiatePayment']>>;
+    try {
+      result = await this.tranzak.initiatePayment({
+        orderId,
+        amount: amountXaf,
+        currency: 'XAF',
+        description,
+        customerPhone,
+        customerEmail,
+        returnUrl,
+        notifyUrl,
+      });
+    } catch (err) {
+      this.logger.error(`Tranzak payment initiation error for order ${orderId}: ${err}`);
+      this.events.emit('payment.gateway_failed', {
+        provider: 'tranzak', where: 'service payment', reference: orderId,
+        detail: err instanceof Error ? err.message : String(err),
+      } satisfies GatewayFailure);
+      throw momoUnavailable();
+    }
 
     await this.db.paymentAttempt.create({
       data: { orderId, provider: 'tranzak', providerRef: result.providerRef, status: 'PENDING' },
